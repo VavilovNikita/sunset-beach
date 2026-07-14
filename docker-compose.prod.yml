@@ -1,0 +1,67 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # No `ports:` on purpose — Postgres is only reachable from other
+    # containers on the internal network, never from the host or internet.
+    healthcheck:
+      # $$ (escaped) so this is expanded by the container's shell against
+      # its own env (from env_file above), not by docker-compose itself —
+      # compose-level interpolation would instead pull from a stray local
+      # .env file, if one happens to exist in the project directory.
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - internal
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    depends_on:
+      db:
+        condition: service_healthy
+    # Bound to localhost only — the host's nginx reverse-proxies
+    # prostak59.duckdns.org to 127.0.0.1:3000, so the app port is never
+    # exposed directly to the internet.
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - uploads-data:/app/public/uploads
+    networks:
+      - internal
+
+  # One-off seeding helper (initial admin account + demo rooms). Not started
+  # by `up`; run explicitly with:
+  #   docker compose -f docker-compose.prod.yml run --rm seed
+  # Uses the `builder` stage because the production `app` image is
+  # intentionally slim and doesn't ship tsx/dev dependencies.
+  seed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    profiles:
+      - seed
+    env_file:
+      - .env.production
+    command: ["npm", "run", "db:seed"]
+    networks:
+      - internal
+
+networks:
+  internal:
+    name: sunset-beach-internal
+
+volumes:
+  db-data:
+  uploads-data:
