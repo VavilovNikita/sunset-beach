@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #0F262B;
+}
+
+::selection {
+  background: #E2612F;
+  color: #FBF6EC;
+}
+
+.eyebrow {
+  font-family: var(--font-worksans);
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes driftglow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.horizon-line {
+  background: linear-gradient(90deg, #0F262B 0%, #E2612F 35%, #F3ECDA 50%, #E2612F 65%, #0F262B 100%);
+  background-size: 200% 100%;
+  animation: driftglow 8s ease-in-out infinite;
+}
