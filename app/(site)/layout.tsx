@@ -1,21 +1,8 @@
 import type { Metadata } from "next";
-import { Fraunces, Work_Sans } from "next/font/google";
-import "./globals.css";
+import { fraunces, worksans } from "@/lib/fonts";
+import "../globals.css";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  style: ["normal", "italic"],
-  weight: ["300", "400", "500", "600"],
-});
-
-const worksans = Work_Sans({
-  subsets: ["latin"],
-  variable: "--font-worksans",
-  weight: ["400", "500", "600"],
-});
 
 export const metadata: Metadata = {
   title: "The Sunset Beach Resort & Spa — Taling Ngam, Koh Samui",

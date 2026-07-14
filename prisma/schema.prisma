@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+}
+
+enum BookingStatus {
+  NEW
+  CONFIRMED
+  PAID
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(MANAGER)
+  createdAt    DateTime @default(now())
+}
+
+model Room {
+  id             String         @id @default(cuid())
+  name           String
+  description    String         @db.Text
+  capacity       Int
+  // Fallback nightly price used when a date has no explicit RatePlan row.
+  basePrice      Decimal        @db.Decimal(10, 2)
+  images         String[]       @default([])
+  createdAt      DateTime       @default(now())
+  ratePlans      RatePlan[]
+  availabilities Availability[]
+  bookings       Booking[]
+}
+
+// One row per room per date. Setting a price for a range of dates (e.g. a
+// season) is an API-level operation that upserts one row per day — there is
+// no separate "range" concept in storage.
+model RatePlan {
+  id        String   @id @default(cuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  price     Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+
+  @@unique([roomId, date])
+}
+
+// Manual holds only (maintenance, owner block, etc). Dates covered by an
+// active Booking are treated as unavailable dynamically — see lib/bookings.ts
+// — they are never mirrored into this table.
+model Availability {
+  id        String   @id @default(cuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  isBlocked Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([roomId, date])
+}
+
+model Booking {
+  id          String        @id @default(cuid())
+  roomId      String
+  room        Room          @relation(fields: [roomId], references: [id])
+  guestName   String
+  guestEmail  String
+  guestPhone  String
+  checkIn     DateTime      @db.Date
+  checkOut    DateTime      @db.Date
+  totalPrice  Decimal       @db.Decimal(10, 2)
+  status      BookingStatus @default(NEW)
+  // Free-text reference for how payment was taken (e.g. a terminal receipt
+  // number). Card numbers are never captured or stored anywhere in this app.
+  paymentNote String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([roomId, checkIn, checkOut])
+  @@index([status])
+}

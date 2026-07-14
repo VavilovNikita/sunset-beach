@@ -1,7 +1,10 @@
 node_modules
 .next
+.env
 .env*.local
 .DS_Store
 .idea
 .claude
 tsconfig.tsbuildinfo
+/public/uploads/*
+!/public/uploads/.gitkeep

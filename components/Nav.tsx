@@ -48,7 +48,7 @@ export default function Nav() {
             );
           })}
           <Link
-            href="/contact"
+            href="/booking"
             className="ml-2 rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium text-cream"
           >
             Book Now
