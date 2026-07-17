@@ -1,0 +1,1049 @@
+openapi: 3.0.3
+info:
+  title: Sunset Beach Resort & Spa — Admin/Booking API
+  description: >
+    Contract reverse-engineered from the current Next.js route handlers under
+    `app/api/**/route.ts`. It documents exactly what each route accepts and
+    returns today (including quirks such as Prisma `Decimal`/`Date` JSON
+    serialization), so it can serve as a migration contract for a backend
+    rewrite in another language. No behavior was changed to produce this spec.
+  version: "1.0.0"
+  license:
+    name: Proprietary
+servers:
+  - url: /api
+    description: Relative to the deployed Next.js app origin.
+
+tags:
+  - name: Auth
+    description: NextAuth.js-managed authentication endpoints.
+  - name: Rooms
+    description: Room CRUD and image management (staff only).
+  - name: Pricing
+    description: Per-day rate overrides for a room (staff only).
+  - name: Availability
+    description: Manual availability blocks for a room (staff only).
+  - name: Bookings
+    description: Guest booking creation (public) and status management/export (staff only).
+  - name: Users
+    description: Staff account management (ADMIN only).
+
+security:
+  - sessionAuth: []
+
+paths:
+  /auth/{nextauth}:
+    parameters:
+      - name: nextauth
+        in: path
+        required: true
+        schema:
+          type: string
+        description: >
+          Catch-all segment(s) consumed by NextAuth.js (e.g. `session`,
+          `csrf`, `providers`, `callback/credentials`, `signin`, `signout`).
+    get:
+      operationId: nextAuthGet
+      tags: [Auth]
+      summary: NextAuth.js GET endpoints (session, csrf, providers, signin/signout pages, oauth callbacks)
+      description: >
+        Delegated entirely to `NextAuth(authOptions)` from `next-auth`
+        (Credentials provider, JWT session strategy). Request/response shapes
+        are whatever the installed `next-auth` v4 version defines for each
+        sub-route and are not reproduced here.
+      security: []
+      responses:
+        "200":
+          description: Response shape depends on the NextAuth.js sub-route requested.
+    post:
+      operationId: nextAuthPost
+      tags: [Auth]
+      summary: NextAuth.js POST endpoints (signin/signout/callback)
+      description: >
+        Delegated entirely to `NextAuth(authOptions)`. The
+        `callback/credentials` sub-route is what `/admin/login` submits to;
+        it validates `email`/`password` against `User.passwordHash` (bcrypt)
+        and, on success, sets the JWT session cookie described in
+        `sessionAuth`.
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              description: Shape depends on the NextAuth.js sub-route (e.g. email/password for credentials sign-in).
+      responses:
+        "200":
+          description: Response shape depends on the NextAuth.js sub-route requested.
+        "302":
+          description: Redirect (e.g. after signin/signout).
+
+  /rooms:
+    post:
+      operationId: createRoom
+      tags: [Rooms]
+      summary: Create a room
+      description: Requires any authenticated staff session (ADMIN or MANAGER).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomInput"
+      responses:
+        "201":
+          description: Room created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+        "400":
+          description: Body failed `roomSchema` validation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /rooms/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      operationId: updateRoom
+      tags: [Rooms]
+      summary: Update a room
+      description: Requires any authenticated staff session (ADMIN or MANAGER). Full replacement of all `roomSchema` fields (no partial update).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomInput"
+      responses:
+        "200":
+          description: Updated room.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+        "400":
+          description: Body failed `roomSchema` validation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Room not found (Prisma `P2025`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: Room not found
+    delete:
+      operationId: deleteRoom
+      tags: [Rooms]
+      summary: Delete a room
+      description: Requires any authenticated staff session (ADMIN or MANAGER).
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkTrue"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Room not found (Prisma `P2025`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: Room not found
+        "409":
+          description: Room has existing bookings and cannot be deleted (Prisma `P2003`, FK constraint).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: This room has existing bookings and can't be deleted.
+
+  /rooms/{id}/images:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: uploadRoomImages
+      tags: [Rooms]
+      summary: Upload one or more room images
+      description: >
+        Requires any authenticated staff session (ADMIN or MANAGER). Files
+        are written to `public/uploads/rooms/{id}/` under a randomized
+        filename and appended to `Room.images`. All files in the request are
+        validated (type + size) before any are written; the first violation
+        aborts the whole request.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: One or more image files. Field name must be repeated as `files` per file.
+              required: [files]
+      responses:
+        "201":
+          description: Room updated with the new image paths appended.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+        "400":
+          description: No files provided, an unsupported MIME type, or a file over 8MB.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              examples:
+                noFiles:
+                  value: { error: "No files provided" }
+                unsupportedType:
+                  value: { error: "Unsupported file type: image/gif" }
+                tooLarge:
+                  value: { error: "photo.jpg exceeds the 8MB limit" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Room not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: Room not found
+    delete:
+      operationId: deleteRoomImage
+      tags: [Rooms]
+      summary: Remove a room image
+      description: >
+        Requires any authenticated staff session (ADMIN or MANAGER). Removes
+        the given path from `Room.images` and, if it points under this
+        room's upload directory, deletes the file from disk (best-effort —
+        failure to unlink is ignored).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path:
+                  type: string
+                  description: Exact image path as stored in `Room.images`, e.g. `/uploads/rooms/{id}/169...-ab12cd.jpg`.
+      responses:
+        "200":
+          description: Room updated with the image path removed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+        "400":
+          description: '`path` missing or not a string.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: path is required
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Room not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: Room not found
+
+  /pricing/{roomId}:
+    parameters:
+      - name: roomId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getRoomPricing
+      tags: [Pricing]
+      summary: Get per-day prices for a room for a given month
+      description: Requires any authenticated staff session (ADMIN or MANAGER).
+      parameters:
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+          description: 'Month key `YYYY-MM`. Defaults to the current UTC month.'
+      responses:
+        "200":
+          description: Base price and the resolved price for every day of the month.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PricingResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Room not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: Room not found
+    patch:
+      operationId: setRoomPricing
+      tags: [Pricing]
+      summary: Set a price override for a date range
+      description: >
+        Requires any authenticated staff session (ADMIN or MANAGER). Upserts
+        one `RatePlan` row per day in `[from, to]` (inclusive). Rejects
+        ranges longer than 366 days.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PriceRangeInput"
+      responses:
+        "200":
+          description: Number of days upserted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkUpdated"
+        "400":
+          description: Body failed `priceRangeSchema` validation, or the range exceeds 366 days.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ValidationError"
+                  - $ref: "#/components/schemas/ErrorMessage"
+              examples:
+                tooLarge:
+                  value: { error: "Range too large (max 366 days)" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Room not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: Room not found
+
+  /availability/{roomId}:
+    parameters:
+      - name: roomId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getRoomAvailability
+      tags: [Availability]
+      summary: Get day-by-day availability for a room for a given month
+      description: >
+        Requires any authenticated staff session (ADMIN or MANAGER). A day
+        is blocked if it is covered by a non-CANCELLED booking
+        (`source: "booking"`) or by a manual `Availability` block
+        (`source: "manual"`).
+      parameters:
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+          description: 'Month key `YYYY-MM`. Defaults to the current UTC month.'
+      responses:
+        "200":
+          description: Availability for every day of the month.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Room not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: Room not found
+    patch:
+      operationId: setRoomAvailability
+      tags: [Availability]
+      summary: Set a manual block/unblock for a date range
+      description: >
+        Requires any authenticated staff session (ADMIN or MANAGER). Upserts
+        one `Availability` row per day in `[from, to]` (inclusive). Rejects
+        ranges longer than 366 days. This never touches bookings — it only
+        controls the manual-block layer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityRangeInput"
+      responses:
+        "200":
+          description: Number of days upserted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkUpdated"
+        "400":
+          description: Body failed `availabilityRangeSchema` validation, or the range exceeds 366 days.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ValidationError"
+                  - $ref: "#/components/schemas/ErrorMessage"
+              examples:
+                tooLarge:
+                  value: { error: "Range too large (max 366 days)" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Room not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: Room not found
+
+  /bookings:
+    post:
+      operationId: createBooking
+      tags: [Bookings]
+      summary: Create a booking (public — guest-facing, no session required)
+      description: >
+        Intentionally unauthenticated: guests are not logged in. The server
+        recomputes `totalPrice` from `Room.basePrice`/`RatePlan` and
+        re-validates availability itself inside a `Serializable` transaction
+        — nothing the client sends about price or availability is trusted.
+        Sends a new-booking notification email on success.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingCreateInput"
+      responses:
+        "201":
+          description: Booking created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "400":
+          description: Body failed `bookingCreateSchema` validation (includes `checkIn < checkOut`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+        "404":
+          description: Room not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: Room not found
+        "409":
+          description: >
+            Requested dates are no longer available — either lost a race to
+            another booking (checked inside the transaction) or the
+            underlying Postgres serialization failure (Prisma `P2034`) from
+            a concurrent conflicting request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              examples:
+                unavailable:
+                  value: { error: "Selected dates are no longer available" }
+                serializationConflict:
+                  value: { error: "Someone just booked these dates — please try again." }
+
+  /bookings/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      operationId: updateBookingStatus
+      tags: [Bookings]
+      summary: Update a booking's status / payment note
+      description: >
+        Requires any authenticated staff session (ADMIN or MANAGER). Sends a
+        guest-facing status-change email on success.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingStatusInput"
+      responses:
+        "200":
+          description: Updated booking.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "400":
+          description: Body failed `bookingStatusSchema` validation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Booking not found (Prisma `P2025`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: Booking not found
+
+  /bookings/export:
+    get:
+      operationId: exportBookings
+      tags: [Bookings]
+      summary: Export bookings as CSV
+      description: Requires any authenticated staff session (ADMIN or MANAGER).
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Include bookings whose `checkOut` is after this date (i.e. still relevant on/after `from`).
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Include bookings whose `checkIn` is before this date.
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/BookingStatus"
+      responses:
+        "200":
+          description: CSV file, one row per booking, ordered by `checkIn` ascending.
+          content:
+            text/csv:
+              schema:
+                type: string
+                example: |
+                  ID,Room,Guest,Email,Phone,Check-in,Check-out,Total,Status,Payment note,Created at
+                  clx123,Ocean View Suite,Jane Doe,jane@example.com,+66801234567,2026-08-01,2026-08-05,24000.00,PAID,,2026-07-01T10:00:00.000Z
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: 'Always `attachment; filename="bookings.csv"`.'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users:
+    post:
+      operationId: createUser
+      tags: [Users]
+      summary: Create a staff user
+      description: Requires an authenticated session with role `ADMIN`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreateInput"
+      responses:
+        "201":
+          description: User created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Body failed `userCreateSchema` validation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Email already in use (Prisma `P2002` unique constraint).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: A user with that email already exists
+
+  /users/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      operationId: updateUserRole
+      tags: [Users]
+      summary: Change a staff user's role
+      description: >
+        Requires an authenticated session with role `ADMIN`. An admin
+        cannot change their own role (blocked before any DB write).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserRoleUpdateInput"
+      responses:
+        "200":
+          description: Updated user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: '`id` in the path is the caller''s own id, or body failed `userRoleUpdateSchema` validation.'
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ValidationError"
+                  - $ref: "#/components/schemas/ErrorMessage"
+              examples:
+                selfRoleChange:
+                  value: { error: "You can't change your own role" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: User not found (Prisma `P2025`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMessage"
+              example:
+                error: User not found
+
+components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+      description: >
+        NextAuth.js v4 JWT session cookie, set by `POST
+        /api/auth/callback/credentials` after a successful login at
+        `/admin/login`. Cookie name is prefixed `__Secure-` when the app is
+        served over HTTPS. Every route in this file except `POST /bookings`
+        and the `/auth/*` endpoints goes through `withApiAuth` (lib/rbac.ts),
+        which returns 401 if there is no session, and — where the route
+        additionally passes `{ role: "ADMIN" }` — 403 if the session's role
+        isn't `ADMIN`.
+
+  responses:
+    Unauthorized:
+      description: No valid session cookie.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorMessage"
+          example:
+            error: Unauthorized
+    Forbidden:
+      description: Session is valid but lacks the required role (`ADMIN`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorMessage"
+          example:
+            error: Forbidden
+
+  schemas:
+    Role:
+      type: string
+      enum: [ADMIN, MANAGER]
+
+    BookingStatus:
+      type: string
+      enum: [NEW, CONFIRMED, PAID, CANCELLED]
+
+    ErrorMessage:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+      description: 'Generic error shape used by all hand-written `{ error: "..." }` responses.'
+
+    ValidationError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          description: Output of Zod's `error.flatten()`.
+          properties:
+            formErrors:
+              type: array
+              items:
+                type: string
+            fieldErrors:
+              type: object
+              additionalProperties:
+                type: array
+                items:
+                  type: string
+      example:
+        error:
+          formErrors: []
+          fieldErrors:
+            guestEmail: ["Invalid email"]
+
+    OkTrue:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+
+    OkUpdated:
+      type: object
+      required: [ok, updated]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+        updated:
+          type: integer
+          description: Number of day rows upserted.
+
+    Room:
+      type: object
+      description: >
+        Raw Prisma `Room` row as returned by `NextResponse.json(...)`.
+        `basePrice` is a Prisma `Decimal` — it serializes to a **string**,
+        not a JSON number. `createdAt` serializes as an ISO-8601 datetime
+        string.
+      required: [id, name, description, capacity, basePrice, images, createdAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        capacity:
+          type: integer
+        basePrice:
+          type: string
+          description: Decimal(10,2) rendered as a string, e.g. `"1500.00"`.
+        images:
+          type: array
+          items:
+            type: string
+          description: Paths under `/uploads/rooms/{id}/...`.
+        createdAt:
+          type: string
+          format: date-time
+
+    RoomInput:
+      type: object
+      description: Body of `roomSchema`. Full replacement on PATCH — no partial update.
+      required: [name, description, capacity, basePrice]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        description:
+          type: string
+          minLength: 10
+        capacity:
+          type: integer
+          minimum: 1
+          maximum: 20
+          description: Coerced to a number server-side (`z.coerce.number()`); a numeric string is also accepted.
+        basePrice:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          description: Coerced to a number server-side (`z.coerce.number()`); a numeric string is also accepted.
+
+    Booking:
+      type: object
+      description: >
+        Raw Prisma `Booking` row with `room` included. `totalPrice`
+        serializes as a **string** (Prisma `Decimal`). `checkIn`, `checkOut`,
+        `createdAt`, `updatedAt` serialize as ISO-8601 datetime strings
+        (`checkIn`/`checkOut` are date-only columns but still render with a
+        `T00:00:00.000Z` time component since Prisma returns `Date` objects).
+      required:
+        - id
+        - roomId
+        - room
+        - guestName
+        - guestEmail
+        - guestPhone
+        - checkIn
+        - checkOut
+        - totalPrice
+        - status
+        - paymentNote
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+        roomId:
+          type: string
+        room:
+          $ref: "#/components/schemas/Room"
+        guestName:
+          type: string
+        guestEmail:
+          type: string
+        guestPhone:
+          type: string
+        checkIn:
+          type: string
+          format: date-time
+        checkOut:
+          type: string
+          format: date-time
+        totalPrice:
+          type: string
+          description: Decimal(10,2) rendered as a string, e.g. `"4500.00"`. Always server-computed, never taken from the request.
+        status:
+          $ref: "#/components/schemas/BookingStatus"
+        paymentNote:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    BookingCreateInput:
+      type: object
+      description: Body of `bookingCreateSchema`.
+      required: [roomId, guestName, guestEmail, guestPhone, checkIn, checkOut]
+      properties:
+        roomId:
+          type: string
+          minLength: 1
+        guestName:
+          type: string
+          minLength: 2
+          maxLength: 120
+        guestEmail:
+          type: string
+          format: email
+        guestPhone:
+          type: string
+          minLength: 5
+          maxLength: 40
+        checkIn:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        checkOut:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+      # Cross-field rule enforced by Zod .refine(), not expressible in JSON Schema:
+      # checkIn must be strictly before checkOut.
+
+    BookingStatusInput:
+      type: object
+      description: Body of `bookingStatusSchema`.
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/BookingStatus"
+        paymentNote:
+          type: string
+          maxLength: 500
+          nullable: true
+
+    User:
+      type: object
+      description: Safe projection returned by the API — `passwordHash` is never included.
+      required: [id, email, role, createdAt]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        createdAt:
+          type: string
+          format: date-time
+
+    UserCreateInput:
+      type: object
+      description: Body of `userCreateSchema`.
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 200
+          description: Hashed with bcrypt (cost 10) before storage; never stored or returned in plaintext.
+        role:
+          $ref: "#/components/schemas/Role"
+          default: MANAGER
+
+    UserRoleUpdateInput:
+      type: object
+      description: Body of `userRoleUpdateSchema`.
+      required: [role]
+      properties:
+        role:
+          $ref: "#/components/schemas/Role"
+
+    PriceRangeInput:
+      type: object
+      description: Body of `priceRangeSchema`. Upserts one `RatePlan` row per day in `[from, to]`.
+      required: [from, to, price]
+      properties:
+        from:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        to:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        price:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          description: Coerced to a number server-side (`z.coerce.number()`); a numeric string is also accepted.
+      # Cross-field rule enforced by Zod .refine(): from <= to.
+
+    AvailabilityRangeInput:
+      type: object
+      description: Body of `availabilityRangeSchema`. Upserts one `Availability` row per day in `[from, to]`.
+      required: [from, to, isBlocked]
+      properties:
+        from:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        to:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        isBlocked:
+          type: boolean
+      # Cross-field rule enforced by Zod .refine(): from <= to.
+
+    PricingDay:
+      type: object
+      required: [date, price, isOverride]
+      properties:
+        date:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        price:
+          type: number
+          description: Explicitly converted with `Number(...)` server-side — a real JSON number, unlike `Room.basePrice`.
+        isOverride:
+          type: boolean
+          description: 'True if this day has an explicit `RatePlan` row; false if it fell back to `Room.basePrice`.'
+
+    PricingResponse:
+      type: object
+      required: [basePrice, days]
+      properties:
+        basePrice:
+          type: number
+          description: 'Room.basePrice explicitly converted with `Number(...)`.'
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/PricingDay"
+
+    AvailabilityDay:
+      type: object
+      required: [date, isBlocked, source]
+      properties:
+        date:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        isBlocked:
+          type: boolean
+        source:
+          type: string
+          enum: [booking, manual]
+          nullable: true
+          description: 'null when `isBlocked` is false.'
+
+    AvailabilityResponse:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvailabilityDay"
