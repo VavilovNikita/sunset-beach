@@ -6,8 +6,13 @@ services:
       - .env.production
     volumes:
       - db-data:/var/lib/postgresql/data
-    # No `ports:` on purpose — Postgres is only reachable from other
-    # containers on the internal network, never from the host or internet.
+    # Published to loopback only (never to the internet) so the sunset
+    # (Spring Boot) service — a separate `docker compose` project on this
+    # same VPS — can reach it via host.docker.internal:5432. If Postgres runs
+    # somewhere else instead (managed DB, separate host), remove this and
+    # point sunset's DATABASE_URL there directly.
+    ports:
+      - "127.0.0.1:5432:5432"
     healthcheck:
       # $$ (escaped) so this is expanded by the container's shell against
       # its own env (from env_file above), not by docker-compose itself —
@@ -42,6 +47,11 @@ services:
     # exposed directly to the internet.
     ports:
       - "127.0.0.1:3000:3000"
+    # Lets server-side fetches (BACKEND_API_URL) reach the sunset (Java)
+    # container, which is a separate `docker compose` project bound to
+    # 127.0.0.1:8080 on this same host — see .env.production.example.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - internal
 
