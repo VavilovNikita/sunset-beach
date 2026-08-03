@@ -2,8 +2,10 @@ import { notFound } from "next/navigation";
 import ArtBlock from "@/components/ArtBlock";
 import BookingGuestForm from "@/components/BookingGuestForm";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import { parseDateKey, isRangeAvailable, computeTotalPrice } from "@/lib/bookings";
+import { backendJson } from "@/lib/backendServer";
+import { BackendError, resolveImageUrl } from "@/lib/backend";
+import { getRoomQuote } from "@/lib/publicQuote";
+import type { Room } from "@/lib/types";
 
 export const metadata = { title: "Confirm your stay — The Sunset Beach Resort & Spa" };
 
@@ -21,22 +23,28 @@ export default async function BookRoomPage({
     notFound();
   }
 
-  const room = await prisma.room.findUnique({ where: { id: params.roomId } });
-  if (!room) notFound();
+  let room: Room;
+  try {
+    room = await backendJson<Room>(`/public/rooms/${params.roomId}`);
+  } catch (e) {
+    if (e instanceof BackendError && e.status === 404) notFound();
+    throw e;
+  }
 
-  const checkInDate = parseDateKey(checkIn);
-  const checkOutDate = parseDateKey(checkOut);
-  const [available, totalPrice] = await Promise.all([
-    isRangeAvailable(prisma, room.id, checkInDate, checkOutDate),
-    computeTotalPrice(prisma, room.id, checkInDate, checkOutDate),
-  ]);
+  const { available, totalPrice } = await getRoomQuote(room.id, checkIn, checkOut);
 
   return (
     <section className="mx-auto max-w-3xl px-6 py-16">
       <p className="eyebrow text-sea mb-2 text-center">Confirm your stay</p>
       <h1 className="font-display italic text-4xl text-center mb-10">{room.name}</h1>
 
-      <ArtBlock src={room.images[0]} alt={room.name} tone="warm" className="mb-6" />
+      <ArtBlock
+        src={resolveImageUrl(room.images[0])}
+        alt={room.name}
+        tone="warm"
+        className="mb-6"
+        unoptimized={room.images[0]?.startsWith("/uploads/")}
+      />
 
       <div className="grid sm:grid-cols-3 gap-4 text-center mb-10">
         <div>

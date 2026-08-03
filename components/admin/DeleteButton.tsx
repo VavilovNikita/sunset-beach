@@ -21,7 +21,7 @@ export default function DeleteButton({
     setDeleting(true);
     setError(null);
 
-    const res = await fetch(url, { method: "DELETE" });
+    const res = await fetch(url, { method: "DELETE", credentials: "include" });
     setDeleting(false);
 
     if (!res.ok) {

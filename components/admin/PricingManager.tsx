@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import PriceCalendar, { type CalendarCell } from "@/components/admin/PriceCalendar";
+import { PUBLIC_BACKEND_URL } from "@/lib/backend";
 
 type Room = { id: string; name: string };
 type DayPrice = { date: string; price: number; isOverride: boolean };
@@ -30,7 +31,7 @@ export default function PricingManager({ rooms }: { rooms: Room[] }) {
   useEffect(() => {
     if (!roomId) return;
     setLoading(true);
-    fetch(`/api/pricing/${roomId}?month=${monthParam(monthDate)}`)
+    fetch(`${PUBLIC_BACKEND_URL}/pricing/${roomId}?month=${monthParam(monthDate)}`, { credentials: "include" })
       .then((res) => res.json())
       .then((data) => setDays(data.days ?? []))
       .finally(() => setLoading(false));
@@ -41,8 +42,9 @@ export default function PricingManager({ rooms }: { rooms: Room[] }) {
     setSaving(true);
     setError(null);
 
-    const res = await fetch(`/api/pricing/${roomId}`, {
+    const res = await fetch(`${PUBLIC_BACKEND_URL}/pricing/${roomId}`, {
       method: "PATCH",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ from, to, price: Number(price) }),
     });
@@ -55,7 +57,9 @@ export default function PricingManager({ rooms }: { rooms: Room[] }) {
       return;
     }
 
-    const refreshed = await fetch(`/api/pricing/${roomId}?month=${monthParam(monthDate)}`).then((r) => r.json());
+    const refreshed = await fetch(`${PUBLIC_BACKEND_URL}/pricing/${roomId}?month=${monthParam(monthDate)}`, {
+      credentials: "include",
+    }).then((r) => r.json());
     setDays(refreshed.days ?? []);
   }
 

@@ -24,6 +24,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # NEXT_PUBLIC_* vars are baked into the client bundle at build time, so
+      # this has to come from the shell (or a compose-level .env file) when
+      # you run `docker compose -f docker-compose.prod.yml build` — it is
+      # NOT read from .env.production, which is only wired up at container
+      # start via env_file below.
+      args:
+        NEXT_PUBLIC_BACKEND_API_URL: ${NEXT_PUBLIC_BACKEND_API_URL}
     restart: unless-stopped
     env_file:
       - .env.production
@@ -35,8 +42,6 @@ services:
     # exposed directly to the internet.
     ports:
       - "127.0.0.1:3000:3000"
-    volumes:
-      - uploads-data:/app/public/uploads
     networks:
       - internal
 
@@ -64,4 +69,3 @@ networks:
 
 volumes:
   db-data:
-  uploads-data:

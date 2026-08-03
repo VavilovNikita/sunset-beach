@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Booking } from "@/lib/types";
 
 const STATUS_STYLES: Record<string, string> = {
   NEW: "bg-sea/15 text-sea",
@@ -7,19 +8,7 @@ const STATUS_STYLES: Record<string, string> = {
   CANCELLED: "bg-cream/10 text-cream/40",
 };
 
-type Row = {
-  id: string;
-  room: { name: string };
-  guestName: string;
-  guestEmail: string;
-  checkIn: Date;
-  checkOut: Date;
-  totalPrice: unknown;
-  status: string;
-  createdAt: Date;
-};
-
-export default function BookingsTable({ bookings }: { bookings: Row[] }) {
+export default function BookingsTable({ bookings }: { bookings: Booking[] }) {
   if (bookings.length === 0) {
     return <p className="text-cream/50 text-sm">No bookings match these filters.</p>;
   }
@@ -48,13 +37,13 @@ export default function BookingsTable({ bookings }: { bookings: Row[] }) {
                 <p className="text-xs text-cream/40">{b.guestEmail}</p>
               </td>
               <td className="py-3 pr-4 text-cream/70">{b.room.name}</td>
-              <td className="py-3 pr-4 text-cream/70">{b.checkIn.toISOString().slice(0, 10)}</td>
-              <td className="py-3 pr-4 text-cream/70">{b.checkOut.toISOString().slice(0, 10)}</td>
+              <td className="py-3 pr-4 text-cream/70">{b.checkIn.slice(0, 10)}</td>
+              <td className="py-3 pr-4 text-cream/70">{b.checkOut.slice(0, 10)}</td>
               <td className="py-3 pr-4 text-cream/70">฿{Number(b.totalPrice).toLocaleString("en-US")}</td>
               <td className="py-3 pr-4">
                 <span className={`rounded-full px-2.5 py-1 text-xs ${STATUS_STYLES[b.status] ?? ""}`}>{b.status}</span>
               </td>
-              <td className="py-3 pr-4 text-cream/40 text-xs">{b.createdAt.toISOString().slice(0, 10)}</td>
+              <td className="py-3 pr-4 text-cream/40 text-xs">{b.createdAt.slice(0, 10)}</td>
             </tr>
           ))}
         </tbody>

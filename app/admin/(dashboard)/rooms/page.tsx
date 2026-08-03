@@ -1,10 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
-import { prisma } from "@/lib/prisma";
+import { backendJson } from "@/lib/backendServer";
+import { PUBLIC_BACKEND_URL, resolveImageUrl } from "@/lib/backend";
 import DeleteButton from "@/components/admin/DeleteButton";
+import type { Room } from "@/lib/types";
 
 export default async function AdminRoomsPage() {
-  const rooms = await prisma.room.findMany({ orderBy: { createdAt: "asc" } });
+  const rooms = await backendJson<Room[]>("/rooms", { auth: true });
 
   return (
     <div>
@@ -28,7 +30,16 @@ export default async function AdminRoomsPage() {
             className="flex items-center gap-4 bg-ink2/40 border border-cream/10 rounded-xl p-4"
           >
             <div className="relative w-24 h-16 rounded-lg overflow-hidden shrink-0 bg-ink3">
-              {room.images[0] && <Image src={room.images[0]} alt="" fill sizes="96px" className="object-cover" />}
+              {room.images[0] && (
+                <Image
+                  src={resolveImageUrl(room.images[0])!}
+                  alt=""
+                  fill
+                  sizes="96px"
+                  className="object-cover"
+                  unoptimized={room.images[0].startsWith("/uploads/")}
+                />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-display text-lg truncate">{room.name}</p>
@@ -40,7 +51,7 @@ export default async function AdminRoomsPage() {
               Edit
             </Link>
             <DeleteButton
-              url={`/api/rooms/${room.id}`}
+              url={`${PUBLIC_BACKEND_URL}/rooms/${room.id}`}
               confirmText={`Delete "${room.name}"? This can't be undone.`}
             />
           </div>

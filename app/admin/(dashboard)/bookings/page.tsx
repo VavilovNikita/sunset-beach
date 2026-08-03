@@ -1,7 +1,7 @@
-import type { BookingStatus, Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-import { parseDateKey } from "@/lib/bookings";
+import { backendJson } from "@/lib/backendServer";
+import { PUBLIC_BACKEND_URL } from "@/lib/backend";
 import BookingsTable from "@/components/admin/BookingsTable";
+import type { Booking, BookingStatus } from "@/lib/types";
 
 const STATUSES: BookingStatus[] = ["NEW", "CONFIRMED", "PAID", "CANCELLED"];
 
@@ -12,21 +12,12 @@ export default async function AdminBookingsPage({
 }) {
   const { from, to, status } = searchParams;
 
-  const where: Prisma.BookingWhereInput = {};
-  if (status) where.status = status as BookingStatus;
-  if (from) where.checkOut = { gt: parseDateKey(from) };
-  if (to) where.checkIn = { lt: parseDateKey(to) };
+  const query = new URLSearchParams();
+  if (from) query.set("from", from);
+  if (to) query.set("to", to);
+  if (status) query.set("status", status);
 
-  const bookings = await prisma.booking.findMany({
-    where,
-    include: { room: true },
-    orderBy: { checkIn: "asc" },
-  });
-
-  const exportParams = new URLSearchParams();
-  if (from) exportParams.set("from", from);
-  if (to) exportParams.set("to", to);
-  if (status) exportParams.set("status", status);
+  const bookings = await backendJson<Booking[]>(`/bookings?${query.toString()}`, { auth: true });
 
   return (
     <div>
@@ -36,7 +27,7 @@ export default async function AdminBookingsPage({
           <h1 className="font-display italic text-3xl">Bookings</h1>
         </div>
         <a
-          href={`/api/bookings/export?${exportParams.toString()}`}
+          href={`${PUBLIC_BACKEND_URL}/bookings/export?${query.toString()}`}
           className="rounded-full border border-cream/25 hover:border-cream/50 transition-colors px-5 py-2.5 text-sm font-medium"
         >
           Export CSV

@@ -1,4 +1,9 @@
 services:
+  # Shared by both services in local dev: Next.js (Prisma migrations + the
+  # User table, for login) and the sunset Spring Boot API (everything else —
+  # Room, RatePlan, Availability, Booking). The Java side never runs
+  # migrations (ddl-auto=validate), so `npx prisma migrate dev` here is
+  # still the only way the schema changes.
   db:
     image: postgres:16-alpine
     restart: unless-stopped

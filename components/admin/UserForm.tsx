@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PUBLIC_BACKEND_URL } from "@/lib/backend";
 
 export default function UserForm() {
   const router = useRouter();
@@ -16,8 +17,9 @@ export default function UserForm() {
     setSubmitting(true);
     setError(null);
 
-    const res = await fetch("/api/users", {
+    const res = await fetch(`${PUBLIC_BACKEND_URL}/users`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password, role }),
     });

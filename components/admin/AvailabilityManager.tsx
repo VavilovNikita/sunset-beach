@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import PriceCalendar, { type CalendarCell } from "@/components/admin/PriceCalendar";
+import { PUBLIC_BACKEND_URL } from "@/lib/backend";
 
 type Room = { id: string; name: string };
 type DayAvailability = { date: string; isBlocked: boolean; source: "booking" | "manual" | null };
@@ -29,7 +30,9 @@ export default function AvailabilityManager({ rooms }: { rooms: Room[] }) {
 
   function refetch() {
     if (!roomId) return Promise.resolve();
-    return fetch(`/api/availability/${roomId}?month=${monthParam(monthDate)}`)
+    return fetch(`${PUBLIC_BACKEND_URL}/availability/${roomId}?month=${monthParam(monthDate)}`, {
+      credentials: "include",
+    })
       .then((res) => res.json())
       .then((data) => setDays(data.days ?? []));
   }
@@ -44,8 +47,9 @@ export default function AvailabilityManager({ rooms }: { rooms: Room[] }) {
   async function toggleDay(day: DayAvailability) {
     if (day.source === "booking") return; // booking-derived, not manually editable
     setBusyDate(day.date);
-    await fetch(`/api/availability/${roomId}`, {
+    await fetch(`${PUBLIC_BACKEND_URL}/availability/${roomId}`, {
       method: "PATCH",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ from: day.date, to: day.date, isBlocked: !day.isBlocked }),
     });
@@ -57,8 +61,9 @@ export default function AvailabilityManager({ rooms }: { rooms: Room[] }) {
     setSaving(true);
     setError(null);
 
-    const res = await fetch(`/api/availability/${roomId}`, {
+    const res = await fetch(`${PUBLIC_BACKEND_URL}/availability/${roomId}`, {
       method: "PATCH",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ from, to, isBlocked }),
     });

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PUBLIC_BACKEND_URL } from "@/lib/backend";
 
 type RoomFormValues = {
   name: string;
@@ -31,11 +32,12 @@ export default function RoomForm({
     setSubmitting(true);
     setError(null);
 
-    const url = mode === "create" ? "/api/rooms" : `/api/rooms/${roomId}`;
+    const url = mode === "create" ? `${PUBLIC_BACKEND_URL}/rooms` : `${PUBLIC_BACKEND_URL}/rooms/${roomId}`;
     const method = mode === "create" ? "POST" : "PATCH";
 
     const res = await fetch(url, {
       method,
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(values),
     });

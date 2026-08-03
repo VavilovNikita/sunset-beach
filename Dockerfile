@@ -18,6 +18,13 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Dummy value so `next build` never fails resolving the Prisma client at
 # build time; the real value is injected at runtime via .env.production.
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time, unlike
+# every other setting here — this one can't just be injected at container
+# start via .env.production, it has to be passed as a build-arg:
+#   docker compose -f docker-compose.prod.yml build \
+#     --build-arg NEXT_PUBLIC_BACKEND_API_URL=https://your-domain/api
+ARG NEXT_PUBLIC_BACKEND_API_URL
+ENV NEXT_PUBLIC_BACKEND_API_URL=${NEXT_PUBLIC_BACKEND_API_URL}
 RUN npm run build
 
 # ---- runner: minimal production image ----
@@ -36,7 +43,6 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-RUN mkdir -p ./public/uploads && chown -R nextjs:nodejs ./public/uploads
 
 # Prisma CLI + generated client for `migrate deploy` at container start
 # (standalone tracing only picks up the runtime client, not the CLI binary,

@@ -29,6 +29,7 @@ export default function ArtBlock({
   src,
   alt = "",
   priority = false,
+  unoptimized = false,
 }: {
   variant?: keyof typeof icons;
   label?: string;
@@ -37,6 +38,7 @@ export default function ArtBlock({
   src?: string;
   alt?: string;
   priority?: boolean;
+  unoptimized?: boolean;
 }) {
   const bg =
     tone === "warm"
@@ -57,6 +59,7 @@ export default function ArtBlock({
           sizes="(min-width: 768px) 33vw, 100vw"
           className="object-cover"
           priority={priority}
+          unoptimized={unoptimized}
         />
         {label && (
           <span className="absolute bottom-3 left-3 eyebrow text-cream/80 bg-ink/40 backdrop-blur-sm px-2 py-1 rounded">

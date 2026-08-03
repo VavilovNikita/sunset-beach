@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { PUBLIC_BACKEND_URL, resolveImageUrl } from "@/lib/backend";
 
 export default function RoomImageUploader({
   roomId,
@@ -27,7 +28,11 @@ export default function RoomImageUploader({
     const formData = new FormData();
     Array.from(files).forEach((f) => formData.append("files", f));
 
-    const res = await fetch(`/api/rooms/${roomId}/images`, { method: "POST", body: formData });
+    const res = await fetch(`${PUBLIC_BACKEND_URL}/rooms/${roomId}/images`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
 
@@ -43,8 +48,9 @@ export default function RoomImageUploader({
     setRemoving(imagePath);
     setError(null);
 
-    const res = await fetch(`/api/rooms/${roomId}/images`, {
+    const res = await fetch(`${PUBLIC_BACKEND_URL}/rooms/${roomId}/images`, {
       method: "DELETE",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path: imagePath }),
     });
@@ -65,7 +71,14 @@ export default function RoomImageUploader({
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mb-4">
         {images.map((src) => (
           <div key={src} className="relative aspect-[4/3] rounded-lg overflow-hidden group">
-            <Image src={src} alt="" fill sizes="150px" className="object-cover" />
+            <Image
+              src={resolveImageUrl(src)!}
+              alt=""
+              fill
+              sizes="150px"
+              className="object-cover"
+              unoptimized={src.startsWith("/uploads/")}
+            />
             <button
               type="button"
               onClick={() => handleRemove(src)}

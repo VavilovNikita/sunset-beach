@@ -1,13 +1,17 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { backendJson } from "@/lib/backendServer";
+import { BackendError } from "@/lib/backend";
 import BookingStatusForm from "@/components/admin/BookingStatusForm";
+import type { Booking } from "@/lib/types";
 
 export default async function AdminBookingDetailPage({ params }: { params: { id: string } }) {
-  const booking = await prisma.booking.findUnique({
-    where: { id: params.id },
-    include: { room: true },
-  });
-  if (!booking) notFound();
+  let booking: Booking;
+  try {
+    booking = await backendJson<Booking>(`/bookings/${params.id}`, { auth: true });
+  } catch (e) {
+    if (e instanceof BackendError && e.status === 404) notFound();
+    throw e;
+  }
 
   return (
     <div>
@@ -26,16 +30,16 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             <span className="text-cream/40">Phone:</span> {booking.guestPhone}
           </p>
           <p>
-            <span className="text-cream/40">Check-in:</span> {booking.checkIn.toISOString().slice(0, 10)}
+            <span className="text-cream/40">Check-in:</span> {booking.checkIn.slice(0, 10)}
           </p>
           <p>
-            <span className="text-cream/40">Check-out:</span> {booking.checkOut.toISOString().slice(0, 10)}
+            <span className="text-cream/40">Check-out:</span> {booking.checkOut.slice(0, 10)}
           </p>
           <p>
             <span className="text-cream/40">Total:</span> ฿{Number(booking.totalPrice).toLocaleString("en-US")}
           </p>
           <p>
-            <span className="text-cream/40">Booked on:</span> {booking.createdAt.toISOString().slice(0, 10)}
+            <span className="text-cream/40">Booked on:</span> {booking.createdAt.slice(0, 10)}
           </p>
         </div>
 

@@ -3,9 +3,33 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
+// NextAuth defaults this cookie to host-only, so a browser will never send it
+// to a different host — even a sibling subdomain on the same parent domain
+// (that's not a CORS concern, CORS only governs whether a script can *read*
+// a response, not whether the browser attaches a cookie to the request).
+// Since the Java API now lives on its own subdomain (e.g. api.sunsetbeach.com
+// next to www.sunsetbeach.com), the cookie has to be scoped to the shared
+// parent domain in production or every credentialed admin fetch will 401.
+const cookieDomain = process.env.AUTH_COOKIE_DOMAIN;
+
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   pages: { signIn: "/admin/login" },
+  ...(cookieDomain && {
+    cookies: {
+      sessionToken: {
+        name:
+          process.env.NODE_ENV === "production" ? "__Secure-next-auth.session-token" : "next-auth.session-token",
+        options: {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          secure: process.env.NODE_ENV === "production",
+          domain: cookieDomain,
+        },
+      },
+    },
+  }),
   providers: [
     CredentialsProvider({
       name: "Credentials",

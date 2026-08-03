@@ -1,4 +1,4 @@
-import { getDashboardStats } from "@/lib/bookings";
+import { getDashboardStats } from "@/lib/adminStats";
 import StatCard from "@/components/admin/StatCard";
 
 const MONTH_LABEL = new Intl.DateTimeFormat("en-US", { month: "long", timeZone: "UTC" }).format(new Date());

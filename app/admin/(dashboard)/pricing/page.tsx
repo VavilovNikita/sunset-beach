@@ -1,11 +1,9 @@
-import { prisma } from "@/lib/prisma";
+import { backendJson } from "@/lib/backendServer";
 import PricingManager from "@/components/admin/PricingManager";
+import type { Room } from "@/lib/types";
 
 export default async function AdminPricingPage() {
-  const rooms = await prisma.room.findMany({
-    orderBy: { createdAt: "asc" },
-    select: { id: true, name: true },
-  });
+  const rooms = await backendJson<Room[]>("/rooms", { auth: true });
 
   return (
     <div>
@@ -15,7 +13,7 @@ export default async function AdminPricingPage() {
       {rooms.length === 0 ? (
         <p className="text-cream/50 text-sm">Add a room first.</p>
       ) : (
-        <PricingManager rooms={rooms} />
+        <PricingManager rooms={rooms.map((r) => ({ id: r.id, name: r.name }))} />
       )}
     </div>
   );

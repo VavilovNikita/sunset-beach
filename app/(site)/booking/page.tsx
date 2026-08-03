@@ -1,8 +1,11 @@
 import Link from "next/link";
 import BookingBar from "@/components/BookingBar";
 import ArtBlock from "@/components/ArtBlock";
-import { prisma } from "@/lib/prisma";
-import { parseDateKey, toDateKey, addDaysUTC, isRangeAvailable, computeTotalPrice } from "@/lib/bookings";
+import { backendJson } from "@/lib/backendServer";
+import { resolveImageUrl } from "@/lib/backend";
+import { toDateKey, addDaysUTC } from "@/lib/bookings";
+import { getRoomQuote } from "@/lib/publicQuote";
+import type { Room } from "@/lib/types";
 
 export const metadata = { title: "Check availability — The Sunset Beach Resort & Spa" };
 
@@ -26,18 +29,12 @@ export default async function BookingSearchPage({
     searchParams.checkOut && ISO_DATE.test(searchParams.checkOut) ? searchParams.checkOut : fallback.checkOut;
   const validRange = checkIn < checkOut;
 
-  const checkInDate = parseDateKey(checkIn);
-  const checkOutDate = parseDateKey(checkOut);
-
-  const rooms = await prisma.room.findMany({ orderBy: { createdAt: "asc" } });
+  const rooms = validRange ? await backendJson<Room[]>("/public/rooms") : [];
 
   const results = validRange
     ? await Promise.all(
         rooms.map(async (room) => {
-          const [available, totalPrice] = await Promise.all([
-            isRangeAvailable(prisma, room.id, checkInDate, checkOutDate),
-            computeTotalPrice(prisma, room.id, checkInDate, checkOutDate),
-          ]);
+          const { available, totalPrice } = await getRoomQuote(room.id, checkIn, checkOut);
           return { room, available, totalPrice };
         })
       )
@@ -63,7 +60,12 @@ export default async function BookingSearchPage({
             <div className="grid md:grid-cols-2 gap-10">
               {results.map(({ room, available, totalPrice }) => (
                 <article key={room.id} className={!available ? "opacity-50" : ""}>
-                  <ArtBlock src={room.images[0]} alt={room.name} tone="warm" />
+                  <ArtBlock
+                    src={resolveImageUrl(room.images[0])}
+                    alt={room.name}
+                    tone="warm"
+                    unoptimized={room.images[0]?.startsWith("/uploads/")}
+                  />
                   <h3 className="mt-4 font-display text-xl">{room.name}</h3>
                   <p className="mt-2 text-sm text-cream/70 leading-relaxed">{room.description}</p>
                   <p className="mt-2 text-sm text-cream/60">Up to {room.capacity} guests</p>

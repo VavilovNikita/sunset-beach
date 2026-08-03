@@ -1,15 +1,13 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { backendJson } from "@/lib/backendServer";
 import { requireAdminUser } from "@/lib/rbac";
 import UserRoleSelect from "@/components/admin/UserRoleSelect";
+import type { User } from "@/lib/types";
 
 export default async function AdminUsersPage() {
   const sessionUser = await requireAdminUser();
 
-  const users = await prisma.user.findMany({
-    orderBy: { createdAt: "asc" },
-    select: { id: true, email: true, role: true, createdAt: true },
-  });
+  const users = await backendJson<User[]>("/users", { auth: true });
 
   return (
     <div>
@@ -34,7 +32,7 @@ export default async function AdminUsersPage() {
           >
             <div className="flex-1 min-w-0">
               <p className="truncate">{u.email}</p>
-              <p className="text-xs text-cream/40">Joined {u.createdAt.toISOString().slice(0, 10)}</p>
+              <p className="text-xs text-cream/40">Joined {u.createdAt.slice(0, 10)}</p>
             </div>
             <UserRoleSelect userId={u.id} currentRole={u.role} disabled={u.id === sessionUser.id} />
           </div>

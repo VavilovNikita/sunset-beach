@@ -1,11 +1,18 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { backendJson } from "@/lib/backendServer";
+import { BackendError } from "@/lib/backend";
 import RoomForm from "@/components/admin/RoomForm";
 import RoomImageUploader from "@/components/admin/RoomImageUploader";
+import type { Room } from "@/lib/types";
 
 export default async function EditRoomPage({ params }: { params: { id: string } }) {
-  const room = await prisma.room.findUnique({ where: { id: params.id } });
-  if (!room) notFound();
+  let room: Room;
+  try {
+    room = await backendJson<Room>(`/rooms/${params.id}`, { auth: true });
+  } catch (e) {
+    if (e instanceof BackendError && e.status === 404) notFound();
+    throw e;
+  }
 
   return (
     <div>
