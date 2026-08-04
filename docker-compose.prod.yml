@@ -1,30 +1,28 @@
-services:
-  db:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    env_file:
-      - .env.production
-    volumes:
-      - db-data:/var/lib/postgresql/data
-    # Published to loopback only (never to the internet) so the sunset
-    # (Spring Boot) service — a separate `docker compose` project on this
-    # same VPS — can reach it via host.docker.internal:5432. If Postgres runs
-    # somewhere else instead (managed DB, separate host), remove this and
-    # point sunset's DATABASE_URL there directly.
-    ports:
-      - "127.0.0.1:5432:5432"
-    healthcheck:
-      # $$ (escaped) so this is expanded by the container's shell against
-      # its own env (from env_file above), not by docker-compose itself —
-      # compose-level interpolation would instead pull from a stray local
-      # .env file, if one happens to exist in the project directory.
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    networks:
-      - internal
+# Postgres is NOT defined in this file. In this VPS's real topology it is a
+# shared resource: the same Postgres instance (and the same Docker network,
+# name below) is brought up by a separate `docker compose` project — this
+# repo's own `docker-compose.yml` deployed standalone on the host — and is
+# also used by the sibling `sunset` (Spring Boot) service, a third,
+# independent compose project. Neither `app` nor `seed` below own that
+# container or its data volume; they only join its network as a client.
+#
+# IMPORTANT: because `db` is not defined here, `docker compose -f
+# docker-compose.prod.yml down` only stops/removes what this file actually
+# owns (`app`, `seed`) — it will not touch Postgres. Do NOT add a `db`
+# service back into this file "for convenience": that would create a second
+# compose project claiming ownership of the same containers/volumes as the
+# `docker-compose.yml` project, and a `down` run from either project could
+# then take the shared database out from under the other one.
+#
+# DB_NETWORK_NAME must match whatever network name the shared Postgres
+# project actually publishes (Compose's default is `<project-dir>_default`,
+# i.e. `sunset-beach_default` for a checkout of this repo's own
+# docker-compose.yml with no explicit `name:`) — override it in the
+# compose-level `.env` file if that project uses something else, or if the
+# sunset backend needs reaching by container name too (see
+# .env.production.example for BACKEND_API_URL).
 
+services:
   app:
     build:
       context: .
@@ -39,21 +37,11 @@ services:
     restart: unless-stopped
     env_file:
       - .env.production
-    depends_on:
-      db:
-        condition: service_healthy
     # Bound to localhost only — the host's nginx reverse-proxies
     # prostak59.duckdns.org to 127.0.0.1:3000, so the app port is never
     # exposed directly to the internet.
     ports:
       - "127.0.0.1:3000:3000"
-    # Lets server-side fetches (BACKEND_API_URL) reach the sunset (Java)
-    # container, which is a separate `docker compose` project bound to
-    # 127.0.0.1:8080 on this same host — see .env.production.example.
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    networks:
-      - internal
 
   # One-off seeding helper (initial admin account + demo rooms). Not started
   # by `up`; run explicitly with:
@@ -70,12 +58,11 @@ services:
     env_file:
       - .env.production
     command: ["npm", "run", "db:seed"]
-    networks:
-      - internal
 
 networks:
-  internal:
-    name: sunset-beach-internal
-
-volumes:
-  db-data:
+  # Both services above use the default network, pointed at the shared,
+  # externally-managed one instead of a project-local network Compose would
+  # otherwise create.
+  default:
+    name: ${DB_NETWORK_NAME:-sunset-beach_default}
+    external: true

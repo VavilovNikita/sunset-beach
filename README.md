@@ -49,6 +49,9 @@ Two env vars, both pointing at the Java API (see `.env.example`):
   `next build` time, in the Docker build this one has to be passed as a
   build-arg, not just set at container start — see the comments in
   `Dockerfile` and `docker-compose.prod.yml`.
+  **Changing this value later requires rebuilding the image with
+  `--build-arg NEXT_PUBLIC_BACKEND_API_URL=...`; restarting the container
+  with an updated `.env.production` alone will NOT pick up the change.**
 
 In production, if the frontend and the Java API are deployed on different
 subdomains of the same parent domain (e.g. `www.example.com` /

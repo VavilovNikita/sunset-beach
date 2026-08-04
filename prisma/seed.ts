@@ -61,7 +61,14 @@ function startOfTodayUTC() {
 
 async function main() {
   const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@sunsetbeach.example";
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD || "change-me-after-first-login";
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!adminPassword) {
+    throw new Error(
+      "SEED_ADMIN_PASSWORD is not set. Refusing to create the admin account " +
+        "with a guessable default password — set SEED_ADMIN_PASSWORD in " +
+        ".env.production (or .env for local dev) before running `npm run db:seed`."
+    );
+  }
   const passwordHash = await bcrypt.hash(adminPassword, 10);
 
   await prisma.user.upsert({

@@ -44,6 +44,14 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
+# `next build`'s standalone output tracing does not reliably pick up sharp's
+# native binary (required for next/image optimization in standalone mode —
+# without it every image request logs "'sharp' is required to be installed
+# in standalone mode"). Copy it explicitly from `deps`, which has the
+# musl/alpine build npm ci already resolved for this same base image.
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/sharp ./node_modules/sharp
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/@img ./node_modules/@img
+
 # Prisma CLI + generated client for `migrate deploy` at container start
 # (standalone tracing only picks up the runtime client, not the CLI binary,
 # so these are copied explicitly).
