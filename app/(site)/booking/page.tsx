@@ -42,7 +42,7 @@ export default async function BookingSearchPage({
 
   return (
     <>
-      <section className="pt-16 pb-4 text-center px-6">
+      <section className="pt-16 pb-16 text-center px-6">
         <p className="eyebrow text-sea mb-2">Check availability</p>
         <h1 className="font-display italic text-4xl">Find your stay</h1>
       </section>

@@ -7,7 +7,7 @@ export const metadata = { title: "Restaurant — The Sunset Beach Resort & Spa" 
 export default function RestaurantPage() {
   return (
     <>
-      <section className="pt-16 pb-4 text-center px-6">
+      <section className="pt-16 pb-16 text-center px-6">
         <p className="eyebrow text-sea mb-2">Dining</p>
         <h1 className="font-display italic text-4xl">L&rsquo;Ananas Restaurant &amp; Bar</h1>
       </section>

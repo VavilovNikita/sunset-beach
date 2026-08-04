@@ -8,7 +8,7 @@ export const metadata = { title: "Weddings & Events — The Sunset Beach Resort 
 export default function WeddingsPage() {
   return (
     <>
-      <section className="pt-16 pb-4 text-center px-6">
+      <section className="pt-16 pb-16 text-center px-6">
         <p className="eyebrow text-sea mb-2">Celebrations</p>
         <h1 className="font-display italic text-4xl">Weddings &amp; Events</h1>
       </section>

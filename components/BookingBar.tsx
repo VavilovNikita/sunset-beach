@@ -3,11 +3,32 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function BookingBar() {
+type BookingBarProps = {
+  // Optional controlled mode: pass these when a parent page needs to read
+  // the in-progress dates (e.g. to carry them into a per-room booking link)
+  // before the form is submitted. Omit all four to keep BookingBar's
+  // default self-contained (uncontrolled) behavior.
+  checkIn?: string;
+  checkOut?: string;
+  onCheckInChange?: (value: string) => void;
+  onCheckOutChange?: (value: string) => void;
+};
+
+export default function BookingBar({
+  checkIn: checkInProp,
+  checkOut: checkOutProp,
+  onCheckInChange,
+  onCheckOutChange,
+}: BookingBarProps = {}) {
   const router = useRouter();
-  const [checkIn, setCheckIn] = useState("");
-  const [checkOut, setCheckOut] = useState("");
+  const [checkInState, setCheckInState] = useState("");
+  const [checkOutState, setCheckOutState] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  const checkIn = checkInProp ?? checkInState;
+  const checkOut = checkOutProp ?? checkOutState;
+  const setCheckIn = onCheckInChange ?? setCheckInState;
+  const setCheckOut = onCheckOutChange ?? setCheckOutState;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

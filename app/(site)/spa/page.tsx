@@ -7,7 +7,7 @@ export const metadata = { title: "Spa — The Sunset Beach Resort & Spa" };
 export default function SpaPage() {
   return (
     <>
-      <section className="pt-16 pb-4 text-center px-6">
+      <section className="pt-16 pb-16 text-center px-6">
         <p className="eyebrow text-sea mb-2">Wellness</p>
         <h1 className="font-display italic text-4xl">The Sunset Beach Spa</h1>
       </section>
