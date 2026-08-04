@@ -38,8 +38,8 @@ services:
     env_file:
       - .env.production
     # Bound to localhost only — the host's nginx reverse-proxies
-    # prostak59.duckdns.org to 127.0.0.1:3000, so the app port is never
-    # exposed directly to the internet.
+    # thesunsetbeachsip.ddns.net:8888 to 127.0.0.1:3000, so the app port is
+    # never exposed directly to the internet.
     ports:
       - "127.0.0.1:3000:3000"
 

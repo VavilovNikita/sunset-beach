@@ -1,6 +1,13 @@
-# Deploying to Ubuntu VPS (Docker + DuckDNS)
+# Deploying to Ubuntu VPS (Docker + DDNS)
 
-Target: `prostak59.duckdns.org`, already pointed at the VPS via DuckDNS DNS.
+Target: `thesunsetbeachsip.ddns.net`, already pointed at the VPS via a
+dynamic DNS provider (No-IP-style `.ddns.net`). **Plain HTTP on port 8888,
+not 80/443** — this VPS's ISP blocks inbound 80/443, so there is no TLS in
+this setup and no Let's Encrypt certificate. Every URL in this doc is
+`http://thesunsetbeachsip.ddns.net:8888`, never `https://`. See the note at
+the end of step 3 if you later get a real public IP (or want to front this
+with Cloudflare Tunnel) and want HTTPS on the standard ports back.
+
 Docker is already installed on the server. Nginx runs **on the host** (not in
 a container) and path-routes one domain to sunset-beach and sunset, two of
 three independent `docker compose` projects on this same VPS (the third
@@ -12,10 +19,12 @@ being the shared Postgres project both of them connect to — see below):
   **not** run the Postgres container itself — see "Postgres is a shared
   resource" below.
 - **sunset** (`github.com/VavilovNikita/sunset`, cloned separately) — the
-  Spring Boot API, on `127.0.0.1:8080`, proxied at `/api/*` on the same
-  domain. Reads/writes every other table (rooms, pricing, availability,
-  bookings, staff users) against the *same* Postgres instance, and decrypts
-  the same `next-auth.session-token` cookie to authenticate staff requests.
+  Spring Boot API, published on `127.0.0.1:8082`, proxied at `/api/*` (except
+  `/api/auth/`, which nginx sends to sunset-beach instead — see
+  `nginx/conf.d/app.conf`) on the same domain. Reads/writes every other table
+  (rooms, pricing, availability, bookings, staff users) against the *same*
+  Postgres instance, and decrypts the same `next-auth.session-token` cookie
+  to authenticate staff requests.
 
 ### Postgres is a shared resource, not owned by either project
 
@@ -50,14 +59,15 @@ don't exist yet. sunset-beach's Prisma migrations are what create them.
 ## 0. One-time host setup
 
 ```bash
-# Nginx + certbot (Ubuntu)
+# Nginx (Ubuntu) — certbot is not needed for this deployment (see step 3)
 sudo apt update
-sudo apt install -y nginx certbot
+sudo apt install -y nginx
 
-# Firewall: only SSH, HTTP, HTTPS from the internet
+# Firewall: only SSH and the app's actual public port from the internet.
+# 80/443 are NOT opened here — this ISP blocks them inbound, and nothing in
+# this setup listens on them.
 sudo ufw allow OpenSSH
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
+sudo ufw allow 8888/tcp
 sudo ufw enable
 
 # Docker Compose v2 plugin, if not already present
@@ -86,7 +96,9 @@ Fill in real values:
   started with; this file no longer controls Postgres's own credentials.
 - `NEXTAUTH_SECRET` — generate with `openssl rand -base64 32`. **Copy this
   value** — sunset's own `.env` needs the byte-for-byte same secret in step 8.
-- `NEXTAUTH_URL` — already set to `https://prostak59.duckdns.org`, leave as is.
+- `NEXTAUTH_URL` — already set to `http://thesunsetbeachsip.ddns.net:8888`,
+  leave as is (plain `http://`, with the `:8888` port — see the note at the
+  top of this doc about why this isn't `https://`).
 - `BACKEND_API_URL` — set based on how sunset is actually deployed relative
   to this container; see the detailed comment in `.env.production.example`
   (container-name + internal port if sunset shares the Docker network,
@@ -110,7 +122,7 @@ mechanism — this one is read automatically by `docker compose` itself for
 `${...}` substitution in `docker-compose.prod.yml`, not by the app):
 
 ```bash
-echo 'NEXT_PUBLIC_BACKEND_API_URL=https://prostak59.duckdns.org/api' > .env
+echo 'NEXT_PUBLIC_BACKEND_API_URL=http://thesunsetbeachsip.ddns.net:8888/api' > .env
 ```
 
 This is required because `NEXT_PUBLIC_*` values are inlined into the client
@@ -124,14 +136,22 @@ same compose-level `.env` file — `docker-compose.prod.yml` treats that
 network as external and will fail to start if it doesn't already exist under
 that name.
 
-## 3. Issue a TLS certificate (webroot method)
+## 3. TLS certificate — not applicable on this VPS (reference only)
 
-The app isn't running yet, so certbot needs somewhere on disk to drop the
-ACME HTTP-01 challenge and a plain HTTP nginx block to serve it — this
-matches the `/.well-known/acme-challenge/` location already in
-`nginx/conf.d/app.conf`.
+**Skip this step on the current deployment.** The ISP blocks inbound 80/443,
+so there's nowhere for the ACME HTTP-01 challenge to land and no point
+obtaining a certificate nginx could actually serve on a blocked port.
+`nginx/conf.d/app.conf` (step 4) already reflects this: plain HTTP, port
+8888, no `ssl_certificate` directives.
+
+If this ever moves to a host with an unfiltered public IP (or gets fronted by
+something like Cloudflare Tunnel, which terminates TLS for you and forwards
+plain HTTP to this same nginx on 8888 or another internal port — see
+Cloudflare's own tunnel docs for that setup, not covered here), here's the
+webroot method that would apply instead, kept for reference:
 
 ```bash
+sudo apt install -y certbot
 sudo mkdir -p /var/www/certbot
 
 # Temporary HTTP-only server block, just for the initial challenge
@@ -139,7 +159,7 @@ sudo tee /etc/nginx/conf.d/app.conf > /dev/null <<'EOF'
 server {
     listen 80;
     listen [::]:80;
-    server_name prostak59.duckdns.org;
+    server_name thesunsetbeachsip.ddns.net;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -154,11 +174,16 @@ EOF
 sudo nginx -t && sudo systemctl reload nginx
 
 sudo certbot certonly --webroot -w /var/www/certbot \
-  -d prostak59.duckdns.org \
+  -d thesunsetbeachsip.ddns.net \
   --email you@example.com --agree-tos --no-eff-email
 ```
 
-This creates `/etc/letsencrypt/live/prostak59.duckdns.org/{fullchain,privkey}.pem`.
+This would create
+`/etc/letsencrypt/live/thesunsetbeachsip.ddns.net/{fullchain,privkey}.pem`,
+and `nginx/conf.d/app.conf` would need a `listen 443 ssl` server block
+referencing them (see this repo's git history for the pre-8888 version of
+that file) instead of — or alongside — the plain `listen 8888` block it has
+now.
 
 ## 4. Install the real nginx config
 
@@ -168,11 +193,10 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-`nginx -t` will only pass once the certs from step 3 exist, since the file
-references them directly. This config already proxies both `/` (Next.js, port
-3000) and `/api/` (sunset, port 8080) — sunset doesn't need to be running yet
-for this reload to succeed, its location just won't resolve to anything until
-step 8.
+No certificate dependency — this config is plain HTTP on port 8888. It
+already proxies `/` and `/api/auth/` (Next.js, port 3000) and the rest of
+`/api/` (sunset, port 8082) — sunset doesn't need to be running yet for this
+reload to succeed, its location just won't resolve to anything until step 8.
 
 ## 5. Start the shared Postgres project (if not already running)
 
@@ -205,7 +229,7 @@ deploy — this is what sunset's schema validation depends on in the next
 step. `db` here resolves via the shared `sunset-beach_default` Docker
 network from step 5, not a container this compose file owns.
 
-Check it's up: `https://prostak59.duckdns.org` should load over HTTPS (the
+Check it's up: `http://thesunsetbeachsip.ddns.net:8888` should load (the
 public rooms/booking pages won't have real data until sunset is running too —
 that's expected at this point).
 
@@ -252,7 +276,7 @@ Fill in:
   can't decrypt the session cookie and every staff request 401s.
 - `CORS_ALLOWED_ORIGINS` — not load-bearing for this same-domain, path-routed
   setup (the browser never makes a cross-origin request), but harmless to
-  set to `https://prostak59.duckdns.org` anyway as defense in depth.
+  set to `http://thesunsetbeachsip.ddns.net:8888` anyway as defense in depth.
 - `UPLOADS_ROOT` — leave as its default (a Docker volume, per sunset's own
   `docker-compose.yml`); this is where staff-uploaded room photos live.
 
@@ -262,10 +286,11 @@ docker compose up -d
 docker compose logs -f backend
 ```
 
-Check it: `curl -s https://prostak59.duckdns.org/api/actuator/health` should
-return `{"status":"UP"}`. Then load `https://prostak59.duckdns.org/rooms` (or
-`/admin` after logging in) — this is when the site actually starts showing
-live room/pricing/booking data, since that all now comes from sunset.
+Check it: `curl -s http://thesunsetbeachsip.ddns.net:8888/api/actuator/health`
+should return `{"status":"UP"}`. Then load
+`http://thesunsetbeachsip.ddns.net:8888/rooms` (or `/admin` after logging in)
+— this is when the site actually starts showing live room/pricing/booking
+data, since that all now comes from sunset.
 Once sunset is confirmed reachable this way, go back and set
 sunset-beach's `BACKEND_API_URL` (step 2) to match however you just
 configured this container's networking — container-name-based if you added
@@ -273,10 +298,12 @@ it to the shared network, `host.docker.internal` otherwise — and redeploy
 `app` (see "Redeploying after code changes" below) so server-side fetches
 use it.
 
-## 9. Auto-renew the certificate
+## 9. Auto-renew the certificate — not applicable (reference only)
 
-Ubuntu's certbot package installs a systemd timer that renews automatically.
-Add a hook so nginx reloads after renewal:
+Skipped, along with step 3, since there's no certificate on this deployment.
+If the reference webroot setup in step 3 is ever actually used, Ubuntu's
+certbot package installs a systemd timer that renews automatically — add a
+hook so nginx reloads after renewal:
 
 ```bash
 echo -e '#!/bin/sh\nsystemctl reload nginx' | sudo tee /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
@@ -329,11 +356,14 @@ see that repo's own docs for the exact volume name.
 
 ## Troubleshooting
 
-- **502 from nginx on `/`**: sunset-beach's `app` container isn't up yet or
-  crashed — check `docker compose -f docker-compose.prod.yml logs app`.
-- **502 from nginx on `/api/`**: sunset's `backend` container isn't up yet or
-  crashed — check `docker compose logs backend` in `/opt/sunset`, and confirm
-  it's actually publishing `127.0.0.1:8080`.
+- **502 from nginx on `/` or `/api/auth/`**: sunset-beach's `app` container
+  isn't up yet or crashed — check `docker compose -f docker-compose.prod.yml
+  logs app`.
+- **502 from nginx on `/api/` (other than `/api/auth/`)**: sunset's `backend`
+  container isn't up yet or crashed — check `docker compose logs backend` in
+  `/opt/sunset`, and confirm it's actually publishing `127.0.0.1:8082` (the
+  port `nginx/conf.d/app.conf` proxies to — not sunset's internal container
+  port, which may be 8080).
 - **sunset fails to start with a schema validation error**: sunset-beach's
   migrations haven't run yet, or sunset's `DATABASE_URL` points at a
   different database than sunset-beach's — re-check step 8's `DATABASE_URL`/
@@ -358,8 +388,10 @@ see that repo's own docs for the exact volume name.
   Docker network, `host.docker.internal`+published-port only if it isn't.
   There's no default here that's correct for every topology.
 - **NextAuth redirect/cookie issues behind the proxy**: confirm
-  `NEXTAUTH_URL` is the `https://` URL and that nginx is sending
-  `X-Forwarded-Proto`/`X-Forwarded-For` (already set in `nginx/conf.d/app.conf`).
+  `NEXTAUTH_URL` is exactly `http://thesunsetbeachsip.ddns.net:8888` (matching
+  scheme, host, *and* port — NextAuth is picky about all three) and that
+  nginx is sending `X-Forwarded-Proto`/`X-Forwarded-For` (already set in
+  `nginx/conf.d/app.conf`).
 - **Room images 404**: confirm `NEXT_PUBLIC_BACKEND_API_URL` was actually
   present (compose-level `.env`, step 2) when sunset-beach's image was last
   built — it's baked in at build time, so changing it requires a rebuild
