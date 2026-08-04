@@ -3,8 +3,10 @@
 import { useEffect, useRef } from "react";
 import Image from "next/image";
 
+export type LightboxImage = { src: string; unoptimized?: boolean };
+
 type LightboxProps = {
-  images: string[];
+  images: LightboxImage[];
   alt: string;
   index: number;
   onIndexChange: (index: number) => void;
@@ -100,7 +102,15 @@ export default function Lightbox({ images, alt, index, onIndexChange, onClose }:
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <Image src={images[index]} alt={alt} fill sizes="90vw" className="object-contain" priority />
+        <Image
+          src={images[index].src}
+          alt={alt}
+          fill
+          sizes="90vw"
+          className="object-contain"
+          unoptimized={images[index].unoptimized}
+          priority
+        />
       </div>
 
       {images.length > 1 && (
