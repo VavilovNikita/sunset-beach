@@ -8,10 +8,12 @@ export default function BookingGuestForm({
   roomId,
   checkIn,
   checkOut,
+  disabled = false,
 }: {
   roomId: string;
   checkIn: string;
   checkOut: string;
+  disabled?: boolean;
 }) {
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +105,7 @@ export default function BookingGuestForm({
 
       <button
         type="submit"
-        disabled={status === "sending"}
+        disabled={disabled || status === "sending"}
         className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-6 py-2.5 text-sm font-medium disabled:opacity-60"
       >
         {status === "sending" ? "Sending…" : "Request booking"}

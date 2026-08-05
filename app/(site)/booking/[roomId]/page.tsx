@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import ArtBlock from "@/components/ArtBlock";
-import BookingGuestForm from "@/components/BookingGuestForm";
-import Link from "next/link";
+import RoomBookingPanel from "@/components/RoomBookingPanel";
 import { backendJson } from "@/lib/backendServer";
 import { BackendError, resolveImageUrl } from "@/lib/backend";
 import { getRoomQuote } from "@/lib/publicQuote";
@@ -46,31 +45,12 @@ export default async function BookRoomPage({
         unoptimized={room.images[0]?.startsWith("/uploads/")}
       />
 
-      <div className="grid sm:grid-cols-3 gap-4 text-center mb-10">
-        <div>
-          <p className="eyebrow text-cream/40">Check-in</p>
-          <p className="mt-1">{checkIn}</p>
-        </div>
-        <div>
-          <p className="eyebrow text-cream/40">Check-out</p>
-          <p className="mt-1">{checkOut}</p>
-        </div>
-        <div>
-          <p className="eyebrow text-cream/40">Total</p>
-          <p className="mt-1 text-coral font-display text-lg">฿{totalPrice?.toLocaleString("en-US")}</p>
-        </div>
-      </div>
-
-      {available ? (
-        <BookingGuestForm roomId={room.id} checkIn={checkIn} checkOut={checkOut} />
-      ) : (
-        <p className="text-center text-coral">
-          Sorry, this room is no longer available for those dates.{" "}
-          <Link href={`/booking?checkIn=${checkIn}&checkOut=${checkOut}`} className="underline underline-offset-4">
-            See other rooms
-          </Link>
-        </p>
-      )}
+      <RoomBookingPanel
+        roomId={room.id}
+        initialCheckIn={checkIn}
+        initialCheckOut={checkOut}
+        initialQuote={{ available, totalPrice }}
+      />
     </section>
   );
 }
