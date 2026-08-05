@@ -11,6 +11,15 @@ export const BACKEND_URL = process.env.BACKEND_API_URL ?? "http://localhost:8080
 // src>) — must always be reachable by the browser.
 export const PUBLIC_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? BACKEND_URL;
 
+// Client Components that need to make an *authenticated* write/read against
+// sunset (rooms, pricing, availability, bookings, users) go through this
+// same-origin Next.js route instead of PUBLIC_BACKEND_URL directly — the
+// session token lives in an httpOnly cookie client JS can't read, so it
+// can't attach `Authorization: Bearer <token>` itself. See
+// app/api/admin-proxy/[...path]/route.ts, which reads the cookie
+// server-side and forwards the Bearer token to sunset.
+export const ADMIN_API_URL = "/api/admin-proxy";
+
 export class BackendError extends Error {
   status: number;
   body: unknown;

@@ -1,10 +1,11 @@
-import { getServerSession } from "next-auth";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser, SESSION_COOKIE_NAME } from "@/lib/session";
 
 export async function getSessionUser() {
-  const session = await getServerSession(authOptions);
-  return session?.user ?? null;
+  const store = await cookies();
+  const token = store.get(SESSION_COOKIE_NAME)?.value ?? null;
+  return getCurrentUser(token);
 }
 
 // For Server Components/pages — redirects rather than returning a response.

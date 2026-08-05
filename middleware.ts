@@ -1,20 +1,24 @@
-import { withAuth } from "next-auth/middleware";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { getCurrentUser, SESSION_COOKIE_NAME } from "@/lib/session";
 
-export default withAuth(
-  function middleware() {
+export async function middleware(req: NextRequest) {
+  if (req.nextUrl.pathname.startsWith("/admin/login")) {
     return NextResponse.next();
-  },
-  {
-    pages: { signIn: "/admin/login" },
-    callbacks: {
-      authorized: ({ token, req }) => {
-        if (req.nextUrl.pathname.startsWith("/admin/login")) return true;
-        return !!token;
-      },
-    },
   }
-);
+
+  const token = req.cookies.get(SESSION_COOKIE_NAME)?.value ?? null;
+  const user = await getCurrentUser(token);
+
+  if (!user) {
+    const loginUrl = new URL("/admin/login", req.url);
+    loginUrl.searchParams.set("callbackUrl", req.nextUrl.pathname);
+    const res = NextResponse.redirect(loginUrl);
+    res.cookies.delete(SESSION_COOKIE_NAME);
+    return res;
+  }
+
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: ["/admin/:path*"],

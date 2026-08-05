@@ -6,37 +6,43 @@ from the original PHP views; the visual design, components and code are new.
 
 ## Architecture: this repo vs. `sunset`
 
-This repo is now mostly a frontend. The only server-side logic left here is a
-thin auth layer:
-- `app/api/auth/[...nextauth]/route.ts` + `lib/auth.ts` — NextAuth
-  (`Credentials` provider) checks `email`/`password` against the `User` table
-  via Prisma and issues the `next-auth.session-token` session cookie (JWE,
-  NextAuth v4 `dir`/`A256GCM`).
-- `prisma/schema.prisma` + migrations — still owned here. `npx prisma migrate
-  dev` is the only way the schema changes; the Java side runs with
-  `ddl-auto=validate` and never writes DDL.
+This repo is a pure frontend / BFF — it has no database connection of its
+own. The only server-side logic left here is a thin auth proxy:
+- `app/api/session/login/route.ts` — exchanges `email`/`password` with
+  sunset's `POST /auth/login`, then stores the JWT it returns in an httpOnly
+  `session-token` cookie (never sent back to the client in the response
+  body).
+- `app/api/session/logout/route.ts` — clears that cookie.
+- `app/api/session/register/route.ts` — checks the caller is an authenticated
+  `ADMIN` (via sunset's `GET /auth/me`), then proxies to sunset's
+  `POST /auth/register`.
+- `middleware.ts` / `lib/rbac.ts` — protect `/admin/*` by validating the
+  cookie against sunset's `GET /auth/me` on every request; there is no local
+  JWT verification, sunset is the sole source of truth for session validity.
+- `lib/backendServer.ts` — every other authenticated server-side fetch to
+  sunset sends the cookie's token as `Authorization: Bearer <token>`.
 
-Everything else — rooms, pricing, availability, bookings, staff user
-management, room image uploads/serving, and outgoing email — lives in the
-sibling `sunset` (Spring Boot) repo, which reads/writes the same Postgres
-database and decrypts the same session cookie (via `nimbus-jose-jwt`) to know
-who's logged in. Every page that used to read Prisma directly in a Server
-Component now calls that API instead — see `lib/backend.ts` /
-`lib/backendServer.ts` for the fetch helpers, and `lib/publicQuote.ts` /
-`lib/adminStats.ts` for the two spots (guest availability+pricing quotes, the
-admin dashboard's stats) that assemble data client-side from a couple of
-Java endpoints because there's no single endpoint that returns it directly.
+Everything else — auth/users, rooms, pricing, availability, bookings, room
+image uploads/serving, and outgoing email — lives entirely in the sibling
+`sunset` (Spring Boot) repo, which owns the database (schema, migrations,
+every table) and issues/validates its own JWTs. Every page that used to read
+Prisma directly in a Server Component now calls that API instead — see
+`lib/backend.ts` / `lib/backendServer.ts` for the fetch helpers, and
+`lib/publicQuote.ts` / `lib/adminStats.ts` for the two spots (guest
+availability+pricing quotes, the admin dashboard's stats) that assemble data
+client-side from a couple of Java endpoints because there's no single
+endpoint that returns it directly.
 
 ### Running both services locally
 
-1. Start Postgres: `docker compose up -d` (this repo's `docker-compose.yml`).
-2. Run this repo: `npm install && npm run dev` (http://localhost:3000).
-3. Run `sunset` separately (`./mvnw spring-boot:run`, or however that repo's
-   README says to start it) against the same `DATABASE_URL`, listening on
-   `http://localhost:8080` with `server.servlet.context-path=/api`.
-4. Make sure `NEXTAUTH_SECRET` is byte-for-byte identical in both `.env`
-   files — that's what lets the Java side decrypt the session cookie this
-   repo issues.
+1. Run this repo: `npm install && npm run dev` (http://localhost:3000).
+2. Run `sunset` separately (`./mvnw spring-boot:run`, or however that repo's
+   README says to start it), listening on `http://localhost:8080` with
+   `server.servlet.context-path=/api`, and with its own Postgres running
+   (this repo's `docker-compose.yml` can still be used standalone for that,
+   or use whatever sunset's own docs recommend).
+3. Point this repo's `BACKEND_API_URL` / `NEXT_PUBLIC_BACKEND_API_URL` at
+   that sunset instance (see `.env.example`).
 
 ### Where the frontend gets `BACKEND_API_URL`
 
@@ -53,12 +59,15 @@ Two env vars, both pointing at the Java API (see `.env.example`):
   `--build-arg NEXT_PUBLIC_BACKEND_API_URL=...`; restarting the container
   with an updated `.env.production` alone will NOT pick up the change.**
 
-In production, if the frontend and the Java API are deployed on different
-subdomains of the same parent domain (e.g. `www.example.com` /
-`api.example.com`), also set `AUTH_COOKIE_DOMAIN` (e.g. `.example.com`) so
-the session cookie is sent cross-subdomain — see the comment in `lib/auth.ts`.
-The Java side needs a matching CORS allow-list (`CORS_ALLOWED_ORIGINS` there)
-for the frontend's origin.
+The `session-token` cookie set by `app/api/session/login` is only ever read
+by this Next.js app itself (to validate `/admin/*` requests and to attach it
+as a `Bearer` token on server-side fetches to sunset) — it's never sent
+directly to sunset by the browser, so no cross-subdomain cookie
+configuration is needed even if the frontend and Java API end up on
+different subdomains. The Java side still needs a CORS allow-list
+(`CORS_ALLOWED_ORIGINS`) covering the frontend's origin, since the browser
+does make same-origin-looking-but-technically-cross-origin requests to it
+for public data (e.g. room images).
 
 ## What's here
 - `/` — Home

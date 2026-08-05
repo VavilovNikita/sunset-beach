@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { backendJson } from "@/lib/backendServer";
-import { PUBLIC_BACKEND_URL, resolveImageUrl } from "@/lib/backend";
+import { ADMIN_API_URL, resolveImageUrl } from "@/lib/backend";
 import DeleteButton from "@/components/admin/DeleteButton";
 import type { Room } from "@/lib/types";
 
@@ -51,7 +51,7 @@ export default async function AdminRoomsPage() {
               Edit
             </Link>
             <DeleteButton
-              url={`${PUBLIC_BACKEND_URL}/rooms/${room.id}`}
+              url={`${ADMIN_API_URL}/rooms/${room.id}`}
               confirmText={`Delete "${room.name}"? This can't be undone.`}
             />
           </div>

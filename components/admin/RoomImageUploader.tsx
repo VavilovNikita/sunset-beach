@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { PUBLIC_BACKEND_URL, resolveImageUrl } from "@/lib/backend";
+import { ADMIN_API_URL, resolveImageUrl } from "@/lib/backend";
 
 export default function RoomImageUploader({
   roomId,
@@ -28,7 +28,7 @@ export default function RoomImageUploader({
     const formData = new FormData();
     Array.from(files).forEach((f) => formData.append("files", f));
 
-    const res = await fetch(`${PUBLIC_BACKEND_URL}/rooms/${roomId}/images`, {
+    const res = await fetch(`${ADMIN_API_URL}/rooms/${roomId}/images`, {
       method: "POST",
       credentials: "include",
       body: formData,
@@ -48,7 +48,7 @@ export default function RoomImageUploader({
     setRemoving(imagePath);
     setError(null);
 
-    const res = await fetch(`${PUBLIC_BACKEND_URL}/rooms/${roomId}/images`, {
+    const res = await fetch(`${ADMIN_API_URL}/rooms/${roomId}/images`, {
       method: "DELETE",
       credentials: "include",
       headers: { "Content-Type": "application/json" },

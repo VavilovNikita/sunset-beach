@@ -1,18 +1,14 @@
 import { cookies } from "next/headers";
 import { BACKEND_URL, BackendError } from "@/lib/backend";
-
-const SESSION_COOKIE_NAMES = ["__Secure-next-auth.session-token", "next-auth.session-token"];
+import { SESSION_COOKIE_NAME } from "@/lib/session";
 
 // A server-side fetch() never forwards the visitor's browser cookies on its
-// own — they have to be read out of this request's cookie jar and attached
-// by hand for the Java side (NextAuthSessionAuthFilter) to see a session.
-async function sessionCookieHeader() {
+// own — the session token has to be read out of this request's cookie jar
+// and attached by hand, as a Bearer token, for Java's JWT filter to see it.
+async function authHeader() {
   const store = await cookies();
-  for (const name of SESSION_COOKIE_NAMES) {
-    const cookie = store.get(name);
-    if (cookie) return `${cookie.name}=${cookie.value}`;
-  }
-  return null;
+  const token = store.get(SESSION_COOKIE_NAME)?.value;
+  return token ? `Bearer ${token}` : null;
 }
 
 export async function backendFetch(
@@ -23,8 +19,8 @@ export async function backendFetch(
   const finalHeaders = new Headers(headers);
 
   if (auth) {
-    const cookieHeader = await sessionCookieHeader();
-    if (cookieHeader) finalHeaders.set("Cookie", cookieHeader);
+    const authorization = await authHeader();
+    if (authorization) finalHeaders.set("Authorization", authorization);
   }
 
   return fetch(`${BACKEND_URL}${path}`, { ...rest, headers: finalHeaders, cache: "no-store" });

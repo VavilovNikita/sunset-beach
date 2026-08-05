@@ -1,5 +1,5 @@
 import { backendJson } from "@/lib/backendServer";
-import { PUBLIC_BACKEND_URL } from "@/lib/backend";
+import { ADMIN_API_URL } from "@/lib/backend";
 import BookingsTable from "@/components/admin/BookingsTable";
 import type { Booking, BookingStatus } from "@/lib/types";
 
@@ -27,7 +27,7 @@ export default async function AdminBookingsPage({
           <h1 className="font-display italic text-3xl">Bookings</h1>
         </div>
         <a
-          href={`${PUBLIC_BACKEND_URL}/bookings/export?${query.toString()}`}
+          href={`${ADMIN_API_URL}/bookings/export?${query.toString()}`}
           className="rounded-full border border-cream/25 hover:border-cream/50 transition-colors px-5 py-2.5 text-sm font-medium"
         >
           Export CSV

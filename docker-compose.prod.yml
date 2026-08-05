@@ -1,18 +1,18 @@
-# Postgres is NOT defined in this file. In this VPS's real topology it is a
-# shared resource: the same Postgres instance (and the same Docker network,
-# name below) is brought up by a separate `docker compose` project — this
-# repo's own `docker-compose.yml` deployed standalone on the host — and is
-# also used by the sibling `sunset` (Spring Boot) service, a third,
-# independent compose project. Neither `app` nor `seed` below own that
-# container or its data volume; they only join its network as a client.
+# Postgres is NOT defined in this file, and this app no longer talks to it
+# directly (schema/data access now goes entirely through the sunset (Java)
+# API — Prisma was removed from this repo). `app` below stays on the shared
+# Docker network only to reach the sunset backend container by name (see
+# BACKEND_API_URL in .env.production.example); it does not own or need
+# access to the Postgres container or its data volume.
 #
 # IMPORTANT: because `db` is not defined here, `docker compose -f
 # docker-compose.prod.yml down` only stops/removes what this file actually
-# owns (`app`, `seed`) — it will not touch Postgres. Do NOT add a `db`
-# service back into this file "for convenience": that would create a second
-# compose project claiming ownership of the same containers/volumes as the
-# `docker-compose.yml` project, and a `down` run from either project could
-# then take the shared database out from under the other one.
+# owns (`app`) — it will not touch Postgres. Do NOT add a `db` service back
+# into this file "for convenience": that would create a second compose
+# project claiming ownership of the same containers/volumes as the
+# `docker-compose.yml` project (or the sunset repo's own), and a `down` run
+# from either project could then take the shared database out from under
+# the others.
 #
 # DB_NETWORK_NAME must match whatever network name the shared Postgres
 # project actually publishes (Compose's default is `<project-dir>_default`,
@@ -42,22 +42,6 @@ services:
     # never exposed directly to the internet.
     ports:
       - "127.0.0.1:3000:3000"
-
-  # One-off seeding helper (initial admin account + demo rooms). Not started
-  # by `up`; run explicitly with:
-  #   docker compose -f docker-compose.prod.yml run --rm seed
-  # Uses the `builder` stage because the production `app` image is
-  # intentionally slim and doesn't ship tsx/dev dependencies.
-  seed:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: builder
-    profiles:
-      - seed
-    env_file:
-      - .env.production
-    command: ["npm", "run", "db:seed"]
 
 networks:
   # Both services above use the default network, pointed at the shared,

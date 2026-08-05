@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
-import type { Role } from "@prisma/client";
+import { usePathname, useRouter } from "next/navigation";
+import type { Role } from "@/lib/session";
 
 const links = [
   { href: "/admin", label: "Dashboard" },
@@ -15,6 +14,13 @@ const links = [
 
 export default function AdminSidebar({ email, role }: { email: string; role: Role }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleSignOut() {
+    await fetch("/api/session/logout", { method: "POST" });
+    router.push("/admin/login");
+    router.refresh();
+  }
 
   const items = role === "ADMIN" ? [...links, { href: "/admin/users", label: "Users" }] : links;
 
@@ -47,7 +53,7 @@ export default function AdminSidebar({ email, role }: { email: string; role: Rol
           <p className="text-xs text-cream/50 truncate">{email}</p>
           <p className="eyebrow text-cream/40 mt-0.5">{role}</p>
           <button
-            onClick={() => signOut({ callbackUrl: "/admin/login" })}
+            onClick={handleSignOut}
             className="mt-4 text-sm text-cream/70 hover:text-coral transition-colors"
           >
             Sign out

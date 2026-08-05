@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PUBLIC_BACKEND_URL } from "@/lib/backend";
+import { ADMIN_API_URL } from "@/lib/backend";
 
 export default function UserRoleSelect({
   userId,
@@ -22,7 +22,7 @@ export default function UserRoleSelect({
     setSaving(true);
     setError(null);
 
-    const res = await fetch(`${PUBLIC_BACKEND_URL}/users/${userId}`, {
+    const res = await fetch(`${ADMIN_API_URL}/users/${userId}`, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },

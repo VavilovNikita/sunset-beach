@@ -1,11 +1,10 @@
 # syntax=docker/dockerfile:1
 
-# ---- deps: install all dependencies (incl. dev) and generate the Prisma client ----
+# ---- deps: install all dependencies ----
 FROM node:20-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache libc6-compat openssl
 COPY package.json package-lock.json ./
-COPY prisma ./prisma
 RUN npm ci
 
 # ---- builder: compile the Next.js app ----
@@ -15,9 +14,6 @@ RUN apk add --no-cache openssl
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Dummy value so `next build` never fails resolving the Prisma client at
-# build time; the real value is injected at runtime via .env.production.
-ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
 # NEXT_PUBLIC_* vars are inlined into the client bundle at build time, unlike
 # every other setting here — this one can't just be injected at container
 # start via .env.production, it has to be passed as a build-arg:
@@ -51,14 +47,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 # musl/alpine build npm ci already resolved for this same base image.
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules/sharp ./node_modules/sharp
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules/@img ./node_modules/@img
-
-# Prisma CLI + generated client for `migrate deploy` at container start
-# (standalone tracing only picks up the runtime client, not the CLI binary,
-# so these are copied explicitly).
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh

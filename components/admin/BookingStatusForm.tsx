@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PUBLIC_BACKEND_URL } from "@/lib/backend";
+import { ADMIN_API_URL } from "@/lib/backend";
 
 const STATUSES = ["NEW", "CONFIRMED", "PAID", "CANCELLED"] as const;
 
@@ -26,7 +26,7 @@ export default function BookingStatusForm({
     setSaving(true);
     setError(null);
 
-    const res = await fetch(`${PUBLIC_BACKEND_URL}/bookings/${bookingId}`, {
+    const res = await fetch(`${ADMIN_API_URL}/bookings/${bookingId}`, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
