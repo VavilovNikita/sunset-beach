@@ -8,7 +8,9 @@ import { BACKEND_URL } from "@/lib/backend";
 
 // Mirrors the Java `Role` enum (see the old prisma/schema.prisma, now owned
 // by the sunset (Java) repo). Update this if that enum ever changes shape.
-export type Role = "ADMIN" | "MANAGER";
+// Hierarchical: ADMIN > MANAGER > CASHIER > WAITER (see lib/rbac.ts's
+// hasRoleAtLeast) — CASHIER/WAITER were added for the POS module.
+export type Role = "ADMIN" | "MANAGER" | "CASHIER" | "WAITER";
 
 export type SessionUser = {
   id: string;

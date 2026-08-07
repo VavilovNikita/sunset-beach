@@ -1,8 +1,30 @@
 import { backendJson } from "@/lib/backendServer";
-import { addDaysUTC, dateOnlyUTC, startOfMonthUTC, endOfMonthUTC } from "@/lib/bookings";
+import { BackendError } from "@/lib/backend";
+import { addDaysUTC, dateOnlyUTC, startOfMonthUTC, endOfMonthUTC, toDateKey } from "@/lib/bookings";
 import type { Booking, Room } from "@/lib/types";
+import type { PaymentsSummary } from "@/lib/posTypes";
 
 const OCCUPANCY_WINDOW_DAYS = 30;
+
+// Three explicit outcomes rather than `PaymentsSummary | null` — "the
+// manager isn't allowed to see this" (hide the POS cards, no complaint) and
+// "the request failed" (say so, don't render as if there were simply
+// nothing) need different UI, and collapsing them into one falsy value
+// would lose that distinction the same way folio's silent-`null` bug did.
+export type DashboardPosSummary =
+  | { status: "ok"; data: PaymentsSummary }
+  | { status: "forbidden" }
+  | { status: "error" };
+
+async function getPosSummary(from: string, to: string): Promise<DashboardPosSummary> {
+  try {
+    const data = await backendJson<PaymentsSummary>(`/payments/summary?from=${from}&to=${to}`, { auth: true });
+    return { status: "ok", data };
+  } catch (e) {
+    if (e instanceof BackendError && e.status === 403) return { status: "forbidden" };
+    return { status: "error" };
+  }
+}
 
 // No dedicated stats endpoint exists on the Java side yet, so this pulls the
 // full room/booking lists (staff-authed) and does the same aggregation the
@@ -10,18 +32,21 @@ const OCCUPANCY_WINDOW_DAYS = 30;
 // query. Fine at this resort's booking volume; revisit if that ever grows
 // large enough to need a real aggregate endpoint.
 export async function getDashboardStats() {
-  const [rooms, bookings] = await Promise.all([
-    backendJson<Room[]>("/rooms", { auth: true }),
-    backendJson<Booking[]>("/bookings", { auth: true }),
-  ]);
-
   const now = new Date();
   const todayStart = dateOnlyUTC(now);
   const tomorrowStart = addDaysUTC(todayStart, 1);
   const weekStart = addDaysUTC(todayStart, -6); // rolling 7-day window, inclusive of today
   const monthStart = startOfMonthUTC(now);
-  const nextMonthStart = addDaysUTC(endOfMonthUTC(now), 1);
+  const monthEnd = endOfMonthUTC(now);
+  const nextMonthStart = addDaysUTC(monthEnd, 1);
   const occupancyWindowEnd = addDaysUTC(todayStart, OCCUPANCY_WINDOW_DAYS);
+
+  const [rooms, bookings, posSummary] = await Promise.all([
+    backendJson<Room[]>("/rooms", { auth: true }),
+    backendJson<Booking[]>("/bookings", { auth: true }),
+    // Same period as room revenue below: the current calendar month.
+    getPosSummary(toDateKey(monthStart), toDateKey(monthEnd)),
+  ]);
 
   let bookingsToday = 0;
   let bookingsThisWeek = 0;
@@ -56,5 +81,6 @@ export async function getDashboardStats() {
     occupancyPct,
     occupancyWindowDays: OCCUPANCY_WINDOW_DAYS,
     revenueThisMonth,
+    posSummary,
   };
 }

@@ -10,6 +10,9 @@ const links = [
   { href: "/admin/rooms", label: "Rooms" },
   { href: "/admin/pricing", label: "Pricing" },
   { href: "/admin/availability", label: "Availability" },
+  { href: "/admin/pos", label: "POS" },
+  { href: "/admin/pos/menu", label: "Menu" },
+  { href: "/admin/pos/shifts", label: "Shifts" },
 ];
 
 export default function AdminSidebar({ email, role }: { email: string; role: Role }) {

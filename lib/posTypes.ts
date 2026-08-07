@@ -1,0 +1,166 @@
+// Mirrors the JSON shapes returned by the Java API's POS module (menu,
+// tables, orders, shifts, payments) — checked against the finalized backend
+// contract. Same Decimal convention as lib/types.ts, but note the direction
+// matters here: response fields (MenuItem.price, Order.total, etc.) are
+// strings; the matching *Input request bodies take plain numbers.
+export type Zone = "RESTAURANT" | "BAR" | "SPA" | "POOL" | "ROOM_SERVICE";
+export type OrderStatus = "OPEN" | "SENT" | "PAID" | "CANCELLED";
+export type PaymentMethod = "CASH" | "CARD" | "ROOM_CHARGE" | "OTHER";
+
+export type MenuItem = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  price: string;
+  isAvailable: boolean;
+  createdAt: string;
+};
+
+export type MenuItemInput = {
+  name: string;
+  description: string;
+  category: string;
+  price: number;
+  isAvailable?: boolean;
+};
+
+export type Table = {
+  id: string;
+  zone: Zone;
+  label: string;
+  capacity: number;
+  isActive: boolean;
+};
+
+export type TableInput = {
+  zone: Zone;
+  label: string;
+  capacity: number;
+  isActive?: boolean;
+};
+
+// No denormalized menu item name — items only carry menuItemId. Consumers
+// resolve names from a MenuItem[] they already fetched (see OrderTicket's
+// menuById map) rather than re-fetching per item.
+export type OrderItem = {
+  id: string;
+  orderId: string;
+  menuItemId: string;
+  quantity: number;
+  unitPrice: string;
+  note: string | null;
+  createdAt: string;
+};
+
+export type OrderItemInput = {
+  menuItemId: string;
+  quantity: number;
+  note?: string | null;
+};
+
+// Both GET /orders and GET /orders/{id} always include items[] — there's no
+// lighter-weight list shape, so a single Order type covers both.
+export type Order = {
+  id: string;
+  tableId: string | null;
+  bookingId: string | null;
+  guestName: string | null;
+  status: OrderStatus;
+  openedByUserId: string;
+  total: string;
+  note: string | null;
+  items: OrderItem[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OrderCreateInput = {
+  tableId?: string;
+  bookingId?: string;
+  guestName?: string;
+};
+
+// No `amount` — the server always charges order.total itself; partial
+// payment isn't supported. The response Order is the source of truth for
+// how much was actually charged (see OrderTicket's lastPayment).
+export type CloseOrderInput = {
+  method: PaymentMethod;
+  bookingId?: string;
+};
+
+export type Shift = {
+  id: string;
+  openedByUserId: string;
+  openedAt: string;
+  closedByUserId: string | null;
+  closedAt: string | null;
+  openingCashFloat: string | null;
+  closingCashCounted: string | null;
+  status: "OPEN" | "CLOSED";
+  notes: string | null;
+};
+
+export type ShiftTotals = {
+  cash: string;
+  card: string;
+  roomCharge: string;
+  other: string;
+  paymentCount: number;
+};
+
+export type ShiftSummary = Shift & { totals: ShiftTotals };
+
+export type ShiftOpenInput = { openingCashFloat?: number };
+export type ShiftCloseInput = { closingCashCounted?: number; notes?: string };
+
+// POST /orders/{id}/close creates this server-side, but the endpoint returns
+// the updated Order, not the Payment itself — nothing in this codebase reads
+// this type by fetching it; it exists for documentation of the shape that
+// exists on the backend. See OrderTicket's lastPayment for how the UI shows
+// "paid via X, ฿Y" without it (sourced from what the form just sent).
+export type Payment = {
+  id: string;
+  orderId: string;
+  method: PaymentMethod;
+  amount: string;
+  bookingId: string | null;
+  recordedByUserId: string;
+  shiftId: string;
+  createdAt: string;
+};
+
+export type BookingPosOrder = {
+  orderId: string;
+  amount: string;
+  paidAt: string;
+  items: { name: string; quantity: number }[];
+};
+
+// GET /bookings/{id}/folio — room stay + POS room charges, combined into
+// what the front desk collects at checkout.
+export type Folio = {
+  roomTotal: string;
+  roomChargesTotal: string;
+  folioTotal: string;
+  roomChargeCount: number;
+};
+
+// GET /payments/summary?from&to — MANAGER+. grandTotal deliberately excludes
+// totals.roomCharge: a room charge is money moved onto a booking's folio,
+// not money collected yet, so folding it into "revenue" here would double
+// count it against the room's own payment later. See lib/adminStats.ts for
+// how the dashboard keeps this separate from room revenue instead of adding
+// them together.
+export type PaymentsSummary = {
+  from: string;
+  to: string;
+  totals: {
+    cash: string;
+    card: string;
+    roomCharge: string;
+    other: string;
+    paymentCount: number;
+  };
+  grandTotal: string;
+};

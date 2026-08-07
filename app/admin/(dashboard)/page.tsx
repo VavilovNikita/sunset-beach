@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getDashboardStats } from "@/lib/adminStats";
 import StatCard from "@/components/admin/StatCard";
 
@@ -20,11 +21,53 @@ export default async function AdminDashboardPage() {
           sublabel={`Next ${stats.occupancyWindowDays} days`}
         />
         <StatCard
-          label="Revenue (paid)"
+          label="Room revenue (paid)"
           value={`฿${stats.revenueThisMonth.toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
           sublabel={`${MONTH_LABEL}, by check-in date`}
         />
       </div>
+
+      {/* POS numbers are kept in their own group, deliberately not summed
+          with room revenue above: grandTotal already excludes room charges
+          (they're a folio transfer, not money collected), and the pending
+          room-charge figure is money that hasn't been collected at all yet
+          — adding either to room revenue would double- or phantom-count it. */}
+      {stats.posSummary.status === "ok" && (
+        <div className="mt-8 pt-8 border-t border-cream/10">
+          <p className="eyebrow text-cream/50 mb-4">POS</p>
+          <div className="grid sm:grid-cols-2 gap-5">
+            <StatCard
+              label="POS revenue collected"
+              value={`฿${Number(stats.posSummary.data.grandTotal).toLocaleString("en-US", {
+                maximumFractionDigits: 0,
+              })}`}
+              sublabel={`${MONTH_LABEL} · cash + card + other — excludes room charges`}
+            />
+            <StatCard
+              label="Charged to rooms, not yet collected"
+              value={`฿${Number(stats.posSummary.data.totals.roomCharge).toLocaleString("en-US", {
+                maximumFractionDigits: 0,
+              })}`}
+              sublabel="Arrives with the booking's own payment — not revenue yet"
+            />
+          </div>
+        </div>
+      )}
+
+      {stats.posSummary.status === "error" && (
+        <div className="mt-8 pt-8 border-t border-cream/10">
+          <p className="eyebrow text-cream/50 mb-4">POS</p>
+          <div className="bg-coral/10 border border-coral/30 rounded-xl p-5">
+            <p className="text-coral text-sm font-medium">
+              Couldn&rsquo;t load POS revenue for this period — check{" "}
+              <Link href="/admin/pos/shifts" className="underline underline-offset-4">
+                shifts
+              </Link>{" "}
+              directly if you need the numbers now.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

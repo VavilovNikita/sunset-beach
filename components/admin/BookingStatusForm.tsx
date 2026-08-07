@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL } from "@/lib/backend";
+import type { Folio } from "@/lib/posTypes";
 
 const STATUSES = ["NEW", "CONFIRMED", "PAID", "CANCELLED"] as const;
 
@@ -10,10 +11,15 @@ export default function BookingStatusForm({
   bookingId,
   currentStatus,
   currentPaymentNote,
+  folio,
 }: {
   bookingId: string;
   currentStatus: string;
   currentPaymentNote: string | null;
+  // Purely informational — nothing here writes to paymentNote or blocks
+  // saving. null covers both "no POS orders" and "folio failed to load";
+  // either way there's nothing safe to warn about, so no banner.
+  folio: Folio | null;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState(currentStatus);
@@ -59,6 +65,15 @@ export default function BookingStatusForm({
           ))}
         </select>
       </div>
+
+      {status === "PAID" && folio && folio.roomChargeCount > 0 && (
+        <p className="text-sm text-coral bg-coral/10 border border-coral/30 rounded-lg px-3 py-2">
+          This booking has {folio.roomChargeCount} POS room charge{folio.roomChargeCount === 1 ? "" : "s"} totaling ฿
+          {Number(folio.roomChargesTotal).toLocaleString("en-US")}. Total due including the room is ฿
+          {Number(folio.folioTotal).toLocaleString("en-US")} — make sure that&rsquo;s what was collected, not just
+          the room total.
+        </p>
+      )}
 
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Payment note</label>

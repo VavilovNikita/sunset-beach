@@ -1,6 +1,16 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getCurrentUser, SESSION_COOKIE_NAME } from "@/lib/session";
+import { getCurrentUser, SESSION_COOKIE_NAME, type Role } from "@/lib/session";
+
+// Mirrors the backend's RoleHierarchy (ADMIN > MANAGER > CASHIER > WAITER —
+// see openapi.yaml's Role schema). Several POS endpoints are gated at
+// "MANAGER or above"; this is how the UI hides actions a lower role would
+// just get a 403 for, without duplicating the hierarchy at every call site.
+const ROLE_RANK: Record<Role, number> = { WAITER: 0, CASHIER: 1, MANAGER: 2, ADMIN: 3 };
+
+export function hasRoleAtLeast(role: Role, minimum: Role) {
+  return ROLE_RANK[role] >= ROLE_RANK[minimum];
+}
 
 export async function getSessionUser() {
   const store = await cookies();
