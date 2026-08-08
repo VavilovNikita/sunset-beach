@@ -48,7 +48,7 @@ export default async function AdminDashboardPage() {
               value={`฿${Number(stats.posSummary.data.totals.roomCharge).toLocaleString("en-US", {
                 maximumFractionDigits: 0,
               })}`}
-              sublabel="Arrives with the booking's own payment — not revenue yet"
+              sublabel="Not included in any revenue figure on this dashboard — reconcile against the folio at checkout (the booking page shows the amount due)"
             />
           </div>
         </div>
