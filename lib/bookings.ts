@@ -11,14 +11,35 @@
 // RatePlan/Availability are @db.Date columns and its day keys must line up
 // with the exact UTC midnight instant, or a night resolves to the wrong day.
 
-// Parses a "YYYY-MM-DD" key as a UTC midnight instant.
+const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Parses a "YYYY-MM-DD" key as a UTC midnight instant. Throws rather than
+// returning an Invalid Date on anything malformed — a silent Invalid Date
+// makes every later >=/< comparison against it resolve to `false`, which
+// previously zeroed out revenueThisMonth/occupancyPct on the admin
+// dashboard without so much as a console error. Loud failure here is
+// strictly better than a quietly wrong money figure.
 export function parseDateKey(key: string) {
+  if (!DATE_KEY_RE.test(key)) {
+    throw new Error(`parseDateKey: expected "YYYY-MM-DD", got ${JSON.stringify(key)}`);
+  }
   const [y, m, d] = key.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d));
+  const date = new Date(Date.UTC(y, m - 1, d));
+  // Date.UTC silently rolls over out-of-range components (e.g. month 13,
+  // day 45) into a different, shape-valid-looking date instead of failing —
+  // catch that here too.
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) {
+    throw new Error(`parseDateKey: "${key}" is not a valid calendar date`);
+  }
+  return date;
 }
 
 export function dateOnlyUTC(date: Date | string) {
-  if (typeof date === "string") return parseDateKey(date);
+  // Accepts both a bare "YYYY-MM-DD" key and a full ISO datetime string
+  // (Booking.checkIn/checkOut come back as "YYYY-MM-DDT00:00:00.000Z" — see
+  // openapi.yaml's Booking schema) — parseDateKey only understands the
+  // former, so the date portion is sliced off first either way.
+  if (typeof date === "string") return parseDateKey(date.slice(0, 10));
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 

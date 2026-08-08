@@ -98,7 +98,13 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
       setError(data?.error ? JSON.stringify(data.error) : "Could not close shift.");
       return;
     }
-    setShift(await res.json());
+    // POST .../close returns a plain Shift, not a ShiftSummary — no `totals`,
+    // which the stat cards below render unconditionally. Same shape gap as
+    // /shifts/current, fixed the same way: fetch the full summary before
+    // rendering it.
+    const closed = await res.json();
+    const full = await fetch(`${ADMIN_API_URL}/shifts/${closed.id}`, { credentials: "include" });
+    setShift(full.ok ? await full.json() : closed);
   }
 
   if (!checked) {

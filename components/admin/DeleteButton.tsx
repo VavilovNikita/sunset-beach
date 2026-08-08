@@ -7,10 +7,21 @@ export default function DeleteButton({
   url,
   confirmText,
   className,
+  conflictMessage,
+  onDeleted,
 }: {
   url: string;
   confirmText: string;
   className?: string;
+  // Shown instead of the raw backend error when DELETE returns 409 (the
+  // resource is still referenced elsewhere and can't be removed) — lets a
+  // caller point at a domain-specific way out instead of surfacing whatever
+  // string the backend happened to send.
+  conflictMessage?: string;
+  // Runs after a successful delete, in addition to router.refresh() — for
+  // callers holding their own copy of the list (e.g. TableManager) that need
+  // to drop the row immediately rather than wait on a refetch.
+  onDeleted?: () => void;
 }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
@@ -25,10 +36,15 @@ export default function DeleteButton({
     setDeleting(false);
 
     if (!res.ok) {
+      if (res.status === 409 && conflictMessage) {
+        setError(conflictMessage);
+        return;
+      }
       const data = await res.json().catch(() => null);
       setError(data?.error ?? "Could not delete.");
       return;
     }
+    onDeleted?.();
     router.refresh();
   }
 

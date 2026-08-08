@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL } from "@/lib/backend";
@@ -46,6 +46,16 @@ export default function OrderBoard({
   // table — POST /orders accepts any tableId) shows a picker here instead
   // of silently jumping to whichever order happened to be first.
   const [pickerTableId, setPickerTableId] = useState<string | null>(null);
+
+  // useState(initialTables) only takes its initial value on mount — a
+  // sibling mutating tables (TableManager) and calling router.refresh()
+  // re-renders this component with a new `initialTables` prop, but without
+  // this effect the board's own state would silently keep showing the old
+  // array until the next poll. Orders aren't affected by that sibling, so
+  // only tables need this resync.
+  useEffect(() => {
+    setTables(initialTables);
+  }, [initialTables]);
 
   async function refetch() {
     const data = await fetchActive();
@@ -216,7 +226,15 @@ export default function OrderBoard({
                 </div>
               );
             })()}
-          {visibleTables.length === 0 && <p className="text-cream/50 text-sm">No tables set up yet.</p>}
+          {visibleTables.length === 0 && (
+            <p className="text-cream/50 text-sm">
+              No tables set up yet —{" "}
+              <a href="#table-manager" className="text-sea hover:text-coral transition-colors underline underline-offset-4">
+                add one below
+              </a>
+              .
+            </p>
+          )}
         </div>
       ) : (
         <div>
