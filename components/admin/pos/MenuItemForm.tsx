@@ -3,11 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL } from "@/lib/backend";
+import { MENU_DEPARTMENT_LABELS } from "@/lib/posOrders";
+import type { MenuDepartment } from "@/lib/posTypes";
+
+const DEPARTMENTS: MenuDepartment[] = ["KITCHEN", "BAR"];
 
 type MenuItemFormValues = {
   name: string;
   description: string;
   category: string;
+  department: MenuDepartment;
   price: number;
   isAvailable: boolean;
 };
@@ -23,7 +28,7 @@ export default function MenuItemForm({
 }) {
   const router = useRouter();
   const [values, setValues] = useState<MenuItemFormValues>(
-    initialValues ?? { name: "", description: "", category: "", price: 100, isAvailable: true }
+    initialValues ?? { name: "", description: "", category: "", department: "KITCHEN", price: 100, isAvailable: true }
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -84,16 +89,34 @@ export default function MenuItemForm({
         />
       </div>
 
-      <div>
-        <label className="eyebrow text-cream/60 block mb-1">Category</label>
-        <input
-          type="text"
-          required
-          value={values.category}
-          onChange={(e) => setValues((v) => ({ ...v, category: e.target.value }))}
-          placeholder="e.g. Mains, Drinks, Spa treatments"
-          className="w-full bg-transparent border-b border-cream/25 py-2 text-cream placeholder:text-cream/40 focus:outline-none focus:border-coral"
-        />
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label className="eyebrow text-cream/60 block mb-1">Category</label>
+          <input
+            type="text"
+            required
+            value={values.category}
+            onChange={(e) => setValues((v) => ({ ...v, category: e.target.value }))}
+            placeholder="e.g. Mains, Drinks, Spa treatments"
+            className="w-full bg-transparent border-b border-cream/25 py-2 text-cream placeholder:text-cream/40 focus:outline-none focus:border-coral"
+          />
+          <p className="text-xs text-cream/40 mt-1">How this item is grouped on the menu display. Doesn&rsquo;t affect printing.</p>
+        </div>
+        <div>
+          <label className="eyebrow text-cream/60 block mb-1">Department</label>
+          <select
+            value={values.department}
+            onChange={(e) => setValues((v) => ({ ...v, department: e.target.value as MenuDepartment }))}
+            className="w-full bg-ink2 border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
+          >
+            {DEPARTMENTS.map((d) => (
+              <option key={d} value={d}>
+                {MENU_DEPARTMENT_LABELS[d]}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-cream/40 mt-1">Which printer this item&rsquo;s ticket is sent to when the order is sent.</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 items-end">

@@ -1,6 +1,9 @@
 import MenuItemForm from "@/components/admin/pos/MenuItemForm";
+import { requireRoleAtLeast } from "@/lib/rbac";
 
-export default function NewMenuItemPage() {
+export default async function NewMenuItemPage() {
+  await requireRoleAtLeast("MANAGER", "/admin/pos/menu");
+
   return (
     <div>
       <p className="eyebrow text-sea mb-2">POS</p>

@@ -30,3 +30,13 @@ export async function requireAdminUser() {
   if (user.role !== "ADMIN") redirect("/admin");
   return user;
 }
+
+// For POS pages gated at "MANAGER or above" (menu/printer management) where,
+// unlike requireAdminUser, the fallback route varies by caller — bouncing a
+// WAITER off /admin/pos/printers should land them back on /admin/pos, not
+// on the dashboard root.
+export async function requireRoleAtLeast(minimum: Role, redirectTo = "/admin") {
+  const user = await requireSessionUser();
+  if (!hasRoleAtLeast(user.role, minimum)) redirect(redirectTo);
+  return user;
+}

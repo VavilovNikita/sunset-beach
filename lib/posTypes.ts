@@ -7,11 +7,17 @@ export type Zone = "RESTAURANT" | "BAR" | "SPA" | "POOL" | "ROOM_SERVICE";
 export type OrderStatus = "OPEN" | "SENT" | "PAID" | "CANCELLED";
 export type PaymentMethod = "CASH" | "CARD" | "ROOM_CHARGE" | "OTHER";
 
+// Where a MenuItem's kitchen/bar ticket prints — independent of `category`,
+// which is a free-text display grouping for the menu itself (e.g. "Mains",
+// "Cocktails") and has no effect on print routing.
+export type MenuDepartment = "KITCHEN" | "BAR";
+
 export type MenuItem = {
   id: string;
   name: string;
   description: string;
   category: string;
+  department: MenuDepartment;
   price: string;
   isAvailable: boolean;
   createdAt: string;
@@ -21,8 +27,60 @@ export type MenuItemInput = {
   name: string;
   description: string;
   category: string;
+  department?: MenuDepartment;
   price: number;
   isAvailable?: boolean;
+};
+
+// What a Printer receives. KITCHEN/BAR get routed kitchen/bar tickets (split
+// from order line items by MenuItem.department); CASHIER gets pre-bills,
+// guest receipts, and shift Z-reports — nothing routed by menu department
+// ever goes there. Not the same enum as MenuDepartment.
+export type PrinterDepartment = "KITCHEN" | "BAR" | "CASHIER";
+
+export type PrinterCodepage = "PC437" | "TIS620";
+
+export type Printer = {
+  id: string;
+  name: string;
+  department: PrinterDepartment;
+  host: string;
+  port: number;
+  codepage: PrinterCodepage;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export type PrinterInput = {
+  name: string;
+  department: PrinterDepartment;
+  host: string;
+  port?: number;
+  codepage?: PrinterCodepage;
+  isActive?: boolean;
+};
+
+export type PrintDocumentType = "KITCHEN_TICKET" | "PREBILL" | "GUEST_RECEIPT" | "Z_REPORT" | "TEST_PAGE";
+export type PrintJobStatus = "PENDING" | "SENT" | "FAILED";
+
+export type PrintJob = {
+  id: string;
+  printerId: string;
+  documentType: PrintDocumentType;
+  summary: string;
+  status: PrintJobStatus;
+  attempts: number;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// Result of an on-demand print action (test print, pre-bill) that may
+// legitimately have nothing to print to — `attempted: false` means there was
+// no active printer configured for the target department, not an error.
+export type PrintAttemptResult = {
+  attempted: boolean;
+  job: PrintJob | null;
 };
 
 export type Table = {

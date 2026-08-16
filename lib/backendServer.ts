@@ -42,3 +42,23 @@ export async function backendJson<T>(path: string, init?: RequestInit & { auth?:
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
+
+// For data a page can render without — a fetch that throws here would
+// otherwise take down a whole Promise.all (and with it, an unrelated core
+// screen) over something secondary. Same shape as adminStats.ts's
+// getPosSummary, generalized because it's now needed at three call sites: a
+// POS board's failed-print badge, and an order ticket's table label/add-item
+// menu. `fallback` is returned as-is on any failure — network error, 401,
+// 500, anything — the caller decides what "couldn't load this" should look
+// like (empty list, `null` for "unknown" vs. "zero").
+export async function backendJsonOrDefault<T>(
+  path: string,
+  fallback: T,
+  init?: RequestInit & { auth?: boolean }
+): Promise<T> {
+  try {
+    return await backendJson<T>(path, init);
+  } catch {
+    return fallback;
+  }
+}

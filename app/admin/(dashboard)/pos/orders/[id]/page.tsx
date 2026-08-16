@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { backendJson } from "@/lib/backendServer";
+import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import OrderTicket from "@/components/admin/pos/OrderTicket";
 import type { Order, MenuItem, Table } from "@/lib/posTypes";
@@ -18,9 +18,15 @@ export default async function OrderTicketPage({ params }: { params: { id: string
   // DELETE by id — so the label is resolved by fetching the list and
   // finding the match client-side. Tables are a few dozen at most, not
   // worth avoiding.
+  //
+  // Neither fetch is load-bearing for the order itself — OrderTicket already
+  // falls back to "Unknown item" for an item missing from `menu` and
+  // AddOrderItemForm already handles an empty menu, while a missing `table`
+  // just falls through to the guestName/Ticket# header below. A transient
+  // failure on either shouldn't turn an otherwise-fine order into a 500.
   const [menu, tables] = await Promise.all([
-    backendJson<MenuItem[]>("/menu", { auth: true }),
-    backendJson<Table[]>("/tables", { auth: true }),
+    backendJsonOrDefault<MenuItem[]>("/menu", [], { auth: true }),
+    backendJsonOrDefault<Table[]>("/tables", [], { auth: true }),
   ]);
   const table = order.tableId ? tables.find((t) => t.id === order.tableId) ?? null : null;
 

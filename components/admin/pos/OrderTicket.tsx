@@ -7,7 +7,7 @@ import { usePolling } from "@/lib/usePolling";
 import { PAYMENT_METHOD_LABELS, STATUS_LABELS, STATUS_STYLES, isTerminalStatus } from "@/lib/posOrders";
 import AddOrderItemForm from "@/components/admin/pos/AddOrderItemForm";
 import RoomChargeLink from "@/components/admin/pos/RoomChargeLink";
-import type { Order, MenuItem, PaymentMethod } from "@/lib/posTypes";
+import type { Order, MenuItem, PaymentMethod, PrintAttemptResult } from "@/lib/posTypes";
 
 export default function OrderTicket({ initialOrder, menu }: { initialOrder: Order; menu: MenuItem[] }) {
   const [order, setOrder] = useState(initialOrder);
@@ -32,6 +32,9 @@ export default function OrderTicket({ initialOrder, menu }: { initialOrder: Orde
   // component itself just sent. Only reflects payments made in this
   // session; a reload after the fact won't reconstruct it.
   const [lastPayment, setLastPayment] = useState<{ method: PaymentMethod; amount: number } | null>(null);
+  const [printingPrebill, setPrintingPrebill] = useState(false);
+  const [prebillResult, setPrebillResult] = useState<PrintAttemptResult | null>(null);
+  const [prebillError, setPrebillError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${ADMIN_API_URL}/shifts/current`, { credentials: "include" })
@@ -82,6 +85,29 @@ export default function OrderTicket({ initialOrder, menu }: { initialOrder: Orde
       credentials: "include",
     });
     if (res.ok) setOrder(await res.json());
+  }
+
+  async function handlePrintPrebill() {
+    setPrintingPrebill(true);
+    setPrebillResult(null);
+    setPrebillError(null);
+    const res = await fetch(`${ADMIN_API_URL}/orders/${order.id}/print-prebill`, {
+      method: "POST",
+      credentials: "include",
+    });
+    setPrintingPrebill(false);
+    if (!res.ok) {
+      // A failed request here means no PrintJob was even queued (unlike a
+      // reachable-but-broken printer, which still returns 201 with
+      // attempted:true/status:FAILED — see the prebillResult branch below).
+      // Silently doing nothing on a non-OK response is exactly the bug this
+      // fixes: staff would see the button go back to normal and assume the
+      // pre-bill printed.
+      const data = await res.json().catch(() => null);
+      setPrebillError(data?.error ? JSON.stringify(data.error) : "Could not print pre-bill — try again.");
+      return;
+    }
+    setPrebillResult(await res.json());
   }
 
   async function handleClose(method: "CASH" | "CARD") {
@@ -178,6 +204,29 @@ export default function OrderTicket({ initialOrder, menu }: { initialOrder: Orde
 
         {error && <p className="text-sm text-coral">{error}</p>}
 
+        {closable && (
+          <div>
+            <button
+              type="button"
+              onClick={handlePrintPrebill}
+              disabled={printingPrebill}
+              className="w-full rounded-full border border-cream/25 hover:border-cream/50 transition-colors py-2.5 text-sm font-medium disabled:opacity-60"
+            >
+              {printingPrebill ? "Printing…" : "Print pre-bill"}
+            </button>
+            {prebillError && <p className="mt-2 text-xs text-coral">{prebillError}</p>}
+            {prebillResult && (
+              <p className={`mt-2 text-xs ${prebillResult.job?.status === "SENT" ? "text-cream/50" : "text-coral"}`}>
+                {!prebillResult.attempted
+                  ? "No active cashier printer configured — nothing printed."
+                  : prebillResult.job?.status === "SENT"
+                    ? "Pre-bill printed."
+                    : `Print failed${prebillResult.job?.lastError ? `: ${prebillResult.job.lastError}` : ""} — it's in the print queue for retry.`}
+              </p>
+            )}
+          </div>
+        )}
+
         {canEditItems && (
           <button
             type="button"
@@ -194,7 +243,7 @@ export default function OrderTicket({ initialOrder, menu }: { initialOrder: Orde
             <p className="eyebrow text-cream/50">Close order</p>
             {hasOpenShift === false ? (
               <p className="text-sm text-cream/60">
-                Откройте смену, чтобы принимать оплату.{" "}
+                Open a shift to accept payment.{" "}
                 <Link
                   href="/admin/pos/shifts"
                   className="text-sea hover:text-coral transition-colors underline underline-offset-4"

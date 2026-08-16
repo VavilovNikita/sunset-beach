@@ -1,10 +1,13 @@
 import { notFound } from "next/navigation";
 import { backendJson } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
+import { requireRoleAtLeast } from "@/lib/rbac";
 import MenuItemForm from "@/components/admin/pos/MenuItemForm";
 import type { MenuItem } from "@/lib/posTypes";
 
 export default async function EditMenuItemPage({ params }: { params: { id: string } }) {
+  await requireRoleAtLeast("MANAGER", "/admin/pos/menu");
+
   let item: MenuItem;
   try {
     item = await backendJson<MenuItem>(`/menu/${params.id}`, { auth: true });
@@ -24,6 +27,7 @@ export default async function EditMenuItemPage({ params }: { params: { id: strin
           name: item.name,
           description: item.description,
           category: item.category,
+          department: item.department,
           price: Number(item.price),
           isAvailable: item.isAvailable,
         }}

@@ -13,7 +13,14 @@ const links = [
   { href: "/admin/pos", label: "POS" },
   { href: "/admin/pos/menu", label: "Menu" },
   { href: "/admin/pos/shifts", label: "Shifts" },
+  { href: "/admin/pos/print-jobs", label: "Print queue" },
 ];
+
+// GET /printers is MANAGER+ on the backend with no lower-privilege read —
+// unlike the rest of this list, a WAITER/CASHIER hitting this link would
+// just 404 the page, so it's added conditionally rather than always shown
+// and gated client-side.
+const MANAGER_PLUS_LINKS = [{ href: "/admin/pos/printers", label: "Printers" }];
 
 export default function AdminSidebar({ email, role }: { email: string; role: Role }) {
   const pathname = usePathname();
@@ -25,7 +32,16 @@ export default function AdminSidebar({ email, role }: { email: string; role: Rol
     router.refresh();
   }
 
-  const items = role === "ADMIN" ? [...links, { href: "/admin/users", label: "Users" }] : links;
+  // hasRoleAtLeast lives in lib/rbac.ts alongside next/headers-dependent
+  // helpers, which can't be imported into a client component — the
+  // ADMIN/MANAGER check is inlined here instead (POS's only two
+  // MANAGER-plus roles).
+  const isManagerPlus = role === "ADMIN" || role === "MANAGER";
+  const items = [
+    ...links,
+    ...(isManagerPlus ? MANAGER_PLUS_LINKS : []),
+    ...(role === "ADMIN" ? [{ href: "/admin/users", label: "Users" }] : []),
+  ];
 
   return (
     <aside className="w-full md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-cream/10 md:min-h-screen bg-ink2/40">
