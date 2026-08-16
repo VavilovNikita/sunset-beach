@@ -12,10 +12,18 @@ import { BACKEND_URL } from "@/lib/backend";
 // hasRoleAtLeast) — CASHIER/WAITER were added for the POS module.
 export type Role = "ADMIN" | "MANAGER" | "CASHIER" | "WAITER";
 
+// Full shape of the backend's `User` schema — the same one GET /users
+// returns (see lib/types.ts, which re-exports this as `User` rather than
+// keeping its own copy). It used to be redeclared there without `createdAt`,
+// a second copy of the same entity that had already drifted out of sync;
+// nothing here currently reads `createdAt` off a session user, but there's
+// no reason a session-scoped type should structurally lie about what the
+// backend actually sends back.
 export type SessionUser = {
   id: string;
   email: string;
   role: Role;
+  createdAt: string;
 };
 
 export const SESSION_COOKIE_NAME = "session-token";

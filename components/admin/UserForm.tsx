@@ -3,12 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL } from "@/lib/backend";
+import type { Role } from "@/lib/types";
+
+const ROLES: Role[] = ["WAITER", "CASHIER", "MANAGER", "ADMIN"];
 
 export default function UserForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"ADMIN" | "MANAGER">("MANAGER");
+  const [role, setRole] = useState<Role>("MANAGER");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -63,11 +66,14 @@ export default function UserForm() {
         <label className="eyebrow text-cream/60 block mb-1">Role</label>
         <select
           value={role}
-          onChange={(e) => setRole(e.target.value as "ADMIN" | "MANAGER")}
+          onChange={(e) => setRole(e.target.value as Role)}
           className="bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
         >
-          <option value="MANAGER">MANAGER</option>
-          <option value="ADMIN">ADMIN</option>
+          {ROLES.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
         </select>
       </div>
 
