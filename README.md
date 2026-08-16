@@ -44,6 +44,23 @@ endpoint that returns it directly.
 3. Point this repo's `BACKEND_API_URL` / `NEXT_PUBLIC_BACKEND_API_URL` at
    that sunset instance (see `.env.example`).
 
+### API contract
+
+There is no `openapi.yaml` in this repo (one existed here historically,
+describing the pre-rewrite Next.js/Prisma/NextAuth API — it was deleted
+because it no longer matched anything and had already caused an agent to work
+from the wrong schema). The real, current contract is `openapi.yaml` in the
+`sunset` repo — that's the source of truth for every request/response shape
+this frontend depends on.
+
+`lib/types.ts` and `lib/posTypes.ts` hand-mirror that contract (rooms,
+bookings, availability, pricing, users on the one hand; POS menu/tables/
+orders/shifts/payments on the other). There is no codegen step tying them
+together — **when `sunset`'s `openapi.yaml` changes, these two files have to
+be updated by hand to match**, and it's worth grepping for the changed field
+names across `components/`/`app/`/`lib/` afterward, since nothing here will
+catch a drift automatically.
+
 ### Where the frontend gets `BACKEND_API_URL`
 
 Two env vars, both pointing at the Java API (see `.env.example`):

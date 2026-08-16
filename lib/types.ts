@@ -10,6 +10,7 @@ export type Room = {
   name: string;
   description: string;
   capacity: number;
+  quantity: number;
   basePrice: string;
   images: string[];
   createdAt: string;
@@ -41,7 +42,16 @@ export type User = {
 export type PricingDay = { date: string; price: number; isOverride: boolean };
 export type PricingResponse = { basePrice: number; days: PricingDay[] };
 
-export type AvailabilityDay = { date: string; isBlocked: boolean; source: "booking" | "manual" | null };
+// quantity/blockedCount/bookedCount are the raw counts for that day;
+// availableCount = quantity - blockedCount - bookedCount and isn't clamped
+// at 0, since a negative remainder is exactly what staff need to see.
+export type AvailabilityDay = {
+  date: string;
+  quantity: number;
+  blockedCount: number;
+  bookedCount: number;
+  availableCount: number;
+};
 export type AvailabilityResponse = { days: AvailabilityDay[] };
 
 export type PublicAvailabilityDay = { date: string; isBlocked: boolean };

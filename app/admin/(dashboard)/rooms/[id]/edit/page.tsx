@@ -26,6 +26,7 @@ export default async function EditRoomPage({ params }: { params: { id: string } 
           name: room.name,
           description: room.description,
           capacity: room.capacity,
+          quantity: room.quantity,
           basePrice: Number(room.basePrice),
         }}
       />
