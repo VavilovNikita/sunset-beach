@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
 import { backendJson } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
+import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
 import RoomForm from "@/components/admin/RoomForm";
 import RoomImageUploader from "@/components/admin/RoomImageUploader";
-import type { Room } from "@/lib/types";
+import RoomUnitManager from "@/components/admin/RoomUnitManager";
+import type { Room, RoomUnit } from "@/lib/types";
 
 export default async function EditRoomPage({ params }: { params: { id: string } }) {
   let room: Room;
@@ -14,6 +16,12 @@ export default async function EditRoomPage({ params }: { params: { id: string } 
     throw e;
   }
 
+  const user = await getSessionUser();
+  const canManageUnits = !!user && hasRoleAtLeast(user.role, "MANAGER");
+  // GET /room-units is MANAGER+ with no lower-privilege read (per
+  // openapi.yaml) — skip the call entirely rather than let it 403.
+  const units = canManageUnits ? await backendJson<RoomUnit[]>(`/room-units?roomId=${room.id}`, { auth: true }) : [];
+
   return (
     <div>
       <p className="eyebrow text-sea mb-2">Inventory</p>
@@ -22,17 +30,22 @@ export default async function EditRoomPage({ params }: { params: { id: string } 
       <RoomForm
         mode="edit"
         roomId={room.id}
+        activeUnitCount={room.activeUnitCount}
         initialValues={{
           name: room.name,
           description: room.description,
           capacity: room.capacity,
-          quantity: room.quantity,
           basePrice: Number(room.basePrice),
         }}
       />
 
       <div className="mt-10 pt-10 border-t border-cream/10">
         <RoomImageUploader roomId={room.id} images={room.images} />
+      </div>
+
+      <div className="mt-10 pt-10 border-t border-cream/10">
+        <p className="eyebrow text-cream/50 mb-3">Rooms</p>
+        <RoomUnitManager roomId={room.id} initialUnits={units} canManage={canManageUnits} />
       </div>
     </div>
   );

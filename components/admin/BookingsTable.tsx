@@ -20,6 +20,7 @@ export default function BookingsTable({ bookings }: { bookings: Booking[] }) {
           <tr className="text-left text-cream/40 eyebrow border-b border-cream/10">
             <th className="py-2 pr-4">Guest</th>
             <th className="py-2 pr-4">Room</th>
+            <th className="py-2 pr-4">Assigned</th>
             <th className="py-2 pr-4">Check-in</th>
             <th className="py-2 pr-4">Check-out</th>
             <th className="py-2 pr-4">Total</th>
@@ -37,6 +38,13 @@ export default function BookingsTable({ bookings }: { bookings: Booking[] }) {
                 <p className="text-xs text-cream/40">{b.guestEmail}</p>
               </td>
               <td className="py-3 pr-4 text-cream/70">{b.room.name}</td>
+              <td className="py-3 pr-4">
+                {b.roomUnit ? (
+                  <span className="text-cream/70">{b.roomUnit.label}</span>
+                ) : (
+                  <span className="rounded-full px-2.5 py-1 text-xs bg-amber-400/15 text-amber-400">Unassigned</span>
+                )}
+              </td>
               <td className="py-3 pr-4 text-cream/70">{b.checkIn.slice(0, 10)}</td>
               <td className="py-3 pr-4 text-cream/70">{b.checkOut.slice(0, 10)}</td>
               <td className="py-3 pr-4 text-cream/70">฿{Number(b.totalPrice).toLocaleString("en-US")}</td>

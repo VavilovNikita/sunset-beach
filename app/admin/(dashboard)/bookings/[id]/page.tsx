@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { backendJson } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
+import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
 import BookingStatusForm from "@/components/admin/BookingStatusForm";
-import type { Booking } from "@/lib/types";
+import BookingRoomUnitAssign from "@/components/admin/BookingRoomUnitAssign";
+import type { Booking, RoomUnit } from "@/lib/types";
 import type { BookingPosOrder, Folio } from "@/lib/posTypes";
 
 export default async function AdminBookingDetailPage({ params }: { params: { id: string } }) {
@@ -20,6 +22,20 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
   const posOrders = await backendJson<BookingPosOrder[]>(`/bookings/${params.id}/pos-orders`, {
     auth: true,
   }).catch(() => []);
+
+  const user = await getSessionUser();
+  // PUT /bookings/{id}/room-unit is CASHIER+, but GET /room-units (the only
+  // way to list which rooms exist to pick from) is MANAGER+ — a CASHIER can
+  // assign/unassign but can't browse options above a manager's shoulder.
+  // canAssign gates the write; canListUnits gates whether we even attempt
+  // the read, so BookingRoomUnitAssign can tell "nothing to assign" apart
+  // from "you're not allowed to see the list."
+  const canAssign = !!user && hasRoleAtLeast(user.role, "CASHIER");
+  const canListUnits = !!user && hasRoleAtLeast(user.role, "MANAGER");
+  const roomUnits = canListUnits
+    ? await backendJson<RoomUnit[]>(`/room-units?roomId=${booking.roomId}`, { auth: true }).catch(() => [])
+    : [];
+  const assignableUnits = roomUnits.filter((u) => u.isActive);
 
   // Read-only — this doesn't write anything back to paymentNote or the
   // booking status. It's what front desk reads off at checkout, so a failed
@@ -65,12 +81,21 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
           </p>
         </div>
 
-        <BookingStatusForm
-          bookingId={booking.id}
-          currentStatus={booking.status}
-          currentPaymentNote={booking.paymentNote}
-          folio={folio}
-        />
+        <div className="space-y-6">
+          <BookingRoomUnitAssign
+            bookingId={booking.id}
+            units={assignableUnits}
+            currentRoomUnit={booking.roomUnit}
+            canAssign={canAssign}
+            canListUnits={canListUnits}
+          />
+          <BookingStatusForm
+            bookingId={booking.id}
+            currentStatus={booking.status}
+            currentPaymentNote={booking.paymentNote}
+            folio={folio}
+          />
+        </div>
       </div>
 
       {folioFailed ? (

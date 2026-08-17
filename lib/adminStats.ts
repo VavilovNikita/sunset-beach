@@ -72,10 +72,10 @@ export async function getDashboardStats() {
     }
   }
 
-  // Each Room row is now a room *type* with `quantity` sellable units, not a
-  // single physical room — occupancy must be denominated by total units, not
-  // by the number of room types.
-  const totalUnits = rooms.reduce((sum, r) => sum + r.quantity, 0);
+  // Each Room row is a room *type*; activeUnitCount is how many physical
+  // RoomUnits currently sell under it — occupancy must be denominated by
+  // total units, not by the number of room types.
+  const totalUnits = rooms.reduce((sum, r) => sum + r.activeUnitCount, 0);
   const totalRoomNights = totalUnits * OCCUPANCY_WINDOW_DAYS;
   const occupancyPct = totalRoomNights > 0 ? Math.round((bookedNights / totalRoomNights) * 100) : 0;
 

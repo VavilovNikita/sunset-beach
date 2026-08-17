@@ -44,8 +44,8 @@ export default async function AdminRoomsPage() {
             <div className="flex-1 min-w-0">
               <p className="font-display text-lg truncate">{room.name}</p>
               <p className="text-sm text-cream/60">
-                {room.capacity} guests · {room.quantity} {room.quantity === 1 ? "room" : "rooms"} · ฿
-                {Number(room.basePrice).toLocaleString("en-US")}/night base
+                {room.capacity} guests · {room.activeUnitCount} active {room.activeUnitCount === 1 ? "room" : "rooms"}{" "}
+                · ฿{Number(room.basePrice).toLocaleString("en-US")}/night base
               </p>
             </div>
             <Link href={`/admin/rooms/${room.id}/edit`} className="text-sm text-sea hover:text-coral transition-colors">

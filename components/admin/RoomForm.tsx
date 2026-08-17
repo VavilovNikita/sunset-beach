@@ -8,7 +8,6 @@ type RoomFormValues = {
   name: string;
   description: string;
   capacity: number;
-  quantity: number;
   basePrice: number;
 };
 
@@ -16,14 +15,19 @@ export default function RoomForm({
   mode,
   roomId,
   initialValues,
+  activeUnitCount,
 }: {
   mode: "create" | "edit";
   roomId?: string;
   initialValues?: RoomFormValues;
+  // Read-only — how many physical rooms currently exist under this type.
+  // Only present in edit mode; a brand-new type has no rooms yet, and
+  // they're added afterward via the room manager below this form.
+  activeUnitCount?: number;
 }) {
   const router = useRouter();
   const [values, setValues] = useState<RoomFormValues>(
-    initialValues ?? { name: "", description: "", capacity: 2, quantity: 1, basePrice: 3000 }
+    initialValues ?? { name: "", description: "", capacity: 2, basePrice: 3000 }
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -84,7 +88,7 @@ export default function RoomForm({
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="eyebrow text-cream/60 block mb-1">Capacity (guests per room)</label>
           <input
@@ -94,18 +98,6 @@ export default function RoomForm({
             required
             value={values.capacity}
             onChange={(e) => setValues((v) => ({ ...v, capacity: Number(e.target.value) }))}
-            className="w-full bg-transparent border-b border-cream/25 py-2 text-cream focus:outline-none focus:border-coral"
-          />
-        </div>
-        <div>
-          <label className="eyebrow text-cream/60 block mb-1">Quantity (rooms of this type)</label>
-          <input
-            type="number"
-            min={1}
-            max={500}
-            required
-            value={values.quantity}
-            onChange={(e) => setValues((v) => ({ ...v, quantity: Number(e.target.value) }))}
             className="w-full bg-transparent border-b border-cream/25 py-2 text-cream focus:outline-none focus:border-coral"
           />
         </div>
@@ -122,6 +114,13 @@ export default function RoomForm({
           />
         </div>
       </div>
+
+      {mode === "edit" && (
+        <p className="text-sm text-cream/50">
+          {activeUnitCount ?? 0} active room{activeUnitCount === 1 ? "" : "s"} of this type. This count is computed
+          from the rooms below — add, rename, or deactivate them there rather than editing a number here.
+        </p>
+      )}
 
       {error && <p className="text-sm text-coral">{error}</p>}
 

@@ -59,6 +59,10 @@ export async function POST(req: Request, { params }: RouteContext) {
   return proxy(req, params.path);
 }
 
+export async function PUT(req: Request, { params }: RouteContext) {
+  return proxy(req, params.path);
+}
+
 export async function PATCH(req: Request, { params }: RouteContext) {
   return proxy(req, params.path);
 }
