@@ -73,6 +73,7 @@ export const PRINT_JOB_STATUS_LABELS: Record<PrintJobStatus, string> = {
 
 export const PRINT_DOCUMENT_TYPE_LABELS: Record<PrintDocumentType, string> = {
   KITCHEN_TICKET: "Kitchen ticket",
+  BAR_TICKET: "Bar ticket",
   PREBILL: "Pre-bill",
   GUEST_RECEIPT: "Guest receipt",
   Z_REPORT: "Z-report",

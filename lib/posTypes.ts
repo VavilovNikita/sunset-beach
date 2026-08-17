@@ -60,7 +60,7 @@ export type PrinterInput = {
   isActive?: boolean;
 };
 
-export type PrintDocumentType = "KITCHEN_TICKET" | "PREBILL" | "GUEST_RECEIPT" | "Z_REPORT" | "TEST_PAGE";
+export type PrintDocumentType = "KITCHEN_TICKET" | "BAR_TICKET" | "PREBILL" | "GUEST_RECEIPT" | "Z_REPORT" | "TEST_PAGE";
 export type PrintJobStatus = "PENDING" | "SENT" | "FAILED";
 
 export type PrintJob = {

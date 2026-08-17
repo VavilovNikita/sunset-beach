@@ -8,7 +8,7 @@ import {
   PRINT_JOB_STATUS_STYLES,
   PRINT_DOCUMENT_TYPE_LABELS,
 } from "@/lib/posOrders";
-import type { PrintJob, PrintJobStatus } from "@/lib/posTypes";
+import type { PrintJob, PrintJobStatus, PrintDocumentType } from "@/lib/posTypes";
 
 const FILTERS: (PrintJobStatus | "")[] = ["FAILED", "PENDING", "SENT", ""];
 const FILTER_LABELS: Record<PrintJobStatus | "", string> = {
@@ -16,6 +16,17 @@ const FILTER_LABELS: Record<PrintJobStatus | "", string> = {
   PENDING: "Pending",
   SENT: "Sent",
   "": "All",
+};
+
+// Kitchen and bar tickets used to be one document type (KITCHEN_TICKET
+// covered both); now that the backend splits them, a station filter lets
+// kitchen and bar failures be checked separately instead of scrolling past
+// each other in one merged list. Doesn't include every PrintDocumentType —
+// pre-bill/receipt/Z-report/test-page failures aren't a "station" concern.
+const DOC_TYPE_FILTERS: (PrintDocumentType | "")[] = ["", "KITCHEN_TICKET", "BAR_TICKET"];
+const DOC_TYPE_FILTER_LABELS: Record<PrintDocumentType | "", string> = {
+  ...PRINT_DOCUMENT_TYPE_LABELS,
+  "": "All stations",
 };
 
 // What comes back is already scoped server-side to what the caller's role
@@ -32,15 +43,19 @@ export default function PrintQueue({
 }) {
   const [jobs, setJobs] = useState(initialJobs);
   const [filter, setFilter] = useState(initialFilter);
+  const [docTypeFilter, setDocTypeFilter] = useState<PrintDocumentType | "">("");
   const [retryingId, setRetryingId] = useState<string | null>(null);
   // Keyed by job id rather than one shared string — a single banner above
   // the list can't say which of several jobs a retry failure belongs to,
   // and would get wiped by the next unrelated retry attempt.
   const [retryErrors, setRetryErrors] = useState<Record<string, string>>({});
 
-  async function refetch(activeFilter: PrintJobStatus | "" = filter) {
-    const query = activeFilter ? `?status=${activeFilter}` : "";
-    const res = await fetch(`${ADMIN_API_URL}/print-jobs${query}`, { credentials: "include" });
+  async function refetch(activeFilter: PrintJobStatus | "" = filter, activeDocTypeFilter: PrintDocumentType | "" = docTypeFilter) {
+    const params = new URLSearchParams();
+    if (activeFilter) params.set("status", activeFilter);
+    if (activeDocTypeFilter) params.set("documentType", activeDocTypeFilter);
+    const query = params.toString();
+    const res = await fetch(`${ADMIN_API_URL}/print-jobs${query ? `?${query}` : ""}`, { credentials: "include" });
     if (res.ok) setJobs(await res.json());
   }
 
@@ -48,7 +63,12 @@ export default function PrintQueue({
 
   function handleFilterChange(next: PrintJobStatus | "") {
     setFilter(next);
-    refetch(next);
+    refetch(next, docTypeFilter);
+  }
+
+  function handleDocTypeFilterChange(next: PrintDocumentType | "") {
+    setDocTypeFilter(next);
+    refetch(filter, next);
   }
 
   async function handleRetry(id: string) {
@@ -93,6 +113,21 @@ export default function PrintQueue({
             }`}
           >
             {FILTER_LABELS[f]}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2 mb-6">
+        {DOC_TYPE_FILTERS.map((t) => (
+          <button
+            key={t || "ALL"}
+            type="button"
+            onClick={() => handleDocTypeFilterChange(t)}
+            className={`text-sm rounded-full px-4 py-2 transition-colors ${
+              docTypeFilter === t ? "bg-sea text-ink" : "bg-ink2/40 border border-cream/10 text-cream/70 hover:text-cream"
+            }`}
+          >
+            {DOC_TYPE_FILTER_LABELS[t]}
           </button>
         ))}
       </div>
