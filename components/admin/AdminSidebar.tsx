@@ -7,6 +7,7 @@ import type { Role } from "@/lib/session";
 const links = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/bookings", label: "Bookings" },
+  { href: "/admin/bookings/calendar", label: "Calendar" },
   { href: "/admin/rooms", label: "Rooms" },
   { href: "/admin/pricing", label: "Pricing" },
   { href: "/admin/availability", label: "Availability" },
@@ -43,6 +44,14 @@ export default function AdminSidebar({ email, role }: { email: string; role: Rol
     ...(role === "ADMIN" ? [{ href: "/admin/users", label: "Users" }] : []),
   ];
 
+  // Nested routes (e.g. /admin/bookings/calendar under /admin/bookings) mean more than one
+  // item's href can prefix-match the current path — picking the single longest matching href
+  // keeps exactly one item highlighted instead of a parent and its child both lighting up.
+  const matching = items.filter((l) =>
+    l.href === "/admin" ? pathname === "/admin" : pathname === l.href || pathname.startsWith(`${l.href}/`)
+  );
+  const activeHref = matching.sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
   return (
     <aside className="w-full md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-cream/10 md:min-h-screen bg-ink2/40">
       <div className="p-6">
@@ -53,7 +62,7 @@ export default function AdminSidebar({ email, role }: { email: string; role: Rol
 
         <nav className="flex flex-row md:flex-col gap-1 flex-wrap">
           {items.map((l) => {
-            const active = l.href === "/admin" ? pathname === "/admin" : pathname.startsWith(l.href);
+            const active = l.href === activeHref;
             return (
               <Link
                 key={l.href}
@@ -69,7 +78,9 @@ export default function AdminSidebar({ email, role }: { email: string; role: Rol
         </nav>
 
         <div className="mt-10 pt-6 border-t border-cream/10">
-          <p className="text-xs text-cream/50 truncate">{email}</p>
+          <Link href="/admin/account" className="text-xs text-cream/50 truncate block hover:text-cream transition-colors">
+            {email}
+          </Link>
           <p className="eyebrow text-cream/40 mt-0.5">{role}</p>
           <button
             onClick={handleSignOut}

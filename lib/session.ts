@@ -23,6 +23,7 @@ export type SessionUser = {
   id: string;
   email: string;
   role: Role;
+  active: boolean;
   createdAt: string;
 };
 

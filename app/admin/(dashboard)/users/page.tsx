@@ -2,6 +2,8 @@ import Link from "next/link";
 import { backendJson } from "@/lib/backendServer";
 import { requireAdminUser } from "@/lib/rbac";
 import UserRoleSelect from "@/components/admin/UserRoleSelect";
+import UserActiveToggle from "@/components/admin/UserActiveToggle";
+import ResetPasswordButton from "@/components/admin/ResetPasswordButton";
 import type { User } from "@/lib/types";
 
 export default async function AdminUsersPage() {
@@ -28,12 +30,19 @@ export default async function AdminUsersPage() {
         {users.map((u) => (
           <div
             key={u.id}
-            className="flex items-center gap-4 bg-ink2/40 border border-cream/10 rounded-xl p-4"
+            className={`flex items-center gap-4 bg-ink2/40 border rounded-xl p-4 ${
+              u.active ? "border-cream/10" : "border-coral/30"
+            }`}
           >
             <div className="flex-1 min-w-0">
-              <p className="truncate">{u.email}</p>
+              <p className="truncate">
+                {u.email}
+                {!u.active && <span className="ml-2 text-xs text-coral border border-coral/40 rounded-full px-2 py-0.5">Disabled</span>}
+              </p>
               <p className="text-xs text-cream/40">Joined {u.createdAt.slice(0, 10)}</p>
             </div>
+            <ResetPasswordButton userId={u.id} />
+            <UserActiveToggle userId={u.id} active={u.active} disabled={u.id === sessionUser.id} />
             <UserRoleSelect userId={u.id} currentRole={u.role} disabled={u.id === sessionUser.id} />
           </div>
         ))}
