@@ -4,8 +4,8 @@ import { backendJson } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
 import BookingStatusForm from "@/components/admin/BookingStatusForm";
-import BookingRoomUnitAssign from "@/components/admin/BookingRoomUnitAssign";
-import type { Booking, RoomUnit } from "@/lib/types";
+import BookingScheduleForm from "@/components/admin/BookingScheduleForm";
+import type { AuditLogPage, Booking, RoomUnit } from "@/lib/types";
 import type { BookingPosOrder, Folio } from "@/lib/posTypes";
 
 export default async function AdminBookingDetailPage({ params }: { params: { id: string } }) {
@@ -24,18 +24,26 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
   }).catch(() => []);
 
   const user = await getSessionUser();
-  // PUT /bookings/{id}/room-unit is CASHIER+, but GET /room-units (the only
+  // PATCH /bookings/{id}/schedule is CASHIER+, but GET /room-units (the only
   // way to list which rooms exist to pick from) is MANAGER+ — a CASHIER can
-  // assign/unassign but can't browse options above a manager's shoulder.
-  // canAssign gates the write; canListUnits gates whether we even attempt
-  // the read, so BookingRoomUnitAssign can tell "nothing to assign" apart
-  // from "you're not allowed to see the list."
-  const canAssign = !!user && hasRoleAtLeast(user.role, "CASHIER");
+  // change dates/assign/unassign but can't browse options above a manager's
+  // shoulder. canEditSchedule gates the write; canListUnits gates whether we
+  // even attempt the read, so BookingScheduleForm can tell "nothing to
+  // assign" apart from "you're not allowed to see the list."
+  const canEditSchedule = !!user && hasRoleAtLeast(user.role, "CASHIER");
   const canListUnits = !!user && hasRoleAtLeast(user.role, "MANAGER");
   const roomUnits = canListUnits
     ? await backendJson<RoomUnit[]>(`/room-units?roomId=${booking.roomId}`, { auth: true }).catch(() => [])
     : [];
   const assignableUnits = roomUnits.filter((u) => u.isActive);
+
+  // GET /audit-log is MANAGER+, same gate as GET /room-units above (canListUnits) - reused here
+  // rather than a second identically-scoped check.
+  const auditLog = canListUnits
+    ? await backendJson<AuditLogPage>(`/audit-log?entityType=BOOKING&entityId=${booking.id}&pageSize=50`, { auth: true }).catch(
+        () => null
+      )
+    : null;
 
   // Read-only — this doesn't write anything back to paymentNote or the
   // booking status. It's what front desk reads off at checkout, so a failed
@@ -68,12 +76,6 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             <span className="text-cream/40">Phone:</span> {booking.guestPhone}
           </p>
           <p>
-            <span className="text-cream/40">Check-in:</span> {booking.checkIn.slice(0, 10)}
-          </p>
-          <p>
-            <span className="text-cream/40">Check-out:</span> {booking.checkOut.slice(0, 10)}
-          </p>
-          <p>
             <span className="text-cream/40">Total:</span> ฿{Number(booking.totalPrice).toLocaleString("en-US")}
           </p>
           <p>
@@ -82,11 +84,10 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
         </div>
 
         <div className="space-y-6">
-          <BookingRoomUnitAssign
-            bookingId={booking.id}
+          <BookingScheduleForm
+            booking={booking}
             units={assignableUnits}
-            currentRoomUnit={booking.roomUnit}
-            canAssign={canAssign}
+            canEdit={canEditSchedule}
             canListUnits={canListUnits}
           />
           <BookingStatusForm
@@ -154,6 +155,31 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
               </Link>
             ))}
           </div>
+        </div>
+      )}
+
+      {auditLog && (
+        <div className="mt-10 pt-10 border-t border-cream/10">
+          <p className="eyebrow text-cream/50 mb-3">History</p>
+          {auditLog.items.length === 0 ? (
+            <p className="text-sm text-cream/40">No recorded actions on this booking yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {auditLog.items.map((entry) => (
+                <div key={entry.id} className="bg-ink2/40 border border-cream/10 rounded-xl p-4 text-sm">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <span className="text-cream/70">{entry.summary}</span>
+                    <span className="text-xs text-cream/40 shrink-0">
+                      {entry.createdAt.slice(0, 19).replace("T", " ")} UTC
+                    </span>
+                  </div>
+                  <p className="text-xs text-cream/40 mt-2">
+                    {entry.actorEmail} ({entry.actorRole})
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

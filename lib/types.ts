@@ -8,6 +8,7 @@
 // could type-check while a WAITER/CASHIER `User.role` silently rendered as
 // MANAGER in the picker — the type lied about what values could show up.
 export type { Role } from "@/lib/session";
+import type { Role } from "@/lib/session";
 // Same deal: this used to be its own `{id, email, role, createdAt}` object
 // here, a second copy of lib/session.ts's SessionUser — which is the exact
 // same backend `User` schema (GET /auth/me and GET /users both return it).
@@ -121,3 +122,152 @@ export type AvailabilityResponse = { days: AvailabilityDay[] };
 
 export type PublicAvailabilityDay = { date: string; isBlocked: boolean };
 export type PublicAvailabilityResponse = { days: PublicAvailabilityDay[] };
+
+// --- Booking calendar grid (GET /bookings/calendar) ---
+//
+// A deliberately different read model from AvailabilityResponse above, not a
+// third way to compute the same thing: AvailabilityResponse answers "is this
+// day/unit sellable" (booleans/counts) for one room type per month;
+// BookingCalendarResponse answers "which booking, whose guest, what status"
+// across every room type at once, for an arbitrary date range, to power a
+// drag/resize Gantt-style grid. See openapi.yaml's GET /bookings/calendar
+// description for the full reasoning.
+
+// availableCount mirrors AvailabilityDay's — computed by the same shared
+// server-side formula (InventoryMath), deliberately NOT clamped at zero. A
+// negative value means more bookings/blocks than currently-active units
+// (e.g. after a unit was deactivated) — render it as a distinct warning
+// state, never floor it to 0 or show it as an ordinary number.
+export type RoomTypeDailyAvailability = { date: string; availableCount: number };
+
+export type RoomTypeCalendar = {
+  roomId: string;
+  roomName: string;
+  roomUnits: RoomUnit[];
+  dailyAvailable: RoomTypeDailyAvailability[];
+};
+
+// A lighter Booking projection for the grid — no nested room/roomUnit,
+// cross-referenced against BookingCalendarResponse.roomTypes instead.
+//
+// checkIn/checkOut here are plain "YYYY-MM-DD" dates, UNLIKE Booking.checkIn/
+// checkOut above (which carry a legacy "T00:00:00.000Z" time component, a
+// Prisma serialization artifact this schema is new enough to not repeat).
+// Route both through dateOnlyUTC() (lib/bookings.ts) regardless — never a
+// manual string slice/parse; see that function's own comment about the past
+// bug (a bad date parse silently zeroed dashboard revenue/occupancy).
+export type CalendarBooking = {
+  id: string;
+  roomId: string;
+  roomUnitId: string | null;
+  guestName: string;
+  checkIn: string;
+  checkOut: string;
+  status: BookingStatus;
+  totalPrice: string;
+};
+
+export type BookingCalendarResponse = {
+  from: string;
+  to: string;
+  roomTypes: RoomTypeCalendar[];
+  bookings: CalendarBooking[];
+  // Raw RoomUnitBlock rows, overlapping the range — NOT merged/deduplicated
+  // server-side (a unit can have overlapping blocks, same as
+  // GET /room-units/{id}/blocks). Merging for display is lib/calendarLayout.ts's job.
+  blocks: RoomUnitBlock[];
+};
+
+// Body of PATCH /bookings/{id}/schedule and POST /bookings/{id}/schedule/quote
+// — the booking's full desired schedule (dates + physical room together).
+// roomUnitId is always sent (string or explicit null) — see openapi.yaml's
+// schema description for why it's not typed optional despite the backend
+// technically tolerating omission-as-error only (never rely on omission here).
+export type BookingScheduleInput = {
+  checkIn: string;
+  checkOut: string;
+  roomUnitId: string | null;
+};
+
+// Response of POST /bookings/{id}/schedule/quote — a non-mutating preview.
+// totalPrice is always computed; available/reason report whether applying
+// this exact change would currently succeed. Advisory only, not a lock — the
+// apply call (PATCH .../schedule) re-validates from scratch.
+export type BookingScheduleQuote = {
+  totalPrice: string;
+  nights: number;
+  available: boolean;
+  reason: string | null;
+};
+
+// Body of POST /bookings/staff — front-desk (walk-in) booking creation.
+// Unlike BookingCreateInput (the public guest flow), guest contact details
+// are optional and roomUnitId may be assigned immediately, atomically.
+export type StaffBookingCreateInput = {
+  roomId: string;
+  guestName: string;
+  guestEmail?: string | null;
+  guestPhone?: string | null;
+  checkIn: string;
+  checkOut: string;
+  roomUnitId?: string | null;
+};
+
+// --- Audit log (GET /audit-log) ---
+//
+// Read-only, append-only, MANAGER+ - see openapi.yaml's AuditLog tag description for the full
+// list of what's recorded and why. `summary` is a plain-language sentence written by the backend
+// service action that triggered the entry (see AuditLogService's javadoc for why that, and not a
+// generic before/after field diff) — render it as-is, it's meant to be read directly.
+
+export type AuditAction =
+  | "BOOKING_CREATED"
+  | "BOOKING_STATUS_CHANGED"
+  | "BOOKING_PAYMENT_NOTE_CHANGED"
+  | "BOOKING_SCHEDULE_CHANGED"
+  | "BOOKING_ROOM_ASSIGNED"
+  | "BOOKINGS_EXPORTED"
+  | "ROOM_PRICE_CHANGED"
+  | "RATE_OVERRIDE_CHANGED"
+  | "ORDER_CLOSED"
+  | "ORDER_CANCELLED"
+  | "ROOM_CHARGE_POSTED"
+  | "SHIFT_OPENED"
+  | "SHIFT_CLOSED"
+  | "SHIFT_EXPORTED"
+  | "USER_CREATED"
+  | "USER_ROLE_CHANGED"
+  | "USER_ACTIVE_CHANGED"
+  | "USER_PASSWORD_RESET"
+  | "ROOM_UNIT_CREATED"
+  | "ROOM_UNIT_UPDATED"
+  | "ROOM_UNIT_DELETED"
+  | "ROOM_UNIT_BLOCK_CREATED"
+  | "ROOM_UNIT_BLOCK_DELETED";
+
+// SCREAMING_SNAKE_CASE, not PascalCase entity names - see openapi.yaml's AuditEntityType schema
+// description: Spring's default query-param enum binding uses the Java constant name, so this
+// has to match that, not read nicely as a class name.
+export type AuditEntityType = "BOOKING" | "ROOM" | "ORDER" | "SHIFT" | "USER" | "ROOM_UNIT";
+
+export type AuditLogEntry = {
+  id: string;
+  actorUserId: string;
+  // Snapshot at the time of the action, not a live join to the current User row - see
+  // openapi.yaml's AuditLogEntry.actorEmail description. Still the right field to display: it's
+  // who did it, even if that account was since renamed or (were deletion ever added) removed.
+  actorEmail: string;
+  actorRole: Role;
+  action: AuditAction;
+  entityType: AuditEntityType;
+  entityId: string | null;
+  summary: string;
+  createdAt: string;
+};
+
+export type AuditLogPage = {
+  items: AuditLogEntry[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+};

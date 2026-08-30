@@ -17,11 +17,14 @@ const links = [
   { href: "/admin/pos/print-jobs", label: "Print queue" },
 ];
 
-// GET /printers is MANAGER+ on the backend with no lower-privilege read —
-// unlike the rest of this list, a WAITER/CASHIER hitting this link would
-// just 404 the page, so it's added conditionally rather than always shown
-// and gated client-side.
-const MANAGER_PLUS_LINKS = [{ href: "/admin/pos/printers", label: "Printers" }];
+// GET /printers and GET /audit-log are both MANAGER+ on the backend with no
+// lower-privilege read — unlike the rest of this list, a WAITER/CASHIER
+// hitting either link would just get a 403 mid-page, so both are added
+// conditionally rather than always shown and gated client-side.
+const MANAGER_PLUS_LINKS = [
+  { href: "/admin/pos/printers", label: "Printers" },
+  { href: "/admin/history", label: "History" },
+];
 
 export default function AdminSidebar({ email, role }: { email: string; role: Role }) {
   const pathname = usePathname();
