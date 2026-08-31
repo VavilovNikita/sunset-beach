@@ -6,8 +6,9 @@ import { ADMIN_API_URL } from "@/lib/backend";
 import { extractApiError } from "@/lib/apiError";
 import { dateOnlyUTC, toDateKey } from "@/lib/bookings";
 import { quoteBookingSchedule, applyBookingSchedule } from "@/lib/bookingScheduleClient";
+import { assignBookingRoomUnit } from "@/lib/bookingRoomUnitClient";
 import { quoteBookingRelocation, applyBookingRelocation, undoBookingRelocation } from "@/lib/bookingRelocationClient";
-import type { Booking, BookingScheduleQuote, BookingSegment, RoomUnit, AuditLogEntry } from "@/lib/types";
+import type { Booking, BookingScheduleQuote, Room, RoomUnit, AuditLogEntry } from "@/lib/types";
 import type { BookingPosOrder, Folio } from "@/lib/posTypes";
 
 const STATUSES = ["NEW", "CONFIRMED", "PAID", "CANCELLED"] as const;
@@ -270,17 +271,15 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
   );
 }
 
-// Rooms-by-segment section. A never-relocated booking (segments.length === 1, the overwhelmingly
-// common case) shows the same dates+room editing the booking detail page's schedule form offers.
-// A relocated booking shows each segment's own room/dates, plus:
-//  - an "Undo" button per join between two segments (splitting is offered from any segment via
-//    RelocateForm below, matching "переселение вызывается отсюда же");
-//  - on the FIRST and LAST segment only, an EdgeSegmentScheduleEditor - PATCH .../schedule now
-//    allows moving just the outer edge of a multi-segment booking (an early/late arrival on the
-//    first segment, or extending/shortening the stay on the last - the most common front-desk
-//    request on an already-relocated booking) without the undo/extend/re-relocate roundtrip.
-//    Interior segments (segments.length >= 3) stay read-only, matching BookingWriter's
-//    resolveScheduleTarget, which only ever names the first or last segment.
+// Rooms-by-segment section. Each segment (just one, for the overwhelmingly common
+// never-relocated booking) gets a read-only card - room, unit, dates, price - followed by
+// exactly one date-editing form (BookingScheduleEditor) for the whole booking, one room-unit
+// control (only when there's a single segment - see RoomUnitAssignmentEditor's own comment for
+// why a relocated booking doesn't get one), and the relocate form. Previously a relocated
+// booking got its dates split across two near-identical per-segment forms ("Change early/late
+// arrival" / "Extend or shorten this stay", one per edge) each also carrying its own room-unit
+// picker - indistinguishable at a glance, and the room picker made it look like changing a date
+// could also silently reassign the room. One form, room selection nowhere near it, fixes both.
 function SegmentsSection({
   booking,
   roomUnits,
@@ -299,106 +298,88 @@ function SegmentsSection({
     <div>
       <p className="eyebrow text-cream/50 mb-2">Rooms</p>
 
-      {singleSegment ? (
-        <SingleSegmentScheduleEditor booking={booking} roomUnits={roomUnits} canManage={canManage} onSaved={onSaved} />
-      ) : (
-        <div className="space-y-2">
-          {segments.map((segment, i) => {
-            const edge: "checkIn" | "checkOut" | null = i === 0 ? "checkIn" : i === segments.length - 1 ? "checkOut" : null;
-            return (
-              <div key={segment.id} className="bg-ink border border-cream/10 rounded-xl p-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-cream">
-                    {segment.room.name}
-                    {segment.roomUnit ? ` — ${segment.roomUnit.label}` : " (unassigned)"}
-                  </span>
-                  <span className="text-cream/60">฿{Number(segment.totalPrice).toLocaleString("en-US")}</span>
-                </div>
-                <p className="text-xs text-cream/40 mt-1">
-                  {segment.checkIn} → {segment.checkOut}
-                </p>
-                {i > 0 && (
-                  <UndoRelocationButton bookingId={booking.id} splitDate={segment.checkIn} onSaved={onSaved} />
-                )}
-                {edge && (
-                  <EdgeSegmentScheduleEditor
-                    booking={booking}
-                    segment={segment}
-                    edge={edge}
-                    // This panel only knows room-unit options for the booking's own mirrored
-                    // type (booking.roomId, fetched scoped to that type above) - the same
-                    // limitation RelocateForm already documents. That covers the first segment
-                    // too whenever it's still the same room type (the common case: relocating
-                    // between two units of one type), and only falls short for a genuine
-                    // cross-type relocation, where this editor still offers the date change,
-                    // just not a room-unit picker for it.
-                    canPickUnit={segment.roomId === booking.roomId}
-                    roomUnits={roomUnits}
-                    canManage={canManage}
-                    onSaved={onSaved}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <div className="space-y-2 mb-3">
+        {segments.map((segment, i) => (
+          <div key={segment.id} className="bg-ink border border-cream/10 rounded-xl p-3 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-cream">
+                {segment.room.name}
+                {segment.roomUnit ? ` — ${segment.roomUnit.label}` : " (unassigned)"}
+              </span>
+              <span className="text-cream/60">฿{Number(segment.totalPrice).toLocaleString("en-US")}</span>
+            </div>
+            <p className="text-xs text-cream/40 mt-1">
+              {segment.checkIn} → {segment.checkOut}
+            </p>
+            {i > 0 && <UndoRelocationButton bookingId={booking.id} splitDate={segment.checkIn} onSaved={onSaved} />}
+          </div>
+        ))}
+      </div>
 
-      <RelocateForm booking={booking} roomUnits={roomUnits} onSaved={onSaved} />
+      <BookingScheduleEditor booking={booking} onSaved={onSaved} />
+
+      {/* Room-unit reassignment without a date change only exists as a dedicated operation
+          (PUT /bookings/{id}/room-unit) for a single-segment booking - see
+          RoomUnitAssignmentEditor. A relocated booking's edge segments have no equivalent: the
+          schedule PATCH rejects a same-dates room-only change on a multi-segment booking as
+          ambiguous (BookingWriter#resolveScheduleTarget), so swapping just the unit there means
+          Undo, reassign (now single-segment), then Relocate again - more clicks, but honest
+          about what this app can actually do unambiguously in one step. */}
+      {singleSegment && canManage && <RoomUnitAssignmentEditor booking={booking} roomUnits={roomUnits} onSaved={onSaved} />}
+
+      <RelocateForm booking={booking} canManage={canManage} onSaved={onSaved} />
     </div>
   );
 }
 
-function EdgeSegmentScheduleEditor({
-  booking,
-  segment,
-  edge,
-  roomUnits,
-  canManage,
-  canPickUnit,
-  onSaved,
-}: {
-  booking: Booking;
-  segment: BookingSegment;
-  // Which end of the *whole booking* this segment owns and can move - "checkIn" for the first
-  // segment (early/late arrival), "checkOut" for the last (extend/shorten the stay). The other
-  // date is the booking's own overall bound, not this segment's internal one, and stays fixed:
-  // PATCH .../schedule only accepts a change here when exactly the named end differs from the
-  // booking's current checkIn/checkOut (see BookingWriter#resolveScheduleTarget) - sending back
-  // the other end unchanged is what keeps this request inside that allowed shape.
-  edge: "checkIn" | "checkOut";
-  roomUnits: RoomUnit[];
-  canManage: boolean;
-  canPickUnit: boolean;
-  onSaved: () => void;
-}) {
-  // booking.checkIn/checkOut are already plain "YYYY-MM-DD", same as
-  // segment.checkIn/checkOut - still routed through dateOnlyUTC()/toDateKey() rather than used
-  // as-is, on the same principle as every other date field in this app: never trust a field's
-  // current shape without normalizing it, since that's exactly the assumption that broke here
-  // before (this field used to carry a legacy "T00:00:00.000Z" suffix).
+// One date-editing form for the whole booking, single-segment or relocated alike - see
+// SegmentsSection's comment for why this replaced two per-segment forms. For a single segment,
+// both ends are free to move together exactly as before. For a relocated booking, only one
+// outer edge can move per change (BookingWriter#resolveScheduleTarget rejects both-at-once or
+// neither as ambiguous - moving an inner boundary or an inner room is Undo/Relocate's job, not
+// this form's): touching one date field disables the other rather than letting the mistake reach
+// the server, and the label explains why. Room never appears here at all - see
+// RoomUnitAssignmentEditor/RelocateForm, the two operations actually built to reason about which
+// room a segment is in; every quote/apply call below re-sends whichever segment's own room-unit
+// is already in effect, unchanged, so a date-only change can never silently move the guest too.
+function BookingScheduleEditor({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
+  const segments = booking.segments;
+  const multiSegment = segments.length > 1;
+  const firstSegment = segments[0];
+  const lastSegment = segments[segments.length - 1];
+
+  // booking.checkIn/checkOut are already plain "YYYY-MM-DD" - still routed through
+  // dateOnlyUTC()/toDateKey() rather than used as-is, on the same principle as every other date
+  // field in this app: never trust a field's current shape without normalizing it, since that's
+  // exactly the assumption that broke here before (this field used to carry a legacy
+  // "T00:00:00.000Z" suffix).
   const bookingCheckInKey = toDateKey(dateOnlyUTC(booking.checkIn));
   const bookingCheckOutKey = toDateKey(dateOnlyUTC(booking.checkOut));
 
-  const [checkIn, setCheckIn] = useState(edge === "checkIn" ? segment.checkIn : bookingCheckInKey);
-  const [checkOut, setCheckOut] = useState(edge === "checkOut" ? segment.checkOut : bookingCheckOutKey);
-  const [roomUnitId, setRoomUnitId] = useState<string>(segment.roomUnitId ?? "");
+  const [checkIn, setCheckIn] = useState(bookingCheckInKey);
+  const [checkOut, setCheckOut] = useState(bookingCheckOutKey);
   const [quote, setQuote] = useState<BookingScheduleQuote | null>(null);
   const [status, setStatus] = useState<"idle" | "quoting" | "ready" | "error" | "applying">("idle");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setCheckIn(edge === "checkIn" ? segment.checkIn : bookingCheckInKey);
-    setCheckOut(edge === "checkOut" ? segment.checkOut : bookingCheckOutKey);
-    setRoomUnitId(segment.roomUnitId ?? "");
+    setCheckIn(bookingCheckInKey);
+    setCheckOut(bookingCheckOutKey);
+    setQuote(null);
     setStatus("idle");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [edge, segment.checkIn, segment.checkOut, segment.roomUnitId, bookingCheckInKey, bookingCheckOutKey]);
+  }, [bookingCheckInKey, bookingCheckOutKey]);
+
+  const checkInChanged = checkIn !== bookingCheckInKey;
+  const checkOutChanged = checkOut !== bookingCheckOutKey;
+  // Whichever segment the moved edge belongs to owns the room-unit this request must re-send
+  // unchanged - the first segment for an earlier/later arrival, the last for extending/
+  // shortening the stay, and (single-segment) the only segment either way.
+  const targetSegment = multiSegment ? (checkOutChanged ? lastSegment : firstSegment) : firstSegment;
 
   async function handleQuote() {
     setStatus("quoting");
     setError(null);
-    const result = await quoteBookingSchedule(booking.id, { checkIn, checkOut, roomUnitId: roomUnitId || null });
+    const result = await quoteBookingSchedule(booking.id, { checkIn, checkOut, roomUnitId: targetSegment.roomUnitId ?? null });
     if (!result.ok) {
       setError(result.error);
       setStatus("error");
@@ -410,148 +391,7 @@ function EdgeSegmentScheduleEditor({
 
   async function handleApply() {
     setStatus("applying");
-    const result = await applyBookingSchedule(booking.id, { checkIn, checkOut, roomUnitId: roomUnitId || null });
-    if (!result.ok) {
-      setError(result.error);
-      setStatus("error");
-      return;
-    }
-    onSaved();
-  }
-
-  return (
-    <div className="mt-2 pt-2 border-t border-cream/10 space-y-2">
-      <p className="eyebrow text-cream/50">{edge === "checkIn" ? "Change early/late arrival" : "Extend or shorten this stay"}</p>
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="eyebrow text-cream/60 block mb-1">Check-in</label>
-          <input
-            type="date"
-            value={checkIn}
-            disabled={edge !== "checkIn"}
-            onChange={(e) => {
-              setCheckIn(e.target.value);
-              setStatus("idle");
-            }}
-            className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm disabled:opacity-50"
-          />
-        </div>
-        <div>
-          <label className="eyebrow text-cream/60 block mb-1">Check-out</label>
-          <input
-            type="date"
-            value={checkOut}
-            disabled={edge !== "checkOut"}
-            onChange={(e) => {
-              setCheckOut(e.target.value);
-              setStatus("idle");
-            }}
-            className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm disabled:opacity-50"
-          />
-        </div>
-      </div>
-      {canManage &&
-        (canPickUnit ? (
-          <div>
-            <label className="eyebrow text-cream/60 block mb-1">Room unit</label>
-            <select
-              value={roomUnitId}
-              onChange={(e) => {
-                setRoomUnitId(e.target.value);
-                setStatus("idle");
-              }}
-              className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
-            >
-              <option value="">Unassigned</option>
-              {roomUnits.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
-          <p className="text-xs text-cream/40">Different room type than the booking's current room — relocate to change the room.</p>
-        ))}
-
-      {status === "ready" && quote && (
-        <div className="flex items-center justify-between bg-ink2 rounded-lg px-3 py-2">
-          <span className="text-xs text-cream/60">
-            {quote.nights} night{quote.nights === 1 ? "" : "s"}
-          </span>
-          <span className="font-display italic text-xl text-coral">฿{Number(quote.totalPrice).toLocaleString("en-US")}</span>
-        </div>
-      )}
-      {status === "ready" && quote && !quote.available && <p className="text-xs text-coral">{quote.reason}</p>}
-      {error && <p className="text-xs text-coral">{error}</p>}
-
-      <div className="flex gap-2">
-        {status === "ready" ? (
-          <button
-            type="button"
-            onClick={handleApply}
-            disabled={!quote?.available || status === ("applying" as typeof status)}
-            className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-4 py-2 text-xs font-medium disabled:opacity-60"
-          >
-            Confirm change
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleQuote}
-            disabled={status === "quoting"}
-            className="rounded-full border border-cream/25 hover:border-cream/50 transition-colors px-4 py-2 text-xs font-medium"
-          >
-            {status === "quoting" ? "Pricing…" : "Preview change"}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SingleSegmentScheduleEditor({
-  booking,
-  roomUnits,
-  canManage,
-  onSaved,
-}: {
-  booking: Booking;
-  roomUnits: RoomUnit[];
-  canManage: boolean;
-  onSaved: () => void;
-}) {
-  const segment = booking.segments[0];
-  const [checkIn, setCheckIn] = useState(segment.checkIn);
-  const [checkOut, setCheckOut] = useState(segment.checkOut);
-  const [roomUnitId, setRoomUnitId] = useState<string>(segment.roomUnitId ?? "");
-  const [quote, setQuote] = useState<BookingScheduleQuote | null>(null);
-  const [status, setStatus] = useState<"idle" | "quoting" | "ready" | "error" | "applying">("idle");
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setCheckIn(segment.checkIn);
-    setCheckOut(segment.checkOut);
-    setRoomUnitId(segment.roomUnitId ?? "");
-    setStatus("idle");
-  }, [segment.checkIn, segment.checkOut, segment.roomUnitId]);
-
-  async function handleQuote() {
-    setStatus("quoting");
-    setError(null);
-    const result = await quoteBookingSchedule(booking.id, { checkIn, checkOut, roomUnitId: roomUnitId || null });
-    if (!result.ok) {
-      setError(result.error);
-      setStatus("error");
-      return;
-    }
-    setQuote(result.quote);
-    setStatus("ready");
-  }
-
-  async function handleApply() {
-    setStatus("applying");
-    const result = await applyBookingSchedule(booking.id, { checkIn, checkOut, roomUnitId: roomUnitId || null });
+    const result = await applyBookingSchedule(booking.id, { checkIn, checkOut, roomUnitId: targetSegment.roomUnitId ?? null });
     if (!result.ok) {
       setError(result.error);
       setStatus("error");
@@ -562,18 +402,26 @@ function SingleSegmentScheduleEditor({
 
   return (
     <div className="bg-ink border border-cream/10 rounded-xl p-4 space-y-3">
-      <p className="text-sm text-cream">{segment.room.name}</p>
+      <p className="eyebrow text-cream/50">Dates</p>
+      {multiSegment && (
+        <p className="text-xs text-cream/40">
+          This stay has been relocated - move the arrival date or the departure date, not both in the same
+          change. Changing dates or rooms in the middle of the stay is Undo or Relocate, below.
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="eyebrow text-cream/60 block mb-1">Check-in</label>
           <input
             type="date"
             value={checkIn}
+            max={multiSegment ? firstSegment.checkOut : undefined}
+            disabled={multiSegment && checkOutChanged}
             onChange={(e) => {
               setCheckIn(e.target.value);
               setStatus("idle");
             }}
-            className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
+            className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm disabled:opacity-50"
           />
         </div>
         <div>
@@ -581,34 +429,16 @@ function SingleSegmentScheduleEditor({
           <input
             type="date"
             value={checkOut}
+            min={multiSegment ? lastSegment.checkIn : undefined}
+            disabled={multiSegment && checkInChanged}
             onChange={(e) => {
               setCheckOut(e.target.value);
               setStatus("idle");
             }}
-            className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
+            className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm disabled:opacity-50"
           />
         </div>
       </div>
-      {canManage && (
-        <div>
-          <label className="eyebrow text-cream/60 block mb-1">Room unit</label>
-          <select
-            value={roomUnitId}
-            onChange={(e) => {
-              setRoomUnitId(e.target.value);
-              setStatus("idle");
-            }}
-            className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="">Unassigned</option>
-            {roomUnits.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
 
       {status === "ready" && quote && (
         <div className="flex items-center justify-between bg-ink2 rounded-lg px-3 py-2">
@@ -635,8 +465,8 @@ function SingleSegmentScheduleEditor({
           <button
             type="button"
             onClick={handleQuote}
-            disabled={status === "quoting"}
-            className="rounded-full border border-cream/25 hover:border-cream/50 transition-colors px-4 py-2 text-xs font-medium"
+            disabled={(!checkInChanged && !checkOutChanged) || status === "quoting"}
+            className="rounded-full border border-cream/25 hover:border-cream/50 transition-colors px-4 py-2 text-xs font-medium disabled:opacity-40"
           >
             {status === "quoting" ? "Pricing…" : "Preview change"}
           </button>
@@ -646,19 +476,129 @@ function SingleSegmentScheduleEditor({
   );
 }
 
-function RelocateForm({ booking, roomUnits, onSaved }: { booking: Booking; roomUnits: RoomUnit[]; onSaved: () => void }) {
+// Which physical room a single-segment booking uses, independent of its dates - the dedicated
+// PUT /bookings/{id}/room-unit endpoint (BookingWriter#assignRoomUnit/unassignRoomUnit), not a
+// side effect of BookingScheduleEditor above. Same room type, same dates, so there's never a
+// price to preview - one save, not a quote-then-confirm pair. Only rendered for a single-segment
+// booking (see SegmentsSection): once a booking has been relocated there is no room-only,
+// same-dates change the backend can resolve unambiguously (see BookingScheduleEditor's comment).
+function RoomUnitAssignmentEditor({ booking, roomUnits, onSaved }: { booking: Booking; roomUnits: RoomUnit[]; onSaved: () => void }) {
+  const segment = booking.segments[0];
+  const currentUnitId = segment.roomUnitId ?? "";
+  const [roomUnitId, setRoomUnitId] = useState(currentUnitId);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRoomUnitId(currentUnitId);
+    setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUnitId]);
+
+  async function handleSave() {
+    setBusy(true);
+    setError(null);
+    const result = await assignBookingRoomUnit(booking.id, roomUnitId || null);
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    onSaved();
+  }
+
+  return (
+    <div className="mt-2 bg-ink border border-cream/10 rounded-xl p-4 space-y-2">
+      <p className="eyebrow text-cream/50">Room unit</p>
+      <div className="flex gap-2">
+        <select
+          value={roomUnitId}
+          onChange={(e) => setRoomUnitId(e.target.value)}
+          className="flex-1 bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
+        >
+          <option value="">Unassigned</option>
+          {roomUnits.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={roomUnitId === currentUnitId || busy}
+          className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-4 py-2 text-xs font-medium disabled:opacity-60"
+        >
+          {busy ? "Saving…" : "Save"}
+        </button>
+      </div>
+      {error && <p className="text-xs text-coral">{error}</p>}
+    </div>
+  );
+}
+
+// Relocating to a different room *type* is a normal front-desk operation (upgrade, downgrade,
+// or moving someone out of a broken room) — the backend has never restricted `relocate` to the
+// booking's current type (RelocationInput.roomId can name any room), that restriction was only
+// ever a gap in this picker, which used to just reuse the booking's own already-fetched
+// roomUnits and never offered a type choice. Fetches its own room list and, per selected type,
+// its own room-unit list, independently of the parent's roomUnits (still scoped to the booking's
+// *current* type, for SingleSegmentScheduleEditor/EdgeSegmentScheduleEditor which can only ever
+// change the room-unit within the segment's existing type — schedule changes never carry a
+// roomId, see BookingWriter#resolveScheduleTarget).
+function RelocateForm({ booking, canManage, onSaved }: { booking: Booking; canManage: boolean; onSaved: () => void }) {
   const [open, setOpen] = useState(false);
   const [effectiveDate, setEffectiveDate] = useState("");
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [roomId, setRoomId] = useState(booking.roomId);
+  const [roomUnits, setRoomUnits] = useState<RoomUnit[]>([]);
   const [roomUnitId, setRoomUnitId] = useState("");
   const [quote, setQuote] = useState<BookingScheduleQuote | null>(null);
   const [status, setStatus] = useState<"idle" | "quoting" | "ready" | "error" | "applying">("idle");
   const [error, setError] = useState<string | null>(null);
 
-  // This panel only offers relocating within the *same room type* (the room-unit picker is
-  // scoped to this booking's own roomUnits list, already fetched for that type) - moving to a
-  // different room type is possible via the API (RelocationInput.roomId) but has no picker here
-  // yet; the guest-facing room type wouldn't be known without fetching every room type's units.
-  const roomId = booking.roomId;
+  // Fetched once per time the form is opened, not on every render — the room list barely
+  // changes mid-session, and re-fetching on every keystroke elsewhere in the panel would be
+  // wasteful. Types with zero active units are left out: nothing to relocate into.
+  useEffect(() => {
+    if (!open) return;
+    fetch(`${ADMIN_API_URL}/rooms`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: Room[]) => setRooms(data.filter((r) => r.activeUnitCount > 0).sort((a, b) => a.name.localeCompare(b.name))))
+      .catch(() => setRooms([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Re-fetched whenever the target type changes — units belong to one type, so the previous
+  // type's list is meaningless once roomId moves. Still MANAGER+-gated like every other
+  // room-unit picker in this panel; a CASHIER can relocate but not browse/pick physical units,
+  // same restriction the same-type picker already had (relocate can still target "no unit yet").
+  useEffect(() => {
+    if (!open || !canManage) {
+      setRoomUnits([]);
+      return;
+    }
+    fetch(`${ADMIN_API_URL}/room-units?roomId=${roomId}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((units: RoomUnit[]) => setRoomUnits(units.filter((u: RoomUnit) => u.isActive)))
+      .catch(() => setRoomUnits([]));
+  }, [open, canManage, roomId]);
+
+  const selectedRoomName = rooms.find((r) => r.id === roomId)?.name ?? booking.room.name;
+  const isCrossType = roomId !== booking.roomId;
+  const priceDelta = quote ? Number(quote.totalPrice) - Number(booking.totalPrice) : 0;
+
+  function openForm() {
+    setRoomId(booking.roomId);
+    setOpen(true);
+  }
+
+  function handleRoomChange(nextRoomId: string) {
+    setRoomId(nextRoomId);
+    setRoomUnitId(""); // the previous unit belongs to the old type, never valid for the new one
+    setQuote(null);
+    setStatus("idle");
+  }
 
   async function handleQuote() {
     if (!effectiveDate) return;
@@ -694,7 +634,7 @@ function RelocateForm({ booking, roomUnits, onSaved }: { booking: Booking; roomU
     return (
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openForm}
         className="mt-3 text-xs text-sea hover:text-coral transition-colors underline underline-offset-4"
       >
         Relocate to another room
@@ -720,28 +660,65 @@ function RelocateForm({ booking, roomUnits, onSaved }: { booking: Booking; roomU
         />
       </div>
       <div>
-        <label className="eyebrow text-cream/60 block mb-1">New room unit</label>
+        <label className="eyebrow text-cream/60 block mb-1">New room type</label>
         <select
-          value={roomUnitId}
-          onChange={(e) => {
-            setRoomUnitId(e.target.value);
-            setStatus("idle");
-          }}
+          value={roomId}
+          onChange={(e) => handleRoomChange(e.target.value)}
           className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
         >
-          <option value="">Unassigned</option>
-          {roomUnits.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.label}
+          {/* The booking's current type is always offered even if it has since run out of
+              active units elsewhere (rooms list filters those out) - staying in the same type
+              (moving to a different physical room within it) must never become unpickable. */}
+          {!rooms.some((r) => r.id === booking.roomId) && <option value={booking.roomId}>{booking.room.name}</option>}
+          {rooms.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
             </option>
           ))}
         </select>
       </div>
+      {canManage && (
+        <div>
+          <label className="eyebrow text-cream/60 block mb-1">New room unit</label>
+          <select
+            value={roomUnitId}
+            onChange={(e) => {
+              setRoomUnitId(e.target.value);
+              setStatus("idle");
+            }}
+            className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="">Unassigned</option>
+            {roomUnits.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {status === "ready" && quote && (
-        <div className="flex items-center justify-between bg-ink2 rounded-lg px-3 py-2">
-          <span className="text-xs text-cream/60">New total</span>
-          <span className="font-display italic text-xl text-coral">฿{Number(quote.totalPrice).toLocaleString("en-US")}</span>
+        <div className="bg-ink2 rounded-lg px-3 py-2 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-cream/60">New room type</span>
+            <span className={`text-sm ${isCrossType ? "text-coral font-medium" : "text-cream"}`}>{selectedRoomName}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-cream/60">New booking total</span>
+            <span className="font-display italic text-xl text-coral">฿{Number(quote.totalPrice).toLocaleString("en-US")}</span>
+          </div>
+          {/* Same-type relocation (moving physical room, not room type) always prices out to a
+              zero difference - rate plans are per room type, not per unit, so two units of the
+              same type on the same dates always cost the same. A cross-type move is exactly the
+              operation that changes this number, so it's called out explicitly rather than left
+              for reception to notice by comparing two totals themselves. */}
+          <div className="flex items-center justify-between pt-1.5 border-t border-cream/10">
+            <span className="text-xs text-cream/60">Change vs. current total</span>
+            <span className={`text-sm font-medium ${priceDelta === 0 ? "text-cream/50" : priceDelta > 0 ? "text-coral" : "text-sea"}`}>
+              {priceDelta === 0 ? "No change" : `${priceDelta > 0 ? "+" : "−"}฿${Math.abs(priceDelta).toLocaleString("en-US")}`}
+            </span>
+          </div>
         </div>
       )}
       {status === "ready" && quote && !quote.available && <p className="text-xs text-coral">{quote.reason}</p>}
