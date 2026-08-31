@@ -21,5 +21,9 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  // /pos is a separate root section (staff floor UI for WAITER/CASHIER, see app/pos/layout.tsx)
+  // but shares this same auth check and the same /admin/login page — it has no login route of
+  // its own, so an unauthenticated visit here also needs covering, or /pos would be reachable
+  // with no session at all.
+  matcher: ["/admin/:path*", "/pos/:path*"],
 };

@@ -27,7 +27,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unexpected response from auth server" }, { status: 502 });
   }
 
-  const res = NextResponse.json({ success: true });
+  // role is echoed back so the login page can pick a role-appropriate
+  // landing page (a WAITER has no use for the dashboard's booking/occupancy
+  // cards — see AdminSidebar's own role split) without a second round trip.
+  const role = typeof data?.user?.role === "string" ? data.user.role : null;
+
+  const res = NextResponse.json({ success: true, role });
   res.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
   return res;
 }

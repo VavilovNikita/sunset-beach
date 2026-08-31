@@ -1,17 +1,39 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { getLastEmail, setLastEmail } from "@/lib/pos/lastUser";
+
+// WAITER and CASHIER work the floor, not the back office — they land on the
+// new touch-first /pos section instead of the desktop admin dashboard, which
+// has nothing useful to show a role that can't read /rooms or /bookings.
+// MANAGER/ADMIN keep landing on /admin (they can still reach /pos directly
+// when they're covering the floor — see app/pos/layout.tsx's guard, which
+// only requires being logged in, not a specific role).
+const ROLE_LANDING: Record<string, string> = { WAITER: "/pos", CASHIER: "/pos" };
+const DEFAULT_LANDING = "/admin";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/admin";
+  // Explicit only — middleware.ts sets this when it bounced an unauthenticated
+  // visit to a specific protected page (see middleware.ts), and that deep
+  // link should win over the role default below. A bare visit to the login
+  // page (bookmark, typed URL) carries no callbackUrl at all.
+  const callbackUrl = searchParams.get("callbackUrl");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // A shared floor phone/tablet gets logged out and back in as a different person constantly
+  // (see PosTopBar's "Switch user") — remembering only the last email typed here (never the
+  // password) is what keeps that from being annoying enough that staff stop bothering.
+  useEffect(() => {
+    const last = getLastEmail();
+    if (last) setEmail(last);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,13 +46,18 @@ function LoginForm() {
       body: JSON.stringify({ email, password }),
     });
 
+    const data = await res.json().catch(() => null);
     setSubmitting(false);
 
     if (!res.ok) {
       setError("Invalid email or password.");
       return;
     }
-    router.push(callbackUrl);
+
+    setLastEmail(email);
+    const role = typeof data?.role === "string" ? data.role : null;
+    const destination = callbackUrl ?? (role && ROLE_LANDING[role]) ?? DEFAULT_LANDING;
+    router.push(destination);
     router.refresh();
   }
 
