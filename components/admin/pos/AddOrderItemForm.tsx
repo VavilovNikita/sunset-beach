@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ADMIN_API_URL } from "@/lib/backend";
+import { extractApiError } from "@/lib/apiError";
 import type { MenuItem, Order } from "@/lib/posTypes";
 
 export default function AddOrderItemForm({
@@ -37,7 +38,7 @@ export default function AddOrderItemForm({
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ? JSON.stringify(data.error) : "Could not add item.");
+      setError(extractApiError(data, "Could not add item."));
       return;
     }
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import PriceCalendar, { type CalendarCell } from "@/components/admin/PriceCalendar";
 import { ADMIN_API_URL } from "@/lib/backend";
+import { extractApiError } from "@/lib/apiError";
 
 type Room = { id: string; name: string };
 type DayPrice = { date: string; price: number; isOverride: boolean };
@@ -13,7 +14,7 @@ function monthParam(monthDate: Date) {
   return `${monthDate.getUTCFullYear()}-${String(monthDate.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-export default function PricingManager({ rooms }: { rooms: Room[] }) {
+export default function PricingManager({ rooms, canManage }: { rooms: Room[]; canManage: boolean }) {
   const [roomId, setRoomId] = useState(rooms[0]?.id ?? "");
   const [monthDate, setMonthDate] = useState(() => {
     const now = new Date();
@@ -53,7 +54,7 @@ export default function PricingManager({ rooms }: { rooms: Room[] }) {
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ? JSON.stringify(data.error) : "Could not save prices.");
+      setError(extractApiError(data, "Could not save prices."));
       return;
     }
 
@@ -107,6 +108,9 @@ export default function PricingManager({ rooms }: { rooms: Room[] }) {
 
       <div>
         <h2 className="font-display italic text-lg mb-4">Set a price range</h2>
+        {!canManage ? (
+          <p className="text-cream/50 text-sm">Setting prices requires a manager account.</p>
+        ) : (
         <form onSubmit={handleSetRange} className="space-y-4 bg-ink2/40 border border-cream/10 rounded-xl p-5">
           <div>
             <label className="eyebrow text-cream/60 block mb-1">From</label>
@@ -151,6 +155,7 @@ export default function PricingManager({ rooms }: { rooms: Room[] }) {
             {saving ? "Saving…" : "Apply to range"}
           </button>
         </form>
+        )}
       </div>
     </div>
   );

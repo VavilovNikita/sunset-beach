@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ADMIN_API_URL } from "@/lib/backend";
+import { extractApiError } from "@/lib/apiError";
 import { toDateKey } from "@/lib/bookings";
 import type { Order } from "@/lib/posTypes";
 import type { Booking } from "@/lib/types";
@@ -55,7 +56,7 @@ export default function RoomChargeLink({
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ? JSON.stringify(data.error) : "Could not charge to room.");
+      setError(extractApiError(data, "Could not charge to room."));
       return;
     }
     onSettled(await res.json());

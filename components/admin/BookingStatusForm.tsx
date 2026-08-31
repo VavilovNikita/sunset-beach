@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL } from "@/lib/backend";
+import { extractApiError } from "@/lib/apiError";
 import type { Folio } from "@/lib/posTypes";
 
 const STATUSES = ["NEW", "CONFIRMED", "PAID", "CANCELLED"] as const;
@@ -43,7 +44,7 @@ export default function BookingStatusForm({
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ? JSON.stringify(data.error) : "Could not update booking.");
+      setError(extractApiError(data, "Could not update booking."));
       return;
     }
     router.refresh();

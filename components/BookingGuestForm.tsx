@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { PUBLIC_BACKEND_URL } from "@/lib/backend";
+import { PUBLIC_PROXY_URL } from "@/lib/backend";
 
 export default function BookingGuestForm({
   roomId,
@@ -25,7 +25,7 @@ export default function BookingGuestForm({
     setError(null);
 
     const formData = new FormData(e.currentTarget);
-    const res = await fetch(`${PUBLIC_BACKEND_URL}/bookings`, {
+    const res = await fetch(`${PUBLIC_PROXY_URL}/bookings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

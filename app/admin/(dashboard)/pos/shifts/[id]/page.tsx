@@ -1,11 +1,14 @@
 import { notFound } from "next/navigation";
 import { backendJson } from "@/lib/backendServer";
 import { ADMIN_API_URL, BackendError } from "@/lib/backend";
-import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
+import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import StatCard from "@/components/admin/StatCard";
 import type { ShiftSummary } from "@/lib/posTypes";
 
 export default async function ShiftReportPage({ params }: { params: { id: string } }) {
+  // GET /shifts/{id} is CASHIER+ on the backend.
+  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+
   let shift: ShiftSummary;
   try {
     shift = await backendJson<ShiftSummary>(`/shifts/${params.id}`, { auth: true });
@@ -17,8 +20,7 @@ export default async function ShiftReportPage({ params }: { params: { id: string
   // GET /shifts/{id}/export requires MANAGER+, but this page (and the
   // "current shift" one) can be reached by a CASHIER too — hide the link
   // rather than let them hit a 403.
-  const user = await getSessionUser();
-  const canExport = !!user && hasRoleAtLeast(user.role, "MANAGER");
+  const canExport = hasRoleAtLeast(user.role, "MANAGER");
 
   return (
     <div>

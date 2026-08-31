@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ADMIN_API_URL } from "@/lib/backend";
+import { extractApiError } from "@/lib/apiError";
 import { usePolling } from "@/lib/usePolling";
 import {
   PRINT_JOB_STATUS_LABELS,
@@ -87,7 +88,7 @@ export default function PrintQueue({
       const data = await res.json().catch(() => null);
       setRetryErrors((prev) => ({
         ...prev,
-        [id]: data?.error ? JSON.stringify(data.error) : "Could not retry this job.",
+        [id]: extractApiError(data, "Could not retry this job."),
       }));
       return;
     }

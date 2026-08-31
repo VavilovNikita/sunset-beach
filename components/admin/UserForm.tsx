@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL } from "@/lib/backend";
+import { extractApiError } from "@/lib/apiError";
 import type { Role } from "@/lib/types";
 
 const ROLES: Role[] = ["WAITER", "CASHIER", "MANAGER", "ADMIN"];
@@ -31,7 +32,7 @@ export default function UserForm() {
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ? JSON.stringify(data.error) : "Something went wrong.");
+      setError(extractApiError(data, "Something went wrong."));
       return;
     }
 

@@ -4,17 +4,28 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { Role } from "@/lib/session";
 
-const links = [
+// Always shown, regardless of role: GET /menu, /tables (via /admin/pos),
+// GET /print-jobs are all "any authenticated staff" on the backend (see
+// SecurityConfig) — a WAITER genuinely uses these to do their own job.
+const BASE_LINKS = [
   { href: "/admin", label: "Dashboard" },
+  { href: "/admin/pos", label: "POS" },
+  { href: "/admin/pos/menu", label: "Menu" },
+  { href: "/admin/pos/print-jobs", label: "Print queue" },
+];
+
+// GET /bookings, /bookings/calendar, /rooms, /pricing/*, /availability/* and
+// GET /shifts/current are all CASHIER+ on the backend with no lower-privilege
+// read — a WAITER hitting any of these would get a 403 (or, before the
+// regression fix, a crashed page), so all five are shown conditionally
+// rather than always shown and gated client-side.
+const CASHIER_PLUS_LINKS = [
   { href: "/admin/bookings", label: "Bookings" },
   { href: "/admin/bookings/calendar", label: "Calendar" },
   { href: "/admin/rooms", label: "Rooms" },
   { href: "/admin/pricing", label: "Pricing" },
   { href: "/admin/availability", label: "Availability" },
-  { href: "/admin/pos", label: "POS" },
-  { href: "/admin/pos/menu", label: "Menu" },
   { href: "/admin/pos/shifts", label: "Shifts" },
-  { href: "/admin/pos/print-jobs", label: "Print queue" },
 ];
 
 // GET /printers and GET /audit-log are both MANAGER+ on the backend with no
@@ -38,11 +49,12 @@ export default function AdminSidebar({ email, role }: { email: string; role: Rol
 
   // hasRoleAtLeast lives in lib/rbac.ts alongside next/headers-dependent
   // helpers, which can't be imported into a client component — the
-  // ADMIN/MANAGER check is inlined here instead (POS's only two
-  // MANAGER-plus roles).
+  // hierarchy is inlined here instead (mirrors ROLE_RANK there).
+  const isCashierPlus = role !== "WAITER";
   const isManagerPlus = role === "ADMIN" || role === "MANAGER";
   const items = [
-    ...links,
+    ...BASE_LINKS,
+    ...(isCashierPlus ? CASHIER_PLUS_LINKS : []),
     ...(isManagerPlus ? MANAGER_PLUS_LINKS : []),
     ...(role === "ADMIN" ? [{ href: "/admin/users", label: "Users" }] : []),
   ];

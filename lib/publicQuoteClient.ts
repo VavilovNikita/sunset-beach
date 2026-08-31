@@ -1,11 +1,13 @@
-import { PUBLIC_BACKEND_URL } from "@/lib/backend";
+import { PUBLIC_PROXY_URL } from "@/lib/backend";
 import { getNightsAndMonths, mergeQuote, type RoomQuote } from "@/lib/quote";
 import type { PricingResponse, PublicAvailabilityResponse } from "@/lib/types";
 
 // Client-side counterpart to lib/publicQuote.ts's getRoomQuote: same public,
-// unauthenticated endpoints, hit directly from the browser at
-// PUBLIC_BACKEND_URL (same pattern BookingGuestForm uses for POST /bookings)
-// since backendFetch() needs next/headers and can't run client-side.
+// unauthenticated endpoints, hit through this app's own same-origin
+// PUBLIC_PROXY_URL (same pattern BookingGuestForm uses for POST /bookings —
+// see that route's comment for why a direct PUBLIC_BACKEND_URL fetch here
+// used to be silently blocked by CSP) since backendFetch() needs
+// next/headers and can't run client-side.
 //
 // Thrown QuoteFetchError means the request itself failed (network error or
 // non-2xx) — distinct from a resolved { available: false } quote, which is a
@@ -22,7 +24,7 @@ export async function getRoomQuoteClient(roomId: string, checkIn: string, checkO
     [pricingByMonth, availabilityByMonth] = await Promise.all([
       Promise.all(
         months.map((month) =>
-          fetch(`${PUBLIC_BACKEND_URL}/public/rooms/${roomId}/pricing?month=${month}`).then((res) => {
+          fetch(`${PUBLIC_PROXY_URL}/public/rooms/${roomId}/pricing?month=${month}`).then((res) => {
             if (!res.ok) throw new QuoteFetchError(`Pricing request failed with ${res.status}`);
             return res.json() as Promise<PricingResponse>;
           })
@@ -30,7 +32,7 @@ export async function getRoomQuoteClient(roomId: string, checkIn: string, checkO
       ),
       Promise.all(
         months.map((month) =>
-          fetch(`${PUBLIC_BACKEND_URL}/public/rooms/${roomId}/availability?month=${month}`).then((res) => {
+          fetch(`${PUBLIC_PROXY_URL}/public/rooms/${roomId}/availability?month=${month}`).then((res) => {
             if (!res.ok) throw new QuoteFetchError(`Availability request failed with ${res.status}`);
             return res.json() as Promise<PublicAvailabilityResponse>;
           })

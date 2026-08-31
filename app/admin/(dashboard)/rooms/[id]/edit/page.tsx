@@ -1,13 +1,18 @@
 import { notFound } from "next/navigation";
 import { backendJson } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
-import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
+import { requireRoleAtLeast } from "@/lib/rbac";
 import RoomForm from "@/components/admin/RoomForm";
 import RoomImageUploader from "@/components/admin/RoomImageUploader";
 import RoomUnitManager from "@/components/admin/RoomUnitManager";
 import type { Room, RoomUnit } from "@/lib/types";
 
 export default async function EditRoomPage({ params }: { params: { id: string } }) {
+  // Every write on this page (room fields, photos, physical rooms) is
+  // MANAGER+ on the backend — the list page no longer links here for
+  // anyone else, this is the direct-URL backstop.
+  await requireRoleAtLeast("MANAGER", "/admin/rooms");
+
   let room: Room;
   try {
     room = await backendJson<Room>(`/rooms/${params.id}`, { auth: true });
@@ -16,11 +21,8 @@ export default async function EditRoomPage({ params }: { params: { id: string } 
     throw e;
   }
 
-  const user = await getSessionUser();
-  const canManageUnits = !!user && hasRoleAtLeast(user.role, "MANAGER");
-  // GET /room-units is MANAGER+ with no lower-privilege read (per
-  // openapi.yaml) — skip the call entirely rather than let it 403.
-  const units = canManageUnits ? await backendJson<RoomUnit[]>(`/room-units?roomId=${room.id}`, { auth: true }) : [];
+  // GET /room-units is MANAGER+, same floor as this whole page now.
+  const units = await backendJson<RoomUnit[]>(`/room-units?roomId=${room.id}`, { auth: true });
 
   return (
     <div>
@@ -45,7 +47,7 @@ export default async function EditRoomPage({ params }: { params: { id: string } 
 
       <div className="mt-10 pt-10 border-t border-cream/10">
         <p className="eyebrow text-cream/50 mb-3">Rooms</p>
-        <RoomUnitManager roomId={room.id} initialUnits={units} canManage={canManageUnits} />
+        <RoomUnitManager roomId={room.id} initialUnits={units} canManage />
       </div>
     </div>
   );

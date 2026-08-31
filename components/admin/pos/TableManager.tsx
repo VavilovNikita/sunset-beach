@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL } from "@/lib/backend";
+import { extractApiError } from "@/lib/apiError";
 import { ZONE_LABELS } from "@/lib/posOrders";
 import DeleteButton from "@/components/admin/DeleteButton";
 import type { Table, TableInput, Zone } from "@/lib/posTypes";
@@ -105,7 +106,7 @@ export default function TableManager({
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ? JSON.stringify(data.error) : "Could not create table.");
+      setError(extractApiError(data, "Could not create table."));
       return;
     }
     const created: Table = await res.json();
@@ -132,7 +133,7 @@ export default function TableManager({
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ? JSON.stringify(data.error) : "Could not save table.");
+      setError(extractApiError(data, "Could not save table."));
       return;
     }
     const updated: Table = await res.json();

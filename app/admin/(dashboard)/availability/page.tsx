@@ -1,16 +1,15 @@
 import { backendJson } from "@/lib/backendServer";
-import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
+import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import AvailabilityManager from "@/components/admin/AvailabilityManager";
 import type { Room } from "@/lib/types";
 
 export default async function AdminAvailabilityPage() {
-  const [rooms, user] = await Promise.all([
-    backendJson<Room[]>("/rooms", { auth: true }),
-    getSessionUser(),
-  ]);
+  // GET /rooms and GET /availability/{roomId} are both CASHIER+.
+  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+  const rooms = await backendJson<Room[]>("/rooms", { auth: true });
   // Manual room blocks are MANAGER+ on the backend, same as room-unit CRUD —
   // a lower role can still browse the calendar, just not edit blocks.
-  const canManage = !!user && hasRoleAtLeast(user.role, "MANAGER");
+  const canManage = hasRoleAtLeast(user.role, "MANAGER");
 
   return (
     <div>

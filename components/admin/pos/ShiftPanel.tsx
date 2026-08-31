@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ADMIN_API_URL } from "@/lib/backend";
+import { extractApiError } from "@/lib/apiError";
 import { usePolling } from "@/lib/usePolling";
 import StatCard from "@/components/admin/StatCard";
 import type { ShiftSummary } from "@/lib/posTypes";
@@ -62,7 +63,7 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ? JSON.stringify(data.error) : "Could not open shift.");
+      setError(extractApiError(data, "Could not open shift."));
       return;
     }
     const opened = await res.json();
@@ -95,7 +96,7 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
         return;
       }
       const data = await res.json().catch(() => null);
-      setError(data?.error ? JSON.stringify(data.error) : "Could not close shift.");
+      setError(extractApiError(data, "Could not close shift."));
       return;
     }
     // POST .../close returns a plain Shift, not a ShiftSummary — no `totals`,

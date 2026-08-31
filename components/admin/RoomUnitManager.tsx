@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL } from "@/lib/backend";
+import { extractApiError } from "@/lib/apiError";
 import DeleteButton from "@/components/admin/DeleteButton";
 import type { RoomUnit, RoomUnitInput } from "@/lib/types";
 
@@ -86,7 +87,7 @@ export default function RoomUnitManager({
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ? JSON.stringify(data.error) : "Could not create room.");
+      setError(extractApiError(data, "Could not create room."));
       return;
     }
     const created: RoomUnit = await res.json();
@@ -112,7 +113,7 @@ export default function RoomUnitManager({
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ? JSON.stringify(data.error) : "Could not save room.");
+      setError(extractApiError(data, "Could not save room."));
       return;
     }
     const updated: RoomUnit = await res.json();

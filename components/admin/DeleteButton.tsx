@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { extractApiError } from "@/lib/apiError";
 
 export default function DeleteButton({
   url,
@@ -41,7 +42,7 @@ export default function DeleteButton({
         return;
       }
       const data = await res.json().catch(() => null);
-      setError(data?.error ?? "Could not delete.");
+      setError(extractApiError(data, "Could not delete."));
       return;
     }
     onDeleted?.();

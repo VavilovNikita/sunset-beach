@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL } from "@/lib/backend";
+import { extractApiError } from "@/lib/apiError";
 import { PRINTER_DEPARTMENT_LABELS, PRINT_JOB_STATUS_LABELS } from "@/lib/posOrders";
 import DeleteButton from "@/components/admin/DeleteButton";
 import type { Printer, PrinterInput, PrinterDepartment, PrinterCodepage, PrintJob } from "@/lib/posTypes";
@@ -111,7 +112,7 @@ function TestPrintButton({ printerId }: { printerId: string }) {
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ? JSON.stringify(data.error) : "Could not reach the printer.");
+      setError(extractApiError(data, "Could not reach the printer."));
       return;
     }
     setResult(await res.json());
@@ -178,7 +179,7 @@ export default function PrinterManager({ initialPrinters }: { initialPrinters: P
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ? JSON.stringify(data.error) : "Could not create printer.");
+      setError(extractApiError(data, "Could not create printer."));
       return;
     }
     const created: Printer = await res.json();
@@ -204,7 +205,7 @@ export default function PrinterManager({ initialPrinters }: { initialPrinters: P
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ? JSON.stringify(data.error) : "Could not save printer.");
+      setError(extractApiError(data, "Could not save printer."));
       return;
     }
     const updated: Printer = await res.json();

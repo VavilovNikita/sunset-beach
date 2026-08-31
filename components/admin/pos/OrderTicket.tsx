@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ADMIN_API_URL } from "@/lib/backend";
+import { extractApiError } from "@/lib/apiError";
 import { usePolling } from "@/lib/usePolling";
 import { PAYMENT_METHOD_LABELS, STATUS_LABELS, STATUS_STYLES, isTerminalStatus } from "@/lib/posOrders";
 import AddOrderItemForm from "@/components/admin/pos/AddOrderItemForm";
@@ -104,7 +105,7 @@ export default function OrderTicket({ initialOrder, menu }: { initialOrder: Orde
       // fixes: staff would see the button go back to normal and assume the
       // pre-bill printed.
       const data = await res.json().catch(() => null);
-      setPrebillError(data?.error ? JSON.stringify(data.error) : "Could not print pre-bill — try again.");
+      setPrebillError(extractApiError(data, "Could not print pre-bill — try again."));
       return;
     }
     setPrebillResult(await res.json());
@@ -122,7 +123,7 @@ export default function OrderTicket({ initialOrder, menu }: { initialOrder: Orde
     setClosing(null);
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ? JSON.stringify(data.error) : "Could not close order.");
+      setError(extractApiError(data, "Could not close order."));
       return;
     }
     const updated: Order = await res.json();

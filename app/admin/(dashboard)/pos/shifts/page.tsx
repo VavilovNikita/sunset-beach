@@ -1,9 +1,11 @@
 import ShiftPanel from "@/components/admin/pos/ShiftPanel";
-import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
+import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 
 export default async function AdminShiftsPage() {
-  const user = await getSessionUser();
-  const canExport = !!user && hasRoleAtLeast(user.role, "MANAGER");
+  // Opening/viewing/closing a shift is CASHIER+ on the backend — a WAITER
+  // has no legitimate use for this page (same treatment as Printers).
+  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+  const canExport = hasRoleAtLeast(user.role, "MANAGER");
 
   return (
     <div>

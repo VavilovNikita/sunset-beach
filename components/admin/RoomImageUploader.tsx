@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL, resolveImageUrl } from "@/lib/backend";
+import { extractApiError } from "@/lib/apiError";
 
 export default function RoomImageUploader({
   roomId,
@@ -38,7 +39,7 @@ export default function RoomImageUploader({
 
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ?? "Upload failed.");
+      setError(extractApiError(data, "Upload failed."));
       return;
     }
     router.refresh();
@@ -58,7 +59,7 @@ export default function RoomImageUploader({
     setRemoving(null);
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(data?.error ?? "Could not remove photo.");
+      setError(extractApiError(data, "Could not remove photo."));
       return;
     }
     router.refresh();

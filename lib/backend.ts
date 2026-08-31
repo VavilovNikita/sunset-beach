@@ -7,8 +7,16 @@
 // that's unreachable from the browser.
 export const BACKEND_URL = process.env.BACKEND_API_URL ?? "http://localhost:8080/api";
 
-// Used by Client Components and for any URL rendered into HTML (e.g. <img
-// src>) — must always be reachable by the browser.
+// Used for any URL rendered directly into HTML (e.g. <img src> for a
+// staff-uploaded room photo — see resolveImageUrl below) — must be reachable
+// by the browser. NOT for Client Component fetch()/XHR calls: this app's
+// Content-Security-Policy (`connect-src 'self'`) blocks a script-initiated
+// request to a cross-origin PUBLIC_BACKEND_URL outright, which is exactly
+// what broke the guest booking form (see PUBLIC_PROXY_URL below, and
+// app/api/public-proxy/[...path]/route.ts's comment for the full story).
+// img-src is 'self' too, so this <img> case has the same CSP exposure —
+// left as-is since only PUBLIC_PROXY_URL's callers were in scope for that
+// fix, but it means sunset still needs to be browser-reachable for photos.
 export const PUBLIC_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? BACKEND_URL;
 
 // Client Components that need to make an *authenticated* write/read against
@@ -19,6 +27,14 @@ export const PUBLIC_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? BAC
 // app/api/admin-proxy/[...path]/route.ts, which reads the cookie
 // server-side and forwards the Bearer token to sunset.
 export const ADMIN_API_URL = "/api/admin-proxy";
+
+// Unauthenticated Client Components (the public booking form's price
+// re-quote and its final submit) go through this same-origin route instead
+// of PUBLIC_BACKEND_URL directly, for the CSP reason above. Unlike
+// ADMIN_API_URL there's no session cookie to check, so the route itself
+// only forwards an explicit allowlist of (method, path) pairs — see its
+// comment for why that allowlist is the actual security boundary here.
+export const PUBLIC_PROXY_URL = "/api/public-proxy";
 
 export class BackendError extends Error {
   status: number;

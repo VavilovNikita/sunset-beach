@@ -12,20 +12,40 @@ export default async function AdminDashboardPage() {
       <p className="eyebrow text-sea mb-2">Overview</p>
       <h1 className="font-display italic text-3xl mb-8">Dashboard</h1>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <StatCard label="Bookings today" value={String(stats.bookingsToday)} />
-        <StatCard label="Bookings this week" value={String(stats.bookingsThisWeek)} sublabel="Rolling 7 days" />
-        <StatCard
-          label="Occupancy"
-          value={`${stats.occupancyPct}%`}
-          sublabel={`Next ${stats.occupancyWindowDays} days`}
-        />
-        <StatCard
-          label="Room revenue (paid)"
-          value={`฿${stats.revenueThisMonth.toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
-          sublabel={`${MONTH_LABEL}, by check-in date`}
-        />
-      </div>
+      {stats.roomStats.status === "ok" && (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <StatCard label="Bookings today" value={String(stats.roomStats.bookingsToday)} />
+          <StatCard
+            label="Bookings this week"
+            value={String(stats.roomStats.bookingsThisWeek)}
+            sublabel="Rolling 7 days"
+          />
+          <StatCard
+            label="Occupancy"
+            value={`${stats.roomStats.occupancyPct}%`}
+            sublabel={`Next ${stats.occupancyWindowDays} days`}
+          />
+          <StatCard
+            label="Room revenue (paid)"
+            value={`฿${stats.roomStats.revenueThisMonth.toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
+            sublabel={`${MONTH_LABEL}, by check-in date`}
+          />
+        </div>
+      )}
+
+      {/* "forbidden" (a WAITER, below the CASHIER+ these figures require) renders nothing here,
+          same as the POS block below — a role-appropriate gap, not a failure to explain. */}
+      {stats.roomStats.status === "error" && (
+        <div className="bg-coral/10 border border-coral/30 rounded-xl p-5">
+          <p className="text-coral text-sm font-medium">
+            Couldn&rsquo;t load booking/occupancy figures — check{" "}
+            <Link href="/admin/bookings" className="underline underline-offset-4">
+              bookings
+            </Link>{" "}
+            directly if you need them now.
+          </p>
+        </div>
+      )}
 
       {/* POS numbers are kept in their own group, deliberately not summed
           with room revenue above: grandTotal already excludes room charges

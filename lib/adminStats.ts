@@ -26,6 +26,77 @@ async function getPosSummary(from: string, to: string): Promise<DashboardPosSumm
   }
 }
 
+// Same three-outcome shape as DashboardPosSummary above, for the same reason: GET /rooms and
+// GET /bookings are CASHIER+ on the backend, and WAITER is below that — a WAITER opening the
+// dashboard (still everyone's reachable landing page, see AdminSidebar) must see a dashboard
+// with these cards missing, not a fully crashed page. This is exactly the bug the regression
+// pass found: getDashboardStats() used to await these unconditionally, so a plain 403 became an
+// uncaught rejection during the page's server render — a 500 for the whole route, not just a
+// missing widget.
+export type DashboardRoomStats =
+  | {
+      status: "ok";
+      bookingsToday: number;
+      bookingsThisWeek: number;
+      occupancyPct: number;
+      revenueThisMonth: number;
+    }
+  | { status: "forbidden" }
+  | { status: "error" };
+
+async function getRoomStats(now: Date): Promise<DashboardRoomStats> {
+  try {
+    const todayStart = dateOnlyUTC(now);
+    const tomorrowStart = addDaysUTC(todayStart, 1);
+    const weekStart = addDaysUTC(todayStart, -6); // rolling 7-day window, inclusive of today
+    const monthStart = startOfMonthUTC(now);
+    const monthEnd = endOfMonthUTC(now);
+    const nextMonthStart = addDaysUTC(monthEnd, 1);
+    const occupancyWindowEnd = addDaysUTC(todayStart, OCCUPANCY_WINDOW_DAYS);
+
+    const [rooms, bookings] = await Promise.all([
+      backendJson<Room[]>("/rooms", { auth: true }),
+      backendJson<Booking[]>("/bookings", { auth: true }),
+    ]);
+
+    let bookingsToday = 0;
+    let bookingsThisWeek = 0;
+    let revenueThisMonth = 0;
+    let bookedNights = 0;
+
+    for (const b of bookings) {
+      const createdAt = new Date(b.createdAt);
+      if (createdAt >= todayStart && createdAt < tomorrowStart) bookingsToday += 1;
+      if (createdAt >= weekStart && createdAt < tomorrowStart) bookingsThisWeek += 1;
+
+      const checkIn = dateOnlyUTC(b.checkIn);
+      const checkOut = dateOnlyUTC(b.checkOut);
+
+      if (b.status === "PAID" && checkIn >= monthStart && checkIn < nextMonthStart) {
+        revenueThisMonth += Number(b.totalPrice);
+      }
+
+      if (b.status !== "CANCELLED" && checkIn < occupancyWindowEnd && checkOut > todayStart) {
+        const start = checkIn > todayStart ? checkIn : todayStart;
+        const end = checkOut < occupancyWindowEnd ? checkOut : occupancyWindowEnd;
+        bookedNights += Math.max(0, Math.round((end.getTime() - start.getTime()) / 86_400_000));
+      }
+    }
+
+    // Each Room row is a room *type*; activeUnitCount is how many physical
+    // RoomUnits currently sell under it — occupancy must be denominated by
+    // total units, not by the number of room types.
+    const totalUnits = rooms.reduce((sum, r) => sum + r.activeUnitCount, 0);
+    const totalRoomNights = totalUnits * OCCUPANCY_WINDOW_DAYS;
+    const occupancyPct = totalRoomNights > 0 ? Math.round((bookedNights / totalRoomNights) * 100) : 0;
+
+    return { status: "ok", bookingsToday, bookingsThisWeek, occupancyPct, revenueThisMonth };
+  } catch (e) {
+    if (e instanceof BackendError && e.status === 403) return { status: "forbidden" };
+    return { status: "error" };
+  }
+}
+
 // No dedicated stats endpoint exists on the Java side yet, so this pulls the
 // full room/booking lists (staff-authed) and does the same aggregation the
 // old Prisma-backed version did, just over fetched JSON instead of a DB
@@ -33,58 +104,18 @@ async function getPosSummary(from: string, to: string): Promise<DashboardPosSumm
 // large enough to need a real aggregate endpoint.
 export async function getDashboardStats() {
   const now = new Date();
-  const todayStart = dateOnlyUTC(now);
-  const tomorrowStart = addDaysUTC(todayStart, 1);
-  const weekStart = addDaysUTC(todayStart, -6); // rolling 7-day window, inclusive of today
   const monthStart = startOfMonthUTC(now);
   const monthEnd = endOfMonthUTC(now);
-  const nextMonthStart = addDaysUTC(monthEnd, 1);
-  const occupancyWindowEnd = addDaysUTC(todayStart, OCCUPANCY_WINDOW_DAYS);
 
-  const [rooms, bookings, posSummary] = await Promise.all([
-    backendJson<Room[]>("/rooms", { auth: true }),
-    backendJson<Booking[]>("/bookings", { auth: true }),
-    // Same period as room revenue below: the current calendar month.
+  const [roomStats, posSummary] = await Promise.all([
+    getRoomStats(now),
+    // Same period as room revenue: the current calendar month.
     getPosSummary(toDateKey(monthStart), toDateKey(monthEnd)),
   ]);
 
-  let bookingsToday = 0;
-  let bookingsThisWeek = 0;
-  let revenueThisMonth = 0;
-  let bookedNights = 0;
-
-  for (const b of bookings) {
-    const createdAt = new Date(b.createdAt);
-    if (createdAt >= todayStart && createdAt < tomorrowStart) bookingsToday += 1;
-    if (createdAt >= weekStart && createdAt < tomorrowStart) bookingsThisWeek += 1;
-
-    const checkIn = dateOnlyUTC(b.checkIn);
-    const checkOut = dateOnlyUTC(b.checkOut);
-
-    if (b.status === "PAID" && checkIn >= monthStart && checkIn < nextMonthStart) {
-      revenueThisMonth += Number(b.totalPrice);
-    }
-
-    if (b.status !== "CANCELLED" && checkIn < occupancyWindowEnd && checkOut > todayStart) {
-      const start = checkIn > todayStart ? checkIn : todayStart;
-      const end = checkOut < occupancyWindowEnd ? checkOut : occupancyWindowEnd;
-      bookedNights += Math.max(0, Math.round((end.getTime() - start.getTime()) / 86_400_000));
-    }
-  }
-
-  // Each Room row is a room *type*; activeUnitCount is how many physical
-  // RoomUnits currently sell under it — occupancy must be denominated by
-  // total units, not by the number of room types.
-  const totalUnits = rooms.reduce((sum, r) => sum + r.activeUnitCount, 0);
-  const totalRoomNights = totalUnits * OCCUPANCY_WINDOW_DAYS;
-  const occupancyPct = totalRoomNights > 0 ? Math.round((bookedNights / totalRoomNights) * 100) : 0;
-
   return {
-    bookingsToday,
-    bookingsThisWeek,
-    occupancyPct,
+    roomStats,
     occupancyWindowDays: OCCUPANCY_WINDOW_DAYS,
-    revenueThisMonth,
     posSummary,
   };
 }
