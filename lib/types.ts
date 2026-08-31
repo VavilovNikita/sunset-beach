@@ -77,6 +77,22 @@ export type RoomUnitBlockInput = {
   reason: string;
 };
 
+// One "room X from date A to date B" leg of a booking's stay — see
+// BookingWriter's javadoc (backend) for the full model. checkIn/checkOut here
+// are plain "YYYY-MM-DD" dates, the same format Booking.checkIn/checkOut and
+// CalendarBooking's below use too. Still route through dateOnlyUTC()
+// (lib/bookings.ts) rather than a manual string slice/parse either way.
+export type BookingSegment = {
+  id: string;
+  roomId: string;
+  room: Room;
+  roomUnitId: string | null;
+  roomUnit: RoomUnit | null;
+  checkIn: string;
+  checkOut: string;
+  totalPrice: string;
+};
+
 export type Booking = {
   id: string;
   roomId: string;
@@ -93,6 +109,13 @@ export type Booking = {
   totalPrice: string;
   status: BookingStatus;
   paymentNote: string | null;
+  // roomId/room/roomUnitId/roomUnit/checkIn/checkOut/totalPrice above are all
+  // derived from segments (the *last* segment's room; the first segment's
+  // checkIn and the last segment's checkOut; the sum of every segment's
+  // totalPrice) — a booking that's never been relocated has exactly one
+  // segment and these values equal that segment's own fields exactly.
+  // Ordered by checkIn ascending, never empty.
+  segments: BookingSegment[];
   createdAt: string;
   updatedAt: string;
 };
@@ -147,17 +170,29 @@ export type RoomTypeCalendar = {
   dailyAvailable: RoomTypeDailyAvailability[];
 };
 
-// A lighter Booking projection for the grid — no nested room/roomUnit,
-// cross-referenced against BookingCalendarResponse.roomTypes instead.
+// One booking *segment* as rendered on the grid — a lighter BookingSegment
+// projection (no nested room/roomUnit, cross-referenced against
+// BookingCalendarResponse.roomTypes instead). `segmentId` is the SEGMENT's
+// id, not the booking's — a relocated booking produces more than one
+// CalendarBooking entry sharing the same `bookingId`, rendered as separate
+// bars that all open the same booking's card on click. Anything that acts on
+// the booking (open the card panel, quote/apply a schedule change, relocate)
+// must use `bookingId`, never `segmentId` — the field is named for exactly
+// what it identifies because a same-named-but-different-meaning `id` here
+// once made every drag-to-edit handler send the wrong id and get a silent
+// 404. `segmentCount` is the *whole* booking's segment count (1 for the
+// overwhelmingly common never-relocated case) — used to decide whether
+// drag-resize/drag-move is offered on this bar at all, without a second
+// round trip to fetch the full booking.
 //
-// checkIn/checkOut here are plain "YYYY-MM-DD" dates, UNLIKE Booking.checkIn/
-// checkOut above (which carry a legacy "T00:00:00.000Z" time component, a
-// Prisma serialization artifact this schema is new enough to not repeat).
-// Route both through dateOnlyUTC() (lib/bookings.ts) regardless — never a
-// manual string slice/parse; see that function's own comment about the past
-// bug (a bad date parse silently zeroed dashboard revenue/occupancy).
+// checkIn/checkOut here are plain "YYYY-MM-DD" dates, the same format
+// Booking.checkIn/checkOut use too. Still route both through dateOnlyUTC()
+// (lib/bookings.ts) rather than a manual string slice/parse; see that
+// function's own comment about the past bug (a bad date parse silently
+// zeroed dashboard revenue/occupancy).
 export type CalendarBooking = {
-  id: string;
+  segmentId: string;
+  bookingId: string;
   roomId: string;
   roomUnitId: string | null;
   guestName: string;
@@ -165,6 +200,7 @@ export type CalendarBooking = {
   checkOut: string;
   status: BookingStatus;
   totalPrice: string;
+  segmentCount: number;
 };
 
 export type BookingCalendarResponse = {
@@ -183,21 +219,53 @@ export type BookingCalendarResponse = {
 // roomUnitId is always sent (string or explicit null) — see openapi.yaml's
 // schema description for why it's not typed optional despite the backend
 // technically tolerating omission-as-error only (never rely on omission here).
+//
+// On a booking with more than one segment (booking.segments), only a change
+// that moves exactly one outer edge of the stay is accepted: checkIn alone
+// (early/late arrival, applied to the first segment) or checkOut alone
+// (extend/shorten the stay, applied to the last segment), each without
+// crossing into the neighboring segment. checkIn AND checkOut moving
+// together, or neither moving (a room-only change with no segment named to
+// apply it to), has no single well-defined segment and is rejected with 409
+// — use RelocationInput/relocate for that. A date that would cross into the
+// neighboring segment is rejected with 400 instead.
 export type BookingScheduleInput = {
   checkIn: string;
   checkOut: string;
   roomUnitId: string | null;
 };
 
-// Response of POST /bookings/{id}/schedule/quote — a non-mutating preview.
-// totalPrice is always computed; available/reason report whether applying
-// this exact change would currently succeed. Advisory only, not a lock — the
-// apply call (PATCH .../schedule) re-validates from scratch.
+// Response of both POST /bookings/{id}/schedule/quote and
+// POST /bookings/{id}/relocate/quote (reused as-is, not duplicated) — a
+// non-mutating preview. totalPrice is always computed (for relocate, the
+// whole booking's new total after the move); available/reason report
+// whether applying this exact change would currently succeed. Advisory only,
+// not a lock — the apply call re-validates from scratch.
 export type BookingScheduleQuote = {
   totalPrice: string;
   nights: number;
   available: boolean;
   reason: string | null;
+};
+
+// Body of POST /bookings/{id}/relocate and POST /bookings/{id}/relocate/quote
+// — a guest moving to a different room (possibly a different room *type*,
+// hence roomId being changeable here unlike BookingScheduleInput)
+// partway through their stay. effectiveDate must fall strictly after the
+// start of the segment currently covering it — splitting a segment on its
+// own first night is "assign this segment a different room"
+// (BookingScheduleInput when there's only one segment), not a mid-stay move.
+export type RelocationInput = {
+  effectiveDate: string;
+  roomId: string;
+  roomUnitId: string | null;
+};
+
+// Body of POST /bookings/{id}/undo-relocation — reverses a relocation,
+// merging the two segments meeting at splitDate back into one (keeping the
+// *earlier* segment's room). splitDate must be an existing segment boundary.
+export type RelocationUndoInput = {
+  splitDate: string;
 };
 
 // Body of POST /bookings/staff — front-desk (walk-in) booking creation.

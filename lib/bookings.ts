@@ -35,10 +35,11 @@ export function parseDateKey(key: string) {
 }
 
 export function dateOnlyUTC(date: Date | string) {
-  // Accepts both a bare "YYYY-MM-DD" key and a full ISO datetime string
-  // (Booking.checkIn/checkOut come back as "YYYY-MM-DDT00:00:00.000Z" — see
-  // openapi.yaml's Booking schema) — parseDateKey only understands the
-  // former, so the date portion is sliced off first either way.
+  // Slicing to the first 10 chars is a no-op on an already-bare "YYYY-MM-DD" key (every date
+  // field in this API, Booking.checkIn/checkOut included), so this one line works for any of
+  // them without needing to know which shape it's holding — kept deliberately rather than
+  // trimmed to a bare parseDateKey(date), since a future field regenerated with a stray
+  // datetime suffix survives this function unnoticed instead of breaking it.
   if (typeof date === "string") return parseDateKey(date.slice(0, 10));
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }

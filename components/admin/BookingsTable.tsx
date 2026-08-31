@@ -45,8 +45,8 @@ export default function BookingsTable({ bookings }: { bookings: Booking[] }) {
                   <span className="rounded-full px-2.5 py-1 text-xs bg-amber-400/15 text-amber-400">Unassigned</span>
                 )}
               </td>
-              <td className="py-3 pr-4 text-cream/70">{b.checkIn.slice(0, 10)}</td>
-              <td className="py-3 pr-4 text-cream/70">{b.checkOut.slice(0, 10)}</td>
+              <td className="py-3 pr-4 text-cream/70">{b.checkIn}</td>
+              <td className="py-3 pr-4 text-cream/70">{b.checkOut}</td>
               <td className="py-3 pr-4 text-cream/70">฿{Number(b.totalPrice).toLocaleString("en-US")}</td>
               <td className="py-3 pr-4">
                 <span className={`rounded-full px-2.5 py-1 text-xs ${STATUS_STYLES[b.status] ?? ""}`}>{b.status}</span>

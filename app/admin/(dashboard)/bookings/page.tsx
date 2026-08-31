@@ -1,5 +1,6 @@
 import { backendJson } from "@/lib/backendServer";
 import { ADMIN_API_URL } from "@/lib/backend";
+import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import BookingsTable from "@/components/admin/BookingsTable";
 import type { Booking, BookingStatus } from "@/lib/types";
 
@@ -10,6 +11,11 @@ export default async function AdminBookingsPage({
 }: {
   searchParams: { from?: string; to?: string; status?: string };
 }) {
+  // GET /bookings is CASHIER+ on the backend (front-desk work); a WAITER
+  // navigating here directly (the sidebar itself no longer links to it —
+  // see AdminSidebar's CASHIER_PLUS_LINKS) would otherwise crash the page
+  // on the fetch below.
+  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
   const { from, to, status } = searchParams;
 
   const query = new URLSearchParams();
@@ -19,6 +25,12 @@ export default async function AdminBookingsPage({
 
   const bookings = await backendJson<Booking[]>(`/bookings?${query.toString()}`, { auth: true });
 
+  // GET /bookings/export is MANAGER+ (a bulk CSV of every guest's contact
+  // details is a different risk profile than looking up one booking) —
+  // stricter than this page's own CASHIER+ floor, so the link is hidden
+  // rather than left for a CASHIER to click into a raw 403.
+  const canExport = hasRoleAtLeast(user.role, "MANAGER");
+
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
@@ -26,12 +38,14 @@ export default async function AdminBookingsPage({
           <p className="eyebrow text-sea mb-2">Reservations</p>
           <h1 className="font-display italic text-3xl">Bookings</h1>
         </div>
-        <a
-          href={`${ADMIN_API_URL}/bookings/export?${query.toString()}`}
-          className="rounded-full border border-cream/25 hover:border-cream/50 transition-colors px-5 py-2.5 text-sm font-medium"
-        >
-          Export CSV
-        </a>
+        {canExport && (
+          <a
+            href={`${ADMIN_API_URL}/bookings/export?${query.toString()}`}
+            className="rounded-full border border-cream/25 hover:border-cream/50 transition-colors px-5 py-2.5 text-sm font-medium"
+          >
+            Export CSV
+          </a>
+        )}
       </div>
 
       <form method="get" className="flex flex-wrap items-end gap-4 mb-8 bg-ink2/40 border border-cream/10 rounded-xl p-4">

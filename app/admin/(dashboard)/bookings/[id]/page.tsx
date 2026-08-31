@@ -2,13 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { backendJson } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
-import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
+import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import BookingStatusForm from "@/components/admin/BookingStatusForm";
 import BookingScheduleForm from "@/components/admin/BookingScheduleForm";
 import type { AuditLogPage, Booking, RoomUnit } from "@/lib/types";
 import type { BookingPosOrder, Folio } from "@/lib/posTypes";
 
 export default async function AdminBookingDetailPage({ params }: { params: { id: string } }) {
+  // GET /bookings/{id} is CASHIER+ on the backend — guard the whole page
+  // rather than let a WAITER's fetch below throw an uncaught 403.
+  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+
   let booking: Booking;
   try {
     booking = await backendJson<Booking>(`/bookings/${params.id}`, { auth: true });
@@ -23,7 +27,6 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
     auth: true,
   }).catch(() => []);
 
-  const user = await getSessionUser();
   // PATCH /bookings/{id}/schedule is CASHIER+, but GET /room-units (the only
   // way to list which rooms exist to pick from) is MANAGER+ — a CASHIER can
   // change dates/assign/unassign but can't browse options above a manager's

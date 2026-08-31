@@ -4,9 +4,10 @@
 // it's testable/reasoned-about independent of pointer-event wiring.
 //
 // All date math goes through dateOnlyUTC/addDaysUTC (lib/bookings.ts) — never a manual string
-// slice or `new Date(str)`. Booking.checkIn/checkOut carry a legacy "T00:00:00.000Z" time
-// component that a naive parse has broken on before (see lib/bookings.ts's parseDateKey comment
-// — that exact bug silently zeroed the dashboard's revenue/occupancy numbers).
+// slice or `new Date(str)`. A naive parse has broken on this API's date fields before (see
+// lib/bookings.ts's parseDateKey comment — that exact bug silently zeroed the dashboard's
+// revenue/occupancy numbers), so route through the shared helper even where the field looks
+// like a plain "YYYY-MM-DD" today.
 
 import { addDaysUTC, dateOnlyUTC } from "@/lib/bookings";
 import type { CalendarBooking, RoomUnitBlock } from "@/lib/types";

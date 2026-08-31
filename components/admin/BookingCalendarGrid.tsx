@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { addDaysUTC, dateOnlyUTC, toDateKey } from "@/lib/bookings";
 import { buildDayColumns, columnSpan, groupBookingsByUnit, mergeBlocksByUnit, assignLanes } from "@/lib/calendarLayout";
 import { quoteBookingSchedule, applyBookingSchedule } from "@/lib/bookingScheduleClient";
+import { ZOOM_LEVELS, saveStoredCalendarRange, type ZoomLevel } from "@/lib/calendarZoom";
 import BookingCreateFromGridModal from "@/components/admin/BookingCreateFromGridModal";
+import BookingCardPanel from "@/components/admin/BookingCardPanel";
 import type { BookingCalendarResponse, BookingScheduleQuote, CalendarBooking, RoomUnit } from "@/lib/types";
 
-const DAY_WIDTH = 88;
 const ROW_HEIGHT = 40;
 const LABEL_WIDTH = 208;
 
@@ -28,15 +29,52 @@ const STATUS_BAR_STYLES: Record<string, string> = {
 // coordinate math would silently break the moment that layout changes. A drag library's
 // draggable/droppable model is built for reorderable lists, not for edge-resize + range-select
 // on a custom date grid, so it wouldn't remove much of this logic anyway.
-export default function BookingCalendarGrid({ data }: { data: BookingCalendarResponse }) {
+export default function BookingCalendarGrid({
+  data,
+  canManage,
+  zoom,
+  monthKey,
+}: {
+  data: BookingCalendarResponse;
+  canManage: boolean;
+  // Owned by the URL (see the calendar page), not local state: changing zoom changes how much
+  // data is fetched (day = ~1 month, week = ~3 months, month = up to a year), which only the
+  // page's own server-side range calculation can do - a client-only zoom toggle would be stuck
+  // re-rendering whatever single month's worth of bookings/blocks it already has.
+  zoom: ZoomLevel;
+  // "YYYY-MM" the current range starts at - reused when a zoom button pushes a new URL, so
+  // switching zoom keeps the same starting point instead of jumping back to the current month.
+  monthKey: string;
+}) {
   const router = useRouter();
   const gridRef = useRef<HTMLDivElement>(null);
+
+  function changeZoom(next: ZoomLevel) {
+    saveStoredCalendarRange({ month: monthKey, zoom: next });
+    router.push(`/admin/bookings/calendar?month=${monthKey}&zoom=${next}`);
+  }
+  const { dayWidth, allowDrag, showLabel } = ZOOM_LEVELS[zoom];
+
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
 
   const days = useMemo(() => buildDayColumns(data.from, data.to), [data.from, data.to]);
   const gridFrom = days[0];
   const dayCount = days.length;
   const today = useMemo(() => dateOnlyUTC(new Date()), []);
   const todayKey = toDateKey(today);
+
+  // "<unit label> (<room type>)" for a given roomUnitId, used by the
+  // resize/move confirm dialog below — dates and price alone don't tell a
+  // manager which physical room a drag actually landed a booking on, so a
+  // misjudged drop onto the wrong row could be confirmed without anyone
+  // noticing until a guest shows up to the wrong door.
+  const roomUnitLabelById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const rt of data.roomTypes) {
+      for (const unit of rt.roomUnits) map.set(unit.id, `${unit.label} (${rt.roomName})`);
+    }
+    return map;
+  }, [data.roomTypes]);
 
   const blocksByUnit = useMemo(() => mergeBlocksByUnit(data.blocks), [data.blocks]);
   const bookingsByRoomId = useMemo(() => {
@@ -154,22 +192,35 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
   }
 
   function onCellPointerDown(e: React.PointerEvent<HTMLDivElement>, roomId: string, roomUnitId: string, date: Date) {
+    if (!allowDrag) return; // week/month zoom: too compressed for mouse-precise editing, see ZOOM_LEVELS
     if (roomUnitId === "" || !isFree(roomUnitId, date)) return; // no range-select on the unassigned row or an occupied night
     e.currentTarget.setPointerCapture(e.pointerId);
     setTouchActionNone(true);
     setDragState({ kind: "select", roomId, roomUnitId, startDate: date, currentDate: date });
   }
 
+  // A bar is draggable only if the zoom level permits mouse-precise editing AND the booking has
+  // never been relocated (segmentCount === 1) - PATCH .../schedule (which this drag applies
+  // through) rejects a multi-segment booking outright, since a single checkIn/checkOut/roomUnitId
+  // has no well-defined meaning once a stay spans more than one room. A relocated booking's bars
+  // are still clickable (onClick, below - browsers suppress the click event after a real pointer
+  // drag on their own, so the two don't conflict) to open the card panel, where relocate/undo
+  // are the tools built to reason about more than one segment.
+  function canDragBar(booking: CalendarBooking) {
+    return allowDrag && booking.segmentCount === 1;
+  }
+
   function onBarPointerDown(e: React.PointerEvent<HTMLDivElement>, booking: CalendarBooking) {
+    if (!canDragBar(booking)) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     setTouchActionNone(true);
     const rect = e.currentTarget.getBoundingClientRect();
-    const grabDayOffset = Math.floor((e.clientX - rect.left) / DAY_WIDTH);
+    const grabDayOffset = Math.floor((e.clientX - rect.left) / dayWidth);
     const checkIn = dateOnlyUTC(booking.checkIn);
     const checkOut = dateOnlyUTC(booking.checkOut);
     setDragState({
       kind: "move",
-      bookingId: booking.id,
+      bookingId: booking.bookingId,
       originalRoomUnitId: booking.roomUnitId ?? "",
       originalCheckIn: checkIn,
       originalCheckOut: checkOut,
@@ -181,6 +232,7 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
   }
 
   function onResizeHandlePointerDown(e: React.PointerEvent<HTMLDivElement>, booking: CalendarBooking, edge: "start" | "end") {
+    if (!canDragBar(booking)) return;
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     setTouchActionNone(true);
@@ -188,7 +240,7 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
     const checkOut = dateOnlyUTC(booking.checkOut);
     setDragState({
       kind: "resize",
-      bookingId: booking.id,
+      bookingId: booking.bookingId,
       roomUnitId: booking.roomUnitId ?? "",
       edge,
       originalCheckIn: checkIn,
@@ -226,10 +278,10 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
   }
 
   function openScheduleConfirm(booking: CalendarBooking, checkIn: string, checkOut: string, roomUnitId: string | null) {
-    setScheduleConfirm({ bookingId: booking.id, guestName: booking.guestName, checkIn, checkOut, roomUnitId, status: "loading" });
-    quoteBookingSchedule(booking.id, { checkIn, checkOut, roomUnitId }).then((result) => {
+    setScheduleConfirm({ bookingId: booking.bookingId, guestName: booking.guestName, checkIn, checkOut, roomUnitId, status: "loading" });
+    quoteBookingSchedule(booking.bookingId, { checkIn, checkOut, roomUnitId }).then((result) => {
       setScheduleConfirm((prev) => {
-        if (!prev || prev.bookingId !== booking.id || prev.checkIn !== checkIn || prev.checkOut !== checkOut) return prev;
+        if (!prev || prev.bookingId !== booking.bookingId || prev.checkIn !== checkIn || prev.checkOut !== checkOut) return prev;
         return result.ok ? { ...prev, status: "ready", quote: result.quote } : { ...prev, status: "error", error: result.error };
       });
     });
@@ -258,7 +310,7 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
       return;
     }
 
-    const booking = data.bookings.find((b) => b.id === finished.bookingId);
+    const booking = data.bookings.find((b) => b.bookingId === finished.bookingId);
     if (!booking) return;
 
     const unchanged =
@@ -295,7 +347,7 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
   // --- Rendering --------------------------------------------------------------------------
 
   function effectiveBooking(booking: CalendarBooking) {
-    if (dragState && dragState.kind !== "select" && dragState.bookingId === booking.id) {
+    if (dragState && dragState.kind !== "select" && dragState.bookingId === booking.bookingId) {
       return {
         checkIn: toDateKey(dragState.checkIn),
         checkOut: toDateKey(dragState.checkOut),
@@ -317,7 +369,7 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
             <div
               key={key}
               className={`shrink-0 border-b border-r border-cream/10 text-center py-2 bg-ink2 ${isToday ? "bg-coral/15" : ""}`}
-              style={{ width: DAY_WIDTH }}
+              style={{ width: dayWidth }}
             >
               <p className="text-[10px] uppercase tracking-wide text-cream/40">
                 {d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" })}
@@ -352,7 +404,7 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
           const key = toDateKey(d);
           const count = byDate.get(key) ?? 0;
           return (
-            <div key={key} className="shrink-0 text-center text-xs py-2" style={{ width: DAY_WIDTH }}>
+            <div key={key} className="shrink-0 text-center text-xs py-2" style={{ width: dayWidth }}>
               <span className={availabilityCellClass(count)}>{count}</span>
             </div>
           );
@@ -389,7 +441,7 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
             </span>
           )}
         </div>
-        <div className="relative shrink-0" style={{ width: dayCount * DAY_WIDTH, height: rowHeight }}>
+        <div className="relative shrink-0" style={{ width: dayCount * dayWidth, height: rowHeight }}>
           {days.map((d) => {
             const key = toDateKey(d);
             const covering = segments.filter((s) => s.fromDate.getTime() <= d.getTime() && d.getTime() <= s.toDate.getTime());
@@ -409,7 +461,7 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
                 className={`absolute top-0 bottom-0 border-r border-cream/5 ${free ? "cursor-cell" : ""} ${
                   key === todayKey ? "bg-cream/5" : ""
                 }`}
-                style={{ left: dayIndex(d) * DAY_WIDTH, width: DAY_WIDTH }}
+                style={{ left: dayIndex(d) * dayWidth, width: dayWidth }}
               />
             );
           })}
@@ -422,8 +474,8 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
                 key={i}
                 className="absolute rounded-md pointer-events-none opacity-70"
                 style={{
-                  left: startCol * DAY_WIDTH + 2,
-                  width: colSpan * DAY_WIDTH - 4,
+                  left: startCol * dayWidth + 2,
+                  width: colSpan * dayWidth - 4,
                   top: 3,
                   height: ROW_HEIGHT - 6,
                   backgroundImage:
@@ -435,17 +487,17 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
           })}
 
           {lanes.map(({ booking, lane }) => {
-              const eff = withEffective.find((w) => w.booking.id === booking.id)!;
+              const eff = withEffective.find((w) => w.booking.segmentId === booking.segmentId)!;
               const { startCol, colSpan } = columnSpan(dateOnlyUTC(eff.checkIn), dateOnlyUTC(eff.checkOut), gridFrom, dayCount);
               if (colSpan <= 0) return null;
               const dragging = eff.dragging;
               return (
                 <div
-                  key={booking.id}
+                  key={booking.segmentId}
                   className="absolute"
                   style={{
-                    left: startCol * DAY_WIDTH + 2,
-                    width: colSpan * DAY_WIDTH - 4,
+                    left: startCol * dayWidth + 2,
+                    width: colSpan * dayWidth - 4,
                     top: lane * ROW_HEIGHT + 3,
                     height: ROW_HEIGHT - 6,
                     pointerEvents: dragging ? "none" : "auto",
@@ -454,36 +506,41 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
                   <div
                     className={`absolute inset-0 rounded-md flex items-center overflow-hidden ${STATUS_BAR_STYLES[booking.status] ?? "bg-cream/20 text-cream"} ${
                       dragging ? "opacity-50 ring-2 ring-dashed ring-cream" : ""
-                    }`}
-                    style={{ cursor: dragging ? "grabbing" : "grab" }}
+                    } ${booking.segmentCount > 1 ? "ring-1 ring-inset ring-cream/40" : ""}`}
+                    style={{ cursor: dragging ? "grabbing" : canDragBar(booking) ? "grab" : "pointer" }}
                     onPointerDown={(e) => onBarPointerDown(e, booking)}
                     onPointerMove={onDragPointerMove}
                     onPointerUp={onDragPointerUp}
                     onPointerCancel={onDragPointerCancel}
-                    title={`${booking.guestName} · ${booking.status}`}
+                    onClick={() => setSelectedBookingId(booking.bookingId)}
+                    title={`${booking.guestName} · ${booking.status}${booking.segmentCount > 1 ? " · relocated" : ""}`}
                   >
-                    <span className="truncate px-2 text-xs pointer-events-none">{booking.guestName}</span>
+                    {showLabel && <span className="truncate px-2 text-xs pointer-events-none">{booking.guestName}</span>}
                   </div>
-                  <div
-                    className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize"
-                    onPointerDown={(e) => onResizeHandlePointerDown(e, booking, "start")}
-                    onPointerMove={onDragPointerMove}
-                    onPointerUp={onDragPointerUp}
-                    onPointerCancel={onDragPointerCancel}
-                  />
-                  <div
-                    className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize"
-                    onPointerDown={(e) => onResizeHandlePointerDown(e, booking, "end")}
-                    onPointerMove={onDragPointerMove}
-                    onPointerUp={onDragPointerUp}
-                    onPointerCancel={onDragPointerCancel}
-                  />
+                  {canDragBar(booking) && (
+                    <>
+                      <div
+                        className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize"
+                        onPointerDown={(e) => onResizeHandlePointerDown(e, booking, "start")}
+                        onPointerMove={onDragPointerMove}
+                        onPointerUp={onDragPointerUp}
+                        onPointerCancel={onDragPointerCancel}
+                      />
+                      <div
+                        className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize"
+                        onPointerDown={(e) => onResizeHandlePointerDown(e, booking, "end")}
+                        onPointerMove={onDragPointerMove}
+                        onPointerUp={onDragPointerUp}
+                        onPointerCancel={onDragPointerCancel}
+                      />
+                    </>
+                  )}
                 </div>
               );
             })}
 
           {dragState?.kind === "select" && dragState.roomUnitId === roomUnitId && (
-            <SelectionGhost dragState={dragState} gridFrom={gridFrom} dayCount={dayCount} />
+            <SelectionGhost dragState={dragState} gridFrom={gridFrom} dayCount={dayCount} dayWidth={dayWidth} />
           )}
         </div>
       </div>
@@ -497,7 +554,7 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
   // Bookings currently being moved render only in their drag-target row, not their original one.
   function bookingsForRow(roomId: string, roomUnitId: string) {
     return (bookingsByRoomId.get(roomId) ?? []).filter((b) => {
-      if (dragState && dragState.kind === "move" && dragState.bookingId === b.id) {
+      if (dragState && dragState.kind === "move" && dragState.bookingId === b.bookingId) {
         return dragState.roomUnitId === roomUnitId;
       }
       return (b.roomUnitId ?? "") === roomUnitId;
@@ -506,11 +563,40 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
 
   return (
     <div>
+      <div className="flex items-center justify-end gap-2 mb-3">
+        <span className="eyebrow text-cream/40 mr-1">Zoom</span>
+        {(Object.keys(ZOOM_LEVELS) as ZoomLevel[]).map((level) => (
+          <button
+            key={level}
+            type="button"
+            onClick={() => changeZoom(level)}
+            className={`rounded-full px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
+              zoom === level ? "bg-coral text-ink" : "border border-cream/25 text-cream/60 hover:border-cream/50"
+            }`}
+          >
+            {level}
+          </button>
+        ))}
+      </div>
+      {!allowDrag && (
+        <p className="text-xs text-cream/40 mb-2">
+          Drag-editing is only available at day zoom — click a bar to change its dates or room from the booking panel.
+        </p>
+      )}
+      {/*
+        No virtualization: measured (2026-08-30) against the dev DB's actual scale - 15 active
+        room units across 6 room types - rendering a full year at month zoom (~5,500 grid cells,
+        ~17.7k total DOM nodes): ~1.1s render, scroll max frame gap ~17.7ms (one 60fps frame, no
+        jank). Plain overflow-auto is enough at that scale. This has NOT been measured at a
+        larger room count - if the property's room-unit count grows substantially, re-measure
+        before assuming this still holds; a bigger inventory could cross the point where
+        virtualization (windowing rows/columns, keeping the sticky headers) becomes necessary.
+      */}
       <div
         ref={gridRef}
         className="overflow-auto max-h-[75vh] border border-cream/10 rounded-xl relative select-none"
       >
-        <div style={{ width: LABEL_WIDTH + dayCount * DAY_WIDTH }}>
+        <div style={{ width: LABEL_WIDTH + dayCount * dayWidth }}>
           {renderDayHeader()}
           {data.roomTypes.map((rt) => (
             <div key={rt.roomId}>
@@ -545,7 +631,10 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
             <p className="text-cream mb-1">{scheduleConfirm.guestName}</p>
             <p className="text-sm text-cream/60 mb-4">
               {scheduleConfirm.checkIn} → {scheduleConfirm.checkOut}
-              {scheduleConfirm.roomUnitId === null ? " · unassigned" : ""}
+              {" · "}
+              {scheduleConfirm.roomUnitId === null
+                ? "unassigned"
+                : (roomUnitLabelById.get(scheduleConfirm.roomUnitId) ?? scheduleConfirm.roomUnitId)}
             </p>
 
             {scheduleConfirm.status === "loading" && <p className="text-sm text-cream/50">Pricing…</p>}
@@ -596,6 +685,17 @@ export default function BookingCalendarGrid({ data }: { data: BookingCalendarRes
           </div>
         </div>
       )}
+
+      {selectedBookingId && (
+        <BookingCardPanel
+          bookingId={selectedBookingId}
+          canManage={canManage}
+          onClose={() => {
+            setSelectedBookingId(null);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -604,10 +704,12 @@ function SelectionGhost({
   dragState,
   gridFrom,
   dayCount,
+  dayWidth,
 }: {
   dragState: { startDate: Date; currentDate: Date };
   gridFrom: Date;
   dayCount: number;
+  dayWidth: number;
 }) {
   const start = dragState.startDate.getTime() <= dragState.currentDate.getTime() ? dragState.startDate : dragState.currentDate;
   const endExclusive = addDaysUTC(
@@ -619,7 +721,7 @@ function SelectionGhost({
   return (
     <div
       className="absolute rounded-md pointer-events-none bg-sea/30 border-2 border-sea"
-      style={{ left: startCol * DAY_WIDTH + 2, width: colSpan * DAY_WIDTH - 4, top: 3, height: ROW_HEIGHT - 6 }}
+      style={{ left: startCol * dayWidth + 2, width: colSpan * dayWidth - 4, top: 3, height: ROW_HEIGHT - 6 }}
     />
   );
 }
