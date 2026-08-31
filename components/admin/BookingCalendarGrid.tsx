@@ -3,9 +3,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addDaysUTC, dateOnlyUTC, toDateKey } from "@/lib/bookings";
-import { buildDayColumns, columnSpan, groupBookingsByUnit, mergeBlocksByUnit, assignLanes } from "@/lib/calendarLayout";
+import {
+  buildDayColumns,
+  columnSpan,
+  groupBookingsByUnit,
+  mergeBlocksByUnit,
+  assignLanes,
+  DRAG_THRESHOLD_PX,
+  LABEL_MIN_WIDTH_PX,
+} from "@/lib/calendarLayout";
 import { quoteBookingSchedule, applyBookingSchedule } from "@/lib/bookingScheduleClient";
-import { ZOOM_LEVELS, saveStoredCalendarRange, type ZoomLevel } from "@/lib/calendarZoom";
+import { DEFAULT_DAY_WIDTH_PX, MIN_DAY_WIDTH_PX, MAX_DAY_WIDTH_PX, loadStoredDensity, saveStoredDensity } from "@/lib/calendarRange";
 import BookingCreateFromGridModal from "@/components/admin/BookingCreateFromGridModal";
 import BookingCardPanel from "@/components/admin/BookingCardPanel";
 import type { BookingCalendarResponse, BookingScheduleQuote, CalendarBooking, RoomUnit } from "@/lib/types";
@@ -32,28 +40,32 @@ const STATUS_BAR_STYLES: Record<string, string> = {
 export default function BookingCalendarGrid({
   data,
   canManage,
-  zoom,
-  monthKey,
 }: {
   data: BookingCalendarResponse;
   canManage: boolean;
-  // Owned by the URL (see the calendar page), not local state: changing zoom changes how much
-  // data is fetched (day = ~1 month, week = ~3 months, month = up to a year), which only the
-  // page's own server-side range calculation can do - a client-only zoom toggle would be stuck
-  // re-rendering whatever single month's worth of bookings/blocks it already has.
-  zoom: ZoomLevel;
-  // "YYYY-MM" the current range starts at - reused when a zoom button pushes a new URL, so
-  // switching zoom keeps the same starting point instead of jumping back to the current month.
-  monthKey: string;
 }) {
   const router = useRouter();
   const gridRef = useRef<HTMLDivElement>(null);
 
-  function changeZoom(next: ZoomLevel) {
-    saveStoredCalendarRange({ month: monthKey, zoom: next });
-    router.push(`/admin/bookings/calendar?month=${monthKey}&zoom=${next}`);
+  // Density is deliberately NOT owned by the URL, unlike the period (see the calendar page):
+  // it never changes what's fetched, only how the same data is rendered, so it can live as plain
+  // client state - hydrated from localStorage once on mount (SSR has no localStorage, so the
+  // first paint always uses the default; see the effect below) rather than round-tripping through
+  // a server render for something with zero effect on what data is needed.
+  const [dayWidth, setDayWidth] = useState(DEFAULT_DAY_WIDTH_PX);
+  useEffect(() => {
+    const stored = loadStoredDensity();
+    if (stored !== null) setDayWidth(stored);
+  }, []);
+  function changeDayWidth(next: number) {
+    setDayWidth(next);
+    saveStoredDensity(next);
   }
-  const { dayWidth, allowDrag, showLabel } = ZOOM_LEVELS[zoom];
+  // One rule, not two: whether the mouse can be trusted to land on an intended day at all -
+  // dragging an existing booking's edge/whole bar, dragging a free-cell range to create one, and
+  // (below) whether a single click on a free cell should open the create form immediately instead
+  // all key off this same comparison. See DRAG_THRESHOLD_PX's own comment for why 44px.
+  const allowDrag = dayWidth >= DRAG_THRESHOLD_PX;
 
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
 
@@ -192,14 +204,41 @@ export default function BookingCalendarGrid({
   }
 
   function onCellPointerDown(e: React.PointerEvent<HTMLDivElement>, roomId: string, roomUnitId: string, date: Date) {
-    if (!allowDrag) return; // week/month zoom: too compressed for mouse-precise editing, see ZOOM_LEVELS
+    if (!allowDrag) return; // too compressed for mouse-precise editing - onCellClick handles this case instead, see below
     if (roomUnitId === "" || !isFree(roomUnitId, date)) return; // no range-select on the unassigned row or an occupied night
     e.currentTarget.setPointerCapture(e.pointerId);
     setTouchActionNone(true);
     setDragState({ kind: "select", roomId, roomUnitId, startDate: date, currentDate: date });
   }
 
-  // A bar is draggable only if the zoom level permits mouse-precise editing AND the booking has
+  // Below DRAG_THRESHOLD_PX a drag can't be trusted to land on the intended day (see its own
+  // comment), so a free cell opens the create form on a plain click instead of a range-select
+  // drag - checkIn/checkOut default to the single clicked day, editable in the form before saving.
+  // Never fires when allowDrag is true: onCellPointerDown already starts a "select" drag in that
+  // case, and a real pointer drag suppresses the browser's own click event on its own - but a
+  // clean click (no drag) still reaches here even when allowDrag is true, so the guard is
+  // explicit rather than relying on that suppression alone.
+  function onCellClick(roomId: string, roomUnitId: string, date: Date) {
+    if (allowDrag) return;
+    openCreateModal(roomId, roomUnitId, date, addDaysUTC(date, 1));
+  }
+
+  function openCreateModal(roomId: string, roomUnitId: string, checkIn: Date, checkOutExclusive: Date) {
+    if (roomUnitId === "" || !isFree(roomUnitId, checkIn)) return;
+    const room = data.roomTypes.find((rt) => rt.roomId === roomId);
+    const unit = room?.roomUnits.find((u) => u.id === roomUnitId);
+    if (!room || !unit) return;
+    setCreateModal({
+      roomId,
+      roomTypeName: room.roomName,
+      roomUnitId,
+      roomUnitLabel: unit.label,
+      checkIn: toDateKey(checkIn),
+      checkOut: toDateKey(checkOutExclusive),
+    });
+  }
+
+  // A bar is draggable only if the density permits mouse-precise editing AND the booking has
   // never been relocated (segmentCount === 1) - PATCH .../schedule (which this drag applies
   // through) rejects a multi-segment booking outright, since a single checkIn/checkOut/roomUnitId
   // has no well-defined meaning once a stay spans more than one room. A relocated booking's bars
@@ -296,17 +335,7 @@ export default function BookingCalendarGrid({
     if (finished.kind === "select") {
       const startDate = finished.startDate.getTime() <= finished.currentDate.getTime() ? finished.startDate : finished.currentDate;
       const endInclusive = finished.startDate.getTime() <= finished.currentDate.getTime() ? finished.currentDate : finished.startDate;
-      const room = data.roomTypes.find((rt) => rt.roomId === finished.roomId);
-      const unit = room?.roomUnits.find((u) => u.id === finished.roomUnitId);
-      if (!room || !unit) return;
-      setCreateModal({
-        roomId: finished.roomId,
-        roomTypeName: room.roomName,
-        roomUnitId: finished.roomUnitId,
-        roomUnitLabel: unit.label,
-        checkIn: toDateKey(startDate),
-        checkOut: toDateKey(addDaysUTC(endInclusive, 1)),
-      });
+      openCreateModal(finished.roomId, finished.roomUnitId, startDate, addDaysUTC(endInclusive, 1));
       return;
     }
 
@@ -458,6 +487,7 @@ export default function BookingCalendarGrid({
                 onPointerMove={onDragPointerMove}
                 onPointerUp={onDragPointerUp}
                 onPointerCancel={onDragPointerCancel}
+                onClick={() => onCellClick(roomId, roomUnitId, d)}
                 className={`absolute top-0 bottom-0 border-r border-cream/5 ${free ? "cursor-cell" : ""} ${
                   key === todayKey ? "bg-cream/5" : ""
                 }`}
@@ -491,6 +521,9 @@ export default function BookingCalendarGrid({
               const { startCol, colSpan } = columnSpan(dateOnlyUTC(eff.checkIn), dateOnlyUTC(eff.checkOut), gridFrom, dayCount);
               if (colSpan <= 0) return null;
               const dragging = eff.dragging;
+              // Per bar, not per density: a short stay and a long one can render at very
+              // different widths at the very same dayWidth. See LABEL_MIN_WIDTH_PX.
+              const showLabel = colSpan * dayWidth - 4 >= LABEL_MIN_WIDTH_PX;
               return (
                 <div
                   key={booking.segmentId}
@@ -563,31 +596,39 @@ export default function BookingCalendarGrid({
 
   return (
     <div>
-      <div className="flex items-center justify-end gap-2 mb-3">
-        <span className="eyebrow text-cream/40 mr-1">Zoom</span>
-        {(Object.keys(ZOOM_LEVELS) as ZoomLevel[]).map((level) => (
-          <button
-            key={level}
-            type="button"
-            onClick={() => changeZoom(level)}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
-              zoom === level ? "bg-coral text-ink" : "border border-cream/25 text-cream/60 hover:border-cream/50"
-            }`}
-          >
-            {level}
-          </button>
-        ))}
+      <div className="flex items-center justify-end gap-3 mb-3">
+        {/* Independent of the period controls above the grid on purpose - see calendarRange.ts's
+            comment on why period and density use two separate storage keys. A column always
+            represents one day at any position on this slider; only its pixel width changes, so
+            the label describes density, never a time unit ("day"/"week"/"month" would imply the
+            column itself changes meaning, which it never does). */}
+        <span className="eyebrow text-cream/40">Density</span>
+        <span className="text-[10px] text-cream/30">Compact</span>
+        <input
+          type="range"
+          min={MIN_DAY_WIDTH_PX}
+          max={MAX_DAY_WIDTH_PX}
+          step={1}
+          value={dayWidth}
+          onChange={(e) => changeDayWidth(Number(e.target.value))}
+          className="w-40 accent-coral"
+          aria-label="Calendar column density"
+        />
+        <span className="text-[10px] text-cream/30">Spacious</span>
+        <span className="text-xs text-cream/50 w-16 text-right">{dayWidth}px/day</span>
       </div>
       {!allowDrag && (
         <p className="text-xs text-cream/40 mb-2">
-          Drag-editing is only available at day zoom — click a bar to change its dates or room from the booking panel.
+          Columns are too narrow here for precise drag-editing — click a bar to change its dates or room from the
+          booking panel, or click an empty cell to open the new-booking form (fix the dates there if the click landed
+          on the wrong day). Increase density to drag directly instead.
         </p>
       )}
       {/*
         No virtualization: measured (2026-08-30) against the dev DB's actual scale - 15 active
-        room units across 6 room types - rendering a full year at month zoom (~5,500 grid cells,
-        ~17.7k total DOM nodes): ~1.1s render, scroll max frame gap ~17.7ms (one 60fps frame, no
-        jank). Plain overflow-auto is enough at that scale. This has NOT been measured at a
+        room units across 6 room types - rendering a full year at the grid's most compact density
+        (~5,500 grid cells, ~17.7k total DOM nodes): ~1.1s render, scroll max frame gap ~17.7ms
+        (one 60fps frame, no jank). Plain overflow-auto is enough at that scale. This has NOT been measured at a
         larger room count - if the property's room-unit count grows substantially, re-measure
         before assuming this still holds; a bigger inventory could cross the point where
         virtualization (windowing rows/columns, keeping the sticky headers) becomes necessary.

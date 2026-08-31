@@ -12,6 +12,27 @@
 import { addDaysUTC, dateOnlyUTC } from "@/lib/bookings";
 import type { CalendarBooking, RoomUnitBlock } from "@/lib/types";
 
+// The single rule that decides whether the grid trusts a mouse for anything date-precise on a
+// given day-column: resizing/moving an existing booking, dragging a range across free cells, and
+// range-select-vs-single-click on an empty cell all key off this one constant (see
+// BookingCalendarGrid) - never off a named zoom level. A booking bar's edge-resize handles are a
+// fixed 8px hit-region each (`w-2`) regardless of column width, and a bar is rendered at
+// `dayWidth - 4` for a single night (its narrowest possible shape). At the threshold below, the
+// two 8px handles plus that padding would leave a "grab the middle to move" zone smaller than
+// ~24px - the target size WCAG 2.5.5 treats as the comfortable minimum for a precise pointer
+// action, and also below what the resize handles themselves need to stay visually and
+// functionally distinct from the middle. 44px (a single night's bar renders at 40px, leaving
+// exactly 24px between the two 8px handles) is also comfortably wide for day-boundary hit-testing
+// against ordinary mouse jitter (a few px) - not just "clickable" but a target a hand can return
+// to reliably.
+export const DRAG_THRESHOLD_PX = 44;
+
+// A booking bar hides its guest-name label once its own rendered width can't fit even a couple of
+// truncated characters plus the ellipsis - checked per bar (colSpan * dayWidth), not per zoom
+// level, since a short 1-night stay and a 2-week stay can render at wildly different widths at
+// the very same density.
+export const LABEL_MIN_WIDTH_PX = 36;
+
 function daysBetween(from: Date, to: Date) {
   return Math.round((to.getTime() - from.getTime()) / 86_400_000);
 }

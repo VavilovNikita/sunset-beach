@@ -54,7 +54,12 @@ export function addDaysUTC(date: Date, days: number) {
   return d;
 }
 
-function daysBetweenUTC(from: Date, to: Date) {
+// Whole days between two UTC midnight instants — positive when `to` is later. Exported (unlike
+// most helpers in this file's original private form) because callers outside this file need it
+// too: the calendar's Prev/Next/Today navigation shifts by exactly the currently-visible span,
+// and its range picker needs the same count to enforce the backend's max-range limit before
+// submitting.
+export function daysBetweenUTC(from: Date, to: Date) {
   return Math.round((to.getTime() - from.getTime()) / 86_400_000);
 }
 
@@ -72,4 +77,8 @@ export function startOfMonthUTC(date: Date) {
 
 export function endOfMonthUTC(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0));
+}
+
+export function addMonthsUTC(date: Date, months: number) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, date.getUTCDate()));
 }

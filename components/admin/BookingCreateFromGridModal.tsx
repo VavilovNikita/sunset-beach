@@ -3,11 +3,17 @@
 import { useState } from "react";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { extractApiError } from "@/lib/apiError";
-import { getNights } from "@/lib/bookings";
+import { getNights, parseDateKey } from "@/lib/bookings";
 import type { Booking, StaffBookingCreateInput } from "@/lib/types";
 
-// Opened by dragging out a date range on a free row of the booking calendar grid. Creates and
-// assigns the room in one atomic call (POST /bookings/staff) rather than the two-step
+// Opened two ways from the booking calendar grid, both landing here with the same props shape:
+// dragging out a date range on a free row (wide-enough columns - the range is already precise,
+// see DRAG_THRESHOLD_PX in lib/calendarLayout.ts), or a single click on a free cell at a denser
+// zoom where a drag can't reliably land on the intended day (checkIn/checkOut default to that one
+// clicked day). Either way `checkIn`/`checkOut` below are only a *starting point* - editable
+// before saving, so a click that landed a day off is caught here, not after the booking exists.
+//
+// Creates and assigns the room in one atomic call (POST /bookings/staff) rather than the two-step
 // POST /bookings + PUT /bookings/{id}/room-unit the public guest flow uses — see that
 // endpoint's description for why: it would otherwise email every manager on every walk-in the
 // front desk types in, require a guest email address a walk-in may not have, and leave a
@@ -21,8 +27,8 @@ export default function BookingCreateFromGridModal({
   roomTypeName,
   roomUnitId,
   roomUnitLabel,
-  checkIn,
-  checkOut,
+  checkIn: initialCheckIn,
+  checkOut: initialCheckOut,
   onClose,
   onCreated,
 }: {
@@ -35,6 +41,8 @@ export default function BookingCreateFromGridModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const [checkIn, setCheckIn] = useState(initialCheckIn);
+  const [checkOut, setCheckOut] = useState(initialCheckOut);
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -42,12 +50,22 @@ export default function BookingCreateFromGridModal({
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<Booking | null>(null);
 
-  const nights = getNights(checkIn, checkOut).length;
+  let datesValid = true;
+  try {
+    datesValid = parseDateKey(checkIn).getTime() < parseDateKey(checkOut).getTime();
+  } catch {
+    datesValid = false;
+  }
+  const nights = datesValid ? getNights(checkIn, checkOut).length : 0;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!guestName.trim()) {
       setError("Guest name is required.");
+      return;
+    }
+    if (!datesValid) {
+      setError("Check-in must be before check-out.");
       return;
     }
     setSaving(true);
@@ -112,10 +130,34 @@ export default function BookingCreateFromGridModal({
               <p className="text-cream">
                 {roomTypeName} — {roomUnitLabel}
               </p>
-              <p className="text-sm text-cream/60">
-                {checkIn} → {checkOut} ({nights} night{nights === 1 ? "" : "s"})
-              </p>
             </div>
+
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="eyebrow text-cream/60 block mb-1">Check-in</label>
+                <input
+                  type="date"
+                  value={checkIn}
+                  onChange={(e) => setCheckIn(e.target.value)}
+                  className="w-full bg-ink border border-cream/20 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="eyebrow text-cream/60 block mb-1">Check-out</label>
+                <input
+                  type="date"
+                  value={checkOut}
+                  onChange={(e) => setCheckOut(e.target.value)}
+                  className="w-full bg-ink border border-cream/20 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+            {/* Prefilled from the click/drag on the grid but always editable above - a single
+                click at a dense zoom only aims at the day, not the exact range, so this is where
+                a wrong guess gets caught before the booking is created, not after. */}
+            <p className="text-sm text-cream/60">
+              {datesValid ? `${nights} night${nights === 1 ? "" : "s"}` : "Check-in must be before check-out."}
+            </p>
 
             <div>
               <label className="eyebrow text-cream/60 block mb-1">Guest name</label>
@@ -153,7 +195,7 @@ export default function BookingCreateFromGridModal({
             <div className="flex gap-3">
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || !datesValid}
                 className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2.5 text-sm font-medium disabled:opacity-60"
               >
                 {saving ? "Creating…" : "Create booking"}
