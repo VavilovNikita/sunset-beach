@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ADMIN_API_URL } from "@/lib/backend";
-import { extractApiError } from "@/lib/apiError";
+import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import type { MenuItem, Order } from "@/lib/posTypes";
 
 export default function AddOrderItemForm({
@@ -27,22 +26,20 @@ export default function AddOrderItemForm({
     setSubmitting(true);
     setError(null);
 
-    const res = await fetch(`${ADMIN_API_URL}/orders/${orderId}/items`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify([{ menuItemId, quantity, note: note || null }]),
-    });
+    const result = await adminRequest<Order>(
+      `/orders/${orderId}/items`,
+      adminJsonInit("POST", [{ menuItemId, quantity, note: note || null }]),
+      "Could not add item."
+    );
 
     setSubmitting(false);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(extractApiError(data, "Could not add item."));
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
 
-    onAdded(await res.json());
+    onAdded(result.data);
     setQuantity(1);
     setNote("");
   }

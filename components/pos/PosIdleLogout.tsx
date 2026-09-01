@@ -10,6 +10,9 @@ const IDLE_LIMIT_MS = 30 * 60 * 1000; // 30 minutes
 // phone left logged in and unattended on a table: it does nothing for two people actively
 // trading a phone back and forth all shift, since "active" is exactly the state this doesn't
 // trigger on. Renders nothing.
+//
+// Deliberately /pos-only - see app/admin/layout.tsx's comment for why the admin section has no
+// matching timer (a workstation is attended for a whole shift; a phone gets handed around).
 export default function PosIdleLogout() {
   const router = useRouter();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

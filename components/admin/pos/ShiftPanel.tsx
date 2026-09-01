@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ADMIN_API_URL } from "@/lib/backend";
-import { extractApiError } from "@/lib/apiError";
+import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { usePolling } from "@/lib/usePolling";
 import StatCard from "@/components/admin/StatCard";
 import type { ShiftSummary } from "@/lib/posTypes";
@@ -77,21 +77,20 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
 
   async function refetchCurrent() {
     const requestId = ++requestIdRef.current;
-    const res = await fetch(`${ADMIN_API_URL}/shifts/current`, { credentials: "include" });
+    const result = await adminRequest<ShiftSummary>("/shifts/current", undefined, "");
     if (requestIdRef.current !== requestId) return;
-    if (res.status === 404) {
+    if (result.status === 404) {
       setShift(null);
       setChecked(true);
       return;
     }
-    if (!res.ok) {
+    if (!result.ok) {
       setChecked(true);
       return;
     }
-    const current: ShiftSummary = await res.json();
-    const full = await fetch(`${ADMIN_API_URL}/shifts/${current.id}`, { credentials: "include" });
+    const full = await adminRequest<ShiftSummary>(`/shifts/${result.data.id}`, undefined, "");
     if (requestIdRef.current !== requestId) return;
-    setShift(full.ok ? await full.json() : current);
+    setShift(full.ok ? full.data : result.data);
     setChecked(true);
   }
 
@@ -106,25 +105,25 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
     setSubmitting(true);
     setError(null);
 
-    const res = await fetch(`${ADMIN_API_URL}/shifts/open`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ openingCashFloat: openingFloat ? Number(openingFloat) : undefined }),
-    });
+    const result = await adminRequest<ShiftSummary>(
+      "/shifts/open",
+      adminJsonInit("POST", { openingCashFloat: openingFloat ? Number(openingFloat) : undefined }),
+      "Could not open shift."
+    );
 
     setSubmitting(false);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(extractApiError(data, "Could not open shift."));
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
-    const opened = await res.json();
-    const full = await fetch(`${ADMIN_API_URL}/shifts/${opened.id}`, { credentials: "include" });
-    setShift(full.ok ? await full.json() : opened);
+    const full = await adminRequest<ShiftSummary>(`/shifts/${result.data.id}`, undefined, "");
+    setShift(full.ok ? full.data : result.data);
   }
 
+  // Deliberately no "will be recorded as" confirm step before this money-affecting submit -
+  // see components/admin/pos/OrderTicket.tsx's handleClose comment (this screen is reached from
+  // the same till-bound context, not a handed-around phone).
   async function handleClose(e: React.FormEvent) {
     e.preventDefault();
     if (!shift) return;
@@ -132,34 +131,31 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
     setError(null);
     setBlockedByOpenOrders(false);
 
-    const res = await fetch(`${ADMIN_API_URL}/shifts/${shift.id}/close`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const result = await adminRequest<ShiftSummary>(
+      `/shifts/${shift.id}/close`,
+      adminJsonInit("POST", {
         closingCashCounted: closingCounted ? Number(closingCounted) : undefined,
         notes: notes || undefined,
       }),
-    });
+      "Could not close shift."
+    );
 
     setSubmitting(false);
 
-    if (!res.ok) {
-      if (res.status === 409) {
+    if (!result.ok) {
+      if (result.status === 409) {
         setBlockedByOpenOrders(true);
         return;
       }
-      const data = await res.json().catch(() => null);
-      setError(extractApiError(data, "Could not close shift."));
+      setError(result.error);
       return;
     }
     // POST .../close returns a plain Shift, not a ShiftSummary — no `totals`,
     // which the stat cards below render unconditionally. Same shape gap as
     // /shifts/current, fixed the same way: fetch the full summary before
     // rendering it.
-    const closed = await res.json();
-    const full = await fetch(`${ADMIN_API_URL}/shifts/${closed.id}`, { credentials: "include" });
-    setShift(full.ok ? await full.json() : closed);
+    const full = await adminRequest<ShiftSummary>(`/shifts/${result.data.id}`, undefined, "");
+    setShift(full.ok ? full.data : result.data);
   }
 
   if (!checked) {

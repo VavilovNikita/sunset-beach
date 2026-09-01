@@ -9,6 +9,13 @@
 // notices *before* it lands in history, not after, when there'd be nothing left to do but a
 // manual correction. Reused as-is by the three call sites rather than three near-identical
 // blocks, so the wording/layout can't quietly drift out of sync between them.
+//
+// Deliberately /pos-only: the admin equivalents of these same three actions (OrderTicket.tsx's
+// handleClose, RoomChargeLink.tsx, ShiftPanel.tsx) have no matching step, and that's an intentional
+// asymmetry, not a gap that was missed while building this - a till/register is understood to
+// belong to whoever is on shift at it for the whole shift, unlike a phone that gets handed between
+// whoever's nearest a table. See the comment at each of those three call sites for the same note
+// from the other side.
 export default function PosAttributedConfirm({
   title,
   detail,

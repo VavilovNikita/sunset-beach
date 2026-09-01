@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ADMIN_API_URL } from "@/lib/backend";
-import { extractApiError } from "@/lib/apiError";
+import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { usePolling } from "@/lib/usePolling";
 import { PAYMENT_METHOD_LABELS, STATUS_LABELS, STATUS_STYLES, isTerminalStatus } from "@/lib/posOrders";
 import AddOrderItemForm from "@/components/admin/pos/AddOrderItemForm";
@@ -44,8 +44,8 @@ export default function OrderTicket({ initialOrder, menu }: { initialOrder: Orde
   }, []);
 
   async function refetch() {
-    const res = await fetch(`${ADMIN_API_URL}/orders/${order.id}`, { credentials: "include" });
-    if (res.ok) setOrder(await res.json());
+    const result = await adminRequest<Order>(`/orders/${order.id}`, undefined, "");
+    if (result.ok) setOrder(result.data);
   }
 
   // Stops once the order reaches a terminal status, so a ticket left open in
@@ -54,81 +54,84 @@ export default function OrderTicket({ initialOrder, menu }: { initialOrder: Orde
 
   async function handleRemoveItem(itemId: string) {
     setRemovingItemId(itemId);
-    const res = await fetch(`${ADMIN_API_URL}/orders/${order.id}/items/${itemId}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
+    setError(null);
+    const result = await adminRequest<Order>(`/orders/${order.id}/items/${itemId}`, { method: "DELETE" }, "Could not remove this item.");
     setRemovingItemId(null);
-    if (res.ok) setOrder(await res.json());
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setOrder(result.data);
   }
 
   async function handleSend() {
     setSending(true);
     setError(null);
-    const res = await fetch(`${ADMIN_API_URL}/orders/${order.id}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "SENT" }),
-    });
+    const result = await adminRequest<Order>(
+      `/orders/${order.id}`,
+      adminJsonInit("PATCH", { status: "SENT" }),
+      "Could not send order."
+    );
     setSending(false);
-    if (!res.ok) {
-      setError("Could not send order.");
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
-    setOrder(await res.json());
+    setOrder(result.data);
   }
 
   async function handleCancel() {
     if (!window.confirm("Cancel this order? This can't be undone.")) return;
-    const res = await fetch(`${ADMIN_API_URL}/orders/${order.id}/cancel`, {
-      method: "POST",
-      credentials: "include",
-    });
-    if (res.ok) setOrder(await res.json());
+    setError(null);
+    const result = await adminRequest<Order>(`/orders/${order.id}/cancel`, { method: "POST" }, "Could not cancel this order.");
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setOrder(result.data);
   }
 
   async function handlePrintPrebill() {
     setPrintingPrebill(true);
     setPrebillResult(null);
     setPrebillError(null);
-    const res = await fetch(`${ADMIN_API_URL}/orders/${order.id}/print-prebill`, {
-      method: "POST",
-      credentials: "include",
-    });
+    // A failed request here means no PrintJob was even queued (unlike a
+    // reachable-but-broken printer, which still returns 201 with
+    // attempted:true/status:FAILED — see the prebillResult branch below).
+    // Silently doing nothing on a non-OK response is exactly the bug this
+    // fixes: staff would see the button go back to normal and assume the
+    // pre-bill printed.
+    const result = await adminRequest<PrintAttemptResult>(
+      `/orders/${order.id}/print-prebill`,
+      { method: "POST" },
+      "Could not print pre-bill — try again."
+    );
     setPrintingPrebill(false);
-    if (!res.ok) {
-      // A failed request here means no PrintJob was even queued (unlike a
-      // reachable-but-broken printer, which still returns 201 with
-      // attempted:true/status:FAILED — see the prebillResult branch below).
-      // Silently doing nothing on a non-OK response is exactly the bug this
-      // fixes: staff would see the button go back to normal and assume the
-      // pre-bill printed.
-      const data = await res.json().catch(() => null);
-      setPrebillError(extractApiError(data, "Could not print pre-bill — try again."));
+    if (!result.ok) {
+      setPrebillError(result.error);
       return;
     }
-    setPrebillResult(await res.json());
+    setPrebillResult(result.data);
   }
 
+  // No PosAttributedConfirm-style "will be recorded as" step here on purpose, unlike the /pos
+  // version of this action - see PosAttributedConfirm.tsx's comment for why that step exists at
+  // all. It exists to catch a wrong identity on a phone that gets handed between whoever's
+  // nearest a table; this screen runs on a till/register that's understood to belong to whoever
+  // is on shift at it, not passed around, so there's no comparable moment where the wrong name
+  // could be about to get attributed. Not an oversight - if that assumption stops holding in
+  // practice, add the same confirm step here.
   async function handleClose(method: "CASH" | "CARD") {
     setClosing(method);
     setError(null);
-    const res = await fetch(`${ADMIN_API_URL}/orders/${order.id}/close`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ method }),
-    });
+    const result = await adminRequest<Order>(`/orders/${order.id}/close`, adminJsonInit("POST", { method }), "Could not close order.");
     setClosing(null);
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(extractApiError(data, "Could not close order."));
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
-    const updated: Order = await res.json();
-    setOrder(updated);
-    setLastPayment({ method, amount: Number(updated.total) });
+    setOrder(result.data);
+    setLastPayment({ method, amount: Number(result.data.total) });
   }
 
   // Adding items is allowed for OPEN and SENT (a dispatched order can still

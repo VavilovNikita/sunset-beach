@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ADMIN_API_URL } from "@/lib/backend";
-import { extractApiError } from "@/lib/apiError";
+import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { toDateKey } from "@/lib/bookings";
 import { isChargeableBookingStatus } from "@/lib/pos/roomCharge";
 import type { Order } from "@/lib/posTypes";
@@ -27,43 +26,52 @@ export default function RoomChargeLink({
 }) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [bookingId, setBookingId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const today = toDateKey(new Date());
-    fetch(`${ADMIN_API_URL}/bookings?from=${today}&to=${today}`, { credentials: "include" })
-      .then((res) => res.json())
-      .then((data: Booking[]) => {
-        const chargeable = data.filter((b) => isChargeableBookingStatus(b.status));
-        setBookings(chargeable);
-        setBookingId(chargeable[0]?.id ?? "");
-      })
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    adminRequest<Booking[]>(`/bookings?from=${today}&to=${today}`, undefined, "Could not load bookings.").then((result) => {
+      if (cancelled) return;
+      setLoading(false);
+      if (!result.ok) {
+        setLoadError(result.error);
+        return;
+      }
+      const chargeable = result.data.filter((b) => isChargeableBookingStatus(b.status));
+      setBookings(chargeable);
+      setBookingId(chargeable[0]?.id ?? "");
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
+  // Deliberately no "will be recorded as" confirm step before this money-affecting submit -
+  // see OrderTicket.tsx's handleClose comment (this screen is reached from the same till-bound
+  // context, not a handed-around phone).
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!bookingId) return;
     setSubmitting(true);
     setError(null);
 
-    const res = await fetch(`${ADMIN_API_URL}/orders/${orderId}/close`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ method: "ROOM_CHARGE", bookingId }),
-    });
+    const result = await adminRequest<Order>(
+      `/orders/${orderId}/close`,
+      adminJsonInit("POST", { method: "ROOM_CHARGE", bookingId }),
+      "Could not charge to room."
+    );
 
     setSubmitting(false);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(extractApiError(data, "Could not charge to room."));
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
-    onSettled(await res.json());
+    onSettled(result.data);
   }
 
   return (
@@ -72,6 +80,8 @@ export default function RoomChargeLink({
 
       {loading ? (
         <p className="text-sm text-cream/50">Loading bookings…</p>
+      ) : loadError ? (
+        <p className="text-sm text-coral">{loadError}</p>
       ) : bookings.length === 0 ? (
         <p className="text-sm text-cream/50">No checked-in bookings found for today.</p>
       ) : (

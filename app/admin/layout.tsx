@@ -7,6 +7,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// Deliberately no PosIdleLogout-equivalent auto-logout timer here, unlike app/pos/layout.tsx.
+// That timer exists as a safety net for a phone that gets left logged in and unattended on a
+// table; this section runs on a workstation understood to be attended for a whole shift, so
+// there's no comparable "left lying around" risk to guard against. Not an oversight - see
+// PosIdleLogout.tsx's own comment for the other side of this note.
 export default function AdminRootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
