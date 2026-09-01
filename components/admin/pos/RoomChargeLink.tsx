@@ -4,15 +4,18 @@ import { useEffect, useState } from "react";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { extractApiError } from "@/lib/apiError";
 import { toDateKey } from "@/lib/bookings";
+import { isChargeableBookingStatus } from "@/lib/pos/roomCharge";
 import type { Order } from "@/lib/posTypes";
 import type { Booking } from "@/lib/types";
 
-// Booking lookup for "charge to room" uses the existing /bookings?from&to&status
+// Booking lookup for "charge to room" uses the existing /bookings?from&to
 // filter (same one AdminBookingsPage uses) rather than inventing a new
-// `activeOn` param, per the agreed contract. Whether from/to means "checkIn
-// falls in this range" or "range overlaps the stay" wasn't confirmed — if a
-// guest checked in before today, today=from=to might not match. Flagged in
-// the implementation summary; not something the frontend can fix alone.
+// `activeOn` param. from=to=today is a genuine overlap test on the backend
+// (BookingService.buildSpecification: `checkOut > from AND checkIn <= to`),
+// so a guest who checked in before today and is still staying is correctly
+// included, not just same-day arrivals - confirmed, not just assumed.
+// Status eligibility (CONFIRMED/PAID only) is filtered client-side - see
+// isChargeableBookingStatus for why.
 export default function RoomChargeLink({
   orderId,
   onClose,
@@ -30,11 +33,12 @@ export default function RoomChargeLink({
 
   useEffect(() => {
     const today = toDateKey(new Date());
-    fetch(`${ADMIN_API_URL}/bookings?from=${today}&to=${today}&status=CONFIRMED`, { credentials: "include" })
+    fetch(`${ADMIN_API_URL}/bookings?from=${today}&to=${today}`, { credentials: "include" })
       .then((res) => res.json())
       .then((data: Booking[]) => {
-        setBookings(data);
-        setBookingId(data[0]?.id ?? "");
+        const chargeable = data.filter((b) => isChargeableBookingStatus(b.status));
+        setBookings(chargeable);
+        setBookingId(chargeable[0]?.id ?? "");
       })
       .finally(() => setLoading(false));
   }, []);
