@@ -9,3 +9,7 @@ node_modules
 tsconfig.tsbuildinfo
 /public/uploads/*
 !/public/uploads/.gitkeep
+
+# Local planning/audit notes, not part of the shipped app
+audit-frontend.md
+pos-module-plan.md
