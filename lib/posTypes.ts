@@ -109,6 +109,11 @@ export type OrderItem = {
   unitPrice: string;
   note: string | null;
   createdAt: string;
+  // Set the moment this line went out on a printed kitchen/bar ticket (the original send, or a
+  // later re-order print) — regardless of whether the print itself reached the printer. A
+  // repeated POST /orders/{id}/items only merges into an existing line when this is still null;
+  // once set, a matching add becomes its own new (unsent) line instead.
+  sentAt: string | null;
 };
 
 export type OrderItemInput = {
@@ -126,11 +131,17 @@ export type Order = {
   guestName: string | null;
   status: OrderStatus;
   openedByUserId: string;
+  // Denormalized the same way ShiftListItem.openedByEmail is — a MANAGER building a staff
+  // filter can't fall back to GET /users (ADMIN-only).
+  openedByEmail: string;
   total: string;
   note: string | null;
   items: OrderItem[];
   createdAt: string;
   updatedAt: string;
+  // null until the order is PAID; set once and never changed after that. See the field's
+  // openapi.yaml doc for why it's on Order at all (there's no way to fetch a Payment by orderId).
+  paymentMethod: PaymentMethod | null;
 };
 
 export type OrderCreateInput = {
@@ -171,6 +182,25 @@ export type ShiftSummary = Shift & { totals: ShiftTotals };
 
 export type ShiftOpenInput = { openingCashFloat?: number };
 export type ShiftCloseInput = { closingCashCounted?: number; notes?: string };
+
+// One row of GET /shifts (MANAGER+) - reconciliation numbers already computed server-side (see
+// ShiftService#list), not re-derived here the way PosShiftPanel/admin ShiftPanel have to for a
+// single in-progress shift that hasn't been through that endpoint yet.
+export type ShiftListItem = {
+  id: string;
+  openedByUserId: string;
+  openedByEmail: string;
+  openedAt: string;
+  closedByUserId: string | null;
+  closedByEmail: string | null;
+  closedAt: string | null;
+  openingCashFloat: string | null;
+  closingCashCounted: string | null;
+  status: "OPEN" | "CLOSED";
+  totals: ShiftTotals;
+  expectedCash: string;
+  discrepancy: string | null;
+};
 
 // POST /orders/{id}/close creates this server-side, but the endpoint returns
 // the updated Order, not the Payment itself — nothing in this codebase reads

@@ -8,7 +8,6 @@ import type { Role } from "@/lib/session";
 // GET /print-jobs are all "any authenticated staff" on the backend (see
 // SecurityConfig) — a WAITER genuinely uses these to do their own job.
 const BASE_LINKS = [
-  { href: "/admin", label: "Dashboard" },
   { href: "/admin/pos", label: "POS" },
   { href: "/admin/pos/menu", label: "Menu" },
   { href: "/admin/pos/print-jobs", label: "Print queue" },
@@ -18,8 +17,15 @@ const BASE_LINKS = [
 // GET /shifts/current are all CASHIER+ on the backend with no lower-privilege
 // read — a WAITER hitting any of these would get a 403 (or, before the
 // regression fix, a crashed page), so all five are shown conditionally
-// rather than always shown and gated client-side.
+// rather than always shown and gated client-side. Dashboard belongs here too,
+// not in BASE_LINKS: every figure on it (bookings/occupancy/revenue, POS
+// revenue) comes from those same CASHIER+ reads, so a WAITER following this
+// link got a page with a heading and nothing else - a menu item that always
+// leads to an empty screen is worse than no menu item (see AdminDashboardPage
+// - "forbidden" is a role-appropriate gap there, but nothing forces a WAITER
+// to go looking for it).
 const CASHIER_PLUS_LINKS = [
+  { href: "/admin", label: "Dashboard" },
   { href: "/admin/bookings", label: "Bookings" },
   { href: "/admin/bookings/calendar", label: "Calendar" },
   { href: "/admin/rooms", label: "Rooms" },
@@ -67,10 +73,15 @@ export default function AdminSidebar({ email, role }: { email: string; role: Rol
   );
   const activeHref = matching.sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
+  // The brand mark is a "go home" link everywhere else in this app - for a WAITER, home isn't
+  // /admin (Dashboard is hidden from them for exactly this reason, see CASHIER_PLUS_LINKS), it's
+  // the first item they actually have.
+  const homeHref = isCashierPlus ? "/admin" : items[0]?.href ?? "/admin/pos";
+
   return (
     <aside className="w-full md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-cream/10 md:min-h-screen bg-ink2/40">
       <div className="p-6">
-        <Link href="/admin" className="font-display italic text-lg text-cream block mb-8">
+        <Link href={homeHref} className="font-display italic text-lg text-cream block mb-8">
           The Sunset Beach
           <span className="block eyebrow text-sea font-sans not-italic mt-0.5">Admin</span>
         </Link>

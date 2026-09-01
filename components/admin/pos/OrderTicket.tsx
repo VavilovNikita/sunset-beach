@@ -196,10 +196,17 @@ export default function OrderTicket({ initialOrder, menu }: { initialOrder: Orde
         <div className="bg-ink2/40 border border-cream/10 rounded-xl p-5">
           <p className="eyebrow text-cream/50 mb-1">Total</p>
           <p className="font-display italic text-2xl text-coral">฿{Number(order.total).toLocaleString("en-US")}</p>
-          {lastPayment && (
+          {lastPayment ? (
             <p className="mt-2 text-xs text-cream/50">
               Paid via {PAYMENT_METHOD_LABELS[lastPayment.method]} — ฿{lastPayment.amount.toLocaleString("en-US")}
             </p>
+          ) : (
+            // order.paymentMethod (unlike lastPayment) survives a reload - this is what makes a
+            // closed order's payment method visible when arriving here from order history, not
+            // just right after closing it in this same session.
+            order.paymentMethod && (
+              <p className="mt-2 text-xs text-cream/50">Paid via {PAYMENT_METHOD_LABELS[order.paymentMethod]}</p>
+            )
           )}
         </div>
 
@@ -215,6 +222,10 @@ export default function OrderTicket({ initialOrder, menu }: { initialOrder: Orde
             >
               {printingPrebill ? "Printing…" : "Print pre-bill"}
             </button>
+            {/* Same ~2s connect-timeout wait as the /pos version of this screen, with nothing
+                else here changing meanwhile - a line of its own instead of leaving that time
+                looking like a frozen button. */}
+            {printingPrebill && <p className="mt-2 text-xs text-cream/40">Sending to printer…</p>}
             {prebillError && <p className="mt-2 text-xs text-coral">{prebillError}</p>}
             {prebillResult && (
               <p className={`mt-2 text-xs ${prebillResult.job?.status === "SENT" ? "text-cream/50" : "text-coral"}`}>
@@ -222,7 +233,9 @@ export default function OrderTicket({ initialOrder, menu }: { initialOrder: Orde
                   ? "No active cashier printer configured — nothing printed."
                   : prebillResult.job?.status === "SENT"
                     ? "Pre-bill printed."
-                    : `Print failed${prebillResult.job?.lastError ? `: ${prebillResult.job.lastError}` : ""} — it's in the print queue for retry.`}
+                    : prebillResult.job?.status === "PENDING"
+                      ? "Printer didn't respond — retrying automatically."
+                      : `Print failed${prebillResult.job?.lastError ? `: ${prebillResult.job.lastError}` : ""} — it's in the print queue for retry.`}
               </p>
             )}
           </div>

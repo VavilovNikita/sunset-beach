@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { backendJson } from "@/lib/backendServer";
 import { ADMIN_API_URL, BackendError } from "@/lib/backend";
@@ -44,13 +45,23 @@ export default async function ShiftReportPage({ params }: { params: { id: string
         </p>
       )}
 
+      {/* Both MANAGER+-gated (GET /shifts/{id}/export and the /admin/pos/orders review list) -
+          hidden together for a CASHIER viewing their own shift, same reasoning as Export CSV. */}
       {canExport && (
-        <a
-          href={`${ADMIN_API_URL}/shifts/${shift.id}/export`}
-          className="inline-block rounded-full border border-cream/25 hover:border-cream/50 transition-colors px-5 py-2.5 text-sm font-medium"
-        >
-          Export CSV
-        </a>
+        <div className="flex flex-wrap items-center gap-4">
+          <a
+            href={`${ADMIN_API_URL}/shifts/${shift.id}/export`}
+            className="inline-block rounded-full border border-cream/25 hover:border-cream/50 transition-colors px-5 py-2.5 text-sm font-medium"
+          >
+            Export CSV
+          </a>
+          <Link
+            href={`/admin/pos/orders?shiftId=${shift.id}`}
+            className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4"
+          >
+            Orders in this shift →
+          </Link>
+        </div>
       )}
     </div>
   );

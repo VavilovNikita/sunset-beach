@@ -440,7 +440,11 @@ function BookingScheduleEditor({ booking, onSaved }: { booking: Booking; onSaved
         </div>
       </div>
 
-      {status === "ready" && quote && (
+      {/* A rejected quote has no real nights/total to show - quote.totalPrice/nights come back
+          as 0 on that branch (see BookingWriter's ScheduleQuote), not omitted, so rendering them
+          unconditionally next to the rejection reason would read as "the price became ฿0", not
+          "no price was computed". Only the reason belongs on screen when available is false. */}
+      {status === "ready" && quote && quote.available && (
         <div className="flex items-center justify-between bg-ink2 rounded-lg px-3 py-2">
           <span className="text-xs text-cream/60">
             {quote.nights} night{quote.nights === 1 ? "" : "s"}
@@ -698,7 +702,11 @@ function RelocateForm({ booking, canManage, onSaved }: { booking: Booking; canMa
         </div>
       )}
 
-      {status === "ready" && quote && (
+      {/* Same reasoning as BookingScheduleEditor: a rejected quote's totalPrice/nights are 0, not
+          absent - showing them next to the rejection reason would read as "the total is now
+          ฿0", not "nothing was priced". Only the target type and reason belong on screen here
+          when available is false. */}
+      {status === "ready" && quote && quote.available && (
         <div className="bg-ink2 rounded-lg px-3 py-2 space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-xs text-cream/60">New room type</span>

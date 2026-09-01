@@ -1,12 +1,52 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { extractApiError } from "@/lib/apiError";
 import { usePolling } from "@/lib/usePolling";
 import StatCard from "@/components/admin/StatCard";
 import type { ShiftSummary } from "@/lib/posTypes";
+
+// expectedCash/discrepancy are never returned by the API - the backend computes the same
+// arithmetic (openingFloat + cash payments, counted - expected) three separate times
+// (SHIFT_CLOSED audit summary, the printed Z-report, the CSV export - see ShiftService) but
+// never puts it on the Shift/ShiftSummary response itself, so the one thing shift close is
+// actually FOR (does the drawer match) was only ever visible after the fact, in the audit log.
+// Every input this needs (openingCashFloat, totals.cash) is already on ShiftSummary, so this
+// is computed here rather than waiting on a backend field - kept in lockstep with
+// ShiftService#describeShiftClose/buildZReportPayload if either changes. Same helper as
+// components/pos/PosShiftPanel.tsx's PosShiftPanel - not shared, on the same precedent as the
+// rest of this admin/pos split (different layout components, StatCard vs StatTile).
+function reconcileCash(shift: ShiftSummary, countedInput: string) {
+  const expectedCash = Number(shift.openingCashFloat ?? 0) + Number(shift.totals.cash);
+  const counted = shift.closingCashCounted != null ? Number(shift.closingCashCounted) : countedInput ? Number(countedInput) : null;
+  const discrepancy = counted !== null ? counted - expectedCash : null;
+  return { expectedCash, counted, discrepancy };
+}
+
+function DiscrepancyBlock({ expectedCash, counted, discrepancy }: { expectedCash: number; counted: number | null; discrepancy: number | null }) {
+  if (counted === null) return null;
+  const isOff = discrepancy !== null && discrepancy !== 0;
+  return (
+    <div className={`max-w-md rounded-xl px-5 py-3 space-y-1 border ${isOff ? "bg-coral/10 border-coral/40" : "bg-ink2/40 border-cream/10"}`}>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-cream/60">Expected cash</span>
+        <span className="text-cream">฿{expectedCash.toLocaleString("en-US")}</span>
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-cream/60">Counted cash</span>
+        <span className="text-cream">฿{counted.toLocaleString("en-US")}</span>
+      </div>
+      <div className="flex items-center justify-between pt-1 border-t border-cream/10">
+        <span className={`text-sm font-medium ${isOff ? "text-coral" : "text-cream/50"}`}>Discrepancy</span>
+        <span className={`text-base font-medium ${isOff ? "text-coral" : "text-cream/50"}`}>
+          {discrepancy === 0 ? "None" : `${discrepancy! > 0 ? "+" : "−"}฿${Math.abs(discrepancy!).toLocaleString("en-US")}`}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export default function ShiftPanel({ canExport }: { canExport: boolean }) {
   const [shift, setShift] = useState<ShiftSummary | null>(null);
@@ -24,8 +64,21 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
 
   // /shifts/current works from any device under the same account — no more
   // reason to track a shift id client-side.
+  //
+  // React (Strict Mode in dev, but the same shape can happen from a real double-navigation)
+  // mounts this component and runs its effects twice - two concurrent GET /shifts/current calls
+  // race, and without a guard the response that resolves *second* could be the stale one,
+  // landing after the real answer - or, worse, arrive so out of order that `checked` never
+  // actually gets set from the call that mattered, leaving the screen on "Loading…"
+  // indefinitely. Each call stamps the request counter and only applies its result if nothing
+  // newer has started since - the standard "latest request wins" fix; it also protects the 20s
+  // polling tick against an old response arriving after a newer one already updated the screen.
+  const requestIdRef = useRef(0);
+
   async function refetchCurrent() {
+    const requestId = ++requestIdRef.current;
     const res = await fetch(`${ADMIN_API_URL}/shifts/current`, { credentials: "include" });
+    if (requestIdRef.current !== requestId) return;
     if (res.status === 404) {
       setShift(null);
       setChecked(true);
@@ -37,6 +90,7 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
     }
     const current: ShiftSummary = await res.json();
     const full = await fetch(`${ADMIN_API_URL}/shifts/${current.id}`, { credentials: "include" });
+    if (requestIdRef.current !== requestId) return;
     setShift(full.ok ? await full.json() : current);
     setChecked(true);
   }
@@ -138,6 +192,8 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
     );
   }
 
+  const reconciled = reconcileCash(shift, closingCounted);
+
   return (
     <div className="max-w-2xl">
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
@@ -146,6 +202,17 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
         <StatCard label="Room charge" value={`฿${Number(shift.totals.roomCharge).toLocaleString("en-US")}`} />
         <StatCard label="Payments" value={String(shift.totals.paymentCount)} />
       </div>
+
+      {/* /admin/pos/orders (like GET /shifts itself) is MANAGER+ - canExport already carries
+          exactly that check, reused here rather than showing a CASHIER a link that 403s. */}
+      {canExport && (
+        <Link
+          href={`/admin/pos/orders?shiftId=${shift.id}`}
+          className="block text-sm text-sea hover:text-coral transition-colors underline underline-offset-4 mb-8"
+        >
+          Orders in this shift →
+        </Link>
+      )}
 
       {shift.status === "OPEN" ? (
         <form onSubmit={handleClose} className="space-y-4 bg-ink2/40 border border-cream/10 rounded-xl p-5">
@@ -160,6 +227,9 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
               className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
             />
           </div>
+          {/* Live, before submitting - a counting mistake is caught while the drawer is still
+              open, not after reading it back from the audit log. */}
+          <DiscrepancyBlock {...reconciled} />
           <div>
             <label className="eyebrow text-cream/60 block mb-1">Notes</label>
             <textarea
@@ -187,20 +257,23 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
           </button>
         </form>
       ) : (
-        <p className="text-sm text-cream/50">
-          Shift closed.
-          {canExport && (
-            <>
-              {" "}
-              <a
-                href={`${ADMIN_API_URL}/shifts/${shift.id}/export`}
-                className="text-sea hover:text-coral transition-colors underline underline-offset-4"
-              >
-                Export CSV
-              </a>
-            </>
-          )}
-        </p>
+        <div className="space-y-3">
+          <p className="text-sm text-cream/50">
+            Shift closed.
+            {canExport && (
+              <>
+                {" "}
+                <a
+                  href={`${ADMIN_API_URL}/shifts/${shift.id}/export`}
+                  className="text-sea hover:text-coral transition-colors underline underline-offset-4"
+                >
+                  Export CSV
+                </a>
+              </>
+            )}
+          </p>
+          <DiscrepancyBlock {...reconciled} />
+        </div>
       )}
     </div>
   );

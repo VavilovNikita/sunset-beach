@@ -1,10 +1,19 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getDashboardStats } from "@/lib/adminStats";
+import { requireSessionUser } from "@/lib/rbac";
 import StatCard from "@/components/admin/StatCard";
 
 const MONTH_LABEL = new Intl.DateTimeFormat("en-US", { month: "long", timeZone: "UTC" }).format(new Date());
 
 export default async function AdminDashboardPage() {
+  // Every figure below needs a CASHIER+ read (see getDashboardStats/adminStats.ts) - for a
+  // WAITER there is nothing this page can ever show, "forbidden" both times, so land them on
+  // their own base instead of a heading with nothing under it. Not reachable from the sidebar
+  // any more (see AdminSidebar), but a bookmark or a typed URL still could be.
+  const user = await requireSessionUser();
+  if (user.role === "WAITER") redirect("/admin/pos");
+
   const stats = await getDashboardStats();
 
   return (

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import OrderBoard from "@/components/admin/pos/OrderBoard";
 import TableManager from "@/components/admin/pos/TableManager";
 import FailedPrintJobsBadge from "@/components/admin/pos/FailedPrintJobsBadge";
@@ -27,7 +28,19 @@ export default async function AdminPosPage() {
           <p className="eyebrow text-sea mb-2">POS</p>
           <h1 className="font-display italic text-3xl">Tables &amp; tickets</h1>
         </div>
-        <FailedPrintJobsBadge initialCount={failedPrintJobs?.length ?? null} />
+        <div className="flex items-center gap-4">
+          {/* PAID/CANCELLED orders vanish from this live board on purpose (see OrderBoard's
+              status=OPEN/SENT fetch) - this is the only way back to one after the fact. */}
+          {canManageTables && (
+            <Link
+              href="/admin/pos/orders"
+              className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4"
+            >
+              Order history →
+            </Link>
+          )}
+          <FailedPrintJobsBadge initialCount={failedPrintJobs?.length ?? null} />
+        </div>
       </div>
 
       <OrderBoard initialTables={tables} initialOrders={[...openOrders, ...sentOrders]} />
