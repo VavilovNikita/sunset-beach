@@ -44,53 +44,67 @@ export type DashboardRoomStats =
   | { status: "forbidden" }
   | { status: "error" };
 
+// The actual aggregation, split out from getRoomStats so it's testable without mocking a
+// fetch: given "now" plus the room/booking lists that would otherwise come straight off the
+// network, it's a pure function - same input, same output, every time. This is exactly the
+// kind of arithmetic a bug hides in silently (a wrong comparison operator doesn't crash
+// anything, it just quietly zeroes a number - see parseDateKey's history in lib/bookings.ts),
+// so it's covered by lib/adminStats.test.ts rather than only ever eyeballed on the dashboard.
+export function computeRoomStats(
+  now: Date,
+  rooms: Room[],
+  bookings: Booking[]
+): { bookingsToday: number; bookingsThisWeek: number; occupancyPct: number; revenueThisMonth: number } {
+  const todayStart = dateOnlyUTC(now);
+  const tomorrowStart = addDaysUTC(todayStart, 1);
+  const weekStart = addDaysUTC(todayStart, -6); // rolling 7-day window, inclusive of today
+  const monthStart = startOfMonthUTC(now);
+  const monthEnd = endOfMonthUTC(now);
+  const nextMonthStart = addDaysUTC(monthEnd, 1);
+  const occupancyWindowEnd = addDaysUTC(todayStart, OCCUPANCY_WINDOW_DAYS);
+
+  let bookingsToday = 0;
+  let bookingsThisWeek = 0;
+  let revenueThisMonth = 0;
+  let bookedNights = 0;
+
+  for (const b of bookings) {
+    const createdAt = new Date(b.createdAt);
+    if (createdAt >= todayStart && createdAt < tomorrowStart) bookingsToday += 1;
+    if (createdAt >= weekStart && createdAt < tomorrowStart) bookingsThisWeek += 1;
+
+    const checkIn = dateOnlyUTC(b.checkIn);
+    const checkOut = dateOnlyUTC(b.checkOut);
+
+    if (b.status === "PAID" && checkIn >= monthStart && checkIn < nextMonthStart) {
+      revenueThisMonth += Number(b.totalPrice);
+    }
+
+    if (b.status !== "CANCELLED" && checkIn < occupancyWindowEnd && checkOut > todayStart) {
+      const start = checkIn > todayStart ? checkIn : todayStart;
+      const end = checkOut < occupancyWindowEnd ? checkOut : occupancyWindowEnd;
+      bookedNights += Math.max(0, Math.round((end.getTime() - start.getTime()) / 86_400_000));
+    }
+  }
+
+  // Each Room row is a room *type*; activeUnitCount is how many physical
+  // RoomUnits currently sell under it — occupancy must be denominated by
+  // total units, not by the number of room types.
+  const totalUnits = rooms.reduce((sum, r) => sum + r.activeUnitCount, 0);
+  const totalRoomNights = totalUnits * OCCUPANCY_WINDOW_DAYS;
+  const occupancyPct = totalRoomNights > 0 ? Math.round((bookedNights / totalRoomNights) * 100) : 0;
+
+  return { bookingsToday, bookingsThisWeek, occupancyPct, revenueThisMonth };
+}
+
 async function getRoomStats(now: Date): Promise<DashboardRoomStats> {
   try {
-    const todayStart = dateOnlyUTC(now);
-    const tomorrowStart = addDaysUTC(todayStart, 1);
-    const weekStart = addDaysUTC(todayStart, -6); // rolling 7-day window, inclusive of today
-    const monthStart = startOfMonthUTC(now);
-    const monthEnd = endOfMonthUTC(now);
-    const nextMonthStart = addDaysUTC(monthEnd, 1);
-    const occupancyWindowEnd = addDaysUTC(todayStart, OCCUPANCY_WINDOW_DAYS);
-
     const [rooms, bookings] = await Promise.all([
       backendJson<Room[]>("/rooms", { auth: true }),
       backendJson<Booking[]>("/bookings", { auth: true }),
     ]);
 
-    let bookingsToday = 0;
-    let bookingsThisWeek = 0;
-    let revenueThisMonth = 0;
-    let bookedNights = 0;
-
-    for (const b of bookings) {
-      const createdAt = new Date(b.createdAt);
-      if (createdAt >= todayStart && createdAt < tomorrowStart) bookingsToday += 1;
-      if (createdAt >= weekStart && createdAt < tomorrowStart) bookingsThisWeek += 1;
-
-      const checkIn = dateOnlyUTC(b.checkIn);
-      const checkOut = dateOnlyUTC(b.checkOut);
-
-      if (b.status === "PAID" && checkIn >= monthStart && checkIn < nextMonthStart) {
-        revenueThisMonth += Number(b.totalPrice);
-      }
-
-      if (b.status !== "CANCELLED" && checkIn < occupancyWindowEnd && checkOut > todayStart) {
-        const start = checkIn > todayStart ? checkIn : todayStart;
-        const end = checkOut < occupancyWindowEnd ? checkOut : occupancyWindowEnd;
-        bookedNights += Math.max(0, Math.round((end.getTime() - start.getTime()) / 86_400_000));
-      }
-    }
-
-    // Each Room row is a room *type*; activeUnitCount is how many physical
-    // RoomUnits currently sell under it — occupancy must be denominated by
-    // total units, not by the number of room types.
-    const totalUnits = rooms.reduce((sum, r) => sum + r.activeUnitCount, 0);
-    const totalRoomNights = totalUnits * OCCUPANCY_WINDOW_DAYS;
-    const occupancyPct = totalRoomNights > 0 ? Math.round((bookedNights / totalRoomNights) * 100) : 0;
-
-    return { status: "ok", bookingsToday, bookingsThisWeek, occupancyPct, revenueThisMonth };
+    return { status: "ok", ...computeRoomStats(now, rooms, bookings) };
   } catch (e) {
     if (e instanceof BackendError && e.status === 403) return { status: "forbidden" };
     return { status: "error" };
