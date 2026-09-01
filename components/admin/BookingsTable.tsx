@@ -1,5 +1,7 @@
 import Link from "next/link";
+import RoomChargeDebtBadge from "@/components/admin/RoomChargeDebtBadge";
 import type { Booking } from "@/lib/types";
+import type { Folio } from "@/lib/posTypes";
 
 const STATUS_STYLES: Record<string, string> = {
   NEW: "bg-sea/15 text-sea",
@@ -8,7 +10,7 @@ const STATUS_STYLES: Record<string, string> = {
   CANCELLED: "bg-cream/10 text-cream/40",
 };
 
-export default function BookingsTable({ bookings }: { bookings: Booking[] }) {
+export default function BookingsTable({ bookings, folios = {} }: { bookings: Booking[]; folios?: Record<string, Folio> }) {
   if (bookings.length === 0) {
     return <p className="text-cream/50 text-sm">No bookings match these filters.</p>;
   }
@@ -49,7 +51,15 @@ export default function BookingsTable({ bookings }: { bookings: Booking[] }) {
               <td className="py-3 pr-4 text-cream/70">{b.checkOut}</td>
               <td className="py-3 pr-4 text-cream/70">฿{Number(b.totalPrice).toLocaleString("en-US")}</td>
               <td className="py-3 pr-4">
-                <span className={`rounded-full px-2.5 py-1 text-xs ${STATUS_STYLES[b.status] ?? ""}`}>{b.status}</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className={`rounded-full px-2.5 py-1 text-xs ${STATUS_STYLES[b.status] ?? ""}`}>{b.status}</span>
+                  {folios[b.id] && (
+                    <RoomChargeDebtBadge
+                      roomChargesTotal={folios[b.id].roomChargesTotal}
+                      roomChargeCount={folios[b.id].roomChargeCount}
+                    />
+                  )}
+                </div>
               </td>
               <td className="py-3 pr-4 text-cream/40 text-xs">{b.createdAt.slice(0, 10)}</td>
             </tr>

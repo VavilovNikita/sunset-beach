@@ -3,6 +3,7 @@ import { ADMIN_API_URL } from "@/lib/backend";
 import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import BookingsTable from "@/components/admin/BookingsTable";
 import type { Booking, BookingStatus } from "@/lib/types";
+import type { Folio } from "@/lib/posTypes";
 
 const STATUSES: BookingStatus[] = ["NEW", "CONFIRMED", "PAID", "CANCELLED"];
 
@@ -24,6 +25,23 @@ export default async function AdminBookingsPage({
   if (status) query.set("status", status);
 
   const bookings = await backendJson<Booking[]>(`/bookings?${query.toString()}`, { auth: true });
+
+  // The "owes for POS charges" badge only ever applies to a PAID booking - fetch each PAID
+  // row's already-existing folio (no new backend computation, just GET /bookings/{id}/folio,
+  // same endpoint the calendar panel and booking detail page already call) in parallel,
+  // server-side, so this table doesn't need N client round trips or a new bulk endpoint. Scoped
+  // to PAID rows specifically, not every booking on the page, to keep this bounded.
+  const paidBookingIds = bookings.filter((b) => b.status === "PAID").map((b) => b.id);
+  const folioEntries = await Promise.all(
+    paidBookingIds.map(async (id) => {
+      try {
+        return [id, await backendJson<Folio>(`/bookings/${id}/folio`, { auth: true })] as const;
+      } catch {
+        return null;
+      }
+    })
+  );
+  const folios: Record<string, Folio> = Object.fromEntries(folioEntries.filter((e): e is [string, Folio] => e !== null));
 
   // GET /bookings/export is MANAGER+ (a bulk CSV of every guest's contact
   // details is a different risk profile than looking up one booking) —
@@ -90,7 +108,7 @@ export default async function AdminBookingsPage({
         </button>
       </form>
 
-      <BookingsTable bookings={bookings} />
+      <BookingsTable bookings={bookings} folios={folios} />
     </div>
   );
 }

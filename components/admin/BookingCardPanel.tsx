@@ -8,6 +8,7 @@ import { dateOnlyUTC, toDateKey } from "@/lib/bookings";
 import { quoteBookingSchedule, applyBookingSchedule } from "@/lib/bookingScheduleClient";
 import { assignBookingRoomUnit } from "@/lib/bookingRoomUnitClient";
 import { quoteBookingRelocation, applyBookingRelocation, undoBookingRelocation } from "@/lib/bookingRelocationClient";
+import RoomChargeDebtBadge from "@/components/admin/RoomChargeDebtBadge";
 import type { Booking, BookingScheduleQuote, Room, RoomUnit, AuditLogEntry } from "@/lib/types";
 import type { BookingPosOrder, Folio } from "@/lib/posTypes";
 
@@ -230,7 +231,12 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
   return (
     <form onSubmit={handleSubmit} className="space-y-3 bg-ink border border-cream/10 rounded-xl p-4">
       <div>
-        <label className="eyebrow text-cream/60 block mb-1">Status</label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="eyebrow text-cream/60">Status</label>
+          {booking.status === "PAID" && folio && (
+            <RoomChargeDebtBadge roomChargesTotal={folio.roomChargesTotal} roomChargeCount={folio.roomChargeCount} />
+          )}
+        </div>
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value as Booking["status"])}
