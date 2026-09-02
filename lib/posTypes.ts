@@ -73,6 +73,20 @@ export type PrintJob = {
   lastError: string | null;
   createdAt: string;
   updatedAt: string;
+  // Set once this FAILED job is closed as not-actionable (POST /print-jobs/dismiss) - dismiss
+  // never changes `status`, it only stops the job counting toward the default list/badge/banner
+  // (GET /print-jobs excludes dismissed jobs unless includeDismissed=true).
+  dismissedAt: string | null;
+  dismissedByUserId: string | null;
+  dismissNote: string | null;
+};
+
+// Body of POST /print-jobs/dismiss - bulk (a single job is just an array of one). All-or-nothing:
+// every id must exist, be visible to the caller's role, be currently FAILED, and not already
+// dismissed, or the whole call is rejected.
+export type DismissPrintJobsInput = {
+  ids: string[];
+  note?: string;
 };
 
 // Result of an on-demand print action (test print, pre-bill) that may
