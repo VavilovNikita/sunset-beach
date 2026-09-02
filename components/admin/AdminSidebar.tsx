@@ -25,10 +25,15 @@ const BASE_LINKS = [
 // - "forbidden" is a role-appropriate gap there, but nothing forces a WAITER
 // to go looking for it).
 const CASHIER_PLUS_LINKS = [
+  // First in the list, and CASHIER's post-login landing (see app/admin/login/page.tsx's
+  // ROLE_LANDING) - who's arriving, leaving, and already here is the actual daily job, ahead
+  // of the dashboard's aggregate figures.
+  { href: "/admin/today", label: "Today" },
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/bookings", label: "Bookings" },
   { href: "/admin/bookings/calendar", label: "Calendar" },
   { href: "/admin/rooms", label: "Rooms" },
+  { href: "/admin/housekeeping", label: "Housekeeping" },
   { href: "/admin/pricing", label: "Pricing" },
   { href: "/admin/availability", label: "Availability" },
   { href: "/admin/pos/shifts", label: "Shifts" },

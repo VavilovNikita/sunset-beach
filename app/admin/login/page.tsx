@@ -4,13 +4,16 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getLastEmail, setLastEmail } from "@/lib/pos/lastUser";
 
-// WAITER and CASHIER work the floor, not the back office — they land on the
-// new touch-first /pos section instead of the desktop admin dashboard, which
-// has nothing useful to show a role that can't read /rooms or /bookings.
-// MANAGER/ADMIN keep landing on /admin (they can still reach /pos directly
-// when they're covering the floor — see app/pos/layout.tsx's guard, which
-// only requires being logged in, not a specific role).
-const ROLE_LANDING: Record<string, string> = { WAITER: "/pos", CASHIER: "/pos" };
+// WAITER works the floor, not the back office — lands on the touch-first
+// /pos section. CASHIER *is* front desk (unlike WAITER, already reads
+// /rooms/bookings/etc. — see AdminSidebar's CASHIER_PLUS_LINKS) and lands on
+// /admin/today instead: who's arriving, leaving, and already here is the
+// actual daily job, ahead of both /pos (a WAITER's floor) and the dashboard's
+// aggregate figures. MANAGER/ADMIN keep landing on /admin (they can still
+// reach /pos or /admin/today directly when covering the floor/desk — see
+// app/pos/layout.tsx's guard, which only requires being logged in, not a
+// specific role).
+const ROLE_LANDING: Record<string, string> = { WAITER: "/pos", CASHIER: "/admin/today" };
 const DEFAULT_LANDING = "/admin";
 
 function LoginForm() {

@@ -40,7 +40,19 @@ export type RoomUnit = {
   roomId: string;
   label: string;
   isActive: boolean;
+  housekeepingStatus: HousekeepingStatus;
   createdAt: string;
+};
+
+// Cleaning state of a physical room — independent of RoomUnitBlock (which pulls a unit off sale
+// for a written reason: maintenance, renovation). A DIRTY room is still sellable/assignable;
+// checking a guest into one warns front desk rather than blocking them. Set via
+// PATCH /room-units/{id}/housekeeping, CASHIER+ (a lower bar than the rest of /room-units,
+// which stays MANAGER+) — see HousekeepingStatusInput.
+export type HousekeepingStatus = "DIRTY" | "CLEAN";
+
+export type HousekeepingStatusInput = {
+  housekeepingStatus: HousekeepingStatus;
 };
 
 // Body of POST /room-units (openapi.yaml). GET /room-units — including the
@@ -109,6 +121,12 @@ export type Booking = {
   totalPrice: string;
   status: BookingStatus;
   paymentNote: string | null;
+  // Whether the guest is physically at the hotel — deliberately separate from `status` (which
+  // stays commercial only: confirmed/paid/cancelled). One value per booking, not per segment: a
+  // relocation mid-stay never touches this. Never affects availability — see OccupancyStatus.
+  occupancyStatus: OccupancyStatus;
+  checkedInAt: string | null;
+  checkedOutAt: string | null;
   // roomId/room/roomUnitId/roomUnit/checkIn/checkOut/totalPrice above are all
   // derived from segments (the *last* segment's room; the first segment's
   // checkIn and the last segment's checkOut; the sum of every segment's
@@ -118,6 +136,44 @@ export type Booking = {
   segments: BookingSegment[];
   createdAt: string;
   updatedAt: string;
+};
+
+// NO_SHOW is a label, not an action: POST /bookings/{id}/no-show changes nothing about the
+// booking's dates, status, or availability — releasing the nights is the existing
+// cancel/shorten path, a separate deliberate step. Never read by the availability engine.
+export type OccupancyStatus = "EXPECTED" | "CHECKED_IN" | "CHECKED_OUT" | "NO_SHOW";
+
+// Response of POST /bookings/{id}/check-in. `warning` is set (check-in still succeeds) when the
+// room being checked into is DIRTY — front desk is told, not blocked.
+export type CheckInResult = {
+  booking: Booking;
+  warning: string | null;
+};
+
+// Response of POST /bookings/{id}/check-out. `outstandingBalance` is what's actually left to
+// collect right now (room total, if not yet PAID, plus any uncollected room-charge payments) —
+// "0.00" means nothing is owed, not that the field was skipped.
+export type CheckOutResult = {
+  booking: Booking;
+  outstandingBalance: string;
+};
+
+// One row of GET /bookings/today. Whether a room still needs assigning (booking.roomUnitId) or
+// cleaning (booking.roomUnit.housekeepingStatus) is already on the embedded Booking.
+export type TodayBoardEntry = {
+  booking: Booking;
+  outstandingBalance: string;
+};
+
+// Response of GET /bookings/today — the front desk's daily working set. A booking appears in
+// exactly one list: arrivingToday (checkIn = today, occupancyStatus = EXPECTED), departingToday
+// (checkOut = today, occupancyStatus = CHECKED_IN), or inHouse (occupancyStatus = CHECKED_IN,
+// any date — departingToday is a same-day subset, not a separate population). A booking marked
+// NO_SHOW or already CHECKED_OUT appears in none of the three.
+export type TodayBoard = {
+  arrivingToday: TodayBoardEntry[];
+  departingToday: TodayBoardEntry[];
+  inHouse: TodayBoardEntry[];
 };
 
 export type PricingDay = { date: string; price: number; isOverride: boolean };

@@ -16,7 +16,7 @@ import { quoteBookingSchedule, applyBookingSchedule } from "@/lib/bookingSchedul
 import { DEFAULT_DAY_WIDTH_PX, MIN_DAY_WIDTH_PX, MAX_DAY_WIDTH_PX, loadStoredDensity, saveStoredDensity } from "@/lib/calendarRange";
 import BookingCreateFromGridModal from "@/components/admin/BookingCreateFromGridModal";
 import BookingCardPanel from "@/components/admin/BookingCardPanel";
-import type { BookingCalendarResponse, BookingScheduleQuote, CalendarBooking, RoomUnit } from "@/lib/types";
+import type { BookingCalendarResponse, BookingScheduleQuote, CalendarBooking, HousekeepingStatus, RoomUnit } from "@/lib/types";
 
 const ROW_HEIGHT = 40;
 const LABEL_WIDTH = 208;
@@ -442,7 +442,14 @@ export default function BookingCalendarGrid({
     );
   }
 
-  function renderRow(roomId: string, roomUnitId: string, label: string, isActive: boolean, bookings: CalendarBooking[]) {
+  function renderRow(
+    roomId: string,
+    roomUnitId: string,
+    label: string,
+    isActive: boolean,
+    housekeepingStatus: HousekeepingStatus | undefined,
+    bookings: CalendarBooking[]
+  ) {
     const withEffective = bookings.map((b) => ({ booking: b, ...effectiveBooking(b) }));
     // Only lay out bookings actually in this row right now (a booking mid-move shows in its
     // drag-target row, not its original one) — see the caller, which already filters by
@@ -464,6 +471,11 @@ export default function BookingCalendarGrid({
           <span className="truncate" title={label}>
             {label}
           </span>
+          {housekeepingStatus === "DIRTY" && (
+            <span title="Room needs cleaning" className="text-sand shrink-0">
+              ●
+            </span>
+          )}
           {laneCount > 1 && (
             <span title="Overlapping bookings on this room — needs attention" className="text-coral shrink-0">
               ⚠
@@ -642,8 +654,11 @@ export default function BookingCalendarGrid({
           {data.roomTypes.map((rt) => (
             <div key={rt.roomId}>
               {renderRoomTypeHeader(rt.roomId, rt.roomName, rt.dailyAvailable)}
-              {rt.roomUnits.map((unit: RoomUnit) => renderRow(rt.roomId, unit.id, unit.label, unit.isActive, bookingsForRow(rt.roomId, unit.id)))}
-              {bookingsForRow(rt.roomId, "").length > 0 && renderRow(rt.roomId, "", "Unassigned", true, bookingsForRow(rt.roomId, ""))}
+              {rt.roomUnits.map((unit: RoomUnit) =>
+                renderRow(rt.roomId, unit.id, unit.label, unit.isActive, unit.housekeepingStatus, bookingsForRow(rt.roomId, unit.id))
+              )}
+              {bookingsForRow(rt.roomId, "").length > 0 &&
+                renderRow(rt.roomId, "", "Unassigned", true, undefined, bookingsForRow(rt.roomId, ""))}
             </div>
           ))}
         </div>
