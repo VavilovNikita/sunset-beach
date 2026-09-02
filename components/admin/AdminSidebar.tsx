@@ -32,6 +32,7 @@ const CASHIER_PLUS_LINKS = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/bookings", label: "Bookings" },
   { href: "/admin/bookings/calendar", label: "Calendar" },
+  { href: "/admin/property-map", label: "Property map" },
   { href: "/admin/rooms", label: "Rooms" },
   { href: "/admin/housekeeping", label: "Housekeeping" },
   { href: "/admin/pricing", label: "Pricing" },

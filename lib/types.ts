@@ -41,6 +41,10 @@ export type RoomUnit = {
   label: string;
   isActive: boolean;
   housekeepingStatus: HousekeepingStatus;
+  // Normalized (0..1) position on the property map image, set via PATCH /room-units/positions.
+  // Both null (never one without the other) means this unit hasn't been placed on the map yet.
+  positionX: number | null;
+  positionY: number | null;
   createdAt: string;
 };
 
@@ -87,6 +91,58 @@ export type RoomUnitBlockInput = {
   fromDate: string;
   toDate: string;
   reason: string;
+};
+
+// One entry of the array body of PATCH /room-units/positions (MANAGER+, batch — the property
+// map editor saves every dragged room in one request, not one per drag). Both null clears the
+// position; never one without the other.
+export type RoomUnitPositionInput = {
+  roomUnitId: string;
+  positionX: number | null;
+  positionY: number | null;
+};
+
+// The booking a room unit is showing on the property map right now - either a guest checked in
+// this moment, or (only when the unit isn't currently occupied) a guest expected to check in
+// today. See PropertyMapUnit — never both at once.
+export type PropertyMapCurrentBooking = {
+  bookingId: string;
+  guestName: string;
+  checkOut: string; // YYYY-MM-DD
+  occupancyStatus: OccupancyStatus;
+  outstandingBalance: string; // decimal(10,2) as a string — same PAID-aware figure the checkout warning uses
+};
+
+// A RoomUnitBlock covering today - independent of PropertyMapUnit.isActive. isActive=false means
+// permanently deactivated (RoomUnitManager); activeBlock means temporarily pulled off sale today
+// for a reason (AvailabilityManager) and will return on its own once toDate passes. Both fields
+// are always present and must not be collapsed into one "unavailable" flag - see
+// lib/propertyMapDisplay.ts for the display rule that keeps them visually distinct.
+export type PropertyMapActiveBlock = {
+  reason: string;
+  fromDate: string; // YYYY-MM-DD
+  toDate: string; // YYYY-MM-DD
+};
+
+export type PropertyMapUnit = {
+  roomUnitId: string;
+  roomId: string;
+  roomName: string;
+  unitLabel: string;
+  isActive: boolean;
+  housekeepingStatus: HousekeepingStatus;
+  positionX: number | null;
+  positionY: number | null;
+  currentBooking: PropertyMapCurrentBooking | null;
+  activeBlock: PropertyMapActiveBlock | null;
+};
+
+// GET /property-map (CASHIER+) — every physical room (placed on the map or not) plus the current
+// background image. A dedicated addition to TodayBoard/the booking calendar, not a replacement.
+export type PropertyMap = {
+  imagePath: string | null; // null until a manager uploads one via POST /property-map/image
+  imageUpdatedAt: string | null;
+  units: PropertyMapUnit[];
 };
 
 // One "room X from date A to date B" leg of a booking's stay — see
