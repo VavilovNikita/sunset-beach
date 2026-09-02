@@ -21,9 +21,17 @@ import type { BookingCalendarResponse, BookingScheduleQuote, CalendarBooking, Ho
 const ROW_HEIGHT = 40;
 const LABEL_WIDTH = 208;
 
+// CONFIRMED is deliberately not coral: it's the routine, expected state that fills most of this
+// screen, and coral now means "needs intervention" (overbooked cell, overlapping-bookings
+// warning, a manual RoomUnitBlock) - a bar in that same color would either read as an alarm that
+// isn't one, or (worse) bury a real alarm in a sea of identically-colored normal bars, which is
+// exactly what made a genuinely overbooked day invisible before this changed. slate is used
+// instead of a themed token on purpose: sea already means "available", sand means "not cleaned",
+// amber means "there's a debt" - a cool, unsaturated blue-grey doesn't compete with any of those
+// or with coral's warm alert family.
 const STATUS_BAR_STYLES: Record<string, string> = {
   NEW: "bg-sea text-ink",
-  CONFIRMED: "bg-coral text-ink",
+  CONFIRMED: "bg-slate-600 text-cream",
   PAID: "bg-green-600 text-cream",
 };
 
@@ -397,13 +405,17 @@ export default function BookingCalendarGrid({
           return (
             <div
               key={key}
-              className={`shrink-0 border-b border-r border-cream/10 text-center py-2 bg-ink2 ${isToday ? "bg-coral/15" : ""}`}
+              // Today is about orientation in time, not status - a neutral underline, not a
+              // fill, so it never reads as an alert color the way bg-coral/15 used to.
+              className={`shrink-0 border-r border-cream/10 text-center py-2 bg-ink2 ${
+                isToday ? "border-b-2 border-b-cream" : "border-b border-b-cream/10"
+              }`}
               style={{ width: dayWidth }}
             >
               <p className="text-[10px] uppercase tracking-wide text-cream/40">
                 {d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" })}
               </p>
-              <p className={`text-sm ${isToday ? "text-coral font-semibold" : "text-cream/80"}`}>{d.getUTCDate()}</p>
+              <p className={`text-sm ${isToday ? "text-cream font-semibold" : "text-cream/80"}`}>{d.getUTCDate()}</p>
             </div>
           );
         })}
