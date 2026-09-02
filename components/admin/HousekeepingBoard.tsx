@@ -70,14 +70,14 @@ function UnitRow({ unit }: { unit: RoomUnit }) {
   return (
     <div
       className={`bg-ink2/40 border rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap ${
-        dirty ? "border-coral/30" : "border-cream/10"
+        dirty ? "border-sand/30" : "border-cream/10"
       }`}
     >
       <div className="flex items-center gap-3 min-w-0">
         <span className={`text-cream ${unit.isActive ? "" : "text-cream/40"}`}>{unit.label}</span>
         {!unit.isActive && <span className="text-xs text-cream/40">Inactive</span>}
         <span
-          className={`text-xs rounded-full px-3 py-1 ${dirty ? "bg-coral/15 text-coral" : "bg-sea/15 text-sea"}`}
+          className={`text-xs rounded-full px-3 py-1 ${dirty ? "bg-sand/15 text-sand" : "bg-sea/15 text-sea"}`}
         >
           {dirty ? "Dirty" : "Clean"}
         </span>

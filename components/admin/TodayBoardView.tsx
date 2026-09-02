@@ -151,7 +151,7 @@ function TodayRow({ entry, action, onDone }: { entry: TodayBoardEntry; action: "
         </div>
         <div className="flex items-center gap-3 flex-wrap mt-1 text-xs">
           {needsRoom && <span className="text-amber-400">No room assigned</span>}
-          {roomDirty && <span className="text-coral">Room not clean</span>}
+          {roomDirty && <span className="text-sand">Room not clean</span>}
           {owed && <span className="text-coral">฿{Number(outstandingBalance).toLocaleString("en-US")} owed</span>}
         </div>
         {message && (
