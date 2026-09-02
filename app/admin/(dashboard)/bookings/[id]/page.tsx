@@ -5,8 +5,9 @@ import { BackendError } from "@/lib/backend";
 import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import BookingStatusForm from "@/components/admin/BookingStatusForm";
 import BookingScheduleForm from "@/components/admin/BookingScheduleForm";
+import FolioPaymentPanel from "@/components/admin/FolioPaymentPanel";
 import type { AuditLogPage, Booking, RoomUnit } from "@/lib/types";
-import type { BookingPosOrder, Folio } from "@/lib/posTypes";
+import type { BookingPosOrder, Folio, FolioPayment } from "@/lib/posTypes";
 
 export default async function AdminBookingDetailPage({ params }: { params: { id: string } }) {
   // GET /bookings/{id} is CASHIER+ on the backend — guard the whole page
@@ -61,6 +62,12 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
   } catch {
     folioFailed = true;
   }
+
+  // Only fetched when the folio itself loaded - without a known roomChargesTotal there's no safe
+  // "amount owed" to cap a new payment at, so FolioPaymentPanel isn't rendered either way.
+  const folioPayments = folio
+    ? await backendJson<FolioPayment[]>(`/bookings/${params.id}/folio-payments`, { auth: true }).catch(() => [])
+    : [];
 
   return (
     <div>
@@ -133,6 +140,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
                   ฿{Number(folio.folioTotal).toLocaleString("en-US")}
                 </span>
               </div>
+              <FolioPaymentPanel bookingId={booking.id} outstanding={folio.roomChargesTotal} payments={folioPayments} />
             </div>
           </div>
         )

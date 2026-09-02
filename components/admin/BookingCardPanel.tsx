@@ -234,9 +234,7 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
       <div>
         <div className="flex items-center justify-between mb-1">
           <label className="eyebrow text-cream/60">Status</label>
-          {booking.status === "PAID" && folio && (
-            <RoomChargeDebtBadge roomChargesTotal={folio.roomChargesTotal} roomChargeCount={folio.roomChargeCount} />
-          )}
+          {booking.status === "PAID" && folio && <RoomChargeDebtBadge roomChargesTotal={folio.roomChargesTotal} />}
         </div>
         <select
           value={status}
@@ -250,7 +248,7 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
           ))}
         </select>
       </div>
-      {status === "PAID" && folio && folio.roomChargeCount > 0 && (
+      {status === "PAID" && folio && Number(folio.roomChargesTotal) > 0 && (
         <p className="text-xs text-coral bg-coral/10 border border-coral/30 rounded-lg px-3 py-2">
           Total due including room charges is ฿{Number(folio.folioTotal).toLocaleString("en-US")} — confirm that&rsquo;s
           what was collected.

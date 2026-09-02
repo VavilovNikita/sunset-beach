@@ -227,11 +227,41 @@ export type BookingPosOrder = {
 
 // GET /bookings/{id}/folio — room stay + POS room charges, combined into
 // what the front desk collects at checkout.
+// roomChargesTotal is *net of settlement* — see FolioPayment below for how a room charge gets
+// marked collected. roomChargeCount is a raw historical count (how many ROOM_CHARGE payments
+// this stay ever generated), not "how many are still unsettled" — individual charges aren't
+// tracked as settled/unsettled, only the running total is.
 export type Folio = {
   roomTotal: string;
   roomChargesTotal: string;
   folioTotal: string;
   roomChargeCount: number;
+};
+
+// Excludes ROOM_CHARGE — a room charge can't be settled by charging it to the room.
+export type FolioPaymentMethod = "CASH" | "CARD" | "OTHER";
+
+// Money actually collected against a booking's folio — the record that makes a ROOM_CHARGE
+// payment's amount stop counting as owed in Folio.roomChargesTotal / the check-out warning /
+// the today board. Deliberately not tied to a shift — unlike a POS Payment, cash collected this
+// way isn't counted in end-of-shift cash-drawer reconciliation, the same gap Booking.status =
+// PAID already has for the room portion of a stay. Rows accumulate (a guest can pay part now,
+// the rest later) and are never edited or deleted.
+export type FolioPayment = {
+  id: string;
+  bookingId: string;
+  method: FolioPaymentMethod;
+  amount: string;
+  recordedByUserId: string;
+  createdAt: string;
+};
+
+// Body of POST /bookings/{id}/folio-payments. Rejected with a 409 if amount would exceed what's
+// currently outstanding on the folio's room-charges portion — a fat-finger guard, not a
+// restriction on partial payment.
+export type FolioPaymentInput = {
+  method: FolioPaymentMethod;
+  amount: string;
 };
 
 // GET /payments/summary?from&to — MANAGER+. grandTotal deliberately excludes

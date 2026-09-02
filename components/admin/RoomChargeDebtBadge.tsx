@@ -5,23 +5,20 @@
 // for anywhere staff see the status badge/select but not the folio itself (BookingsTable,
 // BookingCardPanel) - the booking detail page already shows the full folio right next to status,
 // so it doesn't need this separately.
-export default function RoomChargeDebtBadge({
-  roomChargesTotal,
-  roomChargeCount,
-}: {
-  roomChargesTotal: string | number;
-  roomChargeCount: number;
-}) {
-  if (roomChargeCount <= 0) return null;
+//
+// Gated on roomChargesTotal (amount owed, net of any recorded FolioPayment settlement), not
+// roomChargeCount - the count is a raw historical tally of every ROOM_CHARGE payment this stay
+// ever generated and never goes back down once a guest settles up, so gating on it would leave
+// this badge stuck on forever. See lib/folioPaymentClient.ts for how a charge gets settled.
+export default function RoomChargeDebtBadge({ roomChargesTotal }: { roomChargesTotal: string | number }) {
+  if (Number(roomChargesTotal) <= 0) return null;
 
   const amount = `฿${Number(roomChargesTotal).toLocaleString("en-US")}`;
 
   return (
     <span
       className="inline-block rounded-full px-2.5 py-1 text-xs bg-amber-400/15 text-amber-400 whitespace-nowrap"
-      title={`Room is paid, but ${roomChargeCount} POS charge${roomChargeCount === 1 ? "" : "s"} totaling ${amount} ${
-        roomChargeCount === 1 ? "hasn't" : "haven't"
-      } been collected yet.`}
+      title={`Room is paid, but ${amount} in POS room charges hasn't been collected yet.`}
     >
       Owes {amount}
     </span>

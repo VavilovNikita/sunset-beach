@@ -70,7 +70,7 @@ export default function BookingStatusForm({
         </select>
       </div>
 
-      {status === "PAID" && folio && folio.roomChargeCount > 0 && (
+      {status === "PAID" && folio && Number(folio.roomChargesTotal) > 0 && (
         <p className="text-sm text-coral bg-coral/10 border border-coral/30 rounded-lg px-3 py-2">
           This booking has {folio.roomChargeCount} POS room charge{folio.roomChargeCount === 1 ? "" : "s"} totaling ฿
           {Number(folio.roomChargesTotal).toLocaleString("en-US")}. Total due including the room is ฿

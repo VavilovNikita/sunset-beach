@@ -53,12 +53,7 @@ export default function BookingsTable({ bookings, folios = {} }: { bookings: Boo
               <td className="py-3 pr-4">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className={`rounded-full px-2.5 py-1 text-xs ${STATUS_STYLES[b.status] ?? ""}`}>{b.status}</span>
-                  {folios[b.id] && (
-                    <RoomChargeDebtBadge
-                      roomChargesTotal={folios[b.id].roomChargesTotal}
-                      roomChargeCount={folios[b.id].roomChargeCount}
-                    />
-                  )}
+                  {folios[b.id] && <RoomChargeDebtBadge roomChargesTotal={folios[b.id].roomChargesTotal} />}
                 </div>
               </td>
               <td className="py-3 pr-4 text-cream/40 text-xs">{b.createdAt.slice(0, 10)}</td>
