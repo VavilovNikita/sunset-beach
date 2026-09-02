@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { quoteBookingRelocation, applyBookingRelocation, undoBookingRelocation } from "@/lib/bookingRelocationClient";
+import { quoteBookingReprice, applyBookingReprice } from "@/lib/bookingRepriceClient";
 import RoomChargeDebtBadge from "@/components/admin/RoomChargeDebtBadge";
 import { BookingScheduleEditor, RoomUnitAssignmentEditor } from "@/components/admin/BookingScheduleEditor";
 import type { Booking, BookingScheduleQuote, Room, RoomUnit, AuditLogEntry } from "@/lib/types";
@@ -219,6 +220,10 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
     setSaving(false);
     if (!result.ok) {
       setError(result.error);
+      // See BookingStatusForm.tsx's identical note - the select already jumped to the chosen
+      // value on change, so a failed save has to jump it back, or the form looks like it saved.
+      setStatus(booking.status);
+      setPaymentNote(booking.paymentNote ?? "");
       return;
     }
     onSaved();
@@ -313,7 +318,10 @@ function SegmentsSection({
             <p className="text-xs text-cream/40 mt-1">
               {segment.checkIn} → {segment.checkOut}
             </p>
-            {i > 0 && <UndoRelocationButton bookingId={booking.id} splitDate={segment.checkIn} onSaved={onSaved} />}
+            <div className="flex items-center flex-wrap gap-3 mt-1">
+              {i > 0 && <UndoRelocationButton bookingId={booking.id} splitDate={segment.checkIn} onSaved={onSaved} />}
+              {canManage && <RepriceSegmentButton bookingId={booking.id} segmentId={segment.id} onSaved={onSaved} />}
+            </div>
           </div>
         ))}
       </div>
@@ -589,6 +597,103 @@ function UndoRelocationButton({ bookingId, splitDate, onSaved }: { bookingId: st
         {busy ? "Undoing…" : "Undo this relocation"}
       </button>
       {error && <p className="text-xs text-coral mt-1">{error}</p>}
+    </div>
+  );
+}
+
+// The one explicit, deliberate way to move an already-agreed price forward - see
+// BookingWriter's class javadoc ("Nightly price snapshots") for why extending/shrinking/
+// relocating a stay never does this on its own. MANAGER+ only (canManage, same gate the caller
+// already applies), since this overrides a price rather than administering a guest's own
+// request. Quote-then-confirm, same pattern as RelocateForm - a price change is never applied
+// without the manager seeing the before/after total first.
+function RepriceSegmentButton({ bookingId, segmentId, onSaved }: { bookingId: string; segmentId: string; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [quote, setQuote] = useState<{ oldTotalPrice: string; newTotalPrice: string; nightsRepriced: number } | null>(null);
+  const [status, setStatus] = useState<"idle" | "quoting" | "ready" | "error" | "applying">("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleQuote() {
+    setStatus("quoting");
+    setError(null);
+    const result = await quoteBookingReprice(bookingId, { segmentId });
+    if (!result.ok) {
+      setError(result.error);
+      setStatus("error");
+      return;
+    }
+    setQuote(result.quote);
+    setStatus("ready");
+  }
+
+  async function handleApply() {
+    setStatus("applying");
+    const result = await applyBookingReprice(bookingId, { segmentId });
+    if (!result.ok) {
+      setError(result.error);
+      setStatus("error");
+      return;
+    }
+    setOpen(false);
+    setQuote(null);
+    setStatus("idle");
+    onSaved();
+  }
+
+  function close() {
+    setOpen(false);
+    setQuote(null);
+    setStatus("idle");
+    setError(null);
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-xs text-sea hover:text-coral transition-colors underline underline-offset-4"
+      >
+        Reprice to current rates
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-2 bg-ink2 border border-cream/10 rounded-lg p-3 space-y-2 text-xs w-full">
+      {status !== "ready" ? (
+        <button
+          type="button"
+          onClick={handleQuote}
+          disabled={status === "quoting"}
+          className="rounded-full border border-cream/25 hover:border-cream/50 transition-colors px-3 py-1.5 font-medium disabled:opacity-40"
+        >
+          {status === "quoting" ? "Checking…" : "Preview reprice"}
+        </button>
+      ) : (
+        <>
+          {quote!.nightsRepriced === 0 ? (
+            <p className="text-cream/40">Nothing left to reprice - this segment is entirely in the past.</p>
+          ) : (
+            <p className="text-cream/70">
+              {quote!.nightsRepriced} night{quote!.nightsRepriced === 1 ? "" : "s"}: ฿
+              {Number(quote!.oldTotalPrice).toLocaleString("en-US")} → ฿{Number(quote!.newTotalPrice).toLocaleString("en-US")}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={quote!.nightsRepriced === 0 || status === ("applying" as typeof status)}
+            className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-3 py-1.5 font-medium disabled:opacity-60"
+          >
+            {status === ("applying" as typeof status) ? "Applying…" : "Confirm reprice"}
+          </button>
+        </>
+      )}
+      {error && <p className="text-coral">{error}</p>}
+      <button type="button" onClick={close} className="block text-cream/50 hover:text-cream transition-colors">
+        Cancel
+      </button>
     </div>
   );
 }

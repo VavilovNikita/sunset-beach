@@ -268,6 +268,23 @@ export type RelocationUndoInput = {
   splitDate: string;
 };
 
+// Body of POST /bookings/{id}/reprice and POST /bookings/{id}/reprice/quote — the one explicit,
+// manager-only way to move an already-agreed price forward to today's rates. segmentId is
+// required (not inferred) since a relocated booking has more than one segment and there is no
+// single unambiguous default.
+export type RepriceInput = {
+  segmentId: string;
+};
+
+// Response of POST /bookings/{id}/reprice/quote — a non-mutating preview. Only nights from today
+// onward within the segment are ever repriced; nightsRepriced is 0 (oldTotalPrice ==
+// newTotalPrice) when the segment has nothing left to reprice (entirely in the past).
+export type RepriceQuote = {
+  oldTotalPrice: string;
+  newTotalPrice: string;
+  nightsRepriced: number;
+};
+
 // Body of POST /bookings/staff — front-desk (walk-in) booking creation.
 // Unlike BookingCreateInput (the public guest flow), guest contact details
 // are optional and roomUnitId may be assigned immediately, atomically.

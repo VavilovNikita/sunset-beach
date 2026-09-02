@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ADMIN_API_URL } from "@/lib/backend";
-import { extractApiError } from "@/lib/apiError";
+import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import type { Folio } from "@/lib/posTypes";
 
 const STATUSES = ["NEW", "CONFIRMED", "PAID", "CANCELLED"] as const;
@@ -33,18 +32,22 @@ export default function BookingStatusForm({
     setSaving(true);
     setError(null);
 
-    const res = await fetch(`${ADMIN_API_URL}/bookings/${bookingId}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, paymentNote: paymentNote || null }),
-    });
+    const result = await adminRequest(
+      `/bookings/${bookingId}`,
+      adminJsonInit("PATCH", { status, paymentNote: paymentNote || null }),
+      "Could not update booking."
+    );
 
     setSaving(false);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(extractApiError(data, "Could not update booking."));
+    if (!result.ok) {
+      setError(result.error);
+      // A dropped connection (or a rejected write) must not leave the form looking like it
+      // saved - the select already jumped to the chosen value on change, so on failure it has
+      // to jump back to what's actually persisted, or the empty state (no error banner visible
+      // at a glance, dropdown showing the new value) reads as a silent success.
+      setStatus(currentStatus);
+      setPaymentNote(currentPaymentNote ?? "");
       return;
     }
     router.refresh();
