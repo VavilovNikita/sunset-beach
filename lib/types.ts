@@ -93,6 +93,27 @@ export type RoomUnitBlockInput = {
   reason: string;
 };
 
+// One booking whose stay overlaps a block being created on this unit — enough to name the guest
+// and link to the booking, not the full Booking object. checkIn/checkOut/status are the booking's
+// own derived-from-segments fields, not necessarily this unit's specific segment (see
+// RoomUnitBlockResult).
+export type RoomUnitBlockAffectedBooking = {
+  bookingId: string;
+  guestName: string;
+  checkIn: string; // YYYY-MM-DD
+  checkOut: string; // YYYY-MM-DD
+  status: BookingStatus;
+};
+
+// Response of POST /room-units/{id}/blocks. The block is always created — warning is set (not a
+// refusal) when the blocked range overlaps one or more non-CANCELLED bookings on this unit, same
+// warn-don't-block shape as CheckInResult.
+export type RoomUnitBlockResult = {
+  block: RoomUnitBlock;
+  warning: string | null;
+  affectedBookings: RoomUnitBlockAffectedBooking[];
+};
+
 // One entry of the array body of PATCH /room-units/positions (MANAGER+, batch — the property
 // map editor saves every dragged room in one request, not one per drag). Both null clears the
 // position; never one without the other.

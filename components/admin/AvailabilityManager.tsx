@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import PriceCalendar, { type CalendarCell } from "@/components/admin/PriceCalendar";
 import { ADMIN_API_URL } from "@/lib/backend";
-import type { AvailabilityDay, AvailabilityUnitDay, RoomUnitBlock } from "@/lib/types";
+import { createRoomUnitBlock, deleteRoomUnitBlock, listRoomUnitBlocks } from "@/lib/roomUnitBlockClient";
+import type { AvailabilityDay, AvailabilityUnitDay, RoomUnitBlock, RoomUnitBlockResult } from "@/lib/types";
 
 type Room = { id: string; name: string };
 
@@ -20,25 +21,6 @@ function isAutoMigrated(reason: string) {
 
 function monthParam(monthDate: Date) {
   return `${monthDate.getUTCFullYear()}-${String(monthDate.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-// The backend reports validation failures two different ways: a plain
-// `{ error: "..." }` string, or `{ error: { formErrors, fieldErrors } }`
-// (Zod's error.flatten()). Collapse both into one readable line instead of
-// dumping raw JSON at the manager.
-function formatApiError(data: unknown, fallback: string): string {
-  if (!data || typeof data !== "object" || !("error" in data)) return fallback;
-  const err = (data as { error: unknown }).error;
-  if (typeof err === "string") return err;
-  if (err && typeof err === "object") {
-    const { formErrors, fieldErrors } = err as { formErrors?: string[]; fieldErrors?: Record<string, string[]> };
-    const messages = [
-      ...(formErrors ?? []),
-      ...Object.values(fieldErrors ?? {}).flat(),
-    ];
-    if (messages.length > 0) return messages.join(" ");
-  }
-  return fallback;
 }
 
 function unitStatusLabel(u: AvailabilityUnitDay) {
@@ -216,17 +198,21 @@ function UnitDetail({
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set only when the block just created overlaps a booking — cleared by the manager
+  // dismissing it, or by this whole panel closing (unmount, e.g. "Back to overview").
+  // Not a toast: it names every affected booking, which the manager needs while they
+  // work through relocating each one, not for the few seconds a toast stays up.
+  const [blockWarning, setBlockWarning] = useState<RoomUnitBlockResult | null>(null);
 
   // GET .../blocks is MANAGER+, same as GET /room-units — a lower role
   // that can still see day-by-day status via `days` (unrestricted) has no
   // access to the raw block list, so don't even attempt the fetch for them.
-  function refetchBlocks() {
-    if (!canManage) return Promise.resolve();
+  async function refetchBlocks() {
+    if (!canManage) return;
     setBlocksLoading(true);
-    return fetch(`${ADMIN_API_URL}/room-units/${roomUnitId}/blocks`, { credentials: "include" })
-      .then((res) => res.json())
-      .then((data) => setBlocks(Array.isArray(data) ? data : []))
-      .finally(() => setBlocksLoading(false));
+    const result = await listRoomUnitBlocks(roomUnitId);
+    setBlocksLoading(false);
+    if (result.ok) setBlocks(result.blocks);
   }
 
   useEffect(() => {
@@ -239,21 +225,19 @@ function UnitDetail({
     if (!from || !to || !reason.trim()) return;
     setSaving(true);
     setError(null);
+    setBlockWarning(null);
 
-    const res = await fetch(`${ADMIN_API_URL}/room-units/${roomUnitId}/blocks`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fromDate: from, toDate: to, reason: reason.trim() }),
-    });
+    const result = await createRoomUnitBlock(roomUnitId, { fromDate: from, toDate: to, reason: reason.trim() });
 
     setSaving(false);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(formatApiError(data, "Could not add block."));
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
+    // The block is already created at this point — this is a warning after the fact,
+    // not a confirmation to ask before creating it.
+    if (result.result.warning) setBlockWarning(result.result);
     setFrom("");
     setTo("");
     setReason("");
@@ -265,14 +249,10 @@ function UnitDetail({
     if (!window.confirm("Remove this block? The room becomes bookable for those dates again.")) return;
     setError(null);
 
-    const res = await fetch(`${ADMIN_API_URL}/room-units/${roomUnitId}/blocks/${id}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
+    const result = await deleteRoomUnitBlock(roomUnitId, id);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(formatApiError(data, "Could not remove block."));
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
     await refetchBlocks();
@@ -374,6 +354,35 @@ function UnitDetail({
                 {saving ? "Saving…" : "Add block"}
               </button>
             </form>
+          )}
+
+          {blockWarning && (
+            <div className="bg-amber-400/10 border border-amber-400/40 rounded-xl p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm text-amber-400">{blockWarning.warning}</p>
+                <button
+                  type="button"
+                  onClick={() => setBlockWarning(null)}
+                  className="text-xs text-cream/50 hover:text-cream transition-colors shrink-0"
+                >
+                  Dismiss
+                </button>
+              </div>
+              <div className="space-y-2">
+                {blockWarning.affectedBookings.map((b) => (
+                  <Link
+                    key={b.bookingId}
+                    href={`/admin/bookings/${b.bookingId}`}
+                    className="block bg-ink2/40 border border-cream/10 rounded-lg p-2.5 hover:border-amber-400/40 transition-colors"
+                  >
+                    <p className="text-sm text-cream/80">{b.guestName}</p>
+                    <p className="text-xs text-cream/50 mt-0.5">
+                      {b.checkIn} → {b.checkOut} · {b.status}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </div>
           )}
 
           <div>
