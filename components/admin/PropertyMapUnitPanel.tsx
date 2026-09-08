@@ -108,6 +108,25 @@ export default function PropertyMapUnitPanel({
             </div>
           )}
 
+          {unit.openMaintenanceTask && (
+            <div
+              className={`rounded-lg px-3 py-2 text-sm border ${
+                unit.openMaintenanceTask.blockExpired ? "bg-coral/10 border-coral/30" : "bg-ink2/60 border-cream/15"
+              }`}
+            >
+              <p className={unit.openMaintenanceTask.blockExpired ? "text-coral font-medium" : "text-cream/70 font-medium"}>
+                {unit.openMaintenanceTask.blockExpired ? "Back on sale but still broken" : "Open maintenance task"}
+              </p>
+              <p className="text-cream/60 mt-1">{unit.openMaintenanceTask.description}</p>
+              <Link
+                href="/admin/maintenance"
+                className="inline-block mt-1 text-xs text-sea hover:text-coral transition-colors underline underline-offset-4"
+              >
+                Open in Maintenance
+              </Link>
+            </div>
+          )}
+
           {booking ? (
             <div className="space-y-2 text-sm">
               <p>

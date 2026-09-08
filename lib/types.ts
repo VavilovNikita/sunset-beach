@@ -120,6 +120,41 @@ export type RoomUnitBlockResult = {
   affectedUnassignedBookings: RoomUnitBlockAffectedBooking[];
 };
 
+// Forward-only in practice (see PATCH /maintenance-tasks/{id}/status): OPEN -> IN_PROGRESS ->
+// DONE, skipping IN_PROGRESS is allowed, going backward or repeating the current status is not.
+export type MaintenanceTaskStatus = "OPEN" | "IN_PROGRESS" | "DONE";
+
+// A reported problem in a physical room. roomId/roomName/unitLabel are denormalized display
+// fields (same pattern as PropertyMapUnit) so the UI doesn't need a second round trip. blockId is
+// null until a manager links one via POST /maintenance-tasks/{id}/block — a block is optional,
+// not every task needs the room pulled off sale. closedAt is null until status becomes DONE.
+export type MaintenanceTask = {
+  id: string;
+  roomUnitId: string;
+  roomId: string;
+  roomName: string;
+  unitLabel: string;
+  description: string;
+  status: MaintenanceTaskStatus;
+  blockId: string | null;
+  reportedByUserId: string;
+  reportedByEmail: string;
+  // Served under /maintenance-tasks/{id}/photos/{filename} — staff-only, never /uploads/**
+  // (see lib/backend.ts's resolveImageUrl, which only special-cases /uploads/** paths; these go
+  // through ADMIN_API_URL like any other authenticated read instead).
+  photos: string[];
+  createdAt: string;
+  closedAt: string | null;
+};
+
+// Response of POST /maintenance-tasks/{id}/block. blockResult is exactly what
+// POST /room-units/{id}/blocks itself returns — linking a block to a task reuses that behavior
+// (including the overlap warning) rather than reimplementing it.
+export type MaintenanceTaskBlockResult = {
+  task: MaintenanceTask;
+  blockResult: RoomUnitBlockResult;
+};
+
 // One entry of the array body of PATCH /room-units/positions (MANAGER+, batch — the property
 // map editor saves every dragged room in one request, not one per drag). Both null clears the
 // position; never one without the other.
@@ -151,6 +186,17 @@ export type PropertyMapActiveBlock = {
   toDate: string; // YYYY-MM-DD
 };
 
+// Summary of the most urgent open (OPEN/IN_PROGRESS) MaintenanceTask on a unit, if any - see
+// PropertyMapUnit.openMaintenanceTask. blockExpired=true is the one state this exists to catch:
+// a linked block's toDate has already passed while the task is still open, so the room has
+// silently returned to sale while still broken.
+export type PropertyMapMaintenanceTask = {
+  taskId: string;
+  description: string;
+  status: MaintenanceTaskStatus;
+  blockExpired: boolean;
+};
+
 export type PropertyMapUnit = {
   roomUnitId: string;
   roomId: string;
@@ -162,6 +208,7 @@ export type PropertyMapUnit = {
   positionY: number | null;
   currentBooking: PropertyMapCurrentBooking | null;
   activeBlock: PropertyMapActiveBlock | null;
+  openMaintenanceTask: PropertyMapMaintenanceTask | null;
 };
 
 // GET /property-map (CASHIER+) — every physical room (placed on the map or not) plus the current

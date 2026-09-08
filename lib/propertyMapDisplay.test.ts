@@ -16,6 +16,7 @@ function unit(overrides: Partial<PropertyMapUnit> = {}): PropertyMapUnit {
     positionY: 0.5,
     currentBooking: null,
     activeBlock: null,
+    openMaintenanceTask: null,
     ...overrides,
   };
 }
@@ -124,5 +125,36 @@ describe("resolveUnitDisplay — badges and their priority", () => {
       currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: "2026-09-08", occupancyStatus: "CHECKED_IN", outstandingBalance: "0.00" },
     });
     expect(resolveUnitDisplay(u, TODAY).badges).toEqual([]);
+  });
+});
+
+describe("resolveUnitDisplay — maintenance-alert: room silently back on sale while still broken", () => {
+  it("an open task with an already-expired block ranks the alert above even debt", () => {
+    const u = unit({
+      openMaintenanceTask: { taskId: "t1", description: "AC is leaking", status: "OPEN", blockExpired: true },
+      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", outstandingBalance: "350.00" },
+    });
+    expect(resolveUnitDisplay(u, TODAY).badges[0]).toBe("maintenance-alert");
+    expect(resolveUnitDisplay(u, TODAY).badges).toEqual(["maintenance-alert", "debt"]);
+  });
+
+  it("an open task whose block has not expired yet shows no alert badge", () => {
+    const u = unit({ openMaintenanceTask: { taskId: "t1", description: "AC is leaking", status: "IN_PROGRESS", blockExpired: false } });
+    expect(resolveUnitDisplay(u, TODAY).badges).toEqual([]);
+  });
+
+  it("no open task at all shows no alert badge", () => {
+    const u = unit({ openMaintenanceTask: null });
+    expect(resolveUnitDisplay(u, TODAY).badges).toEqual([]);
+  });
+
+  it("a deactivated unit never shows the alert badge, even with an expired-block task", () => {
+    const u = unit({
+      isActive: false,
+      openMaintenanceTask: { taskId: "t1", description: "AC is leaking", status: "OPEN", blockExpired: true },
+    });
+    const result = resolveUnitDisplay(u, TODAY);
+    expect(result.fill).toBe("inactive");
+    expect(result.badges).toEqual([]);
   });
 });

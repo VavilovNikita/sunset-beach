@@ -10,17 +10,18 @@ function assertNoEmptyGroups(groups: ReturnType<typeof visibleNavGroups>) {
 }
 
 describe("visibleNavGroups", () => {
-  it("WAITER sees only Restaurant, with exactly POS/Print queue/Menu (not Shifts)", () => {
+  it("WAITER sees Restaurant (POS/Print queue/Menu, not Shifts) and Maintenance - nothing else", () => {
     const groups = visibleNavGroups("WAITER");
     assertNoEmptyGroups(groups);
-    expect(groups.map((g) => g.title)).toEqual(["Restaurant"]);
+    expect(groups.map((g) => g.title)).toEqual(["Restaurant", "Maintenance"]);
     expect(groups[0].links.map((l) => l.label)).toEqual(["POS", "Print queue", "Menu"]);
+    expect(groups[1].links.map((l) => l.label)).toEqual(["Maintenance"]);
   });
 
-  it("CASHIER sees Front desk, Restaurant (incl. Shifts), Setup (not Printers), Reports (Dashboard only) - not Staff", () => {
+  it("CASHIER sees Front desk, Restaurant (incl. Shifts), Setup (not Printers), Maintenance, Reports (Dashboard only) - not Staff", () => {
     const groups = visibleNavGroups("CASHIER");
     assertNoEmptyGroups(groups);
-    expect(groups.map((g) => g.title)).toEqual(["Front desk", "Restaurant", "Setup", "Reports"]);
+    expect(groups.map((g) => g.title)).toEqual(["Front desk", "Restaurant", "Setup", "Maintenance", "Reports"]);
 
     const byTitle = Object.fromEntries(groups.map((g) => [g.title, g.links.map((l) => l.label)]));
     expect(byTitle["Front desk"]).toEqual(["Today", "Calendar", "Bookings", "Property map", "Housekeeping"]);
@@ -29,10 +30,10 @@ describe("visibleNavGroups", () => {
     expect(byTitle["Reports"]).toEqual(["Dashboard"]); // no History - MANAGER+
   });
 
-  it("MANAGER sees the same five as CASHIER plus Printers and History - not Staff", () => {
+  it("MANAGER sees the same as CASHIER plus Printers and History - not Staff", () => {
     const groups = visibleNavGroups("MANAGER");
     assertNoEmptyGroups(groups);
-    expect(groups.map((g) => g.title)).toEqual(["Front desk", "Restaurant", "Setup", "Reports"]);
+    expect(groups.map((g) => g.title)).toEqual(["Front desk", "Restaurant", "Setup", "Maintenance", "Reports"]);
 
     const byTitle = Object.fromEntries(groups.map((g) => [g.title, g.links.map((l) => l.label)]));
     expect(byTitle["Setup"]).toContain("Printers");
@@ -42,16 +43,22 @@ describe("visibleNavGroups", () => {
   it("ADMIN sees everything, including Staff/Users", () => {
     const groups = visibleNavGroups("ADMIN");
     assertNoEmptyGroups(groups);
-    expect(groups.map((g) => g.title)).toEqual(["Front desk", "Restaurant", "Setup", "Reports", "Staff"]);
+    expect(groups.map((g) => g.title)).toEqual(["Front desk", "Restaurant", "Setup", "Maintenance", "Reports", "Staff"]);
     expect(groups.find((g) => g.title === "Staff")?.links.map((l) => l.label)).toEqual(["Users"]);
   });
 
-  it("every role's group list is a subsequence of the full five in the same relative order", () => {
-    const fullOrder = ["Front desk", "Restaurant", "Setup", "Reports", "Staff"];
+  it("every role's group list is a subsequence of the full six in the same relative order", () => {
+    const fullOrder = ["Front desk", "Restaurant", "Setup", "Maintenance", "Reports", "Staff"];
     for (const role of ["WAITER", "CASHIER", "MANAGER", "ADMIN"] as const) {
       const titles = visibleNavGroups(role).map((g) => g.title);
       const indices = titles.map((t) => fullOrder.indexOf(t));
       expect(indices).toEqual([...indices].sort((a, b) => a - b));
+    }
+  });
+
+  it("Maintenance has no role floor - every role sees it, unlike every other group with a WAITER exclusion", () => {
+    for (const role of ["WAITER", "CASHIER", "MANAGER", "ADMIN"] as const) {
+      expect(visibleNavGroups(role).map((g) => g.title)).toContain("Maintenance");
     }
   });
 });

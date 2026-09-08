@@ -37,6 +37,11 @@ const FILL_CLASS: Record<UnitFill, string> = {
 };
 
 const BADGE_DOT_CLASS: Record<UnitBadge, string> = {
+  // Same coral as "needs intervention" everywhere else - safe to reuse because only badges[0]
+  // (resolveUnitDisplay's own top-priority pick) is ever rendered as this dot, and
+  // maintenance-alert always sorts ahead of blocked-while-occupied, so the two never compete for
+  // the same dot on one tile.
+  "maintenance-alert": "bg-coral",
   debt: "bg-amber-400",
   dirty: "bg-sand",
   "departing-today": "bg-cream",
@@ -45,6 +50,7 @@ const BADGE_DOT_CLASS: Record<UnitBadge, string> = {
 };
 
 const BADGE_LABEL: Record<UnitBadge, string> = {
+  "maintenance-alert": "Room is back on sale but still broken - block expired, task still open",
   debt: "Owes money",
   dirty: "Not cleaned",
   "departing-today": "Leaving today",

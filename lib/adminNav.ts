@@ -8,6 +8,15 @@ export type NavLink = {
   label: string;
   // Undefined = any authenticated staff role, including WAITER (matches a backend endpoint with
   // no lower-privilege read). Otherwise the minimum role the backend actually requires.
+  //
+  // A job function (JobFunction, in lib/session.ts) is a second, independent axis from role, and
+  // a link visible only to a function - not any role tier - is a real shape this file will need
+  // again (see SecurityConfig's FUNCTION_<name>-or-role gate on the backend). No link currently
+  // needs it: Maintenance turned out to belong to every authenticated role instead (any staff
+  // member may file a task, not just an ENGINEER), so there is nothing here to gate on a function
+  // right now. Add the field back (OR'd with minRole, not ANDed - a function should unlock a link
+  // a role floor alone would hide) the day a link actually needs it, rather than carrying it
+  // unused until then.
   minRole?: Exclude<Role, "WAITER">;
 };
 
@@ -62,6 +71,18 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    title: "Maintenance",
+    // Any authenticated staff role, including WAITER - same reasoning as Restaurant above, not
+    // Setup's CASHIER+ floor: GET/POST /maintenance-tasks have no lower-privilege read on the
+    // backend, and the whole point is that whoever notices a problem can report it, not just an
+    // ENGINEER or a manager. A hidden link would mean a waiter who spots a broken air
+    // conditioner - the actual common case - has no way to reach the one screen that lets them
+    // say so. (Blocking a room and moving a task through its statuses stay MANAGER+ / the
+    // ENGINEER function respectively - that's gated inside the page itself, per action, not by
+    // hiding the page.)
+    links: [{ href: "/admin/maintenance", label: "Maintenance" }],
+  },
+  {
     title: "Reports",
     // Dashboard belongs here, not Front desk: every figure on it (bookings/occupancy/revenue,
     // POS revenue) comes from the same CASHIER+ reads as the rest of this group, and it answers
@@ -79,11 +100,14 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-export function isNavLinkVisible(link: NavLink, role: Role): boolean {
-  if (!link.minRole) return true;
-  if (link.minRole === "CASHIER") return role !== "WAITER";
-  if (link.minRole === "MANAGER") return role === "MANAGER" || role === "ADMIN";
+function meetsMinRole(minRole: Exclude<Role, "WAITER">, role: Role): boolean {
+  if (minRole === "CASHIER") return role !== "WAITER";
+  if (minRole === "MANAGER") return role === "MANAGER" || role === "ADMIN";
   return role === "ADMIN";
+}
+
+export function isNavLinkVisible(link: NavLink, role: Role): boolean {
+  return !link.minRole || meetsMinRole(link.minRole, role);
 }
 
 // Every group's links filtered to what this role may see, with any group left with zero links
