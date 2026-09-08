@@ -7,7 +7,7 @@
 // real (hierarchical, 4-value) Role. That drift is exactly why UserRoleSelect
 // could type-check while a WAITER/CASHIER `User.role` silently rendered as
 // MANAGER in the picker — the type lied about what values could show up.
-export type { Role } from "@/lib/session";
+export type { Role, JobFunction } from "@/lib/session";
 import type { Role } from "@/lib/session";
 // Same deal: this used to be its own `{id, email, role, createdAt}` object
 // here, a second copy of lib/session.ts's SessionUser — which is the exact
@@ -15,6 +15,7 @@ import type { Role } from "@/lib/session";
 // SessionUser was missing `createdAt` until now; re-exporting one definition
 // means that kind of drift can only happen once instead of twice.
 export type { SessionUser as User } from "@/lib/session";
+import type { JobFunction } from "@/lib/session";
 export type BookingStatus = "NEW" | "CONFIRMED" | "PAID" | "CANCELLED";
 
 export type Room = {

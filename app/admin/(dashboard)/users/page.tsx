@@ -3,6 +3,7 @@ import { backendJson } from "@/lib/backendServer";
 import { requireAdminUser } from "@/lib/rbac";
 import UserRoleSelect from "@/components/admin/UserRoleSelect";
 import UserActiveToggle from "@/components/admin/UserActiveToggle";
+import UserFunctionsSelect from "@/components/admin/UserFunctionsSelect";
 import ResetPasswordButton from "@/components/admin/ResetPasswordButton";
 import type { User } from "@/lib/types";
 
@@ -41,6 +42,7 @@ export default async function AdminUsersPage() {
               </p>
               <p className="text-xs text-cream/40">Joined {u.createdAt.slice(0, 10)}</p>
             </div>
+            <UserFunctionsSelect userId={u.id} currentFunctions={u.functions} />
             <ResetPasswordButton userId={u.id} />
             <UserActiveToggle userId={u.id} active={u.active} disabled={u.id === sessionUser.id} />
             <UserRoleSelect userId={u.id} currentRole={u.role} disabled={u.id === sessionUser.id} />

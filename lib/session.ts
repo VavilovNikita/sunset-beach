@@ -12,6 +12,13 @@ import { BACKEND_URL } from "@/lib/backend";
 // hasRoleAtLeast) — CASHIER/WAITER were added for the POS module.
 export type Role = "ADMIN" | "MANAGER" | "CASHIER" | "WAITER";
 
+// A second, independent authorization axis alongside Role (see openapi.yaml's `JobFunction`) —
+// a sideways job, not a step on the ADMIN > MANAGER > CASHIER > WAITER ladder. Not part of
+// `hasRoleAtLeast`/the role hierarchy at all; a function grants nothing beyond the specific
+// endpoints gated on it. Nothing gates on this yet (see lib/adminNav.ts if/when a nav link
+// needs to check one — do not overload hasRoleAtLeast for that).
+export type JobFunction = "ENGINEER" | "HOUSEKEEPER";
+
 // Full shape of the backend's `User` schema — the same one GET /users
 // returns (see lib/types.ts, which re-exports this as `User` rather than
 // keeping its own copy). It used to be redeclared there without `createdAt`,
@@ -24,6 +31,7 @@ export type SessionUser = {
   email: string;
   role: Role;
   active: boolean;
+  functions: JobFunction[];
   createdAt: string;
 };
 
