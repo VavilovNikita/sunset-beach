@@ -143,6 +143,51 @@ export function assignLanes(bookings: CalendarBooking[]): { lanes: BookingLane[]
   return { lanes, laneCount: laneEnds.length };
 }
 
+export type EdgeDragTarget = {
+  canDragStart: boolean;
+  canDragEnd: boolean;
+  // The booking's real overall bounds — the non-moving side of a one-edge PATCH must be sent as
+  // these, not this bar's own local segment bound: BookingWriter#resolveScheduleTarget decides
+  // which segment a change targets by comparing the request's checkIn against the *first*
+  // segment's checkIn and checkOut against the *last* segment's checkOut, even when only one of
+  // them is actually moving. Equal to this bar's own checkIn/checkOut when segmentCount === 1.
+  overallCheckIn: string;
+  overallCheckOut: string;
+};
+
+/**
+ * Which end(s), if any, a booking calendar bar may be edge-dragged from. A never-relocated
+ * booking (segmentCount === 1) offers both ends, matching the previous whole-bar-move behavior.
+ *
+ * A relocated booking's segments render as separate bars, each only carrying its own local
+ * checkIn/checkOut — and `BookingCalendarResponse` only ever returns segments overlapping the
+ * requested date window (see `CalendarBooking`'s own description), so `bookingsInWindow` may not
+ * contain every one of the booking's segments. A bar can only be trusted as the true first/last
+ * segment (and therefore offered a handle at all) once every one of its siblings is confirmed
+ * present - otherwise it might be a middle segment that only *looks* like an edge because its
+ * neighbor scrolled off, and PATCH .../schedule has no way to target an inner edge anyway.
+ */
+export function resolveEdgeDragTarget(booking: CalendarBooking, bookingsInWindow: CalendarBooking[]): EdgeDragTarget {
+  if (booking.segmentCount === 1) {
+    return { canDragStart: true, canDragEnd: true, overallCheckIn: booking.checkIn, overallCheckOut: booking.checkOut };
+  }
+
+  const siblings = bookingsInWindow.filter((b) => b.bookingId === booking.bookingId);
+  if (siblings.length < booking.segmentCount) {
+    return { canDragStart: false, canDragEnd: false, overallCheckIn: booking.checkIn, overallCheckOut: booking.checkOut };
+  }
+
+  const sorted = [...siblings].sort((a, b) => dateOnlyUTC(a.checkIn).getTime() - dateOnlyUTC(b.checkIn).getTime());
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  return {
+    canDragStart: booking.segmentId === first.segmentId,
+    canDragEnd: booking.segmentId === last.segmentId,
+    overallCheckIn: first.checkIn,
+    overallCheckOut: last.checkOut,
+  };
+}
+
 // Groups a room type's bookings by physical unit for rendering one row per unit, plus a pinned
 // "unassigned" bucket (key "") for bookings occupying the type but with no roomUnitId yet - see
 // BookingCalendarResponse's doc comment for why this is a single list with a nullable field

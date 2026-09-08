@@ -9,6 +9,7 @@ import {
   groupBookingsByUnit,
   mergeBlocksByUnit,
   assignLanes,
+  resolveEdgeDragTarget,
   DRAG_THRESHOLD_PX,
   LABEL_MIN_WIDTH_PX,
 } from "@/lib/calendarLayout";
@@ -143,6 +144,11 @@ export default function BookingCalendarGrid({
         originalCheckOut: Date;
         checkIn: Date;
         checkOut: Date;
+        // The booking's real overall bounds, for the non-moving side of the PATCH body - see
+        // resolveEdgeDragTarget's own comment for why this can differ from this bar's own local
+        // checkIn/checkOut once a booking has more than one segment.
+        overallCheckIn: Date;
+        overallCheckOut: Date;
       }
     | {
         kind: "move";
@@ -158,6 +164,12 @@ export default function BookingCalendarGrid({
 
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [createModal, setCreateModal] = useState<{ roomId: string; roomTypeName: string; roomUnitId: string; roomUnitLabel: string; checkIn: string; checkOut: string } | null>(null);
+  // Set on every bar pointerdown, read by the bar's click/double-click handlers below - a native
+  // "click" event carries no pointerType of its own, so this is the only way those handlers can
+  // tell a mouse click from a touch tap. Touch opens the card panel on a single tap (double-tap
+  // is unreliable on a touch device and triggers page zoom); mouse requires a double-click, so a
+  // single click can still start a drag (resize/move) without also opening the panel.
+  const lastPointerTypeRef = useRef<string>("mouse");
   const [scheduleConfirm, setScheduleConfirm] = useState<{
     bookingId: string;
     guestName: string;
@@ -246,19 +258,25 @@ export default function BookingCalendarGrid({
     });
   }
 
-  // A bar is draggable only if the density permits mouse-precise editing AND the booking has
-  // never been relocated (segmentCount === 1) - PATCH .../schedule (which this drag applies
-  // through) rejects a multi-segment booking outright, since a single checkIn/checkOut/roomUnitId
-  // has no well-defined meaning once a stay spans more than one room. A relocated booking's bars
-  // are still clickable (onClick, below - browsers suppress the click event after a real pointer
-  // drag on their own, so the two don't conflict) to open the card panel, where relocate/undo
-  // are the tools built to reason about more than one segment.
-  function canDragBar(booking: CalendarBooking) {
+  // Whole-bar move is only offered when the density permits mouse-precise editing AND the
+  // booking has never been relocated (segmentCount === 1) - PATCH .../schedule (which this drag
+  // applies through) has no single well-defined target once a stay spans more than one room and
+  // both the date *and* the room might be changing at once. A relocated booking's bars can still
+  // offer edge-drag on their own outer edge (see edgeDragTargetFor/resolveEdgeDragTarget) and are
+  // always clickable (onClick/onDoubleClick, below - browsers suppress the click event after a
+  // real pointer drag on their own, so the two don't conflict) to open the card panel, where
+  // relocate/undo-relocation are the tools built to reason about more than one segment.
+  function canMoveWholeBar(booking: CalendarBooking) {
     return allowDrag && booking.segmentCount === 1;
   }
 
+  function edgeDragTargetFor(booking: CalendarBooking) {
+    return resolveEdgeDragTarget(booking, data.bookings);
+  }
+
   function onBarPointerDown(e: React.PointerEvent<HTMLDivElement>, booking: CalendarBooking) {
-    if (!canDragBar(booking)) return;
+    lastPointerTypeRef.current = e.pointerType;
+    if (!canMoveWholeBar(booking)) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     setTouchActionNone(true);
     const rect = e.currentTarget.getBoundingClientRect();
@@ -279,7 +297,9 @@ export default function BookingCalendarGrid({
   }
 
   function onResizeHandlePointerDown(e: React.PointerEvent<HTMLDivElement>, booking: CalendarBooking, edge: "start" | "end") {
-    if (!canDragBar(booking)) return;
+    if (!allowDrag) return;
+    const target = edgeDragTargetFor(booking);
+    if (edge === "start" ? !target.canDragStart : !target.canDragEnd) return;
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     setTouchActionNone(true);
@@ -294,6 +314,8 @@ export default function BookingCalendarGrid({
       originalCheckOut: checkOut,
       checkIn,
       checkOut,
+      overallCheckIn: dateOnlyUTC(target.overallCheckIn),
+      overallCheckOut: dateOnlyUTC(target.overallCheckOut),
     });
   }
 
@@ -356,8 +378,13 @@ export default function BookingCalendarGrid({
       (finished.kind !== "move" || finished.roomUnitId === finished.originalRoomUnitId);
     if (unchanged) return;
 
-    const roomUnitId = finished.kind === "move" ? finished.roomUnitId : finished.roomUnitId;
-    openScheduleConfirm(booking, toDateKey(finished.checkIn), toDateKey(finished.checkOut), roomUnitId || null);
+    // A resize on a relocated booking only ever moves one outer edge of this bar's own segment;
+    // the other side of the PATCH body must still be the booking's real overall bound (see
+    // resolveEdgeDragTarget's own comment), not this segment's own local checkIn/checkOut, which
+    // is only the same value when segmentCount === 1.
+    const submitCheckIn = finished.kind === "resize" && finished.edge === "end" ? finished.overallCheckIn : finished.checkIn;
+    const submitCheckOut = finished.kind === "resize" && finished.edge === "start" ? finished.overallCheckOut : finished.checkOut;
+    openScheduleConfirm(booking, toDateKey(submitCheckIn), toDateKey(submitCheckOut), finished.roomUnitId || null);
   }
 
   function onDragPointerCancel() {
@@ -548,6 +575,16 @@ export default function BookingCalendarGrid({
               // Per bar, not per density: a short stay and a long one can render at very
               // different widths at the very same dayWidth. See LABEL_MIN_WIDTH_PX.
               const showLabel = colSpan * dayWidth - 4 >= LABEL_MIN_WIDTH_PX;
+              const edgeTarget = allowDrag ? edgeDragTargetFor(booking) : null;
+              // Touch opens on a single tap; mouse needs a double-click so a single click can
+              // still start a drag (whole-bar move or edge-resize) without also opening the
+              // panel - see lastPointerTypeRef's own comment.
+              function openPanelIfTouch() {
+                if (lastPointerTypeRef.current === "touch") setSelectedBookingId(booking.bookingId);
+              }
+              function openPanelIfMouse() {
+                if (lastPointerTypeRef.current !== "touch") setSelectedBookingId(booking.bookingId);
+              }
               return (
                 <div
                   key={booking.segmentId}
@@ -564,33 +601,34 @@ export default function BookingCalendarGrid({
                     className={`absolute inset-0 rounded-md flex items-center overflow-hidden ${STATUS_BAR_STYLES[booking.status] ?? "bg-cream/20 text-cream"} ${
                       dragging ? "opacity-50 ring-2 ring-dashed ring-cream" : ""
                     } ${booking.segmentCount > 1 ? "ring-1 ring-inset ring-cream/40" : ""}`}
-                    style={{ cursor: dragging ? "grabbing" : canDragBar(booking) ? "grab" : "pointer" }}
+                    style={{ cursor: dragging ? "grabbing" : canMoveWholeBar(booking) ? "grab" : "pointer" }}
                     onPointerDown={(e) => onBarPointerDown(e, booking)}
                     onPointerMove={onDragPointerMove}
                     onPointerUp={onDragPointerUp}
                     onPointerCancel={onDragPointerCancel}
-                    onClick={() => setSelectedBookingId(booking.bookingId)}
+                    onClick={openPanelIfTouch}
+                    onDoubleClick={openPanelIfMouse}
                     title={`${booking.guestName} · ${booking.status}${booking.segmentCount > 1 ? " · relocated" : ""}`}
                   >
                     {showLabel && <span className="truncate px-2 text-xs pointer-events-none">{booking.guestName}</span>}
                   </div>
-                  {canDragBar(booking) && (
-                    <>
-                      <div
-                        className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize"
-                        onPointerDown={(e) => onResizeHandlePointerDown(e, booking, "start")}
-                        onPointerMove={onDragPointerMove}
-                        onPointerUp={onDragPointerUp}
-                        onPointerCancel={onDragPointerCancel}
-                      />
-                      <div
-                        className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize"
-                        onPointerDown={(e) => onResizeHandlePointerDown(e, booking, "end")}
-                        onPointerMove={onDragPointerMove}
-                        onPointerUp={onDragPointerUp}
-                        onPointerCancel={onDragPointerCancel}
-                      />
-                    </>
+                  {edgeTarget?.canDragStart && (
+                    <div
+                      className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize"
+                      onPointerDown={(e) => onResizeHandlePointerDown(e, booking, "start")}
+                      onPointerMove={onDragPointerMove}
+                      onPointerUp={onDragPointerUp}
+                      onPointerCancel={onDragPointerCancel}
+                    />
+                  )}
+                  {edgeTarget?.canDragEnd && (
+                    <div
+                      className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize"
+                      onPointerDown={(e) => onResizeHandlePointerDown(e, booking, "end")}
+                      onPointerMove={onDragPointerMove}
+                      onPointerUp={onDragPointerUp}
+                      onPointerCancel={onDragPointerCancel}
+                    />
                   )}
                 </div>
               );

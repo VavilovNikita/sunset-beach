@@ -7,6 +7,7 @@ import {
   mergeBlocksByUnit,
   assignLanes,
   groupBookingsByUnit,
+  resolveEdgeDragTarget,
 } from "./calendarLayout";
 import type { RoomUnitBlock, CalendarBooking } from "./types";
 
@@ -204,6 +205,47 @@ describe("assignLanes", () => {
       booking({ bookingId: "b3", checkIn: "2026-06-06", checkOut: "2026-06-10" }), // b1's lane is free again
     ]);
     expect(laneCount).toBe(2);
+  });
+});
+
+describe("resolveEdgeDragTarget", () => {
+  it("offers both ends of a never-relocated booking, using its own dates as the overall bounds", () => {
+    const bar = booking({ segmentId: "seg-1", bookingId: "b1", segmentCount: 1, checkIn: "2026-06-01", checkOut: "2026-06-05" });
+    const target = resolveEdgeDragTarget(bar, [bar]);
+    expect(target).toEqual({ canDragStart: true, canDragEnd: true, overallCheckIn: "2026-06-01", overallCheckOut: "2026-06-05" });
+  });
+
+  it("offers only the start handle on the first segment when every segment is on screen, using the last segment's checkOut as the overall bound", () => {
+    const first = booking({ segmentId: "seg-1", bookingId: "b1", segmentCount: 2, checkIn: "2026-06-01", checkOut: "2026-06-05" });
+    const last = booking({ segmentId: "seg-2", bookingId: "b1", segmentCount: 2, checkIn: "2026-06-05", checkOut: "2026-06-10" });
+    const target = resolveEdgeDragTarget(first, [first, last]);
+    expect(target).toEqual({ canDragStart: true, canDragEnd: false, overallCheckIn: "2026-06-01", overallCheckOut: "2026-06-10" });
+  });
+
+  it("offers only the end handle on the last segment when every segment is on screen, using the first segment's checkIn as the overall bound", () => {
+    const first = booking({ segmentId: "seg-1", bookingId: "b1", segmentCount: 2, checkIn: "2026-06-01", checkOut: "2026-06-05" });
+    const last = booking({ segmentId: "seg-2", bookingId: "b1", segmentCount: 2, checkIn: "2026-06-05", checkOut: "2026-06-10" });
+    const target = resolveEdgeDragTarget(last, [first, last]);
+    expect(target).toEqual({ canDragStart: false, canDragEnd: true, overallCheckIn: "2026-06-01", overallCheckOut: "2026-06-10" });
+  });
+
+  it("offers no handle on a middle segment even when every segment is on screen", () => {
+    const first = booking({ segmentId: "seg-1", bookingId: "b1", segmentCount: 3, checkIn: "2026-06-01", checkOut: "2026-06-05" });
+    const middle = booking({ segmentId: "seg-2", bookingId: "b1", segmentCount: 3, checkIn: "2026-06-05", checkOut: "2026-06-08" });
+    const last = booking({ segmentId: "seg-3", bookingId: "b1", segmentCount: 3, checkIn: "2026-06-08", checkOut: "2026-06-10" });
+    const target = resolveEdgeDragTarget(middle, [first, middle, last]);
+    expect(target.canDragStart).toBe(false);
+    expect(target.canDragEnd).toBe(false);
+  });
+
+  it("offers no handle at all when not every segment is on screen, even for a bar that looks like an edge", () => {
+    // Only this one segment's bar is in the visible window - segmentCount says there are 2, so
+    // this could be the first, the last, or (with more segments) a middle one; it can't be told
+    // apart, so neither handle is offered.
+    const onlyVisible = booking({ segmentId: "seg-1", bookingId: "b1", segmentCount: 2, checkIn: "2026-06-01", checkOut: "2026-06-05" });
+    const target = resolveEdgeDragTarget(onlyVisible, [onlyVisible]);
+    expect(target.canDragStart).toBe(false);
+    expect(target.canDragEnd).toBe(false);
   });
 });
 

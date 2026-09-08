@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import RoomChargeDebtBadge from "@/components/admin/RoomChargeDebtBadge";
 import type { Booking } from "@/lib/types";
 import type { Folio } from "@/lib/posTypes";
@@ -11,8 +14,19 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function BookingsTable({ bookings, folios = {} }: { bookings: Booking[]; folios?: Record<string, Folio> }) {
+  const router = useRouter();
+
   if (bookings.length === 0) {
     return <p className="text-cream/50 text-sm">No bookings match these filters.</p>;
+  }
+
+  // A link/button inside the row handles its own click (and must keep working with middle-click,
+  // Cmd/Ctrl-click, and keyboard nav) - only a click that lands on plain row content opens the
+  // booking. A non-empty selection means the user was dragging to select text, not clicking.
+  function handleRowClick(e: React.MouseEvent<HTMLTableRowElement>, bookingId: string) {
+    if (e.target instanceof Element && e.target.closest("a, button")) return;
+    if ((window.getSelection()?.toString().length ?? 0) > 0) return;
+    router.push(`/admin/bookings/${bookingId}`);
   }
 
   return (
@@ -32,7 +46,11 @@ export default function BookingsTable({ bookings, folios = {} }: { bookings: Boo
         </thead>
         <tbody>
           {bookings.map((b) => (
-            <tr key={b.id} className="border-b border-cream/5 hover:bg-cream/5">
+            <tr
+              key={b.id}
+              onClick={(e) => handleRowClick(e, b.id)}
+              className="border-b border-cream/5 hover:bg-cream/5 cursor-pointer"
+            >
               <td className="py-3 pr-4">
                 <Link href={`/admin/bookings/${b.id}`} className="text-cream hover:text-coral transition-colors">
                   {b.guestName}
