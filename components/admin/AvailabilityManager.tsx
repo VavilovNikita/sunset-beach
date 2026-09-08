@@ -368,20 +368,45 @@ function UnitDetail({
                   Dismiss
                 </button>
               </div>
-              <div className="space-y-2">
-                {blockWarning.affectedBookings.map((b) => (
-                  <Link
-                    key={b.bookingId}
-                    href={`/admin/bookings/${b.bookingId}`}
-                    className="block bg-ink2/40 border border-cream/10 rounded-lg p-2.5 hover:border-amber-400/40 transition-colors"
-                  >
-                    <p className="text-sm text-cream/80">{b.guestName}</p>
-                    <p className="text-xs text-cream/50 mt-0.5">
-                      {b.checkIn} → {b.checkOut} · {b.status}
-                    </p>
-                  </Link>
-                ))}
-              </div>
+              {blockWarning.affectedBookings.length > 0 && (
+                <div className="space-y-2">
+                  <p className="eyebrow text-cream/40">In this room</p>
+                  {blockWarning.affectedBookings.map((b) => (
+                    <Link
+                      key={b.bookingId}
+                      href={`/admin/bookings/${b.bookingId}`}
+                      className="block bg-ink2/40 border border-cream/10 rounded-lg p-2.5 hover:border-amber-400/40 transition-colors"
+                    >
+                      <p className="text-sm text-cream/80">{b.guestName}</p>
+                      <p className="text-xs text-cream/50 mt-0.5">
+                        {b.checkIn} → {b.checkOut} · {b.status}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {blockWarning.affectedUnassignedBookings.length > 0 && (
+                <div className="space-y-2">
+                  {/* Distinct from "in this room" above: not tied to this specific unit, but
+                      booked into its room type with no unit assigned yet - one fewer unit in the
+                      pool may leave too few for them. The manager's next move differs (reassign
+                      a different unit vs. relocate this exact guest), so the two stay separate. */}
+                  <p className="eyebrow text-cream/40">Unassigned, same room type</p>
+                  {blockWarning.affectedUnassignedBookings.map((b) => (
+                    <Link
+                      key={b.bookingId}
+                      href={`/admin/bookings/${b.bookingId}`}
+                      className="block bg-ink2/40 border border-cream/10 rounded-lg p-2.5 hover:border-amber-400/40 transition-colors"
+                    >
+                      <p className="text-sm text-cream/80">{b.guestName}</p>
+                      <p className="text-xs text-cream/50 mt-0.5">
+                        {b.checkIn} → {b.checkOut} · {b.status}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

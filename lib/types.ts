@@ -107,12 +107,17 @@ export type RoomUnitBlockAffectedBooking = {
 };
 
 // Response of POST /room-units/{id}/blocks. The block is always created — warning is set (not a
-// refusal) when the blocked range overlaps one or more non-CANCELLED bookings on this unit, same
-// warn-don't-block shape as CheckInResult.
+// refusal) when the blocked range overlaps one or more non-CANCELLED bookings, same warn-don't-
+// block shape as CheckInResult. Two distinct populations: affectedBookings are assigned to this
+// exact physical unit (a certain conflict); affectedUnassignedBookings are booked into this
+// unit's room type with no unit chosen yet — not in this room, but one fewer unit in the pool may
+// not be enough for them (the same oversell AvailabilityDay.availableCount already models by not
+// clamping at zero). The manager's next move differs for each, so don't merge the two lists.
 export type RoomUnitBlockResult = {
   block: RoomUnitBlock;
   warning: string | null;
   affectedBookings: RoomUnitBlockAffectedBooking[];
+  affectedUnassignedBookings: RoomUnitBlockAffectedBooking[];
 };
 
 // One entry of the array body of PATCH /room-units/positions (MANAGER+, batch — the property
