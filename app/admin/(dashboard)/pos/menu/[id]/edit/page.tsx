@@ -30,6 +30,7 @@ export default async function EditMenuItemPage({ params }: { params: { id: strin
           department: item.department,
           price: Number(item.price),
           isAvailable: item.isAvailable,
+          durationMinutes: item.durationMinutes,
         }}
       />
     </div>

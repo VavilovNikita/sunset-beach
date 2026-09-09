@@ -15,8 +15,17 @@ import type { Role } from "@/lib/session";
 // SessionUser was missing `createdAt` until now; re-exporting one definition
 // means that kind of drift can only happen once instead of twice.
 export type { SessionUser as User } from "@/lib/session";
-import type { JobFunction } from "@/lib/session";
+import type { JobFunction, SessionUser } from "@/lib/session";
 export type BookingStatus = "NEW" | "CONFIRMED" | "PAID" | "CANCELLED";
+
+// Response of PATCH /users/{id}/active and PATCH /users/{id}/functions. warning is set (the
+// change still succeeds) when the user being disabled, or having THERAPIST removed, holds one
+// or more future BOOKED spa appointments - warn, don't block; nothing here cancels those
+// appointments automatically.
+export type UserUpdateResult = {
+  user: SessionUser;
+  warning: string | null;
+};
 
 export type Room = {
   id: string;

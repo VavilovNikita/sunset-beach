@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { updateUserFunctions } from "@/lib/userFunctionsClient";
 import type { JobFunction } from "@/lib/types";
 
-const FUNCTIONS: JobFunction[] = ["ENGINEER", "HOUSEKEEPER"];
+const FUNCTIONS: JobFunction[] = ["ENGINEER", "HOUSEKEEPER", "THERAPIST"];
 
 // Job functions are a second, independent axis from role (see lib/session.ts's JobFunction) — no
 // "disabled" prop for the caller's own row the way UserRoleSelect/UserActiveToggle take one: the
@@ -15,11 +15,13 @@ export default function UserFunctionsSelect({ userId, currentFunctions }: { user
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   async function toggle(fn: JobFunction, checked: boolean) {
     const next = checked ? [...currentFunctions, fn] : currentFunctions.filter((f) => f !== fn);
     setSaving(true);
     setError(null);
+    setWarning(null);
 
     const result = await updateUserFunctions(userId, next);
 
@@ -28,6 +30,9 @@ export default function UserFunctionsSelect({ userId, currentFunctions }: { user
       setError(result.error);
       return;
     }
+    // Removing THERAPIST from someone with future spa appointments still assigned to them warns
+    // rather than blocks - see UserService#futureBookedAppointmentWarning on the backend.
+    if (result.warning) setWarning(result.warning);
     router.refresh();
   }
 
@@ -48,6 +53,7 @@ export default function UserFunctionsSelect({ userId, currentFunctions }: { user
         ))}
       </span>
       {error && <span className="text-xs text-coral">{error}</span>}
+      {warning && <span className="text-xs text-amber-400">{warning}</span>}
     </span>
   );
 }

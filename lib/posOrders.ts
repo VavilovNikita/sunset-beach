@@ -51,6 +51,7 @@ export function isTerminalStatus(status: OrderStatus) {
 export const MENU_DEPARTMENT_LABELS: Record<MenuDepartment, string> = {
   KITCHEN: "Kitchen",
   BAR: "Bar",
+  SPA: "Spa (no ticket)",
 };
 
 export const PRINTER_DEPARTMENT_LABELS: Record<PrinterDepartment, string> = {

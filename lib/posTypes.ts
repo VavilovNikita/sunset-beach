@@ -9,8 +9,11 @@ export type PaymentMethod = "CASH" | "CARD" | "ROOM_CHARGE" | "OTHER";
 
 // Where a MenuItem's kitchen/bar ticket prints — independent of `category`,
 // which is a free-text display grouping for the menu itself (e.g. "Mains",
-// "Cocktails") and has no effect on print routing.
-export type MenuDepartment = "KITCHEN" | "BAR";
+// "Cocktails") and has no effect on print routing. SPA isn't a real ticket
+// printer department — a treatment item never generates a kitchen/bar ticket
+// at all (see OrderPrintingService); the guest's receipt still prints
+// normally, since that's a separate print path keyed off the order.
+export type MenuDepartment = "KITCHEN" | "BAR" | "SPA";
 
 export type MenuItem = {
   id: string;
@@ -20,6 +23,9 @@ export type MenuItem = {
   department: MenuDepartment;
   price: string;
   isAvailable: boolean;
+  // Minutes a scheduled treatment takes - null for every ordinary food/drink item. Frozen onto
+  // SpaAppointment.durationMinutes at creation, not read live afterward - see that field.
+  durationMinutes: number | null;
   createdAt: string;
 };
 
@@ -30,6 +36,7 @@ export type MenuItemInput = {
   department?: MenuDepartment;
   price: number;
   isAvailable?: boolean;
+  durationMinutes?: number | null;
 };
 
 // What a Printer receives. KITCHEN/BAR get routed kitchen/bar tickets (split
@@ -103,6 +110,11 @@ export type Table = {
   label: string;
   capacity: number;
   isActive: boolean;
+  // Normalized (0..1) position on the spa's own floor-plan image, set via PATCH
+  // /tables/positions - same convention as RoomUnit.positionX/Y (a different floor plan, a
+  // different entity). Both null = not placed yet.
+  positionX: number | null;
+  positionY: number | null;
 };
 
 export type TableInput = {
@@ -110,6 +122,13 @@ export type TableInput = {
   label: string;
   capacity: number;
   isActive?: boolean;
+};
+
+// Body of one entry in PATCH /tables/positions - mirrors RoomUnitPositionInput exactly.
+export type TablePositionInput = {
+  tableId: string;
+  positionX: number | null;
+  positionY: number | null;
 };
 
 // No denormalized menu item name — items only carry menuItemId. Consumers
@@ -162,6 +181,10 @@ export type OrderCreateInput = {
   tableId?: string;
   bookingId?: string;
   guestName?: string;
+  // When set, this order becomes SpaAppointment.orderId for that appointment - the one way a
+  // treatment's charge gets linked (see that field). An id that doesn't resolve to a real
+  // appointment is silently ignored; order creation is never blocked by this.
+  spaAppointmentId?: string;
 };
 
 // No `amount` — the server always charges order.total itself; partial
@@ -295,4 +318,86 @@ export type PaymentsSummary = {
     paymentCount: number;
   };
   grandTotal: string;
+};
+
+// Forward-only from BOOKED in practice: PATCH /spa-appointments/{id}/status accepts
+// COMPLETED/CANCELLED/NO_SHOW as targets, never back to BOOKED, never between the three end
+// states. Only a BOOKED appointment holds a slot - see SpaAppointment's own backend description.
+export type SpaAppointmentStatus = "BOOKED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
+
+// A half-hour-grid treatment slot - occupies both a POS Table (SPA zone) and a therapist for
+// [startTime, startTime + durationMinutes) on date. Always names a booking - hotel guests only,
+// no walk-in path, no separate client record. guestName/tableLabel/therapistEmail/treatmentName
+// are denormalized by the backend at read time, not stored - don't re-derive them here.
+// date/startTime are plain date-only and local HH:mm strings - no time zone anywhere.
+export type SpaAppointment = {
+  id: string;
+  bookingId: string;
+  guestName: string;
+  tableId: string;
+  tableLabel: string;
+  therapistUserId: string;
+  therapistEmail: string;
+  treatmentMenuItemId: string;
+  treatmentName: string;
+  date: string;
+  startTime: string;
+  durationMinutes: number;
+  status: SpaAppointmentStatus;
+  // The POS order that charged this treatment, if any. A COMPLETED appointment with this still
+  // null is a real, visible gap (a treatment settled another way, or one nobody rang up yet) -
+  // the grid shows it plainly, it is never hidden or blocked.
+  orderId: string | null;
+  createdByUserId: string;
+  cancelledByUserId: string | null;
+  cancelReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// Body of POST /spa-appointments. treatmentMenuItemId must reference a SPA-department item with
+// durationMinutes set. date outside the named booking's [checkIn, checkOut] (inclusive both
+// ends - the guest is still in the hotel on the departure day) is a warning, not a rejection.
+export type SpaAppointmentCreateInput = {
+  bookingId: string;
+  tableId: string;
+  therapistUserId: string;
+  treatmentMenuItemId: string;
+  date: string;
+  startTime: string;
+};
+
+// Response of POST /spa-appointments. warning is set (creation still succeeds) when date falls
+// outside the named booking's stay.
+export type SpaAppointmentResult = {
+  appointment: SpaAppointment;
+  warning: string | null;
+};
+
+// Body of PATCH /spa-appointments/{id}/status. Only COMPLETED/CANCELLED/NO_SHOW are legal
+// targets. cancelReason is only meaningful (and only read) when status is CANCELLED.
+export type SpaAppointmentStatusUpdateInput = {
+  status: SpaAppointmentStatus;
+  cancelReason?: string;
+};
+
+// Response of GET /spa-appointments?date=. openingTime/closingTime/slotMinutes come from the
+// backend's own config, not a frontend constant, so the grid can never render slots the server
+// wouldn't accept. tables is every active SPA-zone Table (the grid's rows); appointments is
+// every appointment on date regardless of status.
+export type SpaSchedule = {
+  date: string;
+  openingTime: string;
+  closingTime: string;
+  slotMinutes: number;
+  tables: Table[];
+  appointments: SpaAppointment[];
+};
+
+// GET /spa-appointments/therapists - narrower than GET /users (ADMIN-only) so a CASHIER
+// creating an appointment can list valid therapists without that escalation. Excludes an
+// inactive user.
+export type SpaTherapist = {
+  id: string;
+  email: string;
 };

@@ -7,7 +7,7 @@ import { extractApiError } from "@/lib/apiError";
 import { MENU_DEPARTMENT_LABELS } from "@/lib/posOrders";
 import type { MenuDepartment } from "@/lib/posTypes";
 
-const DEPARTMENTS: MenuDepartment[] = ["KITCHEN", "BAR"];
+const DEPARTMENTS: MenuDepartment[] = ["KITCHEN", "BAR", "SPA"];
 
 type MenuItemFormValues = {
   name: string;
@@ -16,6 +16,10 @@ type MenuItemFormValues = {
   department: MenuDepartment;
   price: number;
   isAvailable: boolean;
+  // Only meaningful (and only sent) for department = SPA - see MenuItem.durationMinutes.
+  // Minutes, not null, while the field is showing - the picker below never lets it be empty
+  // once SPA is selected.
+  durationMinutes: number | null;
 };
 
 export default function MenuItemForm({
@@ -29,7 +33,7 @@ export default function MenuItemForm({
 }) {
   const router = useRouter();
   const [values, setValues] = useState<MenuItemFormValues>(
-    initialValues ?? { name: "", description: "", category: "", department: "KITCHEN", price: 100, isAvailable: true }
+    initialValues ?? { name: "", description: "", category: "", department: "KITCHEN", price: 100, isAvailable: true, durationMinutes: null }
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -41,12 +45,15 @@ export default function MenuItemForm({
 
     const url = mode === "create" ? `${ADMIN_API_URL}/menu` : `${ADMIN_API_URL}/menu/${itemId}`;
     const method = mode === "create" ? "POST" : "PATCH";
+    // durationMinutes only means anything for a SPA item - never send a stale value left over
+    // from switching away from SPA in this same form session.
+    const body = { ...values, durationMinutes: values.department === "SPA" ? values.durationMinutes : null };
 
     const res = await fetch(url, {
       method,
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
+      body: JSON.stringify(body),
     });
 
     setSubmitting(false);
@@ -116,9 +123,32 @@ export default function MenuItemForm({
               </option>
             ))}
           </select>
-          <p className="text-xs text-cream/40 mt-1">Which printer this item&rsquo;s ticket is sent to when the order is sent.</p>
+          <p className="text-xs text-cream/40 mt-1">
+            {values.department === "SPA"
+              ? "Spa treatments never print a kitchen/bar ticket - the guest's receipt still works normally."
+              : "Which printer this item’s ticket is sent to when the order is sent."}
+          </p>
         </div>
       </div>
+
+      {values.department === "SPA" && (
+        <div>
+          <label className="eyebrow text-cream/60 block mb-1">Duration (minutes)</label>
+          <input
+            type="number"
+            min={1}
+            step="1"
+            required
+            value={values.durationMinutes ?? ""}
+            onChange={(e) => setValues((v) => ({ ...v, durationMinutes: e.target.value === "" ? null : Number(e.target.value) }))}
+            className="w-full sm:w-40 bg-transparent border-b border-cream/25 py-2 text-cream focus:outline-none focus:border-coral"
+          />
+          <p className="text-xs text-cream/40 mt-1">
+            How long this treatment takes on the spa grid. Copied onto each new appointment when it&rsquo;s booked - changing this later
+            never resizes an appointment already on the grid.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4 items-end">
         <div>

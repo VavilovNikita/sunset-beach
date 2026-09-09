@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ADMIN_API_URL } from "@/lib/backend";
-import { extractApiError } from "@/lib/apiError";
+import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
+import type { UserUpdateResult } from "@/lib/types";
 
 // The whole point of this control: closing access for someone who just left, without waiting on
 // a password reset or a JWT to expire on its own — see JwtAuthFilter, which rejects a disabled
@@ -20,6 +20,7 @@ export default function UserActiveToggle({
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   async function handleToggle() {
     const next = !active;
@@ -30,21 +31,19 @@ export default function UserActiveToggle({
 
     setSaving(true);
     setError(null);
+    setWarning(null);
 
-    const res = await fetch(`${ADMIN_API_URL}/users/${userId}/active`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active: next }),
-    });
+    const result = await adminRequest<UserUpdateResult>(`/users/${userId}/active`, adminJsonInit("PATCH", { active: next }), "Could not update this account.");
 
     setSaving(false);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(extractApiError(data, "Could not update this account."));
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
+    // Disabling a therapist with future spa appointments still assigned to them warns rather
+    // than blocks - see UserService#futureBookedAppointmentWarning on the backend.
+    if (result.data.warning) setWarning(result.data.warning);
     router.refresh();
   }
 
@@ -63,6 +62,7 @@ export default function UserActiveToggle({
         {saving ? "…" : active ? "Disable" : "Enable"}
       </button>
       {error && <span className="block text-xs text-coral mt-1">{error}</span>}
+      {warning && <span className="block text-xs text-amber-400 mt-1">{warning}</span>}
     </span>
   );
 }

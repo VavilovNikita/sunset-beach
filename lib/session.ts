@@ -16,8 +16,10 @@ export type Role = "ADMIN" | "MANAGER" | "CASHIER" | "WAITER";
 // a sideways job, not a step on the ADMIN > MANAGER > CASHIER > WAITER ladder. Not part of
 // `hasRoleAtLeast`/the role hierarchy at all; a function grants nothing beyond the specific
 // endpoints gated on it. Nothing gates on this yet (see lib/adminNav.ts if/when a nav link
-// needs to check one — do not overload hasRoleAtLeast for that).
-export type JobFunction = "ENGINEER" | "HOUSEKEEPER";
+// needs to check one — do not overload hasRoleAtLeast for that). THERAPIST marks a staff account
+// as a bookable spa therapist (see lib/types.ts's SpaAppointment) — no endpoint is gated on it in
+// v1, there is no therapist self-service screen (reception is the only spa surface).
+export type JobFunction = "ENGINEER" | "HOUSEKEEPER" | "THERAPIST";
 
 // Full shape of the backend's `User` schema — the same one GET /users
 // returns (see lib/types.ts, which re-exports this as `User` rather than
