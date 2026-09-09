@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
-import { requireRoleAtLeast } from "@/lib/rbac";
+import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import { addDaysUTC, dateOnlyUTC, parseDateKey, toDateKey } from "@/lib/bookings";
 import SpaScheduleGrid from "@/components/admin/SpaScheduleGrid";
 import type { MenuItem, SpaSchedule, SpaTherapist } from "@/lib/posTypes";
@@ -22,7 +23,8 @@ function parseDateParam(value: string | undefined): string {
 export default async function AdminSpaPage({ searchParams }: { searchParams: { date?: string } }) {
   // GET /spa-appointments is CASHIER+ on the backend, same floor as the rest of front-desk work -
   // reception is the only surface in v1 (no therapist self-service, see JobFunction.THERAPIST).
-  await requireRoleAtLeast("CASHIER", "/admin/pos");
+  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+  const canManageTables = hasRoleAtLeast(user.role, "MANAGER");
 
   const date = parseDateParam(searchParams.date);
   // Bookings whose stay covers `date` inclusive of the departure day (CORRECTION 1 - the guest
@@ -42,8 +44,17 @@ export default async function AdminSpaPage({ searchParams }: { searchParams: { d
 
   return (
     <div>
-      <p className="eyebrow text-sea mb-2">Front desk</p>
-      <h1 className="font-display italic text-3xl mb-2">Spa</h1>
+      <div className="flex items-start justify-between gap-4 mb-2">
+        <div>
+          <p className="eyebrow text-sea mb-2">Front desk</p>
+          <h1 className="font-display italic text-3xl">Spa</h1>
+        </div>
+        {canManageTables && (
+          <Link href="/admin/spa/map" className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4 mt-1">
+            Table map
+          </Link>
+        )}
+      </div>
       <p className="text-xs text-cream/40 mb-6 max-w-2xl">
         Rows are spa tables, columns are {schedule.slotMinutes}-minute slots from {schedule.openingTime} to{" "}
         {schedule.closingTime}. Click a free slot to book a treatment; click a booked one to cancel, mark no-show, or
