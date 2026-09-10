@@ -6,6 +6,7 @@ import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import BookingStatusForm from "@/components/admin/BookingStatusForm";
 import BookingScheduleForm from "@/components/admin/BookingScheduleForm";
 import FolioPaymentPanel from "@/components/admin/FolioPaymentPanel";
+import BookingGuestLinkSection from "@/components/admin/BookingGuestLinkSection";
 import type { AuditLogPage, Booking, RoomUnit } from "@/lib/types";
 import type { BookingPosOrder, Folio, FolioPayment } from "@/lib/posTypes";
 
@@ -91,6 +92,9 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
           <p>
             <span className="text-cream/40">Booked on:</span> {booking.createdAt.slice(0, 10)}
           </p>
+          <div className="pt-2">
+            <BookingGuestLinkSection booking={booking} />
+          </div>
         </div>
 
         <div className="space-y-6">

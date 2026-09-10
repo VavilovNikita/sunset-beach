@@ -7,6 +7,7 @@ import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { quoteBookingRelocation, applyBookingRelocation, undoBookingRelocation } from "@/lib/bookingRelocationClient";
 import { quoteBookingReprice, applyBookingReprice } from "@/lib/bookingRepriceClient";
 import RoomChargeDebtBadge from "@/components/admin/RoomChargeDebtBadge";
+import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
 import { BookingScheduleEditor, RoomUnitAssignmentEditor } from "@/components/admin/BookingScheduleEditor";
 import type { Booking, BookingScheduleQuote, Room, RoomUnit, AuditLogEntry } from "@/lib/types";
 import type { BookingPosOrder, Folio } from "@/lib/posTypes";
@@ -22,7 +23,9 @@ const STATUSES = ["NEW", "CONFIRMED", "PAID", "CANCELLED"] as const;
 // Guest name/email/phone are shown but not editable here: no PATCH exists for those fields on
 // any booking-editing surface in this app (only status/paymentNote, schedule, and now
 // relocation do), so offering an edit control for them would imply a capability this backend
-// doesn't have.
+// doesn't have. The Guest *link* (GuestLinkEditor, right below) is a separate, independent
+// thing - it points this booking at a Guest record without ever touching the frozen snapshot
+// fields above it.
 export default function BookingCardPanel({
   bookingId,
   canManage,
@@ -113,6 +116,9 @@ export default function BookingCardPanel({
               <h2 className="font-display italic text-2xl mb-1">{booking.guestName}</h2>
               <p className="text-sm text-cream/50">{booking.guestEmail || "No email on file"}</p>
               <p className="text-sm text-cream/50">{booking.guestPhone || "No phone on file"}</p>
+              <div className="mt-2">
+                <GuestLinkEditor booking={booking} onSaved={refetch} />
+              </div>
               <Link
                 href={`/admin/bookings/${booking.id}`}
                 className="inline-block mt-2 text-xs text-sea hover:text-coral transition-colors underline underline-offset-4"

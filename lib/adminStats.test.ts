@@ -28,6 +28,8 @@ function booking(overrides: Partial<Booking>): Booking {
     guestName: "Test Guest",
     guestEmail: "",
     guestPhone: "",
+    guestId: null,
+    guest: null,
     checkIn: "2026-06-15",
     checkOut: "2026-06-18",
     totalPrice: "3000.00",

@@ -40,6 +40,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/today", label: "Today", minRole: "CASHIER" },
       { href: "/admin/bookings/calendar", label: "Calendar", minRole: "CASHIER" },
       { href: "/admin/bookings", label: "Bookings", minRole: "CASHIER" },
+      { href: "/admin/guests", label: "Guests", minRole: "CASHIER" },
       { href: "/admin/property-map", label: "Property map", minRole: "CASHIER" },
       { href: "/admin/housekeeping", label: "Housekeeping", minRole: "CASHIER" },
       { href: "/admin/spa", label: "Spa", minRole: "CASHIER" },

@@ -24,7 +24,7 @@ describe("visibleNavGroups", () => {
     expect(groups.map((g) => g.title)).toEqual(["Front desk", "Restaurant", "Setup", "Maintenance", "Reports"]);
 
     const byTitle = Object.fromEntries(groups.map((g) => [g.title, g.links.map((l) => l.label)]));
-    expect(byTitle["Front desk"]).toEqual(["Today", "Calendar", "Bookings", "Property map", "Housekeeping", "Spa"]);
+    expect(byTitle["Front desk"]).toEqual(["Today", "Calendar", "Bookings", "Guests", "Property map", "Housekeeping", "Spa"]);
     expect(byTitle["Restaurant"]).toEqual(["POS", "Print queue", "Shifts", "Menu"]);
     expect(byTitle["Setup"]).toEqual(["Rooms", "Pricing", "Availability"]); // no Printers - MANAGER+
     expect(byTitle["Reports"]).toEqual(["Dashboard"]); // no History - MANAGER+

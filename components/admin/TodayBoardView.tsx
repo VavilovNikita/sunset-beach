@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { checkInBooking, checkOutBooking, markBookingNoShow } from "@/lib/bookingOccupancyClient";
+import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
 import type { TodayBoard, TodayBoardEntry } from "@/lib/types";
 
 // The front desk's daily working set - see openapi.yaml's TodayBoard description for exactly
@@ -154,6 +155,14 @@ function TodayRow({ entry, action, onDone }: { entry: TodayBoardEntry; action: "
           {roomDirty && <span className="text-sand">Room not clean</span>}
           {owed && <span className="text-coral">฿{Number(outstandingBalance).toLocaleString("en-US")} owed</span>}
         </div>
+        {/* Optional, not a check-in blocker - check-in is the moment reception is already looking
+            at this row, so it's the natural place to offer linking a guest, but the backend
+            doesn't require one to check in. */}
+        {action === "checkin" && (
+          <div className="mt-1">
+            <GuestLinkEditor booking={booking} onSaved={onDone} />
+          </div>
+        )}
         {message && (
           <div className="mt-2 flex items-center gap-3">
             <p className={`text-xs ${message.tone === "error" ? "text-coral" : "text-amber-400"}`}>{message.text}</p>

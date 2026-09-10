@@ -244,6 +244,48 @@ export type BookingSegment = {
   totalPrice: string;
 };
 
+// The guest as a person, distinct from a Booking's own frozen guestName/guestEmail/guestPhone
+// snapshot above — created explicitly (never inferred), searched by name/email/phone
+// (GET /guests?q=), and linked to a booking as a separate, reversible action. Carries no
+// computed field (no stay count, no lifetime total) — every fact about a guest is reached by
+// walking to Booking via guestId, never cached here. email/phone/notes are free text and may be
+// null; name is required.
+export type Guest = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// Response of GET /guests/{id} — the full guest card. bookings is this guest's entire stay
+// history (every booking with this guestId, any status, cancelled included), newest first.
+// Deliberately no lifetime-spend/stay-count total — each booking already shows its own
+// totalPrice/status.
+export type GuestDetail = Guest & {
+  bookings: Booking[];
+};
+
+// Body of POST /guests. Nothing here is checked against existing guests before creating — no
+// automatic merging; GET /guests?q= is how a caller checks for a likely duplicate first.
+export type GuestCreateInput = {
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  notes?: string | null;
+};
+
+// Body of PATCH /guests/{id} — full replacement, same convention as RoomUnitUpdateInput: no
+// partial update, every field is sent every time.
+export type GuestUpdateInput = {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+};
+
 export type Booking = {
   id: string;
   roomId: string;
@@ -252,9 +294,16 @@ export type Booking = {
   // pending state for front desk to fill in, not an error condition.
   roomUnitId: string | null;
   roomUnit: RoomUnit | null;
+  // Frozen snapshot of what was given when the booking was made — never changes when guestId/
+  // guest below is set or changed, and a never-linked booking reads identically to a linked one.
   guestName: string;
   guestEmail: string;
   guestPhone: string;
+  // The optional, independent link to a Guest record (set via PUT /bookings/{id}/guest). Most
+  // bookings, most of the time, have this null — especially fresh off the public site, which
+  // never touches this link at all. See lib/types.ts's Guest type for why the two coexist.
+  guestId: string | null;
+  guest: Guest | null;
   checkIn: string;
   checkOut: string;
   totalPrice: string;
