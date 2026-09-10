@@ -4,36 +4,34 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { extractApiError } from "@/lib/apiError";
-import { MENU_DEPARTMENT_LABELS } from "@/lib/posOrders";
-import type { MenuDepartment } from "@/lib/posTypes";
 
-// SPA is deliberately not offered here - treatments have their own management screen
-// (/admin/spa/treatments, TreatmentForm.tsx) with department fixed to SPA and no
-// kitchen/bar-routing choice at all. This form stays food/drink-only, same as the menu list
-// it backs (see app/admin/(dashboard)/pos/menu/page.tsx's own SPA filter).
-const DEPARTMENTS: Exclude<MenuDepartment, "SPA">[] = ["KITCHEN", "BAR"];
-
-type MenuItemFormValues = {
+// A treatment-only fork of components/admin/pos/MenuItemForm.tsx, for the spa's own management
+// screen (see /admin/spa/treatments) - same name/description/category/price/isAvailable fields,
+// same full-replacement PATCH, same raw-fetch pattern that form already uses. What's different,
+// deliberately: department is fixed to SPA (never shown as a choice - a treatment never routes
+// to a kitchen/bar ticket, see MenuDepartment's own description), and durationMinutes is always
+// shown and required, not conditional on a department selection that doesn't exist here.
+type TreatmentFormValues = {
   name: string;
   description: string;
   category: string;
-  department: Exclude<MenuDepartment, "SPA">;
   price: number;
   isAvailable: boolean;
+  durationMinutes: number;
 };
 
-export default function MenuItemForm({
+export default function TreatmentForm({
   mode,
   itemId,
   initialValues,
 }: {
   mode: "create" | "edit";
   itemId?: string;
-  initialValues?: MenuItemFormValues;
+  initialValues?: TreatmentFormValues;
 }) {
   const router = useRouter();
-  const [values, setValues] = useState<MenuItemFormValues>(
-    initialValues ?? { name: "", description: "", category: "", department: "KITCHEN", price: 100, isAvailable: true }
+  const [values, setValues] = useState<TreatmentFormValues>(
+    initialValues ?? { name: "", description: "", category: "Treatments", price: 1000, isAvailable: true, durationMinutes: 60 }
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -45,9 +43,7 @@ export default function MenuItemForm({
 
     const url = mode === "create" ? `${ADMIN_API_URL}/menu` : `${ADMIN_API_URL}/menu/${itemId}`;
     const method = mode === "create" ? "POST" : "PATCH";
-    // durationMinutes only ever means anything for a SPA item, which this form never handles -
-    // always explicit null, same full-replacement contract as every other field here.
-    const body = { ...values, durationMinutes: null };
+    const body = { ...values, department: "SPA" as const };
 
     const res = await fetch(url, {
       method,
@@ -66,9 +62,9 @@ export default function MenuItemForm({
 
     if (mode === "create") {
       const created = await res.json();
-      router.push(`/admin/pos/menu/${created.id}/edit`);
+      router.push(`/admin/spa/treatments/${created.id}/edit`);
     } else {
-      router.push("/admin/pos/menu");
+      router.push("/admin/spa/treatments");
     }
     router.refresh();
   }
@@ -105,25 +101,25 @@ export default function MenuItemForm({
             required
             value={values.category}
             onChange={(e) => setValues((v) => ({ ...v, category: e.target.value }))}
-            placeholder="e.g. Mains, Drinks"
+            placeholder="e.g. Massages, Facials"
             className="w-full bg-transparent border-b border-cream/25 py-2 text-cream placeholder:text-cream/40 focus:outline-none focus:border-coral"
           />
-          <p className="text-xs text-cream/40 mt-1">How this item is grouped on the menu display. Doesn&rsquo;t affect printing.</p>
+          <p className="text-xs text-cream/40 mt-1">How this treatment is grouped on the menu display.</p>
         </div>
         <div>
-          <label className="eyebrow text-cream/60 block mb-1">Department</label>
-          <select
-            value={values.department}
-            onChange={(e) => setValues((v) => ({ ...v, department: e.target.value as Exclude<MenuDepartment, "SPA"> }))}
-            className="w-full bg-ink2 border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
-          >
-            {DEPARTMENTS.map((d) => (
-              <option key={d} value={d}>
-                {MENU_DEPARTMENT_LABELS[d]}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-cream/40 mt-1">Which printer this item&rsquo;s ticket is sent to when the order is sent.</p>
+          <label className="eyebrow text-cream/60 block mb-1">Duration (minutes)</label>
+          <input
+            type="number"
+            min={1}
+            step="1"
+            required
+            value={values.durationMinutes}
+            onChange={(e) => setValues((v) => ({ ...v, durationMinutes: Number(e.target.value) }))}
+            className="w-full bg-transparent border-b border-cream/25 py-2 text-cream focus:outline-none focus:border-coral"
+          />
+          <p className="text-xs text-cream/40 mt-1">
+            Copied onto each new appointment when it&rsquo;s booked - changing this later never resizes an appointment already on the grid.
+          </p>
         </div>
       </div>
 
@@ -158,7 +154,7 @@ export default function MenuItemForm({
         disabled={submitting}
         className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-6 py-2.5 text-sm font-medium disabled:opacity-60"
       >
-        {submitting ? "Saving…" : mode === "create" ? "Create item" : "Save changes"}
+        {submitting ? "Saving…" : mode === "create" ? "Create treatment" : "Save changes"}
       </button>
     </form>
   );

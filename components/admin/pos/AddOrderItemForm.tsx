@@ -14,6 +14,13 @@ export default function AddOrderItemForm({
   onAdded: (order: Order) => void;
 }) {
   const availableMenu = Array.from(menuById.values()).filter((m) => m.isAvailable);
+  // SPA-department items are never excluded from this list (a treatment that can't be added to
+  // a ticket can't be billed) - they're grouped into their own <optgroup> instead, same "group,
+  // don't remove" treatment PosMenuPicker.tsx gives them on the cashier PWA, just expressed as a
+  // native select group here since this form is a plain <select>, not a tabbed picker.
+  const spaMenu = availableMenu.filter((m) => m.department === "SPA");
+  const nonSpaMenu = availableMenu.filter((m) => m.department !== "SPA");
+  const categories = Array.from(new Set(nonSpaMenu.map((m) => m.category))).sort();
   const [menuItemId, setMenuItemId] = useState(availableMenu[0]?.id ?? "");
   const [quantity, setQuantity] = useState(1);
   const [note, setNote] = useState("");
@@ -57,11 +64,26 @@ export default function AddOrderItemForm({
           onChange={(e) => setMenuItemId(e.target.value)}
           className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
         >
-          {availableMenu.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name} — ฿{Number(m.price).toLocaleString("en-US")}
-            </option>
+          {categories.map((c) => (
+            <optgroup key={c} label={c}>
+              {nonSpaMenu
+                .filter((m) => m.category === c)
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} — ฿{Number(m.price).toLocaleString("en-US")}
+                  </option>
+                ))}
+            </optgroup>
           ))}
+          {spaMenu.length > 0 && (
+            <optgroup label="Spa">
+              {spaMenu.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} — ฿{Number(m.price).toLocaleString("en-US")}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
       </div>
       <div className="w-20">

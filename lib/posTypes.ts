@@ -131,6 +131,16 @@ export type TablePositionInput = {
   positionY: number | null;
 };
 
+// The spa's own floor-plan background image metadata (GET /spa-map) - mirrors
+// lib/types.ts's PropertyMap in shape/purpose, but carries no table list of its own: SPA-zone
+// tables (the map's actual content) already come from GET /tables, placed via
+// PATCH /tables/positions. imageUpdatedAt exists only so the frontend can cache-bust
+// GET /spa-map/image with a ?v= param, same convention as PropertyMap.imageUpdatedAt.
+export type SpaMap = {
+  imagePath: string | null;
+  imageUpdatedAt: string | null;
+};
+
 // No denormalized menu item name — items only carry menuItemId. Consumers
 // resolve names from a MenuItem[] they already fetched (see OrderTicket's
 // menuById map) rather than re-fetching per item.

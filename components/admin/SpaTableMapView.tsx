@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveTablePositions } from "@/lib/tablePositionsClient";
+import { uploadSpaMapImage } from "@/lib/spaMapClient";
 import type { Table, TablePositionInput } from "@/lib/posTypes";
 
 // Pointer-drag mechanics are a direct copy of PropertyMapView.tsx's own approach (native Pointer
@@ -11,9 +12,10 @@ import type { Table, TablePositionInput } from "@/lib/posTypes";
 // nothing rather than "moving" a tile by zero pixels) - reusing the pattern, not reinventing a
 // second way to place something on a floor plan. What's simpler here, deliberately: no fill/badge
 // status logic (a table has no occupancy/dirty/debt state the way a room does - it's just a
-// place, colored one way), no click-to-open detail panel (nothing to show beyond the label
-// already on the tile), and no image upload form (this screen reads the property map's own image
-// read-only - see the page's own comment on why there's exactly one place that owns it).
+// place, colored one way), and no click-to-open detail panel (nothing to show beyond the label
+// already on the tile). The upload form below mirrors PropertyMapView's own
+// PropertyMapUploadForm - this screen now owns its own image (GET/POST /spa-map/image), the
+// same way the property map screen owns its.
 const CLICK_THRESHOLD_PX = 6;
 
 type PendingPosition = { positionX: number | null; positionY: number | null };
@@ -42,6 +44,8 @@ export default function SpaTableMapView({
   const [drag, setDrag] = useState<DragState | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageWrapperRef = useRef<HTMLDivElement>(null);
@@ -117,22 +121,36 @@ export default function SpaTableMapView({
     setSaveError(null);
   }
 
+  async function handleUpload(file: File) {
+    setUploading(true);
+    setUploadError(null);
+    const result = await uploadSpaMapImage(file);
+    setUploading(false);
+    if (!result.ok) {
+      setUploadError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
   const draggedTable = drag ? tables.find((t) => t.id === drag.tableId) : null;
 
   return (
     <div ref={containerRef}>
+      <SpaMapUploadForm hasImage={Boolean(imagePath)} uploading={uploading} error={uploadError} onUpload={handleUpload} />
+
       {!imagePath ? (
-        <div className="rounded-xl border border-dashed border-cream/20 p-10 text-center text-sm text-cream/50 min-w-[480px]">
-          No property map image has been uploaded yet — upload one from the Property map screen first.
+        <div className="mt-4 rounded-xl border border-dashed border-cream/20 p-10 text-center text-sm text-cream/50 min-w-[480px]">
+          Upload a floor plan above to start placing tables.
         </div>
       ) : (
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-6 mt-4">
           <div className="flex-1 min-w-0 overflow-x-auto pb-2">
             <div ref={imageWrapperRef} className="relative inline-block select-none">
               {/* eslint-disable-next-line @next/next/no-img-element -- authenticated, proxied image; next/image can't reach it */}
               <img
-                src={`/api/admin-proxy/property-map/image?v=${encodeURIComponent(imageUpdatedAt ?? "")}`}
-                alt="Property map"
+                src={`/api/admin-proxy/spa-map/image?v=${encodeURIComponent(imageUpdatedAt ?? "")}`}
+                alt="Spa floor plan"
                 className="block w-[960px] max-w-none rounded-xl border border-cream/10"
                 draggable={false}
               />
@@ -263,6 +281,41 @@ function TableTile({
     >
       {table.label}
     </button>
+  );
+}
+
+// Mirrors PropertyMapView.tsx's own PropertyMapUploadForm exactly - same accepted types, same
+// file-input styling, same uploading/error states.
+function SpaMapUploadForm({
+  hasImage,
+  uploading,
+  error,
+  onUpload,
+}: {
+  hasImage: boolean;
+  uploading: boolean;
+  error: string | null;
+  onUpload: (file: File) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 flex-wrap">
+      <label className="text-sm">
+        <span className="eyebrow text-cream/50 block mb-1">{hasImage ? "Replace floor plan" : "Upload floor plan"}</span>
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          disabled={uploading}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) onUpload(file);
+          }}
+          className="block text-sm text-cream/60 file:mr-3 file:rounded-full file:border-0 file:bg-coral file:px-4 file:py-2 file:text-sm file:font-medium file:text-cream hover:file:bg-coraldeep file:transition-colors file:cursor-pointer disabled:opacity-60"
+        />
+      </label>
+      {uploading && <span className="text-sm text-cream/50">Uploading…</span>}
+      {error && <span className="text-sm text-coral">{error}</span>}
+    </div>
   );
 }
 

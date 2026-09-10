@@ -49,11 +49,23 @@ export default async function AdminSpaPage({ searchParams }: { searchParams: { d
           <p className="eyebrow text-sea mb-2">Front desk</p>
           <h1 className="font-display italic text-3xl">Spa</h1>
         </div>
-        {canManageTables && (
-          <Link href="/admin/spa/map" className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4 mt-1">
-            Table map
+        {/* Sub-pages live here, on the hub's own header, rather than as separate sidebar entries
+            - same place "Table map" already lived, now joined by Treatments and Tables. */}
+        <div className="flex items-center gap-4 mt-1 flex-wrap justify-end">
+          <Link href="/admin/spa/treatments" className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4">
+            Treatments
           </Link>
-        )}
+          {canManageTables && (
+            <>
+              <Link href="/admin/spa/tables" className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4">
+                Tables
+              </Link>
+              <Link href="/admin/spa/map" className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4">
+                Table map
+              </Link>
+            </>
+          )}
+        </div>
       </div>
       <p className="text-xs text-cream/40 mb-6 max-w-2xl">
         Rows are spa tables, columns are {schedule.slotMinutes}-minute slots from {schedule.openingTime} to{" "}

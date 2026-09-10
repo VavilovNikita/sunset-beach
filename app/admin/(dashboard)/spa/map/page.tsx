@@ -1,8 +1,7 @@
 import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { requireRoleAtLeast } from "@/lib/rbac";
 import SpaTableMapView from "@/components/admin/SpaTableMapView";
-import type { PropertyMap } from "@/lib/types";
-import type { Table } from "@/lib/posTypes";
+import type { SpaMap, Table } from "@/lib/posTypes";
 
 // PATCH /tables/positions is MANAGER+ on the backend, so unlike the property map (whose vacant/
 // occupied/dirty/debt view is genuinely useful to CASHIER day to day) this whole page gates at
@@ -11,13 +10,12 @@ import type { Table } from "@/lib/posTypes";
 export default async function AdminSpaMapPage() {
   await requireRoleAtLeast("MANAGER", "/admin/pos");
 
-  // Reuses the property map's own floor-plan image wholesale - same building, same grounds, and
-  // it means a manager placing spa tables sees them against the same picture the rooms already
-  // sit on ("the spa tables are over by the pool, not near the rooms") rather than uploading and
-  // maintaining a second image of the same property. Only imagePath/imageUpdatedAt are read here;
-  // replacing the image itself stays on the property map screen, the one place that owns it.
-  const [propertyMap, tables] = await Promise.all([
-    backendJson<PropertyMap>("/property-map", { auth: true }),
+  // The spa's own floor-plan image (GET /spa-map), not the property map's - the spa is a
+  // separate physical layout at a separate scale from the hotel's rooms, and this screen now
+  // owns uploading/replacing it directly (see SpaTableMapView's own upload form), the same way
+  // the property map screen owns its own image.
+  const [spaMap, tables] = await Promise.all([
+    backendJson<SpaMap>("/spa-map", { auth: true }),
     backendJsonOrDefault<Table[]>("/tables", [], { auth: true }),
   ]);
   const spaTables = tables.filter((t) => t.zone === "SPA");
@@ -27,11 +25,10 @@ export default async function AdminSpaMapPage() {
       <p className="eyebrow text-sea mb-2">Front desk</p>
       <h1 className="font-display italic text-3xl mb-2">Spa table map</h1>
       <p className="text-xs text-cream/40 mb-6 max-w-2xl">
-        Drag a table onto the plan (or back to the list) to place it, then save the layout. This is the same floor-plan
-        image as the property map — replace it from that screen, not here.
+        Drag a table onto the plan (or back to the list) to place it, then save the layout.
       </p>
 
-      <SpaTableMapView imagePath={propertyMap.imagePath} imageUpdatedAt={propertyMap.imageUpdatedAt} tables={spaTables} />
+      <SpaTableMapView imagePath={spaMap.imagePath} imageUpdatedAt={spaMap.imageUpdatedAt} tables={spaTables} />
     </div>
   );
 }

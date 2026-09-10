@@ -8,25 +8,28 @@ import { ZONE_LABELS } from "@/lib/posOrders";
 import DeleteButton from "@/components/admin/DeleteButton";
 import type { Table, TableInput, Zone } from "@/lib/posTypes";
 
-const ZONES: Zone[] = ["RESTAURANT", "BAR", "SPA", "POOL", "ROOM_SERVICE"];
-const EMPTY_FORM: TableInput = { zone: "RESTAURANT", label: "", capacity: 4, isActive: true };
-
-function TableFields({ values, onChange }: { values: TableInput; onChange: (values: TableInput) => void }) {
+function TableFields({ values, onChange, zones }: { values: TableInput; onChange: (values: TableInput) => void; zones: Zone[] }) {
   return (
     <div className="grid sm:grid-cols-4 gap-3 items-end">
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Zone</label>
-        <select
-          value={values.zone}
-          onChange={(e) => onChange({ ...values, zone: e.target.value as Zone })}
-          className="w-full bg-ink2 border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
-        >
-          {ZONES.map((z) => (
-            <option key={z} value={z}>
-              {ZONE_LABELS[z]}
-            </option>
-          ))}
-        </select>
+        {zones.length > 1 ? (
+          <select
+            value={values.zone}
+            onChange={(e) => onChange({ ...values, zone: e.target.value as Zone })}
+            className="w-full bg-ink2 border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
+          >
+            {zones.map((z) => (
+              <option key={z} value={z}>
+                {ZONE_LABELS[z]}
+              </option>
+            ))}
+          </select>
+        ) : (
+          // A single allowed zone (e.g. the spa tables screen, SPA-only) isn't a real choice -
+          // show it as a fixed fact instead of a one-option dropdown.
+          <p className="py-2 text-cream text-sm">{ZONE_LABELS[zones[0]]}</p>
+        )}
       </div>
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Label</label>
@@ -68,19 +71,32 @@ function TableFields({ values, onChange }: { values: TableInput; onChange: (valu
 export default function TableManager({
   initialTables,
   canManage,
+  zones,
+  standalone,
 }: {
   initialTables: Table[];
   canManage: boolean;
+  // The zone(s) this instance manages, and the only options its own zone selector offers - the
+  // restaurant floor's instance passes every zone except SPA (see AdminPosPage), the spa tables
+  // screen's passes only [SPA] (see AdminSpaTablesPage). A single-entry list renders as a fixed
+  // fact, not a one-option dropdown - see TableFields.
+  zones: Zone[];
+  // True on a page whose entire purpose is table management (the spa tables screen) - skips the
+  // collapse-behind-a-toggle chrome that makes sense when this sits underneath a live floor view
+  // (the restaurant's /admin/pos) but not when it's the page's own primary content.
+  standalone?: boolean;
 }) {
   const router = useRouter();
+  const emptyForm: TableInput = { zone: zones[0], label: "", capacity: 4, isActive: true };
   // Auto-expanded when the board has nothing to show — this section is the
-  // way out of that empty state, not an optional extra behind a click.
-  const [open, setOpen] = useState(initialTables.length === 0);
+  // way out of that empty state, not an optional extra behind a click. Always expanded in
+  // standalone mode - see this prop's own comment above.
+  const [open, setOpen] = useState(standalone || initialTables.length === 0);
   const [tables, setTables] = useState(initialTables);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<TableInput>(EMPTY_FORM);
+  const [editValues, setEditValues] = useState<TableInput>(emptyForm);
   const [creating, setCreating] = useState(false);
-  const [newValues, setNewValues] = useState<TableInput>(EMPTY_FORM);
+  const [newValues, setNewValues] = useState<TableInput>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,7 +127,7 @@ export default function TableManager({
     }
     const created: Table = await res.json();
     setTables((prev) => [...prev, created]);
-    setNewValues(EMPTY_FORM);
+    setNewValues(emptyForm);
     setCreating(false);
     router.refresh();
   }
@@ -148,17 +164,19 @@ export default function TableManager({
   }
 
   return (
-    <div id="table-manager" className="mt-8 pt-8 border-t border-cream/10">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="text-sm text-cream/60 hover:text-cream transition-colors"
-      >
-        {open ? "Hide table management" : "Manage tables"}
-      </button>
+    <div id="table-manager" className={standalone ? undefined : "mt-8 pt-8 border-t border-cream/10"}>
+      {!standalone && (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="text-sm text-cream/60 hover:text-cream transition-colors"
+        >
+          {open ? "Hide table management" : "Manage tables"}
+        </button>
+      )}
 
       {open && (
-        <div className="mt-4 space-y-4 max-w-3xl">
+        <div className={standalone ? "space-y-4 max-w-3xl" : "mt-4 space-y-4 max-w-3xl"}>
           {tables.length === 0 && (
             <p className="text-cream/50 text-sm">
               {canManage ? "No tables set up yet — add one below." : "No tables set up yet. Ask a manager to add some."}
@@ -169,7 +187,7 @@ export default function TableManager({
             {tables.map((table) =>
               editingId === table.id ? (
                 <div key={table.id} className="bg-ink2/40 border border-cream/10 rounded-xl p-4 space-y-3">
-                  <TableFields values={editValues} onChange={setEditValues} />
+                  <TableFields values={editValues} onChange={setEditValues} zones={zones} />
                   <div className="flex gap-3">
                     <button
                       type="button"
@@ -225,7 +243,7 @@ export default function TableManager({
             (creating ? (
               <form onSubmit={handleCreate} className="bg-ink2/40 border border-cream/10 rounded-xl p-4 space-y-3">
                 <p className="eyebrow text-cream/60">New table</p>
-                <TableFields values={newValues} onChange={setNewValues} />
+                <TableFields values={newValues} onChange={setNewValues} zones={zones} />
                 <div className="flex gap-3">
                   <button
                     type="submit"
@@ -238,7 +256,7 @@ export default function TableManager({
                     type="button"
                     onClick={() => {
                       setCreating(false);
-                      setNewValues(EMPTY_FORM);
+                      setNewValues(emptyForm);
                       setError(null);
                     }}
                     className="text-sm text-cream/50 hover:text-cream transition-colors"

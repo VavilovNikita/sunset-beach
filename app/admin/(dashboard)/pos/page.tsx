@@ -20,6 +20,12 @@ export default async function AdminPosPage() {
     backendJsonOrDefault<PrintJob[] | null>("/print-jobs?status=FAILED", null, { auth: true }),
   ]);
   const canManageTables = !!user && hasRoleAtLeast(user.role, "MANAGER");
+  // Spa tables live on their own screen now (/admin/spa/tables) - a treatment table was never
+  // really part of the restaurant floor, and showing it here too would just be a second, stale-
+  // prone place to find the same row. Orders against a SPA table (and billing a treatment to
+  // one) are unaffected - this only hides the tile/management row, not the underlying Table or
+  // any order tied to it.
+  const restaurantTables = tables.filter((t) => t.zone !== "SPA");
 
   return (
     <div>
@@ -43,8 +49,8 @@ export default async function AdminPosPage() {
         </div>
       </div>
 
-      <OrderBoard initialTables={tables} initialOrders={[...openOrders, ...sentOrders]} />
-      <TableManager initialTables={tables} canManage={canManageTables} />
+      <OrderBoard initialTables={restaurantTables} initialOrders={[...openOrders, ...sentOrders]} />
+      <TableManager initialTables={restaurantTables} canManage={canManageTables} zones={["RESTAURANT", "BAR", "POOL", "ROOM_SERVICE"]} />
     </div>
   );
 }

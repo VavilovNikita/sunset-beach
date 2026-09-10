@@ -8,7 +8,11 @@ import { usePolling } from "@/lib/usePolling";
 import { STATUS_LABELS, STATUS_STYLES, ZONE_LABELS } from "@/lib/posOrders";
 import type { Order, Table, Zone } from "@/lib/posTypes";
 
-const ZONES: Zone[] = ["RESTAURANT", "BAR", "SPA", "POOL", "ROOM_SERVICE"];
+// SPA is deliberately excluded - spa tables live on their own screen now (/admin/spa/tables),
+// and this board's own poll (fetchActive, below) refetches every table unfiltered, so excluding
+// SPA here (not just from the initialTables prop) is what keeps a spa table from reappearing on
+// the next 5-second poll.
+const ZONES: Zone[] = ["RESTAURANT", "BAR", "POOL", "ROOM_SERVICE"];
 
 // Active orders are fetched as two single-status calls (status=OPEN,
 // status=SENT) rather than one call for "everything ever" — the contract

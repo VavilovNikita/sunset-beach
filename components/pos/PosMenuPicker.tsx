@@ -14,6 +14,14 @@ import type { MenuItem, Order } from "@/lib/posTypes";
 // grows an extra step: the card's own tap area still adds instantly. Only tapping the note
 // button first swaps that one card into a text field + its own "Add" button - every other card
 // stays one tap, and adding a note is opt-in, one extra tap, never a default detour.
+//
+// SPA-department items are never excluded from this picker (a treatment that can't be added to
+// a ticket can't be billed, and the spa auto-link is built on an order containing one - see
+// OrderService#autoLinkSpaAppointmentByTable/ByBooking) - they're grouped instead, under their
+// own pinned "Spa" tab, regardless of whatever free-text `category` they were given. Everything
+// else still groups by category exactly as before.
+const SPA_TAB = "__spa__";
+
 export default function PosMenuPicker({
   orderId,
   menu,
@@ -24,8 +32,10 @@ export default function PosMenuPicker({
   onAdded: (order: Order) => void;
 }) {
   const available = useMemo(() => menu.filter((m) => m.isAvailable), [menu]);
-  const categories = useMemo(() => Array.from(new Set(available.map((m) => m.category))).sort(), [available]);
-  const [category, setCategory] = useState<string | null>(categories[0] ?? null);
+  const spaItems = useMemo(() => available.filter((m) => m.department === "SPA"), [available]);
+  const nonSpaItems = useMemo(() => available.filter((m) => m.department !== "SPA"), [available]);
+  const categories = useMemo(() => Array.from(new Set(nonSpaItems.map((m) => m.category))).sort(), [nonSpaItems]);
+  const [category, setCategory] = useState<string | null>(categories[0] ?? (spaItems.length > 0 ? SPA_TAB : null));
   const [query, setQuery] = useState("");
   const [addingId, setAddingId] = useState<string | null>(null);
   const [noteDraftId, setNoteDraftId] = useState<string | null>(null);
@@ -34,7 +44,8 @@ export default function PosMenuPicker({
 
   const visible = available.filter((m) => {
     if (query.trim()) return m.name.toLowerCase().includes(query.trim().toLowerCase());
-    return category === null || m.category === category;
+    if (category === SPA_TAB) return m.department === "SPA";
+    return m.department !== "SPA" && (category === null || m.category === category);
   });
 
   async function handleTap(item: MenuItem, note?: string) {
@@ -70,7 +81,7 @@ export default function PosMenuPicker({
         className="w-full bg-ink2 border border-cream/20 rounded-xl px-4 py-3 text-cream text-base placeholder:text-cream/30 focus:outline-none focus:border-coral mb-3"
       />
 
-      {!query.trim() && (
+      {!query.trim() && (categories.length > 0 || spaItems.length > 0) && (
         <div className="flex gap-2 overflow-x-auto pb-1 mb-3 -mx-1 px-1">
           {categories.map((c) => (
             <button
@@ -84,6 +95,17 @@ export default function PosMenuPicker({
               {c}
             </button>
           ))}
+          {spaItems.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setCategory(SPA_TAB)}
+              className={`shrink-0 text-sm rounded-full px-4 py-2.5 font-medium transition-colors ${
+                category === SPA_TAB ? "bg-coral text-ink" : "bg-sea/15 text-sea"
+              }`}
+            >
+              Spa
+            </button>
+          )}
         </div>
       )}
 

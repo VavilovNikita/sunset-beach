@@ -7,11 +7,17 @@ import DeleteButton from "@/components/admin/DeleteButton";
 import type { MenuItem } from "@/lib/posTypes";
 
 export default async function AdminMenuPage() {
-  const [user, items] = await Promise.all([
+  const [user, allItems] = await Promise.all([
     getSessionUser(),
     backendJson<MenuItem[]>("/menu", { auth: true }),
   ]);
   const canManage = !!user && hasRoleAtLeast(user.role, "MANAGER");
+  // SPA-department items live on their own screen now (/admin/spa/treatments) - a treatment was
+  // never really a restaurant menu item, and duplicating it here would just be a second, stale-
+  // prone place to find the same row. The item itself, and its ability to be added to a ticket,
+  // are unaffected - see PosMenuPicker's own "Spa" grouping and AddOrderItemForm's own "Spa"
+  // optgroup, neither of which filters SPA items out.
+  const items = allItems.filter((item) => item.department !== "SPA");
 
   return (
     <div>

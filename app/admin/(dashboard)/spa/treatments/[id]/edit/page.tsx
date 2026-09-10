@@ -2,11 +2,11 @@ import { notFound } from "next/navigation";
 import { backendJson } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import { requireRoleAtLeast } from "@/lib/rbac";
-import MenuItemForm from "@/components/admin/pos/MenuItemForm";
+import TreatmentForm from "@/components/admin/spa/TreatmentForm";
 import type { MenuItem } from "@/lib/posTypes";
 
-export default async function EditMenuItemPage({ params }: { params: { id: string } }) {
-  await requireRoleAtLeast("MANAGER", "/admin/pos/menu");
+export default async function EditTreatmentPage({ params }: { params: { id: string } }) {
+  await requireRoleAtLeast("MANAGER", "/admin/spa/treatments");
 
   let item: MenuItem;
   try {
@@ -15,26 +15,25 @@ export default async function EditMenuItemPage({ params }: { params: { id: strin
     if (e instanceof BackendError && e.status === 404) notFound();
     throw e;
   }
-  // A SPA-department item now belongs on its own screen (/admin/spa/treatments) - the restaurant
-  // menu list never links here for one (see this page's own SPA filter), but a direct URL visit
-  // isn't validated server-side otherwise. Same "not found" as a missing item, rather than
-  // silently letting this form edit it without a duration field.
-  if (item.department === "SPA") notFound();
+  // Landing here for a non-SPA item would be a stray link, not a real flow - the treatments list
+  // only ever links to SPA-department items, but a direct URL visit isn't validated server-side
+  // otherwise. Same "not found" as a missing item, rather than silently coercing department.
+  if (item.department !== "SPA") notFound();
 
   return (
     <div>
-      <p className="eyebrow text-sea mb-2">POS</p>
+      <p className="eyebrow text-sea mb-2">Spa</p>
       <h1 className="font-display italic text-3xl mb-8">{item.name}</h1>
-      <MenuItemForm
+      <TreatmentForm
         mode="edit"
         itemId={item.id}
         initialValues={{
           name: item.name,
           description: item.description,
           category: item.category,
-          department: item.department,
           price: Number(item.price),
           isAvailable: item.isAvailable,
+          durationMinutes: item.durationMinutes ?? 60,
         }}
       />
     </div>
