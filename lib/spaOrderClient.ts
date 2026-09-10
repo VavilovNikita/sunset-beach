@@ -9,7 +9,16 @@
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import type { Order, SpaAppointment } from "@/lib/posTypes";
 
-export type BillSpaAppointmentResult = { ok: true; orderId: string } | { ok: false; error: string };
+// The two writes below (create, then add the line) can't be made atomic from the browser. If the
+// first succeeds and the second doesn't, the appointment is already linked to a real order - the
+// ⚠ this whole mechanism exists to raise goes quiet the moment that link is set, whether or not
+// the order actually carries the treatment. So `itemAdded: false` is its own outcome, not folded
+// into failure or silently dropped: the order was opened (and is linked - see orderId), the line
+// just isn't on it yet. The caller must say so plainly, not just proceed as if nothing happened.
+export type BillSpaAppointmentResult =
+  | { ok: true; orderId: string; itemAdded: true }
+  | { ok: true; orderId: string; itemAdded: false; itemError: string }
+  | { ok: false; error: string };
 
 export async function billSpaAppointment(appointment: SpaAppointment): Promise<BillSpaAppointmentResult> {
   // Pre-fills what the appointment already knows - its booking (so the guest doesn't have to be
@@ -22,15 +31,14 @@ export async function billSpaAppointment(appointment: SpaAppointment): Promise<B
   );
   if (!createResult.ok) return { ok: false, error: createResult.error };
 
-  // Best-effort: pre-filling the treatment as a line is a convenience on top of the link above,
-  // not the guarantee this door provides - the explicit spaAppointmentId already linked the
-  // order. If this fails, reception still lands on a real, linked order and can add the line by
-  // hand there, the same AddOrderItemForm every order page already offers.
-  await adminRequest<Order>(
+  const itemResult = await adminRequest<Order>(
     `/orders/${createResult.data.id}/items`,
     adminJsonInit("POST", [{ menuItemId: appointment.treatmentMenuItemId, quantity: 1 }]),
     "Could not add the treatment line."
   );
+  if (!itemResult.ok) {
+    return { ok: true, orderId: createResult.data.id, itemAdded: false, itemError: itemResult.error };
+  }
 
-  return { ok: true, orderId: createResult.data.id };
+  return { ok: true, orderId: createResult.data.id, itemAdded: true };
 }

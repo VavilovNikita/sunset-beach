@@ -17,6 +17,13 @@ import type { SpaAppointment, SpaAppointmentStatus } from "@/lib/posTypes";
 // already linked. BOOKED or COMPLETED with no orderId offers "Bill this treatment" (opens one via
 // lib/spaOrderClient.ts, sending spaAppointmentId explicitly); any status with an orderId offers
 // a link to reach it. Not offered for CANCELLED/NO_SHOW with no order - nothing to bill.
+//
+// Creating the order and adding its treatment line are two separate writes that can't be made
+// atomic from here - see billSpaAppointment's own comment. Once the order is created the
+// appointment is linked (orderId set), whether or not the line made it on, so `billedOrderId`
+// below is set the moment creation succeeds - not only on full success - so this panel switches
+// straight to the "Open order" link and can never re-fire handleBill into creating a second order
+// for the same appointment while waiting on the parent to refetch.
 export default function SpaAppointmentPanel({
   appointment,
   onClose,
@@ -31,6 +38,8 @@ export default function SpaAppointmentPanel({
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [billing, setBilling] = useState(false);
+  const [billedOrderId, setBilledOrderId] = useState<string | null>(null);
+  const [billError, setBillError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function setStatus(status: SpaAppointmentStatus, reason?: string) {
@@ -47,11 +56,27 @@ export default function SpaAppointmentPanel({
 
   async function handleBill() {
     setBilling(true);
-    setError(null);
+    setBillError(null);
     const result = await billSpaAppointment(appointment);
     setBilling(false);
     if (!result.ok) {
-      setError(result.error);
+      setBillError(result.error);
+      return;
+    }
+    setBilledOrderId(result.orderId);
+    // Refresh the underlying schedule now, not only on close (onUpdated, below, also closes the
+    // panel - too soon to fire here). billedOrderId already covers the gap until this lands, but
+    // the appointment prop itself needs the real orderId too: closing this panel without
+    // navigating and reopening the same appointment would otherwise mount a fresh instance with
+    // no local state and a still-stale `appointment.orderId: null`, offering "Bill this treatment"
+    // again for an appointment that's already linked.
+    router.refresh();
+    if (!result.itemAdded) {
+      // Loud, not silent: the order is real and linked (see class comment), but the ⚠ this
+      // mechanism exists to raise would otherwise go quiet on an order that never actually billed
+      // anything. Stay on the panel rather than auto-redirecting, so this is the moment reception
+      // reads it, not a message that flashes past on the way to the next page.
+      setBillError(`Order opened, but "${appointment.treatmentName}" couldn't be added automatically — open the order and add it by hand.`);
       return;
     }
     router.push(`/admin/pos/orders/${result.orderId}`);
@@ -59,6 +84,7 @@ export default function SpaAppointmentPanel({
 
   const isBooked = appointment.status === "BOOKED";
   const canBill = appointment.status === "BOOKED" || appointment.status === "COMPLETED";
+  const orderId = appointment.orderId ?? billedOrderId;
 
   return (
     <div className="fixed inset-0 z-40 pointer-events-none">
@@ -92,13 +118,16 @@ export default function SpaAppointmentPanel({
             </p>
           </div>
 
-          {appointment.orderId ? (
-            <Link
-              href={`/admin/pos/orders/${appointment.orderId}`}
-              className="inline-block text-sm text-sea hover:text-coral transition-colors underline underline-offset-4"
-            >
-              Open order →
-            </Link>
+          {orderId ? (
+            <div className="space-y-2">
+              <Link
+                href={`/admin/pos/orders/${orderId}`}
+                className="inline-block text-sm text-sea hover:text-coral transition-colors underline underline-offset-4"
+              >
+                Open order →
+              </Link>
+              {billError && <p className="text-sm text-coral">{billError}</p>}
+            </div>
           ) : (
             canBill && (
               <div className="space-y-2">
@@ -115,6 +144,7 @@ export default function SpaAppointmentPanel({
                 >
                   {billing ? "Opening…" : "Bill this treatment"}
                 </button>
+                {billError && <p className="text-sm text-coral">{billError}</p>}
               </div>
             )
           )}
