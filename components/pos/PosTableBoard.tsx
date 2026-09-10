@@ -7,7 +7,12 @@ import { fetchBoardData, createTableOrder, createTicketOrder } from "@/lib/pos/o
 import { STATUS_LABELS, STATUS_STYLES, ZONE_LABELS } from "@/lib/posOrders";
 import type { Order, Table, Zone } from "@/lib/posTypes";
 
-const ZONES: Zone[] = ["RESTAURANT", "BAR", "SPA", "POOL", "ROOM_SERVICE"];
+// SPA is deliberately excluded - reception bills a treatment from the spa schedule's own billing
+// door now (SpaAppointmentPanel, via lib/spaOrderClient.ts), not by tapping a spa table here or
+// on the admin floor view (OrderBoard.tsx, excluded the same way). This board's own poll
+// (fetchBoardData, below) refetches every table unfiltered, so excluding SPA here (not just from
+// the initialTables prop) is what keeps a spa table from reappearing on the next poll.
+const ZONES: Zone[] = ["RESTAURANT", "BAR", "POOL", "ROOM_SERVICE"];
 
 // Same grouping/occupancy rules as the admin OrderBoard (a table can have more than one open
 // order, an inactive table with an order still open must stay visible) — that's about data
