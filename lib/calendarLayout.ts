@@ -166,14 +166,34 @@ export type EdgeDragTarget = {
  * segment (and therefore offered a handle at all) once every one of its siblings is confirmed
  * present - otherwise it might be a middle segment that only *looks* like an edge because its
  * neighbor scrolled off, and PATCH .../schedule has no way to target an inner edge anyway.
+ *
+ * `fullSiblingsCache`, when given, is consulted as a fallback once the visible window alone can't
+ * confirm every sibling - see `useBookingSiblingsCache` (BookingCalendarGrid.tsx), which lazily
+ * fetches a booking's own full segment list via `GET /bookings/{id}` the first time a bar can't be
+ * resolved from the window alone, and keeps the result around for the rest of the session. That
+ * fetch can only ever make this function's decision LESS stale, never wrong in a way that permits
+ * a bad write: this is a rendering decision (show/hide a drag handle), and the actual write this
+ * handle leads to (PATCH .../schedule, via BookingWriter#updateSchedule) always re-reads every
+ * segment fresh inside its own SERIALIZABLE transaction regardless of what the client believed
+ * when the drag started. A cache entry that's gone stale between the fetch and the drag (another
+ * relocation landed in between) can at worst offer a handle that then gets a 409 from the server,
+ * or briefly withhold one that's actually now valid until the next refetch - never silently apply
+ * the wrong schedule change.
  */
-export function resolveEdgeDragTarget(booking: CalendarBooking, bookingsInWindow: CalendarBooking[]): EdgeDragTarget {
+export function resolveEdgeDragTarget(
+  booking: CalendarBooking,
+  bookingsInWindow: CalendarBooking[],
+  fullSiblingsCache?: Map<string, CalendarBooking[]>
+): EdgeDragTarget {
   if (booking.segmentCount === 1) {
     return { canDragStart: true, canDragEnd: true, overallCheckIn: booking.checkIn, overallCheckOut: booking.checkOut };
   }
 
-  const siblings = bookingsInWindow.filter((b) => b.bookingId === booking.bookingId);
-  if (siblings.length < booking.segmentCount) {
+  const inWindow = bookingsInWindow.filter((b) => b.bookingId === booking.bookingId);
+  const cached = fullSiblingsCache?.get(booking.bookingId);
+  const siblings =
+    inWindow.length >= booking.segmentCount ? inWindow : cached && cached.length >= booking.segmentCount ? cached : null;
+  if (!siblings) {
     return { canDragStart: false, canDragEnd: false, overallCheckIn: booking.checkIn, overallCheckOut: booking.checkOut };
   }
 

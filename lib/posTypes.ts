@@ -391,6 +391,17 @@ export type SpaAppointmentStatusUpdateInput = {
   cancelReason?: string;
 };
 
+// Body of PATCH /spa-appointments/{id}/schedule - the drag-to-reschedule operation. Full
+// replacement of all four fields, not a partial update (a drag always knows where it's dropping -
+// see the endpoint's own backend description). durationMinutes is never sent - it stays frozen
+// from creation, the appointment moves, it doesn't resize. Only legal while status is BOOKED.
+export type SpaAppointmentScheduleInput = {
+  tableId: string;
+  therapistUserId: string;
+  date: string;
+  startTime: string;
+};
+
 // Response of GET /spa-appointments?date=. openingTime/closingTime/slotMinutes come from the
 // backend's own config, not a frontend constant, so the grid can never render slots the server
 // wouldn't accept. tables is every active SPA-zone Table (the grid's rows); appointments is

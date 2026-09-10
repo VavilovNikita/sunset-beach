@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addDaysUTC, dateOnlyUTC, toDateKey } from "@/lib/bookings";
 import { buildSlotColumns, slotIndexOf, slotSpanOf } from "@/lib/spaGridLayout";
+import { updateSpaAppointmentSchedule } from "@/lib/spaClient";
+import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
 import SpaAppointmentCreateModal from "@/components/admin/SpaAppointmentCreateModal";
 import SpaAppointmentPanel from "@/components/admin/SpaAppointmentPanel";
 import type { MenuItem, SpaAppointment, SpaSchedule, SpaTherapist } from "@/lib/posTypes";
@@ -41,12 +43,112 @@ export default function SpaScheduleGrid({
   date: string;
 }) {
   const router = useRouter();
+  const gridRef = useRef<HTMLDivElement>(null);
   const columns = buildSlotColumns(schedule.openingTime, schedule.closingTime, schedule.slotMinutes);
   const [createTarget, setCreateTarget] = useState<{ tableId: string; tableLabel: string; startTime: string } | null>(null);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  // Same shared gesture the booking calendar uses (lib/useTapOrDoubleClick.ts) - reused here, not
+  // reimplemented, now that a drag competes with a click the same way it does on the calendar.
+  const { note: notePointerType, bind: bindTapOrDoubleClick } = useTapOrDoubleClick();
+
+  // Drag-to-reschedule state - pointer capture is set on the appointment button itself at
+  // pointerdown, so subsequent move/up events for this pointerId are routed there regardless of
+  // what's visually underneath; document.elementFromPoint (in onDragPointerMove) is what actually
+  // finds the hovered slot, the same DOM-attribute hit-testing convention BookingCalendarGrid uses
+  // for its own drags. Only a BOOKED appointment can be picked up - matches the backend's own
+  // lifecycle rule (SpaAppointmentService#updateSchedule).
+  const [dragState, setDragState] = useState<{
+    appointmentId: string;
+    durationMinutes: number;
+    originalTableId: string;
+    originalStartTime: string;
+    tableId: string;
+    startTime: string;
+  } | null>(null);
+  // Applied to rendering immediately on drop, before the request resolves - a loser (409 table/
+  // therapist conflict, or any other failure) simply reverts: pendingMove is cleared and moveError
+  // shows what happened, no confirmation modal either way (unlike the calendar's swap, nothing
+  // here needs to be named/confirmed up front - it's one appointment, one guest, already being
+  // looked at).
+  const [pendingMove, setPendingMove] = useState<{ appointmentId: string; tableId: string; startTime: string } | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
+
+  function setTouchActionNone(active: boolean) {
+    if (gridRef.current) gridRef.current.style.touchAction = active ? "none" : "";
+  }
+
+  function cellUnderPointer(e: React.PointerEvent): { tableId: string; startTime: string } | null {
+    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-spa-cell]");
+    if (!el || el.dataset.tableId === undefined || el.dataset.startTime === undefined) return null;
+    return { tableId: el.dataset.tableId, startTime: el.dataset.startTime };
+  }
+
+  function onAppointmentPointerDown(e: React.PointerEvent<HTMLButtonElement>, a: SpaAppointment) {
+    notePointerType(e);
+    if (a.status !== "BOOKED") return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setTouchActionNone(true);
+    setDragState({
+      appointmentId: a.id,
+      durationMinutes: a.durationMinutes,
+      originalTableId: a.tableId,
+      originalStartTime: a.startTime,
+      tableId: a.tableId,
+      startTime: a.startTime,
+    });
+  }
+
+  function onDragPointerMove(e: React.PointerEvent) {
+    if (!dragState) return;
+    const target = cellUnderPointer(e);
+    if (!target) return;
+    setDragState({ ...dragState, tableId: target.tableId, startTime: target.startTime });
+  }
+
+  async function onDragPointerUp() {
+    if (!dragState) return;
+    setTouchActionNone(false);
+    const finished = dragState;
+    setDragState(null);
+    if (finished.tableId === finished.originalTableId && finished.startTime === finished.originalStartTime) return;
+
+    const appointment = schedule.appointments.find((a) => a.id === finished.appointmentId);
+    if (!appointment) return;
+
+    setMoveError(null);
+    setPendingMove({ appointmentId: finished.appointmentId, tableId: finished.tableId, startTime: finished.startTime });
+    const result = await updateSpaAppointmentSchedule(finished.appointmentId, {
+      tableId: finished.tableId,
+      therapistUserId: appointment.therapistUserId,
+      date: schedule.date,
+      startTime: finished.startTime,
+    });
+    if (!result.ok) {
+      setPendingMove(null); // revert - the optimistic position was never real
+      setMoveError(result.error);
+      return;
+    }
+    setPendingMove(null);
+    router.refresh();
+  }
+
+  function onDragPointerCancel() {
+    setTouchActionNone(false);
+    setDragState(null);
+  }
+
+  // The moving appointment's own row/column follows dragState while a drag is live, then
+  // pendingMove once dropped (optimistic, until the request resolves) - a plain array map, not a
+  // second appointments list, so every other read (occupiedCols, the bar itself) stays in sync
+  // with exactly one appointment's position at a time.
+  const effectiveAppointments = schedule.appointments.map((a) => {
+    if (dragState && dragState.appointmentId === a.id) return { ...a, tableId: dragState.tableId, startTime: dragState.startTime };
+    if (pendingMove && pendingMove.appointmentId === a.id) return { ...a, tableId: pendingMove.tableId, startTime: pendingMove.startTime };
+    return a;
+  });
 
   const appointmentsByTable = new Map<string, SpaAppointment[]>();
-  for (const a of schedule.appointments) {
+  for (const a of effectiveAppointments) {
     const list = appointmentsByTable.get(a.tableId) ?? [];
     list.push(a);
     appointmentsByTable.set(a.tableId, list);
@@ -79,12 +181,21 @@ export default function SpaScheduleGrid({
         </button>
       </div>
 
+      {moveError && (
+        <div className="flex items-center justify-between gap-3 bg-coral/10 border border-coral/30 rounded-lg px-3 py-2 mb-3">
+          <p className="text-sm text-coral">{moveError}</p>
+          <button type="button" onClick={() => setMoveError(null)} className="text-coral/70 hover:text-coral text-sm shrink-0">
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {schedule.tables.length === 0 ? (
         <p className="text-sm text-cream/40 bg-ink2/40 border border-cream/10 rounded-xl px-4 py-3">
           No active tables in the SPA zone yet.
         </p>
       ) : (
-        <div className="overflow-auto border border-cream/10 rounded-xl">
+        <div ref={gridRef} className="overflow-auto border border-cream/10 rounded-xl">
           <div style={{ width: LABEL_WIDTH + columns.length * COL_WIDTH }}>
             <div className="flex sticky top-0 z-20 bg-ink2 border-b border-cream/10">
               <div className="sticky left-0 z-30 bg-ink2 shrink-0" style={{ width: LABEL_WIDTH }} />
@@ -123,6 +234,9 @@ export default function SpaScheduleGrid({
                       <button
                         key={c}
                         type="button"
+                        data-spa-cell
+                        data-table-id={table.id}
+                        data-start-time={c}
                         disabled={occupiedCols.has(i)}
                         onClick={() => setCreateTarget({ tableId: table.id, tableLabel: table.label, startTime: c })}
                         className={`absolute top-0 bottom-0 border-r border-cream/5 ${
@@ -136,12 +250,21 @@ export default function SpaScheduleGrid({
                     {appts.map((a) => {
                       const start = slotIndexOf(a.startTime, schedule.openingTime, schedule.slotMinutes);
                       const span = slotSpanOf(a.durationMinutes, schedule.slotMinutes);
+                      const dragging = dragState?.appointmentId === a.id;
+                      const tapHandlers = bindTapOrDoubleClick(() => setSelectedAppointmentId(a.id));
                       return (
                         <button
                           key={a.id}
                           type="button"
-                          onClick={() => setSelectedAppointmentId(a.id)}
-                          className={`absolute rounded-md flex items-center gap-1 px-2 text-xs truncate pointer-events-auto ${STATUS_STYLES[a.status]}`}
+                          onPointerDown={(e) => onAppointmentPointerDown(e, a)}
+                          onPointerMove={onDragPointerMove}
+                          onPointerUp={onDragPointerUp}
+                          onPointerCancel={onDragPointerCancel}
+                          onClick={tapHandlers.onClick}
+                          onDoubleClick={tapHandlers.onDoubleClick}
+                          className={`absolute rounded-md flex items-center gap-1 px-2 text-xs truncate pointer-events-auto ${STATUS_STYLES[a.status]} ${
+                            dragging ? "opacity-50 ring-2 ring-dashed ring-cream" : ""
+                          } ${a.status === "BOOKED" ? "cursor-grab active:cursor-grabbing" : ""}`}
                           style={{ left: start * COL_WIDTH + 2, width: span * COL_WIDTH - 4, top: 3, height: ROW_HEIGHT - 6 }}
                           title={`${a.guestName} · ${a.treatmentName} · ${a.status}`}
                         >

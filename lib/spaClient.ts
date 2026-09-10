@@ -4,12 +4,25 @@
 // PATCH /spa-appointments/{id}/status. Same ok/error result shape as every other admin write
 // client (see lib/adminFetch.ts).
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
-import type { SpaAppointment, SpaAppointmentCreateInput, SpaAppointmentResult, SpaAppointmentStatusUpdateInput, SpaSchedule, SpaTherapist } from "@/lib/posTypes";
+import type {
+  SpaAppointment,
+  SpaAppointmentCreateInput,
+  SpaAppointmentResult,
+  SpaAppointmentScheduleInput,
+  SpaAppointmentStatusUpdateInput,
+  SpaSchedule,
+  SpaTherapist,
+} from "@/lib/posTypes";
 
 export type SpaScheduleResult = { ok: true; schedule: SpaSchedule } | { ok: false; error: string };
 export type SpaTherapistsResult = { ok: true; therapists: SpaTherapist[] } | { ok: false; error: string };
 export type CreateSpaAppointmentResult = { ok: true; result: SpaAppointmentResult } | { ok: false; error: string };
 export type UpdateSpaAppointmentStatusResult = { ok: true; appointment: SpaAppointment } | { ok: false; error: string };
+// status carried alongside the error so a caller can tell a 409 (room/therapist conflict - the
+// drag's own loser case) apart from any other failure without re-parsing the message text.
+export type UpdateSpaAppointmentScheduleResult =
+  | { ok: true; appointment: SpaAppointment }
+  | { ok: false; error: string; status: number };
 
 export async function getSpaSchedule(date: string): Promise<SpaScheduleResult> {
   const result = await adminRequest<SpaSchedule>(`/spa-appointments?date=${date}`, undefined, "Could not load the spa schedule.");
@@ -32,5 +45,14 @@ export async function createSpaAppointment(input: SpaAppointmentCreateInput): Pr
 export async function updateSpaAppointmentStatus(id: string, input: SpaAppointmentStatusUpdateInput): Promise<UpdateSpaAppointmentStatusResult> {
   const result = await adminRequest<SpaAppointment>(`/spa-appointments/${id}/status`, adminJsonInit("PATCH", input), "Could not update this appointment.");
   if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, appointment: result.data };
+}
+
+export async function updateSpaAppointmentSchedule(
+  id: string,
+  input: SpaAppointmentScheduleInput
+): Promise<UpdateSpaAppointmentScheduleResult> {
+  const result = await adminRequest<SpaAppointment>(`/spa-appointments/${id}/schedule`, adminJsonInit("PATCH", input), "Could not move this appointment.");
+  if (!result.ok) return { ok: false, error: result.error, status: result.status };
   return { ok: true, appointment: result.data };
 }

@@ -14,6 +14,9 @@ import {
   LABEL_MIN_WIDTH_PX,
 } from "@/lib/calendarLayout";
 import { quoteBookingSchedule, applyBookingSchedule } from "@/lib/bookingScheduleClient";
+import { assignBookingSegmentRoomUnit, swapBookingSegmentRoomUnit } from "@/lib/bookingSegmentClient";
+import { useBookingSiblingsCache } from "@/lib/useBookingSiblingsCache";
+import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
 import { DEFAULT_DAY_WIDTH_PX, MIN_DAY_WIDTH_PX, MAX_DAY_WIDTH_PX, loadStoredDensity, saveStoredDensity } from "@/lib/calendarRange";
 import BookingCreateFromGridModal from "@/components/admin/BookingCreateFromGridModal";
 import BookingCardPanel from "@/components/admin/BookingCardPanel";
@@ -153,6 +156,14 @@ export default function BookingCalendarGrid({
     | {
         kind: "move";
         bookingId: string;
+        // The specific segment being dragged - never just bookingId, which a relocated booking
+        // shares across every one of its segments (see effectiveBooking/bookingsForRow's own
+        // comments for why matching on bookingId alone would move every sibling bar at once).
+        segmentId: string;
+        segmentCount: number;
+        // This segment's own room *type* id - the same-type-only check for both the room-only
+        // move below and a swap-onto-another-bar compares against this.
+        roomId: string;
         originalRoomUnitId: string;
         originalCheckIn: Date;
         originalCheckOut: Date;
@@ -160,16 +171,38 @@ export default function BookingCalendarGrid({
         roomUnitId: string;
         checkIn: Date;
         checkOut: Date;
+        // Set while hovering directly over a different, swap-eligible bar (both sides must
+        // already have a physical room assigned - see swapSegmentRoomUnits's own backend rule).
+        swapTarget: { bookingId: string; segmentId: string; roomId: string; roomUnitId: string; guestName: string } | null;
+        // True when the current drop target (the hovered bar for a swap, or the hovered cell's
+        // own room type for a segmentCount > 1 room-only move) is a different room type than this
+        // bar's own - refused client-side before any request is sent, never just quoted and left
+        // to fail server-side, matching swapSegmentRoomUnits' own "checked before any availability
+        // work" rule. Left false (and never consulted) for the ordinary segmentCount === 1 move
+        // onto a plain cell - that path keeps its existing quote-then-confirm tolerance for a
+        // cross-type drop, unchanged from before this round.
+        dropInvalid: boolean;
       };
 
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [createModal, setCreateModal] = useState<{ roomId: string; roomTypeName: string; roomUnitId: string; roomUnitLabel: string; checkIn: string; checkOut: string } | null>(null);
-  // Set on every bar pointerdown, read by the bar's click/double-click handlers below - a native
-  // "click" event carries no pointerType of its own, so this is the only way those handlers can
-  // tell a mouse click from a touch tap. Touch opens the card panel on a single tap (double-tap
-  // is unreliable on a touch device and triggers page zoom); mouse requires a double-click, so a
-  // single click can still start a drag (resize/move) without also opening the panel.
-  const lastPointerTypeRef = useRef<string>("mouse");
+  // Shared "tap or double-click opens the panel" gesture (lib/useTapOrDoubleClick.ts) - the exact
+  // interaction the spa grid now reuses rather than a second hand-rolled version.
+  const { note: notePointerType, bind: bindTapOrDoubleClick } = useTapOrDoubleClick();
+  // Lazily backfills a relocated booking's full segment list once this grid's own visible window
+  // can't confirm every sibling on its own - see resolveEdgeDragTarget's and this hook's own
+  // comments for why a stale/missing entry is safe here (rendering-only, never a wrong write).
+  const siblingsCache = useBookingSiblingsCache();
+  useEffect(() => {
+    const countsByBookingId = new Map<string, number>();
+    for (const b of data.bookings) countsByBookingId.set(b.bookingId, (countsByBookingId.get(b.bookingId) ?? 0) + 1);
+    for (const b of data.bookings) {
+      if (b.segmentCount > 1 && (countsByBookingId.get(b.bookingId) ?? 0) < b.segmentCount) {
+        siblingsCache.ensure(b.bookingId);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.bookings]);
   const [scheduleConfirm, setScheduleConfirm] = useState<{
     bookingId: string;
     guestName: string;
@@ -180,6 +213,21 @@ export default function BookingCalendarGrid({
     quote?: BookingScheduleQuote;
     error?: string;
   } | null>(null);
+  // Swap needs a real confirmation naming both guests, not a warning after the fact - the gesture
+  // moves two guests at once and only one was being looked at when the drag started.
+  const [swapConfirm, setSwapConfirm] = useState<{
+    draggedBookingId: string;
+    draggedSegmentId: string;
+    draggedGuestName: string;
+    draggedRoomUnitId: string;
+    targetBookingId: string;
+    targetSegmentId: string;
+    targetGuestName: string;
+    targetRoomUnitId: string;
+    status: "confirm" | "loading" | "error";
+    error?: string;
+  } | null>(null);
+  const [segmentMoveError, setSegmentMoveError] = useState<string | null>(null);
 
   function setTouchActionNone(active: boolean) {
     if (gridRef.current) gridRef.current.style.touchAction = active ? "none" : "";
@@ -200,10 +248,24 @@ export default function BookingCalendarGrid({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [dragState]);
 
-  function cellUnderPointer(e: React.PointerEvent): { roomUnitId: string; date: Date } | null {
+  function cellUnderPointer(e: React.PointerEvent): { roomUnitId: string; roomId: string; date: Date } | null {
     const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-cell]");
-    if (!el || el.dataset.date === undefined || el.dataset.roomUnitId === undefined) return null;
-    return { roomUnitId: el.dataset.roomUnitId, date: dateOnlyUTC(el.dataset.date) };
+    if (!el || el.dataset.date === undefined || el.dataset.roomUnitId === undefined || el.dataset.roomId === undefined) return null;
+    return { roomUnitId: el.dataset.roomUnitId, roomId: el.dataset.roomId, date: dateOnlyUTC(el.dataset.date) };
+  }
+
+  // Hit-tests for another booking's own bar under the pointer - the swap gesture's own drop
+  // target, found the same DOM-attribute way cellUnderPointer finds a cell (see that function's
+  // own comment on why: it survives any future layout change, unlike coordinate math). Excludes
+  // the bar currently being dragged and any bar with no room unit assigned yet - swapping with
+  // nothing isn't a swap (see swapSegmentRoomUnits's own backend rule).
+  function barUnderPointer(e: React.PointerEvent, excludeSegmentId: string) {
+    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-bar-segment-id]");
+    if (!el) return null;
+    const { barBookingId, barSegmentId, barRoomId, barRoomUnitId, barGuestName } = el.dataset;
+    if (!barBookingId || !barSegmentId || !barRoomId || barRoomUnitId === undefined || !barGuestName) return null;
+    if (barSegmentId === excludeSegmentId || barRoomUnitId === "") return null;
+    return { bookingId: barBookingId, segmentId: barSegmentId, roomId: barRoomId, roomUnitId: barRoomUnitId, guestName: barGuestName };
   }
 
   function clampSelectionEnd(roomUnitId: string, start: Date, hovered: Date) {
@@ -258,24 +320,27 @@ export default function BookingCalendarGrid({
     });
   }
 
-  // Whole-bar move is only offered when the density permits mouse-precise editing AND the
-  // booking has never been relocated (segmentCount === 1) - PATCH .../schedule (which this drag
-  // applies through) has no single well-defined target once a stay spans more than one room and
-  // both the date *and* the room might be changing at once. A relocated booking's bars can still
-  // offer edge-drag on their own outer edge (see edgeDragTargetFor/resolveEdgeDragTarget) and are
-  // always clickable (onClick/onDoubleClick, below - browsers suppress the click event after a
-  // real pointer drag on their own, so the two don't conflict) to open the card panel, where
-  // relocate/undo-relocation are the tools built to reason about more than one segment.
+  // Whole-bar move is offered whenever the density permits mouse-precise editing. A
+  // never-relocated booking (segmentCount === 1) drags freely through PATCH .../schedule - both
+  // date and room can change at once. A relocated booking's own segment bars (segmentCount > 1)
+  // can also be picked up now, but only for a room-only move (dates pinned to that segment's own
+  // bounds throughout the drag) via the segment-scoped PUT .../room-unit, or for the swap gesture
+  // below when dropped directly onto another bar - see the "move" DragState variant's own
+  // comments. Edge-drag on a relocated booking's own outer edge is unaffected (see
+  // edgeDragTargetFor/resolveEdgeDragTarget); every bar stays clickable (onClick/onDoubleClick,
+  // below - browsers suppress the click event after a real pointer drag on their own, so the two
+  // never conflict) to open the card panel, where relocate/undo-relocation remain the tools for
+  // anything that also changes dates on a multi-segment booking.
   function canMoveWholeBar(booking: CalendarBooking) {
-    return allowDrag && booking.segmentCount === 1;
+    return allowDrag;
   }
 
   function edgeDragTargetFor(booking: CalendarBooking) {
-    return resolveEdgeDragTarget(booking, data.bookings);
+    return resolveEdgeDragTarget(booking, data.bookings, siblingsCache.cache);
   }
 
   function onBarPointerDown(e: React.PointerEvent<HTMLDivElement>, booking: CalendarBooking) {
-    lastPointerTypeRef.current = e.pointerType;
+    notePointerType(e);
     if (!canMoveWholeBar(booking)) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     setTouchActionNone(true);
@@ -286,6 +351,9 @@ export default function BookingCalendarGrid({
     setDragState({
       kind: "move",
       bookingId: booking.bookingId,
+      segmentId: booking.segmentId,
+      segmentCount: booking.segmentCount,
+      roomId: booking.roomId,
       originalRoomUnitId: booking.roomUnitId ?? "",
       originalCheckIn: checkIn,
       originalCheckOut: checkOut,
@@ -293,6 +361,8 @@ export default function BookingCalendarGrid({
       roomUnitId: booking.roomUnitId ?? "",
       checkIn,
       checkOut,
+      swapTarget: null,
+      dropInvalid: false,
     });
   }
 
@@ -321,13 +391,46 @@ export default function BookingCalendarGrid({
 
   function onDragPointerMove(e: React.PointerEvent<HTMLDivElement>) {
     if (!dragState) return;
+
+    if (dragState.kind === "move") {
+      // Bar-hover (a swap candidate) is checked first - it takes priority over whatever cell
+      // happens to sit underneath the hovered bar.
+      const hoveredBar = barUnderPointer(e, dragState.segmentId);
+      const swapTarget = hoveredBar && hoveredBar.bookingId !== dragState.bookingId && dragState.originalRoomUnitId !== "" ? hoveredBar : null;
+      if (swapTarget) {
+        setDragState({
+          ...dragState,
+          swapTarget,
+          roomUnitId: swapTarget.roomUnitId,
+          dropInvalid: swapTarget.roomId !== dragState.roomId,
+        });
+        return;
+      }
+
+      const target = cellUnderPointer(e);
+      if (!target) return;
+
+      if (dragState.segmentCount > 1) {
+        // Room-only move: this segment's own dates never change during the drag, only which
+        // unit it's hovering over - see the "move" DragState variant's own comment.
+        setDragState({ ...dragState, swapTarget: null, roomUnitId: target.roomUnitId, dropInvalid: target.roomId !== dragState.roomId });
+        return;
+      }
+
+      const nights = Math.round((dragState.originalCheckOut.getTime() - dragState.originalCheckIn.getTime()) / 86_400_000);
+      const checkIn = addDaysUTC(target.date, -dragState.grabDayOffset);
+      const checkOut = addDaysUTC(checkIn, nights);
+      setDragState({ ...dragState, swapTarget: null, dropInvalid: false, roomUnitId: target.roomUnitId, checkIn, checkOut });
+      return;
+    }
+
     const target = cellUnderPointer(e);
     if (!target) return;
 
     if (dragState.kind === "select") {
       if (target.roomUnitId !== dragState.roomUnitId) return; // stays within the row it started on
       setDragState({ ...dragState, currentDate: clampSelectionEnd(dragState.roomUnitId, dragState.startDate, target.date) });
-    } else if (dragState.kind === "resize") {
+    } else {
       if (dragState.edge === "start") {
         const maxCheckIn = addDaysUTC(dragState.checkOut, -1);
         const checkIn = target.date.getTime() <= maxCheckIn.getTime() ? target.date : maxCheckIn;
@@ -338,11 +441,6 @@ export default function BookingCalendarGrid({
         const checkOut = candidate.getTime() >= minCheckOut.getTime() ? candidate : minCheckOut;
         setDragState({ ...dragState, checkOut });
       }
-    } else {
-      const nights = Math.round((dragState.originalCheckOut.getTime() - dragState.originalCheckIn.getTime()) / 86_400_000);
-      const checkIn = addDaysUTC(target.date, -dragState.grabDayOffset);
-      const checkOut = addDaysUTC(checkIn, nights);
-      setDragState({ ...dragState, roomUnitId: target.roomUnitId, checkIn, checkOut });
     }
   }
 
@@ -369,27 +467,95 @@ export default function BookingCalendarGrid({
       return;
     }
 
+    if (finished.kind === "move") {
+      const booking = data.bookings.find((b) => b.segmentId === finished.segmentId);
+      if (!booking) return;
+
+      if (finished.swapTarget) {
+        if (finished.dropInvalid) return; // cross-type - refused before any request, no modal
+        openSwapConfirm(booking, finished.swapTarget);
+        return;
+      }
+
+      if (finished.segmentCount > 1) {
+        if (finished.dropInvalid) return; // cross-type - refused before any request
+        if (finished.roomUnitId === finished.originalRoomUnitId) return; // dropped back where it started
+        applySegmentRoomUnit(booking, finished.roomUnitId || null);
+        return;
+      }
+
+      const unchanged =
+        toDateKey(finished.checkIn) === toDateKey(finished.originalCheckIn) &&
+        toDateKey(finished.checkOut) === toDateKey(finished.originalCheckOut) &&
+        finished.roomUnitId === finished.originalRoomUnitId;
+      if (unchanged) return;
+      openScheduleConfirm(booking, toDateKey(finished.checkIn), toDateKey(finished.checkOut), finished.roomUnitId || null);
+      return;
+    }
+
+    // resize
     const booking = data.bookings.find((b) => b.bookingId === finished.bookingId);
     if (!booking) return;
 
     const unchanged =
-      toDateKey(finished.checkIn) === toDateKey(finished.originalCheckIn) &&
-      toDateKey(finished.checkOut) === toDateKey(finished.originalCheckOut) &&
-      (finished.kind !== "move" || finished.roomUnitId === finished.originalRoomUnitId);
+      toDateKey(finished.checkIn) === toDateKey(finished.originalCheckIn) && toDateKey(finished.checkOut) === toDateKey(finished.originalCheckOut);
     if (unchanged) return;
 
     // A resize on a relocated booking only ever moves one outer edge of this bar's own segment;
     // the other side of the PATCH body must still be the booking's real overall bound (see
     // resolveEdgeDragTarget's own comment), not this segment's own local checkIn/checkOut, which
     // is only the same value when segmentCount === 1.
-    const submitCheckIn = finished.kind === "resize" && finished.edge === "end" ? finished.overallCheckIn : finished.checkIn;
-    const submitCheckOut = finished.kind === "resize" && finished.edge === "start" ? finished.overallCheckOut : finished.checkOut;
+    const submitCheckIn = finished.edge === "end" ? finished.overallCheckIn : finished.checkIn;
+    const submitCheckOut = finished.edge === "start" ? finished.overallCheckOut : finished.checkOut;
     openScheduleConfirm(booking, toDateKey(submitCheckIn), toDateKey(submitCheckOut), finished.roomUnitId || null);
   }
 
   function onDragPointerCancel() {
     setTouchActionNone(false);
     setDragState(null);
+  }
+
+  // Room-only move for a segment of a relocated booking (segmentCount > 1) - no price change
+  // (same room type), no date change, so this applies directly the same way the plain PUT
+  // .../room-unit assignment already does elsewhere, rather than routing through the quote/
+  // confirm modal built for a change that can also move dates and money.
+  async function applySegmentRoomUnit(booking: CalendarBooking, roomUnitId: string | null) {
+    setSegmentMoveError(null);
+    const result = await assignBookingSegmentRoomUnit(booking.bookingId, booking.segmentId, roomUnitId);
+    if (!result.ok) {
+      setSegmentMoveError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  function openSwapConfirm(
+    booking: CalendarBooking,
+    target: { bookingId: string; segmentId: string; roomId: string; roomUnitId: string; guestName: string }
+  ) {
+    setSwapConfirm({
+      draggedBookingId: booking.bookingId,
+      draggedSegmentId: booking.segmentId,
+      draggedGuestName: booking.guestName,
+      draggedRoomUnitId: booking.roomUnitId ?? "",
+      targetBookingId: target.bookingId,
+      targetSegmentId: target.segmentId,
+      targetGuestName: target.guestName,
+      targetRoomUnitId: target.roomUnitId,
+      status: "confirm",
+    });
+  }
+
+  async function confirmSwap() {
+    if (!swapConfirm) return;
+    setSwapConfirm({ ...swapConfirm, status: "loading" });
+    const result = await swapBookingSegmentRoomUnit(swapConfirm.draggedBookingId, swapConfirm.draggedSegmentId, swapConfirm.targetSegmentId);
+    if (!result.ok) {
+      setSwapConfirm((prev) => (prev ? { ...prev, status: "error", error: result.error } : prev));
+      return;
+    }
+    setSwapConfirm(null);
+    router.refresh();
   }
 
   async function confirmScheduleChange() {
@@ -411,15 +577,37 @@ export default function BookingCalendarGrid({
   // --- Rendering --------------------------------------------------------------------------
 
   function effectiveBooking(booking: CalendarBooking) {
-    if (dragState && dragState.kind !== "select" && dragState.bookingId === booking.bookingId) {
+    // Matched by segmentId, not bookingId - a relocated booking shares bookingId across every
+    // one of its segments, and only the one bar actually being dragged should render moved (see
+    // the "move" DragState variant's own comment).
+    if (dragState && dragState.kind === "move" && dragState.segmentId === booking.segmentId) {
       return {
         checkIn: toDateKey(dragState.checkIn),
         checkOut: toDateKey(dragState.checkOut),
-        roomUnitId: (dragState.kind === "move" ? dragState.roomUnitId : booking.roomUnitId ?? "") || null,
+        roomUnitId: dragState.roomUnitId || null,
         dragging: true,
+        dropInvalid: dragState.dropInvalid,
+        isSwapTarget: false,
       };
     }
-    return { checkIn: booking.checkIn, checkOut: booking.checkOut, roomUnitId: booking.roomUnitId, dragging: false };
+    if (dragState && dragState.kind === "resize" && dragState.bookingId === booking.bookingId) {
+      return {
+        checkIn: toDateKey(dragState.checkIn),
+        checkOut: toDateKey(dragState.checkOut),
+        roomUnitId: booking.roomUnitId,
+        dragging: true,
+        dropInvalid: false,
+        isSwapTarget: false,
+      };
+    }
+    return {
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      roomUnitId: booking.roomUnitId,
+      dragging: false,
+      dropInvalid: false,
+      isSwapTarget: dragState?.kind === "move" && dragState.swapTarget?.segmentId === booking.segmentId,
+    };
   }
 
   function renderDayHeader() {
@@ -532,6 +720,7 @@ export default function BookingCalendarGrid({
                 key={key}
                 data-cell
                 data-room-unit-id={roomUnitId}
+                data-room-id={roomId}
                 data-date={key}
                 title={title}
                 onPointerDown={(e) => onCellPointerDown(e, roomId, roomUnitId, d)}
@@ -578,13 +767,8 @@ export default function BookingCalendarGrid({
               const edgeTarget = allowDrag ? edgeDragTargetFor(booking) : null;
               // Touch opens on a single tap; mouse needs a double-click so a single click can
               // still start a drag (whole-bar move or edge-resize) without also opening the
-              // panel - see lastPointerTypeRef's own comment.
-              function openPanelIfTouch() {
-                if (lastPointerTypeRef.current === "touch") setSelectedBookingId(booking.bookingId);
-              }
-              function openPanelIfMouse() {
-                if (lastPointerTypeRef.current !== "touch") setSelectedBookingId(booking.bookingId);
-              }
+              // panel - see lib/useTapOrDoubleClick.ts's own comment.
+              const tapHandlers = bindTapOrDoubleClick(() => setSelectedBookingId(booking.bookingId));
               return (
                 <div
                   key={booking.segmentId}
@@ -598,16 +782,23 @@ export default function BookingCalendarGrid({
                   }}
                 >
                   <div
+                    // data-bar-* is the swap gesture's own drop-target lookup (barUnderPointer,
+                    // above) - same DOM-attribute hit-testing convention as data-cell.
+                    data-bar-booking-id={booking.bookingId}
+                    data-bar-segment-id={booking.segmentId}
+                    data-bar-room-id={booking.roomId}
+                    data-bar-room-unit-id={booking.roomUnitId ?? ""}
+                    data-bar-guest-name={booking.guestName}
                     className={`absolute inset-0 rounded-md flex items-center overflow-hidden ${STATUS_BAR_STYLES[booking.status] ?? "bg-cream/20 text-cream"} ${
-                      dragging ? "opacity-50 ring-2 ring-dashed ring-cream" : ""
-                    } ${booking.segmentCount > 1 ? "ring-1 ring-inset ring-cream/40" : ""}`}
+                      dragging ? (eff.dropInvalid ? "opacity-50 ring-2 ring-coral" : "opacity-50 ring-2 ring-dashed ring-cream") : ""
+                    } ${eff.isSwapTarget ? "ring-2 ring-sea" : ""} ${booking.segmentCount > 1 ? "ring-1 ring-inset ring-cream/40" : ""}`}
                     style={{ cursor: dragging ? "grabbing" : canMoveWholeBar(booking) ? "grab" : "pointer" }}
                     onPointerDown={(e) => onBarPointerDown(e, booking)}
                     onPointerMove={onDragPointerMove}
                     onPointerUp={onDragPointerUp}
                     onPointerCancel={onDragPointerCancel}
-                    onClick={openPanelIfTouch}
-                    onDoubleClick={openPanelIfMouse}
+                    onClick={tapHandlers.onClick}
+                    onDoubleClick={tapHandlers.onDoubleClick}
                     title={`${booking.guestName} · ${booking.status}${booking.segmentCount > 1 ? " · relocated" : ""}`}
                   >
                     {showLabel && <span className="truncate px-2 text-xs pointer-events-none">{booking.guestName}</span>}
@@ -649,7 +840,9 @@ export default function BookingCalendarGrid({
   // Bookings currently being moved render only in their drag-target row, not their original one.
   function bookingsForRow(roomId: string, roomUnitId: string) {
     return (bookingsByRoomId.get(roomId) ?? []).filter((b) => {
-      if (dragState && dragState.kind === "move" && dragState.bookingId === b.bookingId) {
+      // segmentId, not bookingId - a relocated booking's other segments must stay put in their
+      // own rows while only this one bar follows the drag (see effectiveBooking's own comment).
+      if (dragState && dragState.kind === "move" && dragState.segmentId === b.segmentId) {
         return dragState.roomUnitId === roomUnitId;
       }
       return (b.roomUnitId ?? "") === roomUnitId;
@@ -685,6 +878,14 @@ export default function BookingCalendarGrid({
           booking panel, or click an empty cell to open the new-booking form (fix the dates there if the click landed
           on the wrong day). Increase density to drag directly instead.
         </p>
+      )}
+      {segmentMoveError && (
+        <div className="flex items-center justify-between gap-3 bg-coral/10 border border-coral/30 rounded-lg px-3 py-2 mb-2">
+          <p className="text-sm text-coral">{segmentMoveError}</p>
+          <button type="button" onClick={() => setSegmentMoveError(null)} className="text-coral/70 hover:text-coral text-sm shrink-0">
+            Dismiss
+          </button>
+        </div>
       )}
       {/*
         No virtualization: measured (2026-08-30) against the dev DB's actual scale - 15 active
@@ -788,6 +989,51 @@ export default function BookingCalendarGrid({
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {swapConfirm && (
+        <div className="fixed inset-0 z-50 bg-ink/80 flex items-center justify-center p-4" onClick={() => setSwapConfirm(null)}>
+          <div className="bg-ink2 border border-cream/15 rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <p className="eyebrow text-sea mb-1">Confirm room swap</p>
+            <p className="text-sm text-cream/60 mb-4">This moves two guests at once - check both before confirming.</p>
+            <div className="space-y-2 mb-4 text-sm">
+              <p className="text-cream">
+                {swapConfirm.draggedGuestName}
+                <span className="text-cream/40"> · </span>
+                {roomUnitLabelById.get(swapConfirm.draggedRoomUnitId) ?? swapConfirm.draggedRoomUnitId}
+                <span className="text-cream/40"> → </span>
+                {roomUnitLabelById.get(swapConfirm.targetRoomUnitId) ?? swapConfirm.targetRoomUnitId}
+              </p>
+              <p className="text-cream">
+                {swapConfirm.targetGuestName}
+                <span className="text-cream/40"> · </span>
+                {roomUnitLabelById.get(swapConfirm.targetRoomUnitId) ?? swapConfirm.targetRoomUnitId}
+                <span className="text-cream/40"> → </span>
+                {roomUnitLabelById.get(swapConfirm.draggedRoomUnitId) ?? swapConfirm.draggedRoomUnitId}
+              </p>
+            </div>
+
+            {swapConfirm.status === "error" && <p className="text-sm text-coral mb-3">{swapConfirm.error}</p>}
+
+            <div className="flex gap-3 flex-wrap">
+              <button
+                type="button"
+                disabled={swapConfirm.status === "loading"}
+                onClick={confirmSwap}
+                className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium disabled:opacity-60"
+              >
+                {swapConfirm.status === "loading" ? "Swapping…" : "Confirm swap"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSwapConfirm(null)}
+                className="text-sm text-cream/60 hover:text-cream transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

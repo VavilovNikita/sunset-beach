@@ -247,6 +247,29 @@ describe("resolveEdgeDragTarget", () => {
     expect(target.canDragStart).toBe(false);
     expect(target.canDragEnd).toBe(false);
   });
+
+  it("falls back to a full-siblings cache when the window alone doesn't have every segment", () => {
+    const first = booking({ segmentId: "seg-1", bookingId: "b1", segmentCount: 2, checkIn: "2026-06-01", checkOut: "2026-06-05" });
+    const last = booking({ segmentId: "seg-2", bookingId: "b1", segmentCount: 2, checkIn: "2026-06-05", checkOut: "2026-06-10" });
+    const cache = new Map([["b1", [first, last]]]);
+    const target = resolveEdgeDragTarget(first, [first], cache);
+    expect(target).toEqual({ canDragStart: true, canDragEnd: false, overallCheckIn: "2026-06-01", overallCheckOut: "2026-06-10" });
+  });
+
+  it("still offers no handle when the cache is given but also incomplete", () => {
+    const onlyVisible = booking({ segmentId: "seg-1", bookingId: "b1", segmentCount: 3, checkIn: "2026-06-01", checkOut: "2026-06-05" });
+    const partialCache = new Map([["b1", [onlyVisible]]]);
+    const target = resolveEdgeDragTarget(onlyVisible, [onlyVisible], partialCache);
+    expect(target.canDragStart).toBe(false);
+    expect(target.canDragEnd).toBe(false);
+  });
+
+  it("prefers a complete window over the cache without needing one", () => {
+    const first = booking({ segmentId: "seg-1", bookingId: "b1", segmentCount: 2, checkIn: "2026-06-01", checkOut: "2026-06-05" });
+    const last = booking({ segmentId: "seg-2", bookingId: "b1", segmentCount: 2, checkIn: "2026-06-05", checkOut: "2026-06-10" });
+    const target = resolveEdgeDragTarget(first, [first, last], new Map());
+    expect(target).toEqual({ canDragStart: true, canDragEnd: false, overallCheckIn: "2026-06-01", overallCheckOut: "2026-06-10" });
+  });
 });
 
 describe("groupBookingsByUnit", () => {
