@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL } from "@/lib/backend";
-import { extractApiError } from "@/lib/apiError";
+import { createRoomUnit, updateRoomUnit } from "@/lib/roomUnitClient";
 import DeleteButton from "@/components/admin/DeleteButton";
 import type { RoomUnit, RoomUnitInput } from "@/lib/types";
 
@@ -76,22 +76,15 @@ export default function RoomUnitManager({
     setSubmitting(true);
     setError(null);
 
-    const res = await fetch(`${ADMIN_API_URL}/room-units`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newValues),
-    });
+    const result = await createRoomUnit(newValues);
 
     setSubmitting(false);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(extractApiError(data, "Could not create room."));
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
-    const created: RoomUnit = await res.json();
-    setUnits((prev) => [...prev, created]);
+    setUnits((prev) => [...prev, result.unit]);
     setNewValues(emptyForm(roomId));
     setCreating(false);
     router.refresh();
@@ -102,22 +95,15 @@ export default function RoomUnitManager({
     setSubmitting(true);
     setError(null);
 
-    const res = await fetch(`${ADMIN_API_URL}/room-units/${id}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editValues),
-    });
+    const result = await updateRoomUnit(id, editValues);
 
     setSubmitting(false);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(extractApiError(data, "Could not save room."));
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
-    const updated: RoomUnit = await res.json();
-    setUnits((prev) => prev.map((u) => (u.id === id ? updated : u)));
+    setUnits((prev) => prev.map((u) => (u.id === id ? result.unit : u)));
     setEditingId(null);
     router.refresh();
   }

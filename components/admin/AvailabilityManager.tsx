@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import PriceCalendar, { type CalendarCell } from "@/components/admin/PriceCalendar";
-import { ADMIN_API_URL } from "@/lib/backend";
+import { fetchAvailability } from "@/lib/availabilityClient";
 import { createRoomUnitBlock, deleteRoomUnitBlock, listRoomUnitBlocks } from "@/lib/roomUnitBlockClient";
 import type { AvailabilityDay, AvailabilityUnitDay, RoomUnitBlock, RoomUnitBlockResult } from "@/lib/types";
 
@@ -466,16 +466,19 @@ export default function AvailabilityManager({ rooms, canManage }: { rooms: Room[
   });
   const [days, setDays] = useState<AvailabilityDay[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
 
-  function refetch() {
-    if (!roomId) return Promise.resolve();
-    return fetch(`${ADMIN_API_URL}/availability/${roomId}?month=${monthParam(monthDate)}`, {
-      credentials: "include",
-    })
-      .then((res) => res.json())
-      .then((data) => setDays(data.days ?? []));
+  async function refetch() {
+    if (!roomId) return;
+    const result = await fetchAvailability(roomId, monthParam(monthDate));
+    if (!result.ok) {
+      setFetchError(result.error);
+      return;
+    }
+    setFetchError(null);
+    setDays(result.days);
   }
 
   useEffect(() => {
@@ -508,6 +511,8 @@ export default function AvailabilityManager({ rooms, canManage }: { rooms: Room[
           ))}
         </select>
       </div>
+
+      {fetchError && <p className="text-sm text-coral mb-4">{fetchError}</p>}
 
       {selectedUnitId ? (
         <UnitDetail

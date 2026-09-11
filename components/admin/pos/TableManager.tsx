@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL } from "@/lib/backend";
-import { extractApiError } from "@/lib/apiError";
+import { createTable, updateTable } from "@/lib/tableClient";
 import { ZONE_LABELS } from "@/lib/posOrders";
 import DeleteButton from "@/components/admin/DeleteButton";
 import type { Table, TableInput, Zone } from "@/lib/posTypes";
@@ -111,22 +111,15 @@ export default function TableManager({
     setSubmitting(true);
     setError(null);
 
-    const res = await fetch(`${ADMIN_API_URL}/tables`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newValues),
-    });
+    const result = await createTable(newValues);
 
     setSubmitting(false);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(extractApiError(data, "Could not create table."));
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
-    const created: Table = await res.json();
-    setTables((prev) => [...prev, created]);
+    setTables((prev) => [...prev, result.table]);
     setNewValues(emptyForm);
     setCreating(false);
     router.refresh();
@@ -138,22 +131,15 @@ export default function TableManager({
     setSubmitting(true);
     setError(null);
 
-    const res = await fetch(`${ADMIN_API_URL}/tables/${id}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editValues),
-    });
+    const result = await updateTable(id, editValues);
 
     setSubmitting(false);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(extractApiError(data, "Could not save table."));
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
-    const updated: Table = await res.json();
-    setTables((prev) => prev.map((t) => (t.id === id ? updated : t)));
+    setTables((prev) => prev.map((t) => (t.id === id ? result.table : t)));
     setEditingId(null);
     router.refresh();
   }

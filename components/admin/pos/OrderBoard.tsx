@@ -3,34 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ADMIN_API_URL } from "@/lib/backend";
 import { usePolling } from "@/lib/usePolling";
+import { fetchBoardData, createTableOrder, createTicketOrder } from "@/lib/adminOrdersClient";
 import { STATUS_LABELS, STATUS_STYLES, ZONE_LABELS } from "@/lib/posOrders";
 import type { Order, Table, Zone } from "@/lib/posTypes";
 
 // SPA is deliberately excluded - spa tables live on their own screen now (/admin/spa/tables),
-// and this board's own poll (fetchActive, below) refetches every table unfiltered, so excluding
-// SPA here (not just from the initialTables prop) is what keeps a spa table from reappearing on
-// the next 5-second poll.
+// and this board's own poll (fetchBoardData, below) refetches every table unfiltered, so
+// excluding SPA here (not just from the initialTables prop) is what keeps a spa table from
+// reappearing on the next 5-second poll.
 const ZONES: Zone[] = ["RESTAURANT", "BAR", "POOL", "ROOM_SERVICE"];
-
-// Active orders are fetched as two single-status calls (status=OPEN,
-// status=SENT) rather than one call for "everything ever" — the contract
-// only documents a single `status` value per request, and this keeps the
-// board from pulling the whole order history on every poll.
-async function fetchActive(): Promise<{ tables: Table[]; orders: Order[] }> {
-  const [tablesRes, openRes, sentRes] = await Promise.all([
-    fetch(`${ADMIN_API_URL}/tables`, { credentials: "include" }),
-    fetch(`${ADMIN_API_URL}/orders?status=OPEN`, { credentials: "include" }),
-    fetch(`${ADMIN_API_URL}/orders?status=SENT`, { credentials: "include" }),
-  ]);
-  const [tables, openOrders, sentOrders] = await Promise.all([
-    tablesRes.json(),
-    openRes.json(),
-    sentRes.json(),
-  ]);
-  return { tables, orders: [...openOrders, ...sentOrders] };
-}
 
 export default function OrderBoard({
   initialTables,
@@ -50,6 +32,7 @@ export default function OrderBoard({
   // table — POST /orders accepts any tableId) shows a picker here instead
   // of silently jumping to whichever order happened to be first.
   const [pickerTableId, setPickerTableId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // useState(initialTables) only takes its initial value on mount — a
   // sibling mutating tables (TableManager) and calling router.refresh()
@@ -62,9 +45,14 @@ export default function OrderBoard({
   }, [initialTables]);
 
   async function refetch() {
-    const data = await fetchActive();
-    setTables(data.tables);
-    setOrders(data.orders);
+    const result = await fetchBoardData();
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setError(null);
+    setTables(result.tables);
+    setOrders(result.orders);
   }
 
   usePolling(refetch, 5000);
@@ -98,32 +86,28 @@ export default function OrderBoard({
       router.push(`/admin/pos/orders/${existing[0].id}`);
       return;
     }
+    setError(null);
     setCreatingTableId(table.id);
-    const res = await fetch(`${ADMIN_API_URL}/orders`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tableId: table.id }),
-    });
+    const result = await createTableOrder(table.id);
     setCreatingTableId(null);
-    if (!res.ok) return;
-    const order = await res.json();
-    router.push(`/admin/pos/orders/${order.id}`);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    router.push(`/admin/pos/orders/${result.order.id}`);
   }
 
   async function handleNewTicket(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     setCreatingTicket(true);
-    const res = await fetch(`${ADMIN_API_URL}/orders`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ guestName: newTicketName || undefined }),
-    });
+    const result = await createTicketOrder(newTicketName);
     setCreatingTicket(false);
-    if (!res.ok) return;
-    const order = await res.json();
-    router.push(`/admin/pos/orders/${order.id}`);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    router.push(`/admin/pos/orders/${result.order.id}`);
   }
 
   return (
@@ -148,6 +132,8 @@ export default function OrderBoard({
           Open tickets {openTickets.length > 0 && `(${openTickets.length})`}
         </button>
       </div>
+
+      {error && <p className="text-sm text-coral mb-4">{error}</p>}
 
       {tab === "tables" ? (
         <div className="space-y-8">

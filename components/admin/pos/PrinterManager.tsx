@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL } from "@/lib/backend";
-import { extractApiError } from "@/lib/apiError";
+import { createPrinter, updatePrinter, testPrint } from "@/lib/printerClient";
 import { PRINTER_DEPARTMENT_LABELS, PRINT_JOB_STATUS_LABELS } from "@/lib/posOrders";
 import DeleteButton from "@/components/admin/DeleteButton";
 import type { Printer, PrinterInput, PrinterDepartment, PrinterCodepage, PrintJob } from "@/lib/posTypes";
@@ -104,18 +104,14 @@ function TestPrintButton({ printerId }: { printerId: string }) {
     setError(null);
     setResult(null);
 
-    const res = await fetch(`${ADMIN_API_URL}/printers/${printerId}/test`, {
-      method: "POST",
-      credentials: "include",
-    });
+    const testResult = await testPrint(printerId);
     setTesting(false);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(extractApiError(data, "Could not reach the printer."));
+    if (!testResult.ok) {
+      setError(testResult.error);
       return;
     }
-    setResult(await res.json());
+    setResult(testResult.job);
   }
 
   return (
@@ -168,22 +164,15 @@ export default function PrinterManager({ initialPrinters }: { initialPrinters: P
     setSubmitting(true);
     setError(null);
 
-    const res = await fetch(`${ADMIN_API_URL}/printers`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newValues),
-    });
+    const result = await createPrinter(newValues);
 
     setSubmitting(false);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(extractApiError(data, "Could not create printer."));
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
-    const created: Printer = await res.json();
-    setPrinters((prev) => [...prev, created]);
+    setPrinters((prev) => [...prev, result.printer]);
     setNewValues(EMPTY_FORM);
     setCreating(false);
     router.refresh();
@@ -194,22 +183,15 @@ export default function PrinterManager({ initialPrinters }: { initialPrinters: P
     setSubmitting(true);
     setError(null);
 
-    const res = await fetch(`${ADMIN_API_URL}/printers/${id}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editValues),
-    });
+    const result = await updatePrinter(id, editValues);
 
     setSubmitting(false);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(extractApiError(data, "Could not save printer."));
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
-    const updated: Printer = await res.json();
-    setPrinters((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    setPrinters((prev) => prev.map((p) => (p.id === id ? result.printer : p)));
     setEditingId(null);
     router.refresh();
   }

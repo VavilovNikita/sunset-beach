@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ADMIN_API_URL } from "@/lib/backend";
-import { extractApiError } from "@/lib/apiError";
+import { createMenuItem, updateMenuItem } from "@/lib/menuItemClient";
 import { MENU_DEPARTMENT_LABELS } from "@/lib/posOrders";
 import type { MenuDepartment } from "@/lib/posTypes";
 
@@ -43,30 +42,20 @@ export default function MenuItemForm({
     setSubmitting(true);
     setError(null);
 
-    const url = mode === "create" ? `${ADMIN_API_URL}/menu` : `${ADMIN_API_URL}/menu/${itemId}`;
-    const method = mode === "create" ? "POST" : "PATCH";
     // durationMinutes only ever means anything for a SPA item, which this form never handles -
     // always explicit null, same full-replacement contract as every other field here.
     const body = { ...values, durationMinutes: null };
-
-    const res = await fetch(url, {
-      method,
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    const result = mode === "create" ? await createMenuItem(body) : await updateMenuItem(itemId!, body);
 
     setSubmitting(false);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(extractApiError(data, "Something went wrong."));
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
 
     if (mode === "create") {
-      const created = await res.json();
-      router.push(`/admin/pos/menu/${created.id}/edit`);
+      router.push(`/admin/pos/menu/${result.item.id}/edit`);
     } else {
       router.push("/admin/pos/menu");
     }

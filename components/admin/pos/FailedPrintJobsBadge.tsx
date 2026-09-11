@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ADMIN_API_URL } from "@/lib/backend";
+import { fetchPrintJobs } from "@/lib/printJobsClient";
 import { usePolling } from "@/lib/usePolling";
-import type { PrintJob } from "@/lib/posTypes";
 
 // An unprinted ticket is an unserved dish — this needs to be seen the moment
 // staff look at the board, not just by whoever happens to open
@@ -23,11 +22,8 @@ export default function FailedPrintJobsBadge({ initialCount }: { initialCount: n
   const [count, setCount] = useState<number | null>(initialCount);
 
   async function refetch() {
-    const res = await fetch(`${ADMIN_API_URL}/print-jobs?status=FAILED`, { credentials: "include" });
-    if (res.ok) {
-      const jobs: PrintJob[] = await res.json();
-      setCount(jobs.length);
-    }
+    const result = await fetchPrintJobs("FAILED");
+    if (result.ok) setCount(result.jobs.length);
     // Leave `count` as-is on failure — a transient poll miss shouldn't wipe
     // out the last known-good reading, only the very first (SSR) load has no
     // prior value to fall back on.

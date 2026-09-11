@@ -1,15 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ADMIN_API_URL } from "@/lib/backend";
-import { extractApiError } from "@/lib/apiError";
+import { fetchPrintJobs, retryPrintJob, dismissPrintJobs } from "@/lib/printJobsClient";
 import { usePolling } from "@/lib/usePolling";
 import {
   PRINT_JOB_STATUS_LABELS,
   PRINT_JOB_STATUS_STYLES,
   PRINT_DOCUMENT_TYPE_LABELS,
 } from "@/lib/posOrders";
-import type { DismissPrintJobsInput, PrintJob, PrintJobStatus, PrintDocumentType } from "@/lib/posTypes";
+import type { PrintJob, PrintJobStatus, PrintDocumentType } from "@/lib/posTypes";
 
 const FILTERS: (PrintJobStatus | "")[] = ["FAILED", "PENDING", "SENT", ""];
 const FILTER_LABELS: Record<PrintJobStatus | "", string> = {
@@ -56,19 +55,20 @@ export default function PrintQueue({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dismissing, setDismissing] = useState(false);
   const [dismissError, setDismissError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   async function refetch(
     activeFilter: PrintJobStatus | "" = filter,
     activeDocTypeFilter: PrintDocumentType | "" = docTypeFilter,
     activeShowDismissed: boolean = showDismissed
   ) {
-    const params = new URLSearchParams();
-    if (activeFilter) params.set("status", activeFilter);
-    if (activeDocTypeFilter) params.set("documentType", activeDocTypeFilter);
-    if (activeShowDismissed) params.set("includeDismissed", "true");
-    const query = params.toString();
-    const res = await fetch(`${ADMIN_API_URL}/print-jobs${query ? `?${query}` : ""}`, { credentials: "include" });
-    if (res.ok) setJobs(await res.json());
+    const result = await fetchPrintJobs(activeFilter, activeDocTypeFilter, activeShowDismissed);
+    if (!result.ok) {
+      setFetchError(result.error);
+      return;
+    }
+    setFetchError(null);
+    setJobs(result.jobs);
   }
 
   usePolling(() => refetch(), 10000);
@@ -97,21 +97,14 @@ export default function PrintQueue({
       const { [id]: _dropped, ...rest } = prev;
       return rest;
     });
-    const res = await fetch(`${ADMIN_API_URL}/print-jobs/${id}/retry`, {
-      method: "POST",
-      credentials: "include",
-    });
+    const result = await retryPrintJob(id);
     setRetryingId(null);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setRetryErrors((prev) => ({
-        ...prev,
-        [id]: extractApiError(data, "Could not retry this job."),
-      }));
+    if (!result.ok) {
+      setRetryErrors((prev) => ({ ...prev, [id]: result.error }));
       return;
     }
-    const updated: PrintJob = await res.json();
+    const updated = result.job;
     // A retry that now falls outside the active filter (e.g. FAILED -> SENT
     // while viewing "Failed") should drop off the list rather than linger
     // showing a stale status.
@@ -133,21 +126,14 @@ export default function PrintQueue({
     if (ids.length === 0) return;
     setDismissing(true);
     setDismissError(null);
-    const body: DismissPrintJobsInput = { ids };
-    const res = await fetch(`${ADMIN_API_URL}/print-jobs/dismiss`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    const result = await dismissPrintJobs(ids);
     setDismissing(false);
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setDismissError(extractApiError(data, "Could not dismiss these jobs."));
+    if (!result.ok) {
+      setDismissError(result.error);
       return;
     }
-    const dismissed: PrintJob[] = await res.json();
+    const dismissed = result.jobs;
     setSelected(new Set());
     if (showDismissed) {
       const byId = new Map(dismissed.map((j) => [j.id, j]));
@@ -163,6 +149,8 @@ export default function PrintQueue({
 
   return (
     <div>
+      {fetchError && <p className="text-sm text-coral mb-4">{fetchError}</p>}
+
       <div className="flex flex-wrap gap-2 mb-6">
         {FILTERS.map((f) => (
           <button

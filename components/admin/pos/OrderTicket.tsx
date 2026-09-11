@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ADMIN_API_URL } from "@/lib/backend";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { usePolling } from "@/lib/usePolling";
 import { PAYMENT_METHOD_LABELS, STATUS_LABELS, STATUS_STYLES, isTerminalStatus } from "@/lib/posOrders";
@@ -49,9 +48,7 @@ export default function OrderTicket({
 
   useEffect(() => {
     if (!canManagePayments) return; // nothing that reads hasOpenShift renders without this
-    fetch(`${ADMIN_API_URL}/shifts/current`, { credentials: "include" })
-      .then((res) => setHasOpenShift(res.ok))
-      .catch(() => setHasOpenShift(false));
+    adminRequest("/shifts/current", undefined, "").then((result) => setHasOpenShift(result.ok));
   }, [canManagePayments]);
 
   async function refetch() {
