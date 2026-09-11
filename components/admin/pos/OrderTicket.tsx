@@ -176,6 +176,11 @@ export default function OrderTicket({
           </p>
         )}
 
+        {/* No quantity +/- stepper here, unlike PosOrderTicket.tsx (the /pos version, which calls
+            PATCH .../items/{itemId} to adjust quantity in place) - this screen only offers
+            Remove. That's a known, undecided difference, not an oversight: whether the desktop
+            ticket should also get a stepper is a product call nobody has made yet, not something
+            to decide inside a cleanup pass. */}
         <div className="space-y-3 mb-8">
           {order.items.map((item) => (
             <div key={item.id} className="flex items-center gap-4 bg-ink2/40 border border-cream/10 rounded-xl p-4">

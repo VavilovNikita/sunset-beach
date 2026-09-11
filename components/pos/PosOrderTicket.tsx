@@ -169,6 +169,9 @@ export default function PosOrderTicket({
           scrolled well past by then. */}
       {error && !confirmingMethod && <p className="text-sm text-coral">{error}</p>}
 
+      {/* The admin ticket (components/admin/pos/OrderTicket.tsx) has no equivalent +/- stepper,
+          Remove only - a known, undecided difference (see that file's own note), not a gap this
+          screen is expected to close by itself. */}
       <div className="space-y-2.5">
         {order.items.map((item) => (
           <div key={item.id} className="bg-ink2 border border-cream/10 rounded-2xl p-4">
