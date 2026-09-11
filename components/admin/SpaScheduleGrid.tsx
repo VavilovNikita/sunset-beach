@@ -266,10 +266,11 @@ export default function SpaScheduleGrid({
                             dragging ? "opacity-50 ring-2 ring-dashed ring-cream" : ""
                           } ${a.status === "BOOKED" ? "cursor-grab active:cursor-grabbing" : ""}`}
                           style={{ left: start * COL_WIDTH + 2, width: span * COL_WIDTH - 4, top: 3, height: ROW_HEIGHT - 6 }}
-                          title={`${a.guestName} · ${a.treatmentName} · ${a.status}`}
+                          title={`${a.guestName} · ${a.treatments.map((t) => t.treatmentName).join(", ")} · ${a.status}`}
                         >
                           <span className="truncate">{a.guestName}</span>
-                          {a.status === "COMPLETED" && !a.orderId && <span title="Not yet charged">⚠</span>}
+                          {a.treatments.length > 1 && <span className="text-[10px] opacity-70">×{a.treatments.length}</span>}
+                          {a.missingTreatmentNames.length > 0 && <span title="Not yet fully charged">⚠</span>}
                         </button>
                       );
                     })}
@@ -301,6 +302,7 @@ export default function SpaScheduleGrid({
       {selectedAppointment && (
         <SpaAppointmentPanel
           appointment={selectedAppointment}
+          treatments={treatments}
           onClose={() => setSelectedAppointmentId(null)}
           onUpdated={() => {
             setSelectedAppointmentId(null);

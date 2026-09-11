@@ -31,9 +31,15 @@ export async function billSpaAppointment(appointment: SpaAppointment): Promise<B
   );
   if (!createResult.ok) return { ok: false, error: createResult.error };
 
+  // One entry per treatment row - same ordinary POST /orders/{id}/items every other department
+  // uses, each line priced live off the menu at this moment (see the backend CLAUDE.md's Spa
+  // billing section for why no frozen appointment price ever flows into this call).
   const itemResult = await adminRequest<Order>(
     `/orders/${createResult.data.id}/items`,
-    adminJsonInit("POST", [{ menuItemId: appointment.treatmentMenuItemId, quantity: 1 }]),
+    adminJsonInit(
+      "POST",
+      appointment.treatments.map((t) => ({ menuItemId: t.treatmentMenuItemId, quantity: 1 }))
+    ),
     "Could not add the treatment line."
   );
   if (!itemResult.ok) {

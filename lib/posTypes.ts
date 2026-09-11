@@ -335,10 +335,24 @@ export type PaymentsSummary = {
 // states. Only a BOOKED appointment holds a slot - see SpaAppointment's own backend description.
 export type SpaAppointmentStatus = "BOOKED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
 
+// One treatment on a SpaAppointment - a child row, not a quantity (the same treatment added
+// twice is two rows). durationMinutes is frozen at add time from MenuItem.durationMinutes.
+// currentPrice is deliberately NOT frozen - a live read of MenuItem.price at response time, same
+// "denormalized, not frozen" convention treatmentName uses. Never authoritative for billing and
+// never sent to any write endpoint - see the backend CLAUDE.md's Spa billing section for why a
+// treatment's price is never frozen the way a room night's is.
+export type SpaAppointmentTreatment = {
+  id: string;
+  treatmentMenuItemId: string;
+  treatmentName: string;
+  durationMinutes: number;
+  currentPrice: string;
+};
+
 // A half-hour-grid treatment slot - occupies both a POS Table (SPA zone) and a therapist for
 // [startTime, startTime + durationMinutes) on date. Always names a booking - hotel guests only,
-// no walk-in path, no separate client record. guestName/tableLabel/therapistEmail/treatmentName
-// are denormalized by the backend at read time, not stored - don't re-derive them here.
+// no walk-in path, no separate client record. guestName/tableLabel/therapistEmail are
+// denormalized by the backend at read time, not stored - don't re-derive them here.
 // date/startTime are plain date-only and local HH:mm strings - no time zone anywhere.
 export type SpaAppointment = {
   id: string;
@@ -348,16 +362,23 @@ export type SpaAppointment = {
   tableLabel: string;
   therapistUserId: string;
   therapistEmail: string;
-  treatmentMenuItemId: string;
-  treatmentName: string;
+  // One row per treatment - always at least one, an appointment cannot exist with zero.
+  treatments: SpaAppointmentTreatment[];
   date: string;
   startTime: string;
+  // A maintained sum of treatments[].durationMinutes - kept as its own number so the two
+  // exclusion constraints behind the double-booking guard keep reading one plain column.
   durationMinutes: number;
   status: SpaAppointmentStatus;
   // The POS order that charged this treatment, if any. A COMPLETED appointment with this still
   // null is a real, visible gap (a treatment settled another way, or one nobody rang up yet) -
   // the grid shows it plainly, it is never hidden or blocked.
   orderId: string | null;
+  // Which of this appointment's treatments the linked order doesn't (yet) carry - only ever
+  // non-empty once status is COMPLETED. A cancelled linked order counts as carrying nothing, so
+  // every treatment shows as missing (a cancelled order bills nothing - see the backend
+  // CLAUDE.md's Spa billing section).
+  missingTreatmentNames: string[];
   createdByUserId: string;
   cancelledByUserId: string | null;
   cancelReason: string | null;
@@ -366,8 +387,10 @@ export type SpaAppointment = {
 };
 
 // Body of POST /spa-appointments. treatmentMenuItemId must reference a SPA-department item with
-// durationMinutes set. date outside the named booking's [checkIn, checkOut] (inclusive both
-// ends - the guest is still in the hotel on the departure day) is a warning, not a rejection.
+// durationMinutes set - the appointment's first treatment; add more afterward with
+// POST /spa-appointments/{id}/treatments. date outside the named booking's [checkIn, checkOut]
+// (inclusive both ends - the guest is still in the hotel on the departure day) is a warning, not
+// a rejection.
 export type SpaAppointmentCreateInput = {
   bookingId: string;
   tableId: string;
@@ -375,6 +398,11 @@ export type SpaAppointmentCreateInput = {
   treatmentMenuItemId: string;
   date: string;
   startTime: string;
+};
+
+// Body of POST /spa-appointments/{id}/treatments.
+export type SpaAppointmentTreatmentCreateInput = {
+  treatmentMenuItemId: string;
 };
 
 // Response of POST /spa-appointments. warning is set (creation still succeeds) when date falls

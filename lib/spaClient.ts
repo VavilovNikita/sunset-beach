@@ -10,6 +10,7 @@ import type {
   SpaAppointmentResult,
   SpaAppointmentScheduleInput,
   SpaAppointmentStatusUpdateInput,
+  SpaAppointmentTreatmentCreateInput,
   SpaSchedule,
   SpaTherapist,
 } from "@/lib/posTypes";
@@ -54,5 +55,34 @@ export async function updateSpaAppointmentSchedule(
 ): Promise<UpdateSpaAppointmentScheduleResult> {
   const result = await adminRequest<SpaAppointment>(`/spa-appointments/${id}/schedule`, adminJsonInit("PATCH", input), "Could not move this appointment.");
   if (!result.ok) return { ok: false, error: result.error, status: result.status };
+  return { ok: true, appointment: result.data };
+}
+
+// status carried alongside the error so a caller can tell a 409 (adding this treatment would
+// overlap the next appointment) apart from any other failure without re-parsing the message text -
+// same reasoning as UpdateSpaAppointmentScheduleResult above.
+export type AddSpaAppointmentTreatmentResult = { ok: true; appointment: SpaAppointment } | { ok: false; error: string; status: number };
+export type RemoveSpaAppointmentTreatmentResult = { ok: true; appointment: SpaAppointment } | { ok: false; error: string };
+
+export async function addSpaAppointmentTreatment(
+  appointmentId: string,
+  input: SpaAppointmentTreatmentCreateInput
+): Promise<AddSpaAppointmentTreatmentResult> {
+  const result = await adminRequest<SpaAppointment>(
+    `/spa-appointments/${appointmentId}/treatments`,
+    adminJsonInit("POST", input),
+    "Could not add this treatment."
+  );
+  if (!result.ok) return { ok: false, error: result.error, status: result.status };
+  return { ok: true, appointment: result.data };
+}
+
+export async function removeSpaAppointmentTreatment(appointmentId: string, treatmentId: string): Promise<RemoveSpaAppointmentTreatmentResult> {
+  const result = await adminRequest<SpaAppointment>(
+    `/spa-appointments/${appointmentId}/treatments/${treatmentId}`,
+    { method: "DELETE" },
+    "Could not remove this treatment."
+  );
+  if (!result.ok) return { ok: false, error: result.error };
   return { ok: true, appointment: result.data };
 }

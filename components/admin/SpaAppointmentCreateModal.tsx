@@ -116,7 +116,7 @@ export default function SpaAppointmentCreateModal({
                 >
                   {treatments.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.name} ({t.durationMinutes} min)
+                      {t.name} ({t.durationMinutes} min) — ฿{Number(t.price).toLocaleString("en-US")}
                     </option>
                   ))}
                 </select>
