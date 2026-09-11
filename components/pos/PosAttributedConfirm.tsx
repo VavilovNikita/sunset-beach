@@ -1,14 +1,18 @@
 "use client";
 
-// Shared confirmation UI for every money-affecting action (closing an order with payment,
-// charging to room, closing a shift) — deliberately not a silent one-tap action for any of
-// these, unlike everything else in this section. The backend has no concept of "acting as"
-// separate from "logged in as" (every write is attributed to the JWT holder alone - see
-// PosTopBar's comment), so the only place a wrong identity can still be caught is right here,
-// in the instant before the action is sent: if the name shown is the wrong person, a cashier
-// notices *before* it lands in history, not after, when there'd be nothing left to do but a
-// manual correction. Reused as-is by the three call sites rather than three near-identical
-// blocks, so the wording/layout can't quietly drift out of sync between them.
+// Shared confirmation UI for a money-affecting action (closing an order with payment, closing a
+// shift) — deliberately not a silent one-tap action for either of these, unlike everything else
+// in this section. The backend has no concept of "acting as" separate from "logged in as" (every
+// write is attributed to the JWT holder alone - see PosTopBar's comment), so the only place a
+// wrong identity can still be caught is right here, in the instant before the action is sent: if
+// the name shown is the wrong person, a cashier notices *before* it lands in history, not after,
+// when there'd be nothing left to do but a manual correction. Reused as-is by its two call sites
+// (PosOrderTicket.tsx, PosShiftPanel.tsx) rather than two near-identical blocks, so the wording/
+// layout can't quietly drift out of sync between them. The third money-affecting phone action,
+// charging to room (PosRoomChargeSearch.tsx), shows the same "will be recorded as" identity
+// block but not through this component - its own two-step picker-then-confirm flow doesn't fit
+// this component's single title/detail/confirm-button shape, so it hand-rolls the identity
+// display and pairs it with its own Confirm/Back buttons instead.
 //
 // Deliberately /pos-only: the admin equivalents of these same three actions (OrderTicket.tsx's
 // handleClose, RoomChargeLink.tsx, ShiftPanel.tsx) have no matching step, and that's an intentional

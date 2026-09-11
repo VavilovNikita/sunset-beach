@@ -46,7 +46,7 @@ export const SESSION_COOKIE_NAME = "session-token";
 // `NODE_ENV` is "production" in that deployment too, so it can't be used to
 // decide `secure` — this has to be its own explicit flag, opt-in only when
 // the deployment actually terminates TLS in front of this app.
-export const COOKIE_SECURE = process.env.COOKIE_SECURE === "true";
+const COOKIE_SECURE = process.env.COOKIE_SECURE === "true";
 
 export function sessionCookieOptions() {
   return {

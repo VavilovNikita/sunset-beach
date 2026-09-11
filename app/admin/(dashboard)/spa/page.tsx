@@ -69,8 +69,8 @@ export default async function AdminSpaPage({ searchParams }: { searchParams: { d
       </div>
       <p className="text-xs text-cream/40 mb-6 max-w-2xl">
         Rows are spa tables, columns are {schedule.slotMinutes}-minute slots from {schedule.openingTime} to{" "}
-        {schedule.closingTime}. Click a free slot to book a treatment; click a booked one to cancel, mark no-show, or
-        complete it.
+        {schedule.closingTime}. Click a free slot to book a treatment; double-click a booked one (tap once on a
+        touchscreen) to cancel, mark no-show, or complete it — or drag it to another table or time to reschedule.
       </p>
 
       <SpaScheduleGrid schedule={schedule} menuItems={menuItems} bookings={bookings} therapists={therapists} date={date} />

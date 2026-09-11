@@ -7,27 +7,9 @@ import { ADMIN_API_URL } from "@/lib/backend";
 import { extractApiError } from "@/lib/apiError";
 import type { MaintenanceTask, MaintenanceTaskBlockResult, MaintenanceTaskStatus, RoomUnitBlockInput } from "@/lib/types";
 
-export type ListMaintenanceTasksResult = { ok: true; tasks: MaintenanceTask[] } | { ok: false; error: string };
-export type GetMaintenanceTaskResult = { ok: true; task: MaintenanceTask } | { ok: false; error: string };
 export type CreateMaintenanceTaskResult = { ok: true; task: MaintenanceTask } | { ok: false; error: string };
 export type AddMaintenanceTaskBlockResult = { ok: true; result: MaintenanceTaskBlockResult } | { ok: false; error: string };
 export type UpdateMaintenanceTaskStatusResult = { ok: true; task: MaintenanceTask } | { ok: false; error: string };
-
-export async function listMaintenanceTasks(filter?: { status?: MaintenanceTaskStatus; roomUnitId?: string }): Promise<ListMaintenanceTasksResult> {
-  const params = new URLSearchParams();
-  if (filter?.status) params.set("status", filter.status);
-  if (filter?.roomUnitId) params.set("roomUnitId", filter.roomUnitId);
-  const query = params.toString();
-  const result = await adminRequest<MaintenanceTask[]>(`/maintenance-tasks${query ? `?${query}` : ""}`, undefined, "Could not load maintenance tasks.");
-  if (!result.ok) return { ok: false, error: result.error };
-  return { ok: true, tasks: result.data };
-}
-
-export async function getMaintenanceTask(id: string): Promise<GetMaintenanceTaskResult> {
-  const result = await adminRequest<MaintenanceTask>(`/maintenance-tasks/${id}`, undefined, "Could not load this task.");
-  if (!result.ok) return { ok: false, error: result.error };
-  return { ok: true, task: result.data };
-}
 
 // Photos are optional (zero or more) - not every problem is photographable.
 export async function createMaintenanceTask(

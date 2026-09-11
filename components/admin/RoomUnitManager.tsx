@@ -42,19 +42,19 @@ function UnitFields({ values, onChange }: { values: RoomUnitInput; onChange: (va
 
 // Room-scoped CRUD for physical rooms, following the same inline-section
 // pattern as TableManager (components/admin/pos/TableManager.tsx) — a list
-// of rows with edit-in-place and a trailing create form. Unlike tables,
-// though, GET /room-units itself is MANAGER+ with no lower-privilege read
-// (per openapi.yaml) — so `canManage: false` here means "can't see this at
-// all," not just "read-only," and the caller shouldn't have fetched
-// `initialUnits` in that case.
+// of rows with edit-in-place and a trailing create form. No canManage prop:
+// its one caller's page already gates the whole route to MANAGER+ (GET
+// /room-units itself is MANAGER+ with no lower-privilege read, per
+// openapi.yaml), so a role that reaches this component at all can already
+// manage rooms - the page-level guard is what actually matters here, not a
+// second check in this component (see CLAUDE.md's "guard the page itself,
+// not only the link").
 export default function RoomUnitManager({
   roomId,
   initialUnits,
-  canManage,
 }: {
   roomId: string;
   initialUnits: RoomUnit[];
-  canManage: boolean;
 }) {
   const router = useRouter();
   const [units, setUnits] = useState(initialUnits);
@@ -125,10 +125,6 @@ export default function RoomUnitManager({
   function handleDeleted(id: string) {
     setUnits((prev) => prev.filter((u) => u.id !== id));
     router.refresh();
-  }
-
-  if (!canManage) {
-    return <p className="text-cream/50 text-sm">Managing rooms requires a manager account.</p>;
   }
 
   return (
