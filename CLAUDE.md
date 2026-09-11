@@ -12,6 +12,8 @@ No state manager. No date library. No drag-and-drop library. No UI kit. These ar
 
 Data comes from `fetch` in Server Components and `useState` in client ones. Drag interactions use native Pointer Events; `BookingCalendarGrid` and the property map are the reference implementations, and both work on tablets.
 
+The tap-to-open-on-touch / double-click-to-open-on-mouse gesture that has to coexist with a drag on a pointer-driven grid lives in `lib/useTapOrDoubleClick.ts` — `BookingCalendarGrid` and `SpaScheduleGrid` both use it. Extend that hook if another grid needs the same gesture; do not write a third inline version.
+
 ## The API contract lives in the other repository
 
 Types in `lib/types.ts` and `lib/posTypes.ts` mirror the backend's `openapi.yaml` **by hand**. There is no generated client.
@@ -81,6 +83,14 @@ Components are not covered by tests. Restructuring them is verified in the brows
 `/admin/pos` (desktop, supervised machine) and `/pos` (phone, passed between staff) are separate component trees on purpose. Differences that exist deliberately are commented at the call sites: identity confirmation before money actions and idle logout exist only on the phone, because that device changes hands.
 
 When changing behaviour in one, check whether the other needs it too — they have drifted before.
+
+## Spa
+
+Spa tables are ordinary POS `Table` rows (`zone: "SPA"`), and a spa appointment occupies the same `Table`/therapist model the restaurant floor uses — the data is shared. The *screens* are still deliberately separate: `OrderBoard`/`PosTableBoard` (the restaurant floor views) explicitly exclude SPA-zone tables, and the spa module gets its own schedule grid (`/admin/spa`, `SpaScheduleGrid.tsx`, built around treatment/therapist/time-slot booking rather than walk-up table service) and its own table/map screens (`/admin/spa/tables`, `/admin/spa/map`). Reception works a spa appointment by treatment and time, not by walking up to a table — that's the whole reason for the split; don't read it as the data being separate too.
+
+**The billing door's guest link is a pre-fill, not a query.** `billSpaAppointment` (`lib/spaOrderClient.ts`) sends the appointment's own `bookingId` when opening the order, so reception never re-looks-up a guest already on screen — the same "don't make reception retype what the screen already knows" reasoning as the guest picker's seeded search. It's a convenience only: it doesn't make that order the one that bills the treatment (that's `spaAppointmentId`, the explicit, deterministic link — see `SpaAppointmentPanel.tsx`) and it doesn't make the order authoritative for what a booking was charged (that's `Payment.bookingId`, set server-side at close — see the backend's own CLAUDE.md, "Spa billing").
+
+**The unbilled-treatment warning is computed here, not on the backend.** `SpaAppointmentPanel.tsx` shows "Not yet charged" exactly when an appointment is `COMPLETED` with no linked order (`orderId` still null) — a plain client-side check on already-fetched fields, not a server-computed flag. The backend's own CLAUDE.md describes a planned completeness-based version of this same question for multi-treatment appointments; if that ships, this is the screen that starts reading a server value instead of deriving one locally.
 
 ## Public site
 
