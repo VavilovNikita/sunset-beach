@@ -6,24 +6,8 @@ import { ADMIN_API_URL } from "@/lib/backend";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { usePolling } from "@/lib/usePolling";
 import StatCard from "@/components/admin/StatCard";
+import { reconcileCash } from "@/lib/shiftReconciliation";
 import type { ShiftSummary } from "@/lib/posTypes";
-
-// expectedCash/discrepancy are never returned by the API - the backend computes the same
-// arithmetic (openingFloat + cash payments, counted - expected) three separate times
-// (SHIFT_CLOSED audit summary, the printed Z-report, the CSV export - see ShiftService) but
-// never puts it on the Shift/ShiftSummary response itself, so the one thing shift close is
-// actually FOR (does the drawer match) was only ever visible after the fact, in the audit log.
-// Every input this needs (openingCashFloat, totals.cash) is already on ShiftSummary, so this
-// is computed here rather than waiting on a backend field - kept in lockstep with
-// ShiftService#describeShiftClose/buildZReportPayload if either changes. Same helper as
-// components/pos/PosShiftPanel.tsx's PosShiftPanel - not shared, on the same precedent as the
-// rest of this admin/pos split (different layout components, StatCard vs StatTile).
-function reconcileCash(shift: ShiftSummary, countedInput: string) {
-  const expectedCash = Number(shift.openingCashFloat ?? 0) + Number(shift.totals.cash);
-  const counted = shift.closingCashCounted != null ? Number(shift.closingCashCounted) : countedInput ? Number(countedInput) : null;
-  const discrepancy = counted !== null ? counted - expectedCash : null;
-  return { expectedCash, counted, discrepancy };
-}
 
 function DiscrepancyBlock({ expectedCash, counted, discrepancy }: { expectedCash: number; counted: number | null; discrepancy: number | null }) {
   if (counted === null) return null;

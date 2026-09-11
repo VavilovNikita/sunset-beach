@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePolling } from "@/lib/usePolling";
 import { fetchCurrentShift, fetchShift, openShift, closeShift } from "@/lib/pos/shiftsClient";
+import { reconcileCash } from "@/lib/shiftReconciliation";
 import PosAttributedConfirm from "@/components/pos/PosAttributedConfirm";
 import type { Role } from "@/lib/session";
 import type { ShiftSummary } from "@/lib/posTypes";
@@ -17,23 +18,6 @@ function StatTile({ label, value }: { label: string; value: string }) {
       <p className="font-display italic text-xl text-coral">{value}</p>
     </div>
   );
-}
-
-// expectedCash/discrepancy are never returned by the API - the backend computes the same
-// arithmetic (openingFloat + cash payments, counted - expected) three separate times
-// (SHIFT_CLOSED audit summary, the printed Z-report, the CSV export - see ShiftService) but
-// never puts it on the Shift/ShiftSummary response itself, so the one thing shift close is
-// actually FOR (does the drawer match) was only ever visible after the fact, in the audit log.
-// Every input this needs (openingCashFloat, totals.cash) is already on ShiftSummary, so this
-// is computed here rather than waiting on a backend field - a cashier reading a wrong number
-// off a mismatched formula would be worse than not fixing this at all, so the arithmetic below
-// must be kept in lockstep with ShiftService#describeShiftClose/buildZReportPayload if either
-// changes.
-function reconcileCash(shift: ShiftSummary, countedInput: string) {
-  const expectedCash = Number(shift.openingCashFloat ?? 0) + Number(shift.totals.cash);
-  const counted = shift.closingCashCounted != null ? Number(shift.closingCashCounted) : countedInput ? Number(countedInput) : null;
-  const discrepancy = counted !== null ? counted - expectedCash : null;
-  return { expectedCash, counted, discrepancy };
 }
 
 function DiscrepancyBlock({ expectedCash, counted, discrepancy }: { expectedCash: number; counted: number | null; discrepancy: number | null }) {
