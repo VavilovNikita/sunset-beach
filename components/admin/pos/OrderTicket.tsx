@@ -10,7 +10,17 @@ import AddOrderItemForm from "@/components/admin/pos/AddOrderItemForm";
 import RoomChargeLink from "@/components/admin/pos/RoomChargeLink";
 import type { Order, MenuItem, PaymentMethod, PrintAttemptResult } from "@/lib/posTypes";
 
-export default function OrderTicket({ initialOrder, menu }: { initialOrder: Order; menu: MenuItem[] }) {
+export default function OrderTicket({
+  initialOrder,
+  menu,
+  canManagePayments,
+}: {
+  initialOrder: Order;
+  menu: MenuItem[];
+  // Computed by the page from the session role (CASHIER+), not just used to hide the payment
+  // section here - see that page's own comment for why the check has to live there too.
+  canManagePayments: boolean;
+}) {
   const [order, setOrder] = useState(initialOrder);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -38,10 +48,11 @@ export default function OrderTicket({ initialOrder, menu }: { initialOrder: Orde
   const [prebillError, setPrebillError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!canManagePayments) return; // nothing that reads hasOpenShift renders without this
     fetch(`${ADMIN_API_URL}/shifts/current`, { credentials: "include" })
       .then((res) => setHasOpenShift(res.ok))
       .catch(() => setHasOpenShift(false));
-  }, []);
+  }, [canManagePayments]);
 
   async function refetch() {
     const result = await adminRequest<Order>(`/orders/${order.id}`, undefined, "");
@@ -255,7 +266,7 @@ export default function OrderTicket({ initialOrder, menu }: { initialOrder: Orde
           </button>
         )}
 
-        {closable && (
+        {closable && canManagePayments && (
           <div className="space-y-2">
             <p className="eyebrow text-cream/50">Close order</p>
             {hasOpenShift === false ? (

@@ -1,10 +1,20 @@
 import { notFound } from "next/navigation";
 import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
+import { requireSessionUser, hasRoleAtLeast } from "@/lib/rbac";
 import OrderTicket from "@/components/admin/pos/OrderTicket";
 import type { Order, MenuItem, Table } from "@/lib/posTypes";
 
 export default async function OrderTicketPage({ params }: { params: { id: string } }) {
+  // GET /orders/{id} itself is WAITER+ (no ownership boundary - the whole floor sees every
+  // table), but POST /orders/{id}/close is CASHIER+ on the backend - computed here, at the page,
+  // and passed down as a real prop, the same way the /pos ticket already does it. The component
+  // hiding its own payment buttons isn't enough on its own: a WAITER who reaches this page
+  // (nothing above blocks them - see AdminDashboardLayout) must never see a Cash/Card/Room button
+  // that only fails once clicked.
+  const user = await requireSessionUser();
+  const canManagePayments = hasRoleAtLeast(user.role, "CASHIER");
+
   let order: Order;
   try {
     order = await backendJson<Order>(`/orders/${params.id}`, { auth: true });
@@ -37,7 +47,7 @@ export default async function OrderTicketPage({ params }: { params: { id: string
         {table ? table.label : order.guestName ?? `Ticket #${order.id.slice(-6)}`}
       </h1>
 
-      <OrderTicket initialOrder={order} menu={menu} />
+      <OrderTicket initialOrder={order} menu={menu} canManagePayments={canManagePayments} />
     </div>
   );
 }
