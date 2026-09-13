@@ -772,6 +772,22 @@ export default function BookingCalendarGrid({
               return (
                 <div
                   key={booking.segmentId}
+                  // data-bar-* lives on this outer wrapper, not the inner bar div - barUnderPointer
+                  // below finds it via closest(), which only ever walks up through ancestors. The
+                  // resize handles rendered further down are this div's own children too (siblings
+                  // of the inner bar, not descendants of it), so a drop landing on a handle's few
+                  // pixels - not rare, every segmentCount===1 bar offers both handles whenever
+                  // allowDrag is true - used to miss the bar entirely: closest() from the handle
+                  // had nothing to find, so the drop silently fell through to an ordinary
+                  // (unswapped) reschedule instead of the swap this same drop registered as when
+                  // approached from the other bar's own, differently-shaped, dead zone. Direction-
+                  // dependent in exactly the way that looked like an asymmetric exclusion check
+                  // until traced to here - see this file's own history for the investigation.
+                  data-bar-booking-id={booking.bookingId}
+                  data-bar-segment-id={booking.segmentId}
+                  data-bar-room-id={booking.roomId}
+                  data-bar-room-unit-id={booking.roomUnitId ?? ""}
+                  data-bar-guest-name={booking.guestName}
                   className="absolute"
                   style={{
                     left: startCol * dayWidth + 2,
@@ -782,13 +798,6 @@ export default function BookingCalendarGrid({
                   }}
                 >
                   <div
-                    // data-bar-* is the swap gesture's own drop-target lookup (barUnderPointer,
-                    // above) - same DOM-attribute hit-testing convention as data-cell.
-                    data-bar-booking-id={booking.bookingId}
-                    data-bar-segment-id={booking.segmentId}
-                    data-bar-room-id={booking.roomId}
-                    data-bar-room-unit-id={booking.roomUnitId ?? ""}
-                    data-bar-guest-name={booking.guestName}
                     className={`absolute inset-0 rounded-md flex items-center overflow-hidden ${STATUS_BAR_STYLES[booking.status] ?? "bg-cream/20 text-cream"} ${
                       dragging ? (eff.dropInvalid ? "opacity-50 ring-2 ring-coral" : "opacity-50 ring-2 ring-dashed ring-cream") : ""
                     } ${eff.isSwapTarget ? "ring-2 ring-sea" : ""} ${booking.segmentCount > 1 ? "ring-1 ring-inset ring-cream/40" : ""}`}
