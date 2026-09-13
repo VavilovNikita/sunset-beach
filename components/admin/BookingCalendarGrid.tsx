@@ -175,6 +175,16 @@ export default function BookingCalendarGrid({
         originalRoomUnitId: string;
         originalCheckIn: Date;
         originalCheckOut: Date;
+        // Sticky for the life of this drag - set true the first moment the pointer hovers a
+        // valid swap target and never reset back to false afterward, even once the pointer
+        // leaves that bar. This is what onDragPointerUp uses to decide swap-vs-move, not
+        // whatever swapTarget happens to hold at the exact release pixel: a drag that ever
+        // aimed at another bar has committed to being a swap attempt, and a miss on release
+        // cancels the whole gesture rather than silently downgrading to moving the dragged
+        // booking alone. A drag that never touched another bar was never a swap attempt, so a
+        // miss for THAT drag can still fall back to wherever it was last validly hovering - see
+        // onDragPointerUp's own comment for why that half is unchanged.
+        hasHoveredSwapTarget: boolean;
         grabDayOffset: number;
         roomUnitId: string;
         checkIn: Date;
@@ -370,6 +380,7 @@ export default function BookingCalendarGrid({
       checkIn,
       checkOut,
       swapTarget: null,
+      hasHoveredSwapTarget: false,
       dropInvalid: false,
     });
   }
@@ -409,6 +420,7 @@ export default function BookingCalendarGrid({
         setDragState({
           ...dragState,
           swapTarget,
+          hasHoveredSwapTarget: true,
           roomUnitId: swapTarget.roomUnitId,
           dropInvalid: swapTarget.roomId !== dragState.roomId,
         });
@@ -479,9 +491,24 @@ export default function BookingCalendarGrid({
       const booking = data.bookings.find((b) => b.segmentId === finished.segmentId);
       if (!booking) return;
 
-      if (finished.swapTarget) {
-        if (finished.dropInvalid) return; // cross-type - refused before any request, no modal
-        openSwapConfirm(booking, finished.swapTarget);
+      // Recomputed fresh from the release point, not from finished.swapTarget - the same
+      // "don't trust the last thing pointermove happened to see" principle behind the spa
+      // grid's own onDragPointerUp fix. The rule this drag was classified by is
+      // hasHoveredSwapTarget, not whatever's directly under the pointer right now: once a drag
+      // has hovered a valid swap target at any point, it has committed to being a swap attempt
+      // for the rest of the gesture, and releasing anywhere that isn't a valid bar - a row gap,
+      // a block, an ordinary cell, the resize-handle dead zone that caused the original report -
+      // cancels the whole gesture rather than silently downgrading to an ordinary reschedule of
+      // the dragged booking alone. A drag that never touched another bar was never a swap
+      // attempt, so it keeps falling through to the ordinary move logic below on a miss,
+      // exactly as before - dropping outside a valid cell there still commits to the last
+      // validly-hovered position, which is a deliberate, separate decision (not this one).
+      if (finished.hasHoveredSwapTarget) {
+        const hoveredBar = barUnderPointer(e, finished.segmentId);
+        const swapTarget = hoveredBar && hoveredBar.bookingId !== finished.bookingId && finished.originalRoomUnitId !== "" ? hoveredBar : null;
+        if (!swapTarget) return; // aimed at a bar, missed on release - cancel, don't fall back to a move
+        if (swapTarget.roomId !== finished.roomId) return; // cross-type - refused before any request, no modal
+        openSwapConfirm(booking, swapTarget);
         return;
       }
 
@@ -767,6 +794,15 @@ export default function BookingCalendarGrid({
                   backgroundImage:
                     "repeating-linear-gradient(45deg, rgba(226,97,47,0.25), rgba(226,97,47,0.25) 6px, rgba(226,97,47,0.08) 6px, rgba(226,97,47,0.08) 12px)",
                   border: "1px dashed rgba(226,97,47,0.6)",
+                  // pointer-events: none while ANY drag is in progress, anywhere on the grid -
+                  // same reasoning as the dragged bar's own pointer-events toggle (see that
+                  // style's comment). This block sits on top of the ordinary [data-cell] div
+                  // underneath it; being clickable at rest is the whole point of this round's
+                  // double-click feature, but left clickable during a drag it would be exactly
+                  // what a dragged bar itself used to be - the thing elementFromPoint finds
+                  // instead of the cell or bar actually underneath, breaking cellUnderPointer/
+                  // barUnderPointer's hit-test for anyone dragging across a blocked date.
+                  pointerEvents: dragState ? "none" : "auto",
                 }}
               />
             );
