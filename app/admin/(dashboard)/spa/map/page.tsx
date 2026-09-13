@@ -1,34 +1,32 @@
-import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
-import { requireRoleAtLeast } from "@/lib/rbac";
+import { backendJson } from "@/lib/backendServer";
+import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import SpaTableMapView from "@/components/admin/SpaTableMapView";
-import type { SpaMap, Table } from "@/lib/posTypes";
+import type { SpaMap } from "@/lib/posTypes";
 
-// PATCH /tables/positions is MANAGER+ on the backend, so unlike the property map (whose vacant/
-// occupied/dirty/debt view is genuinely useful to CASHIER day to day) this whole page gates at
-// MANAGER+ - a bare "where are the tables" pin map has no read-only value to front desk the way
-// occupancy does, so there is no view-only mode to build here.
+// GET /spa-map is CASHIER+ on the backend, same floor as GET /spa-appointments - a receptionist
+// reading which table is free right now is exactly the reader that mattered once the map started
+// carrying busy/free/next-appointment state, not the exception this page used to assume didn't
+// exist. Placing tables and replacing the background image stay MANAGER+.
 export default async function AdminSpaMapPage() {
-  await requireRoleAtLeast("MANAGER", "/admin/pos");
+  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+  const canManage = hasRoleAtLeast(user.role, "MANAGER");
 
-  // The spa's own floor-plan image (GET /spa-map), not the property map's - the spa is a
-  // separate physical layout at a separate scale from the hotel's rooms, and this screen now
-  // owns uploading/replacing it directly (see SpaTableMapView's own upload form), the same way
-  // the property map screen owns its own image.
-  const [spaMap, tables] = await Promise.all([
-    backendJson<SpaMap>("/spa-map", { auth: true }),
-    backendJsonOrDefault<Table[]>("/tables", [], { auth: true }),
-  ]);
-  const spaTables = tables.filter((t) => t.zone === "SPA");
+  // Every SPA-zone table, already enriched with today's occupancy - see SpaMapTable's own
+  // openapi.yaml description for where that's computed and what it costs. No separate GET
+  // /tables call any more; this one response is now everything the screen needs.
+  const spaMap = await backendJson<SpaMap>("/spa-map", { auth: true });
 
   return (
     <div>
       <p className="eyebrow text-sea mb-2">Front desk</p>
       <h1 className="font-display italic text-3xl mb-2">Spa table map</h1>
       <p className="text-xs text-cream/40 mb-6 max-w-2xl">
-        Drag a table onto the plan (or back to the list) to place it, then save the layout.
+        Sea is free, dark is busy right now, dim is deactivated. Double-click a table (tap once on a touchscreen)
+        for its today.
+        {canManage && " Drag a table onto the plan (or back to the list) to place it, then save the layout."}
       </p>
 
-      <SpaTableMapView imagePath={spaMap.imagePath} imageUpdatedAt={spaMap.imageUpdatedAt} tables={spaTables} />
+      <SpaTableMapView imagePath={spaMap.imagePath} imageUpdatedAt={spaMap.imageUpdatedAt} tables={spaMap.tables} canManage={canManage} />
     </div>
   );
 }

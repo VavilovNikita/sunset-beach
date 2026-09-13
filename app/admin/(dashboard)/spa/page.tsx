@@ -56,15 +56,16 @@ export default async function AdminSpaPage({ searchParams }: { searchParams: { d
             Treatments
           </Link>
           {canManageTables && (
-            <>
-              <Link href="/admin/spa/tables" className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4">
-                Tables
-              </Link>
-              <Link href="/admin/spa/map" className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4">
-                Table map
-              </Link>
-            </>
+            <Link href="/admin/spa/tables" className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4">
+              Tables
+            </Link>
           )}
+          {/* Table map is CASHIER+ now that it carries live busy/free state, not just pins - see
+              that page's own comment. Tables (the raw CRUD list, no live-occupancy value) stays
+              MANAGER+ above. */}
+          <Link href="/admin/spa/map" className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4">
+            Table map
+          </Link>
         </div>
       </div>
       <p className="text-xs text-cream/40 mb-6 max-w-2xl">

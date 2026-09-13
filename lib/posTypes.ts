@@ -133,12 +133,44 @@ export type TablePositionInput = {
 
 // The spa's own floor-plan background image metadata (GET /spa-map) - mirrors
 // lib/types.ts's PropertyMap in shape/purpose, but carries no table list of its own: SPA-zone
-// tables (the map's actual content) already come from GET /tables, placed via
-// PATCH /tables/positions. imageUpdatedAt exists only so the frontend can cache-bust
-// GET /spa-map/image with a ?v= param, same convention as PropertyMap.imageUpdatedAt.
+// tables (placed via PATCH /tables/positions). imageUpdatedAt exists only so the frontend can
+// cache-bust GET /spa-map/image with a ?v= param, same convention as PropertyMap.imageUpdatedAt.
 export type SpaMap = {
   imagePath: string | null;
   imageUpdatedAt: string | null;
+  tables: SpaMapTable[];
+};
+
+// A summary of one of today's appointments on a SpaMapTable, for the map's own detail panel -
+// every status, not just BOOKED/COMPLETED (a cancelled/no-show slot is still part of the day's
+// own story). No id-level editing here - just enough to list and link out to the real schedule.
+export type SpaMapTableAppointment = {
+  id: string;
+  startTime: string;
+  durationMinutes: number;
+  status: SpaAppointmentStatus;
+  guestName: string;
+  treatmentNames: string[];
+};
+
+// One SPA-zone table on the map (GET /spa-map), enriched with today's occupancy - the same kind
+// of enrichment PropertyMapUnit does for a room unit, computed the same way: one batched read
+// (SpaAppointmentService#getSchedule for today), not a query per table. busy and
+// nextAppointmentStartTime are two sides of one axis - occupied by a BOOKED/COMPLETED appointment
+// covering this exact moment, or free (with nextAppointmentStartTime naming when that changes, or
+// null for the rest of the day). isActive is a third, independent fact, exactly like
+// PropertyMapUnit.isActive - a deactivated table is still listed here, dimmed, never excluded,
+// and its busy/nextAppointmentStartTime/appointments stay the real values.
+export type SpaMapTable = {
+  tableId: string;
+  label: string;
+  capacity: number;
+  isActive: boolean;
+  positionX: number | null;
+  positionY: number | null;
+  busy: boolean;
+  nextAppointmentStartTime: string | null;
+  appointments: SpaMapTableAppointment[];
 };
 
 // No denormalized menu item name — items only carry menuItemId. Consumers

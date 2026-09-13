@@ -4,18 +4,23 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveTablePositions } from "@/lib/tablePositionsClient";
 import { uploadSpaMapImage } from "@/lib/spaMapClient";
-import type { Table, TablePositionInput } from "@/lib/posTypes";
+import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
+import { resolveSpaTableFill } from "@/lib/spaMapDisplay";
+import SpaTableMapPanel from "@/components/admin/SpaTableMapPanel";
+import type { SpaMapTable, TablePositionInput } from "@/lib/posTypes";
 
 // Pointer-drag mechanics are a direct copy of PropertyMapView.tsx's own approach (native Pointer
 // Events, pointer capture on the tile the drag started from, touchAction disabled on the
-// container only while dragging, Escape cancels, a click-vs-drag threshold so a plain tap opens
-// nothing rather than "moving" a tile by zero pixels) - reusing the pattern, not reinventing a
-// second way to place something on a floor plan. What's simpler here, deliberately: no fill/badge
-// status logic (a table has no occupancy/dirty/debt state the way a room does - it's just a
-// place, colored one way), and no click-to-open detail panel (nothing to show beyond the label
-// already on the tile). The upload form below mirrors PropertyMapView's own
-// PropertyMapUploadForm - this screen now owns its own image (GET/POST /spa-map/image), the
-// same way the property map screen owns its.
+// container only while dragging, Escape cancels a drag), gated on canManage the same way that
+// view gates its own drag on canManage - placing tables is MANAGER+, viewing is not (see this
+// screen's own page for the role split and why).
+//
+// Opening the detail panel is a separate gesture from the drag, and deliberately not the property
+// map's own click-threshold trick: a manager's tile is both draggable and openable, and requiring
+// a double-click (mouse) / single tap (touch) to open - lib/useTapOrDoubleClick.ts, the same hook
+// BookingCalendarGrid/SpaScheduleGrid already use - means a single click can still be the start of
+// a drag without also opening the panel. A CASHIER viewer has no drag at all, so their tile only
+// ever gets the open gesture.
 const CLICK_THRESHOLD_PX = 6;
 
 type PendingPosition = { positionX: number | null; positionY: number | null };
@@ -29,19 +34,28 @@ type DragState = {
   y: number;
 };
 
+const FILL_CLASS: Record<string, string> = {
+  inactive: "bg-cream/10 text-cream/40 border-cream/15",
+  busy: "bg-ink2 text-cream border-cream/30",
+  free: "bg-sea text-ink border-sea",
+};
+
 export default function SpaTableMapView({
   imagePath,
   imageUpdatedAt,
   tables,
+  canManage,
 }: {
   imagePath: string | null;
   imageUpdatedAt: string | null;
-  tables: Table[];
+  tables: SpaMapTable[];
+  canManage: boolean;
 }) {
   const router = useRouter();
 
   const [pending, setPending] = useState<Record<string, PendingPosition>>({});
   const [drag, setDrag] = useState<DragState | null>(null);
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -49,6 +63,7 @@ export default function SpaTableMapView({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageWrapperRef = useRef<HTMLDivElement>(null);
+  const { note: notePointerType, bind: bindTapOrDoubleClick } = useTapOrDoubleClick();
 
   useEffect(() => {
     if (!drag) return;
@@ -59,8 +74,8 @@ export default function SpaTableMapView({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [drag]);
 
-  function effectivePosition(table: Table): PendingPosition {
-    return pending[table.id] ?? { positionX: table.positionX, positionY: table.positionY };
+  function effectivePosition(table: SpaMapTable): PendingPosition {
+    return pending[table.tableId] ?? { positionX: table.positionX, positionY: table.positionY };
   }
 
   const placedTables = tables.filter((t) => effectivePosition(t).positionX !== null);
@@ -68,7 +83,8 @@ export default function SpaTableMapView({
   const pendingCount = Object.keys(pending).length;
 
   function onTilePointerDown(e: React.PointerEvent<HTMLButtonElement>, tableId: string) {
-    if (!imagePath) return;
+    notePointerType(e);
+    if (!canManage || !imagePath) return;
     const imgRect = imageWrapperRef.current?.getBoundingClientRect();
     if (!imgRect) return;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -88,7 +104,7 @@ export default function SpaTableMapView({
     setDrag(null);
 
     const moved = Math.hypot(e.clientX - finished.startX, e.clientY - finished.startY);
-    if (moved < CLICK_THRESHOLD_PX) return; // a plain tap on a table pin does nothing - see class comment
+    if (moved < CLICK_THRESHOLD_PX) return; // a plain click here is the open gesture's job, not this one's
 
     const { imgRect } = finished;
     const withinX = e.clientX >= imgRect.left && e.clientX <= imgRect.right;
@@ -133,15 +149,18 @@ export default function SpaTableMapView({
     router.refresh();
   }
 
-  const draggedTable = drag ? tables.find((t) => t.id === drag.tableId) : null;
+  const draggedTable = drag ? tables.find((t) => t.tableId === drag.tableId) : null;
+  const selectedTable = tables.find((t) => t.tableId === selectedTableId) ?? null;
 
   return (
     <div ref={containerRef}>
-      <SpaMapUploadForm hasImage={Boolean(imagePath)} uploading={uploading} error={uploadError} onUpload={handleUpload} />
+      {canManage && (
+        <SpaMapUploadForm hasImage={Boolean(imagePath)} uploading={uploading} error={uploadError} onUpload={handleUpload} />
+      )}
 
       {!imagePath ? (
         <div className="mt-4 rounded-xl border border-dashed border-cream/20 p-10 text-center text-sm text-cream/50 min-w-[480px]">
-          Upload a floor plan above to start placing tables.
+          {canManage ? "Upload a floor plan above to start placing tables." : "No floor plan has been uploaded yet."}
         </div>
       ) : (
         <div className="flex flex-col lg:flex-row gap-6 mt-4">
@@ -156,15 +175,17 @@ export default function SpaTableMapView({
               />
               {placedTables.map((table) => {
                 const pos = effectivePosition(table);
-                const isDragging = drag?.tableId === table.id;
+                const isDragging = drag?.tableId === table.tableId;
                 return (
                   <TableTile
-                    key={table.id}
+                    key={table.tableId}
                     table={table}
+                    canManage={canManage}
                     dragging={isDragging}
                     onPointerDown={onTilePointerDown}
                     onPointerMove={onDragPointerMove}
                     onPointerUp={onDragPointerUp}
+                    tapHandlers={bindTapOrDoubleClick(() => setSelectedTableId(table.tableId))}
                     style={{
                       position: "absolute",
                       left: `${(pos.positionX ?? 0) * 100}%`,
@@ -185,13 +206,15 @@ export default function SpaTableMapView({
               <div className="flex flex-wrap lg:flex-col gap-2">
                 {unplacedTables.map((table) => (
                   <TableTile
-                    key={table.id}
+                    key={table.tableId}
                     table={table}
-                    dragging={drag?.tableId === table.id}
+                    canManage={canManage}
+                    dragging={drag?.tableId === table.tableId}
                     tray
                     onPointerDown={onTilePointerDown}
                     onPointerMove={onDragPointerMove}
                     onPointerUp={onDragPointerUp}
+                    tapHandlers={bindTapOrDoubleClick(() => setSelectedTableId(table.tableId))}
                   />
                 ))}
               </div>
@@ -209,7 +232,7 @@ export default function SpaTableMapView({
         </div>
       )}
 
-      {pendingCount > 0 && (
+      {canManage && pendingCount > 0 && (
         <div className="sticky bottom-4 mt-4 flex flex-wrap items-center gap-3 bg-ink2 border border-cream/20 rounded-xl px-4 py-3 shadow-2xl">
           <span className="text-sm text-cream/70">
             {pendingCount} table{pendingCount === 1 ? "" : "s"} moved
@@ -228,38 +251,56 @@ export default function SpaTableMapView({
           </button>
         </div>
       )}
+
+      {selectedTable && <SpaTableMapPanel table={selectedTable} onClose={() => setSelectedTableId(null)} />}
     </div>
   );
 }
 
 function TableTile({
   table,
+  canManage,
   dragging,
   tray,
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  tapHandlers,
   style,
 }: {
-  table: Table;
+  table: SpaMapTable;
+  canManage: boolean;
   dragging: boolean;
   tray?: boolean;
   onPointerDown: (e: React.PointerEvent<HTMLButtonElement>, tableId: string) => void;
   onPointerMove: (e: React.PointerEvent<HTMLButtonElement>) => void;
   onPointerUp: (e: React.PointerEvent<HTMLButtonElement>) => void;
+  tapHandlers: { onClick: () => void; onDoubleClick: () => void };
   style?: React.CSSProperties;
 }) {
+  const fill = resolveSpaTableFill(table);
+  const stateLabel = !table.isActive
+    ? "Inactive"
+    : table.busy
+      ? "Busy"
+      : table.nextAppointmentStartTime
+        ? `Free — next ${table.nextAppointmentStartTime}`
+        : "Free";
+
   if (tray) {
     return (
       <button
         type="button"
-        data-table-id={table.id}
-        onPointerDown={(e) => onPointerDown(e, table.id)}
+        data-table-id={table.tableId}
+        onPointerDown={(e) => onPointerDown(e, table.tableId)}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        className={`rounded-lg px-3 py-2 text-sm border flex items-center gap-2 transition-opacity bg-sea/10 text-cream/80 border-sea/30 cursor-grab active:cursor-grabbing touch-none ${
-          dragging ? "opacity-30" : ""
-        }`}
+        onClick={tapHandlers.onClick}
+        onDoubleClick={tapHandlers.onDoubleClick}
+        title={`${table.label} — ${stateLabel}`}
+        className={`rounded-lg px-3 py-2 text-sm border flex items-center gap-2 transition-opacity ${FILL_CLASS[fill]} ${
+          canManage ? "cursor-grab active:cursor-grabbing touch-none" : "cursor-pointer"
+        } ${dragging ? "opacity-30" : ""}`}
       >
         {table.label}
       </button>
@@ -269,15 +310,17 @@ function TableTile({
   return (
     <button
       type="button"
-      data-table-id={table.id}
-      onPointerDown={(e) => onPointerDown(e, table.id)}
+      data-table-id={table.tableId}
+      onPointerDown={(e) => onPointerDown(e, table.tableId)}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      title={table.label}
+      onClick={tapHandlers.onClick}
+      onDoubleClick={tapHandlers.onDoubleClick}
+      title={`${table.label} — ${stateLabel}`}
       style={style}
-      className={`rounded-full w-11 h-11 flex items-center justify-center text-xs font-medium border-2 shadow transition-opacity bg-sea/20 text-cream border-sea cursor-grab active:cursor-grabbing touch-none ${
-        dragging ? "opacity-30" : ""
-      }`}
+      className={`rounded-full w-11 h-11 flex items-center justify-center text-xs font-medium border-2 shadow transition-opacity ${FILL_CLASS[fill]} ${
+        canManage ? "cursor-grab active:cursor-grabbing touch-none" : "cursor-pointer"
+      } ${dragging ? "opacity-30" : ""}`}
     >
       {table.label}
     </button>

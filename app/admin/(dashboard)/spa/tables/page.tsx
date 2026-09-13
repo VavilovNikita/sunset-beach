@@ -3,9 +3,9 @@ import { requireRoleAtLeast } from "@/lib/rbac";
 import TableManager from "@/components/admin/pos/TableManager";
 import type { Table } from "@/lib/posTypes";
 
-// PATCH/POST/DELETE /tables are MANAGER+ on the backend - same floor as the spa table map
-// (/admin/spa/map), and same reasoning: a bare table list has no read-only value to front desk
-// the way live occupancy does, so there's no CASHIER view-only mode to build here.
+// PATCH/POST/DELETE /tables are MANAGER+ on the backend. Unlike /admin/spa/map (CASHIER+ now that
+// it carries live busy/free state), this is a bare label/capacity CRUD list with no read-only
+// value to front desk, so there's no CASHIER view-only mode to build here.
 export default async function AdminSpaTablesPage() {
   await requireRoleAtLeast("MANAGER", "/admin/pos");
 
