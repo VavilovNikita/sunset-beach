@@ -19,6 +19,8 @@ function block(overrides: Partial<RoomUnitBlock>): RoomUnitBlock {
     toDate: "2026-06-12",
     reason: "maintenance",
     createdAt: "2026-06-01T00:00:00.000Z",
+    createdByEmail: null,
+    maintenanceTask: null,
     ...overrides,
   };
 }

@@ -93,6 +93,16 @@ export type RoomUnitBlock = {
   toDate: string; // YYYY-MM-DD
   reason: string;
   createdAt: string;
+  createdByEmail: string | null; // null for blocks created before this was tracked
+  maintenanceTask: RoomUnitBlockMaintenanceTask | null;
+};
+
+// The maintenance task this block exists to cover, if any — a block can also be raised directly
+// (AvailabilityManager.tsx), with no task behind it, which is the null case.
+export type RoomUnitBlockMaintenanceTask = {
+  taskId: string;
+  description: string;
+  status: MaintenanceTaskStatus;
 };
 
 // Body of POST /room-units/{id}/blocks. fromDate <= toDate is enforced

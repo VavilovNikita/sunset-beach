@@ -20,6 +20,7 @@ import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
 import { DEFAULT_DAY_WIDTH_PX, MIN_DAY_WIDTH_PX, MAX_DAY_WIDTH_PX, loadStoredDensity, saveStoredDensity } from "@/lib/calendarRange";
 import BookingCreateFromGridModal from "@/components/admin/BookingCreateFromGridModal";
 import BookingCardPanel from "@/components/admin/BookingCardPanel";
+import RoomUnitBlockPanel from "@/components/admin/RoomUnitBlockPanel";
 import type { BookingCalendarResponse, BookingScheduleQuote, CalendarBooking, HousekeepingStatus, RoomUnit } from "@/lib/types";
 
 const ROW_HEIGHT = 40;
@@ -80,6 +81,13 @@ export default function BookingCalendarGrid({
   const allowDrag = dayWidth >= DRAG_THRESHOLD_PX;
 
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+  // Identifies the clicked visual bar by unit + date range, not by a single block id - a merged
+  // bar (mergeBlocksByUnit) can be backed by more than one RoomUnitBlock row, and the matching
+  // raw rows are recomputed from data.blocks at render time below rather than captured here, so
+  // the panel never shows a stale list if data refreshes while it's open.
+  const [selectedBlockRange, setSelectedBlockRange] = useState<{ roomUnitId: string; label: string; fromDate: Date; toDate: Date } | null>(
+    null
+  );
 
   const days = useMemo(() => buildDayColumns(data.from, data.to), [data.from, data.to]);
   const gridFrom = days[0];
@@ -739,10 +747,18 @@ export default function BookingCalendarGrid({
           {segments.map((seg, i) => {
             const { startCol, colSpan } = columnSpan(seg.fromDate, addDaysUTC(seg.toDate, 1), gridFrom, dayCount);
             if (colSpan <= 0) return null;
+            // Touch opens on a single tap; mouse needs a double-click - same shared gesture the
+            // booking bars use above, not a second hand-rolled version (lib/useTapOrDoubleClick.ts).
+            const tapHandlers = bindTapOrDoubleClick(() =>
+              setSelectedBlockRange({ roomUnitId, label, fromDate: seg.fromDate, toDate: seg.toDate })
+            );
             return (
               <div
                 key={i}
-                className="absolute rounded-md pointer-events-none opacity-70"
+                className="absolute rounded-md opacity-70 cursor-pointer"
+                onPointerDown={notePointerType}
+                onClick={tapHandlers.onClick}
+                onDoubleClick={tapHandlers.onDoubleClick}
                 style={{
                   left: startCol * dayWidth + 2,
                   width: colSpan * dayWidth - 4,
@@ -1053,6 +1069,29 @@ export default function BookingCalendarGrid({
           canManage={canManage}
           onClose={() => {
             setSelectedBookingId(null);
+            router.refresh();
+          }}
+        />
+      )}
+
+      {selectedBlockRange && (
+        <RoomUnitBlockPanel
+          roomUnitId={selectedBlockRange.roomUnitId}
+          roomLabel={selectedBlockRange.label}
+          // Every raw block on this unit whose range overlaps the clicked merged bar - exactly
+          // the set mergeBlocksByUnit would have folded into that one bar (see its own comment:
+          // merging is transitive over overlapping/adjacent ranges, so any block touching the
+          // bar's span was part of the same merge).
+          blocks={data.blocks.filter(
+            (b) =>
+              b.roomUnitId === selectedBlockRange.roomUnitId &&
+              dateOnlyUTC(b.fromDate).getTime() <= selectedBlockRange.toDate.getTime() &&
+              dateOnlyUTC(b.toDate).getTime() >= selectedBlockRange.fromDate.getTime()
+          )}
+          canManage={canManage}
+          onClose={() => setSelectedBlockRange(null)}
+          onSaved={() => {
+            setSelectedBlockRange(null);
             router.refresh();
           }}
         />
