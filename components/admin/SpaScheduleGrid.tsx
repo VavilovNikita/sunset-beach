@@ -1,17 +1,17 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addDaysUTC, dateOnlyUTC, toDateKey } from "@/lib/bookings";
 import { buildSlotColumns, slotIndexOf, slotSpanOf } from "@/lib/spaGridLayout";
 import { updateSpaAppointmentSchedule } from "@/lib/spaClient";
 import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
+import { DEFAULT_COL_WIDTH_PX, MIN_COL_WIDTH_PX, MAX_COL_WIDTH_PX, loadStoredSpaGridDensity, saveStoredSpaGridDensity } from "@/lib/spaGridDensity";
 import SpaAppointmentCreateModal from "@/components/admin/SpaAppointmentCreateModal";
 import SpaAppointmentPanel from "@/components/admin/SpaAppointmentPanel";
 import type { MenuItem, SpaAppointment, SpaSchedule, SpaTherapist } from "@/lib/posTypes";
 import type { Booking } from "@/lib/types";
 
-const COL_WIDTH = 64;
 const ROW_HEIGHT = 44;
 const LABEL_WIDTH = 160;
 
@@ -45,6 +45,18 @@ export default function SpaScheduleGrid({
   const router = useRouter();
   const gridRef = useRef<HTMLDivElement>(null);
   const columns = buildSlotColumns(schedule.openingTime, schedule.closingTime, schedule.slotMinutes);
+  // Density is client state, not URL-owned, same reasoning as the booking calendar's own: it
+  // never changes what's fetched, only how the same schedule renders - hydrated from
+  // localStorage once on mount (SSR has no localStorage, so first paint always uses the default).
+  const [colWidth, setColWidth] = useState(DEFAULT_COL_WIDTH_PX);
+  useEffect(() => {
+    const stored = loadStoredSpaGridDensity();
+    if (stored !== null) setColWidth(stored);
+  }, []);
+  function changeColWidth(next: number) {
+    setColWidth(next);
+    saveStoredSpaGridDensity(next);
+  }
   const [createTarget, setCreateTarget] = useState<{ tableId: string; tableLabel: string; startTime: string } | null>(null);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   // Same shared gesture the booking calendar uses (lib/useTapOrDoubleClick.ts) - reused here, not
@@ -76,6 +88,21 @@ export default function SpaScheduleGrid({
   function setTouchActionNone(active: boolean) {
     if (gridRef.current) gridRef.current.style.touchAction = active ? "none" : "";
   }
+
+  // Escape cancels an in-progress drag - the only way to back out of one without a mouse, same
+  // as BookingCalendarGrid's own keyboard handler (dragging itself has no keyboard equivalent).
+  useEffect(() => {
+    if (!dragState) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setTouchActionNone(false);
+        setDragState(null);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dragState]);
 
   function cellUnderPointer(e: React.PointerEvent): { tableId: string; startTime: string } | null {
     const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-spa-cell]");
@@ -163,7 +190,7 @@ export default function SpaScheduleGrid({
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
         <button
           type="button"
           onClick={() => goToDate(toDateKey(addDaysUTC(dateOnlyUTC(date), -1)))}
@@ -179,6 +206,19 @@ export default function SpaScheduleGrid({
         >
           Next day →
         </button>
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="eyebrow text-cream/40">Density</span>
+          <input
+            type="range"
+            min={MIN_COL_WIDTH_PX}
+            max={MAX_COL_WIDTH_PX}
+            step={1}
+            value={colWidth}
+            onChange={(e) => changeColWidth(Number(e.target.value))}
+            className="w-32 accent-coral"
+            aria-label="Spa grid column density"
+          />
+        </div>
       </div>
 
       {moveError && (
@@ -196,14 +236,14 @@ export default function SpaScheduleGrid({
         </p>
       ) : (
         <div ref={gridRef} className="overflow-auto border border-cream/10 rounded-xl">
-          <div style={{ width: LABEL_WIDTH + columns.length * COL_WIDTH }}>
+          <div style={{ width: LABEL_WIDTH + columns.length * colWidth }}>
             <div className="flex sticky top-0 z-20 bg-ink2 border-b border-cream/10">
               <div className="sticky left-0 z-30 bg-ink2 shrink-0" style={{ width: LABEL_WIDTH }} />
               {columns.map((c) => (
                 <div
                   key={c}
                   className="shrink-0 text-center text-[10px] text-cream/40 py-1.5 border-r border-cream/5"
-                  style={{ width: COL_WIDTH }}
+                  style={{ width: colWidth }}
                 >
                   {c}
                 </div>
@@ -229,7 +269,7 @@ export default function SpaScheduleGrid({
                   >
                     {table.label}
                   </div>
-                  <div className="relative shrink-0" style={{ width: columns.length * COL_WIDTH, height: ROW_HEIGHT }}>
+                  <div className="relative shrink-0" style={{ width: columns.length * colWidth, height: ROW_HEIGHT }}>
                     {columns.map((c, i) => (
                       <button
                         key={c}
@@ -242,7 +282,7 @@ export default function SpaScheduleGrid({
                         className={`absolute top-0 bottom-0 border-r border-cream/5 ${
                           occupiedCols.has(i) ? "" : "hover:bg-cream/5 cursor-cell"
                         }`}
-                        style={{ left: i * COL_WIDTH, width: COL_WIDTH }}
+                        style={{ left: i * colWidth, width: colWidth }}
                         aria-label={`Book ${table.label} at ${c}`}
                       />
                     ))}
@@ -265,7 +305,7 @@ export default function SpaScheduleGrid({
                           className={`absolute rounded-md flex items-center gap-1 px-2 text-xs truncate pointer-events-auto ${STATUS_STYLES[a.status]} ${
                             dragging ? "opacity-50 ring-2 ring-dashed ring-cream" : ""
                           } ${a.status === "BOOKED" ? "cursor-grab active:cursor-grabbing" : ""}`}
-                          style={{ left: start * COL_WIDTH + 2, width: span * COL_WIDTH - 4, top: 3, height: ROW_HEIGHT - 6 }}
+                          style={{ left: start * colWidth + 2, width: span * colWidth - 4, top: 3, height: ROW_HEIGHT - 6 }}
                           title={`${a.guestName} · ${a.treatments.map((t) => t.treatmentName).join(", ")} · ${a.status}`}
                         >
                           <span className="truncate">{a.guestName}</span>
