@@ -132,23 +132,32 @@ export default function SpaScheduleGrid({
     setDragState({ ...dragState, tableId: target.tableId, startTime: target.startTime });
   }
 
-  async function onDragPointerUp() {
+  async function onDragPointerUp(e: React.PointerEvent) {
     if (!dragState) return;
     setTouchActionNone(false);
     const finished = dragState;
     setDragState(null);
-    if (finished.tableId === finished.originalTableId && finished.startTime === finished.originalStartTime) return;
+
+    // Recomputed fresh from the release point, not read off dragState - dragState only updates
+    // while the pointer sits over a valid cell (see onDragPointerMove's own early return), so once
+    // the pointer leaves the grid it keeps whatever the last valid cell was. Committing that stale
+    // value here would move the appointment on a drop over nothing, which isn't intent - Escape
+    // already exists for "changed my mind mid-drag", a drop outside the grid is the pointer
+    // equivalent and cancels the same way, unconditionally, even back onto the original cell.
+    const target = cellUnderPointer(e);
+    if (!target) return;
+    if (target.tableId === finished.originalTableId && target.startTime === finished.originalStartTime) return;
 
     const appointment = schedule.appointments.find((a) => a.id === finished.appointmentId);
     if (!appointment) return;
 
     setMoveError(null);
-    setPendingMove({ appointmentId: finished.appointmentId, tableId: finished.tableId, startTime: finished.startTime });
+    setPendingMove({ appointmentId: finished.appointmentId, tableId: target.tableId, startTime: target.startTime });
     const result = await updateSpaAppointmentSchedule(finished.appointmentId, {
-      tableId: finished.tableId,
+      tableId: target.tableId,
       therapistUserId: appointment.therapistUserId,
       date: schedule.date,
-      startTime: finished.startTime,
+      startTime: target.startTime,
     });
     if (!result.ok) {
       setPendingMove(null); // revert - the optimistic position was never real
@@ -302,10 +311,28 @@ export default function SpaScheduleGrid({
                           onPointerCancel={onDragPointerCancel}
                           onClick={tapHandlers.onClick}
                           onDoubleClick={tapHandlers.onDoubleClick}
-                          className={`absolute rounded-md flex items-center gap-1 px-2 text-xs truncate pointer-events-auto ${STATUS_STYLES[a.status]} ${
+                          className={`absolute rounded-md flex items-center gap-1 px-2 text-xs truncate ${STATUS_STYLES[a.status]} ${
                             dragging ? "opacity-50 ring-2 ring-dashed ring-cream" : ""
                           } ${a.status === "BOOKED" ? "cursor-grab active:cursor-grabbing" : ""}`}
-                          style={{ left: start * colWidth + 2, width: span * colWidth - 4, top: 3, height: ROW_HEIGHT - 6 }}
+                          // pointerEvents: "none" while dragging - same as BookingCalendarGrid's own
+                          // dragged bar. Pointer capture (set in onAppointmentPointerDown) still
+                          // routes this element's own move/up events to it regardless; what this
+                          // actually changes is elementFromPoint, which cellUnderPointer uses to
+                          // find the slot *underneath* the cursor. Left pointer-events-auto (as a
+                          // static class, always on) before this fix, the dragged bar itself was
+                          // always what elementFromPoint found - it was hovering right where the
+                          // cursor was, since it visually follows the drag - so the hit-test never
+                          // reached the [data-spa-cell] button beneath it, cellUnderPointer returned
+                          // null, and onDragPointerMove's early return left dragState exactly where
+                          // it last was: frozen under the cursor, jumping only when the cursor moved
+                          // fast enough to briefly clear the bar's own rect.
+                          style={{
+                            left: start * colWidth + 2,
+                            width: span * colWidth - 4,
+                            top: 3,
+                            height: ROW_HEIGHT - 6,
+                            pointerEvents: dragging ? "none" : "auto",
+                          }}
                           title={`${a.guestName} · ${a.treatments.map((t) => t.treatmentName).join(", ")} · ${a.status}`}
                         >
                           <span className="truncate">{a.guestName}</span>
