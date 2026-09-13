@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addDaysUTC, dateOnlyUTC, toDateKey } from "@/lib/bookings";
 import { buildSlotColumns, slotIndexOf, slotSpanOf } from "@/lib/spaGridLayout";
-import { updateSpaAppointmentSchedule } from "@/lib/spaClient";
+import { updateSpaAppointmentSchedule, swapSpaAppointmentTable } from "@/lib/spaClient";
 import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
 import { DEFAULT_COL_WIDTH_PX, MIN_COL_WIDTH_PX, MAX_COL_WIDTH_PX, loadStoredSpaGridDensity, saveStoredSpaGridDensity } from "@/lib/spaGridDensity";
 import SpaAppointmentCreateModal from "@/components/admin/SpaAppointmentCreateModal";
@@ -76,14 +76,38 @@ export default function SpaScheduleGrid({
     originalStartTime: string;
     tableId: string;
     startTime: string;
+    // Set while hovering directly over a different, swap-eligible (BOOKED) appointment's own
+    // bar - the drag-onto-another-appointment gesture, same shape as BookingCalendarGrid's own
+    // swapTarget. Table only: startTime is deliberately never copied from the target here (see
+    // onDragPointerMove's own comment) - the dragged appointment keeps its own time throughout,
+    // only tableId previews the target's row.
+    swapTarget: { appointmentId: string; tableId: string; guestName: string } | null;
+    // Sticky for the life of this drag - same rule BookingCalendarGrid settled on for exactly
+    // this ambiguity: once a drag has hovered a valid swap target, it has committed to being a
+    // swap attempt, and a miss on release cancels the whole gesture rather than silently
+    // downgrading to an ordinary reschedule of the dragged appointment alone. A drag that never
+    // touched another appointment was never a swap attempt, so it keeps the existing move
+    // behaviour (falls back to its last validly-hovered cell, or cancels if it never had one) -
+    // see onDragPointerUp's own comment.
+    hasHoveredSwapTarget: boolean;
   } | null>(null);
   // Applied to rendering immediately on drop, before the request resolves - a loser (409 table/
   // therapist conflict, or any other failure) simply reverts: pendingMove is cleared and moveError
-  // shows what happened, no confirmation modal either way (unlike the calendar's swap, nothing
-  // here needs to be named/confirmed up front - it's one appointment, one guest, already being
-  // looked at).
+  // shows what happened. A plain move needs no confirmation up front - it's one appointment, one
+  // guest, already being looked at - but a swap moves two, so it gets the same named confirm
+  // step the calendar's own room swap requires (swapConfirm, below) rather than firing on drop.
   const [pendingMove, setPendingMove] = useState<{ appointmentId: string; tableId: string; startTime: string } | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
+  const [swapConfirm, setSwapConfirm] = useState<{
+    appointmentId: string;
+    guestName: string;
+    tableLabel: string;
+    otherAppointmentId: string;
+    otherGuestName: string;
+    otherTableLabel: string;
+    status: "confirm" | "loading" | "error";
+    error?: string;
+  } | null>(null);
 
   function setTouchActionNone(active: boolean) {
     if (gridRef.current) gridRef.current.style.touchAction = active ? "none" : "";
@@ -110,6 +134,19 @@ export default function SpaScheduleGrid({
     return { tableId: el.dataset.tableId, startTime: el.dataset.startTime };
   }
 
+  // Hit-tests for another appointment's own bar under the pointer - the swap gesture's own drop
+  // target, same DOM-attribute convention cellUnderPointer uses (survives layout changes, unlike
+  // coordinate math). Excludes the appointment being dragged and anything not BOOKED - swapping
+  // with a cancelled/completed/no-show slot isn't a swap, matching the backend's own rule.
+  function appointmentUnderPointer(e: React.PointerEvent, excludeAppointmentId: string): { appointmentId: string; tableId: string; guestName: string } | null {
+    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-appt-id]");
+    if (!el) return null;
+    const { apptId, apptTableId, apptGuestName, apptStatus } = el.dataset;
+    if (!apptId || !apptTableId || !apptGuestName || apptStatus !== "BOOKED") return null;
+    if (apptId === excludeAppointmentId) return null;
+    return { appointmentId: apptId, tableId: apptTableId, guestName: apptGuestName };
+  }
+
   function onAppointmentPointerDown(e: React.PointerEvent<HTMLButtonElement>, a: SpaAppointment) {
     notePointerType(e);
     if (a.status !== "BOOKED") return;
@@ -122,14 +159,25 @@ export default function SpaScheduleGrid({
       originalStartTime: a.startTime,
       tableId: a.tableId,
       startTime: a.startTime,
+      swapTarget: null,
+      hasHoveredSwapTarget: false,
     });
   }
 
   function onDragPointerMove(e: React.PointerEvent) {
     if (!dragState) return;
+
+    // Appointment-hover (a swap candidate) takes priority over whatever cell happens to sit
+    // underneath the hovered bar - same priority BookingCalendarGrid gives its own bar-hover.
+    const hoveredAppointment = appointmentUnderPointer(e, dragState.appointmentId);
+    if (hoveredAppointment) {
+      setDragState({ ...dragState, swapTarget: hoveredAppointment, hasHoveredSwapTarget: true, tableId: hoveredAppointment.tableId });
+      return;
+    }
+
     const target = cellUnderPointer(e);
     if (!target) return;
-    setDragState({ ...dragState, tableId: target.tableId, startTime: target.startTime });
+    setDragState({ ...dragState, swapTarget: null, tableId: target.tableId, startTime: target.startTime });
   }
 
   async function onDragPointerUp(e: React.PointerEvent) {
@@ -137,6 +185,36 @@ export default function SpaScheduleGrid({
     setTouchActionNone(false);
     const finished = dragState;
     setDragState(null);
+
+    const appointment = schedule.appointments.find((a) => a.id === finished.appointmentId);
+    if (!appointment) return;
+
+    // Recomputed fresh from the release point, not from finished.swapTarget - same "don't trust
+    // the last thing pointermove happened to see" principle as the plain-move recompute below.
+    // The rule this drag was classified by is hasHoveredSwapTarget, not whatever's directly
+    // under the pointer right now: once a drag has hovered a valid swap target at any point, it
+    // has committed to being a swap attempt for the rest of the gesture, and releasing anywhere
+    // that isn't a valid appointment - a table row gap, an occupied cell, empty space off the
+    // grid - cancels the whole gesture rather than silently downgrading to an ordinary
+    // reschedule of the dragged appointment alone. A drag that never touched another appointment
+    // was never a swap attempt, so it falls through to the ordinary move logic below on a miss,
+    // exactly as before.
+    if (finished.hasHoveredSwapTarget) {
+      const swapTarget = appointmentUnderPointer(e, finished.appointmentId);
+      if (!swapTarget) return; // aimed at another appointment, missed on release - cancel, don't fall back to a move
+      const otherAppointment = schedule.appointments.find((a) => a.id === swapTarget.appointmentId);
+      if (!otherAppointment) return;
+      setSwapConfirm({
+        appointmentId: appointment.id,
+        guestName: appointment.guestName,
+        tableLabel: appointment.tableLabel,
+        otherAppointmentId: otherAppointment.id,
+        otherGuestName: otherAppointment.guestName,
+        otherTableLabel: otherAppointment.tableLabel,
+        status: "confirm",
+      });
+      return;
+    }
 
     // Recomputed fresh from the release point, not read off dragState - dragState only updates
     // while the pointer sits over a valid cell (see onDragPointerMove's own early return), so once
@@ -147,9 +225,6 @@ export default function SpaScheduleGrid({
     const target = cellUnderPointer(e);
     if (!target) return;
     if (target.tableId === finished.originalTableId && target.startTime === finished.originalStartTime) return;
-
-    const appointment = schedule.appointments.find((a) => a.id === finished.appointmentId);
-    if (!appointment) return;
 
     setMoveError(null);
     setPendingMove({ appointmentId: finished.appointmentId, tableId: target.tableId, startTime: target.startTime });
@@ -171,6 +246,18 @@ export default function SpaScheduleGrid({
   function onDragPointerCancel() {
     setTouchActionNone(false);
     setDragState(null);
+  }
+
+  async function confirmTableSwap() {
+    if (!swapConfirm) return;
+    setSwapConfirm({ ...swapConfirm, status: "loading" });
+    const result = await swapSpaAppointmentTable(swapConfirm.appointmentId, { otherAppointmentId: swapConfirm.otherAppointmentId });
+    if (!result.ok) {
+      setSwapConfirm((prev) => (prev ? { ...prev, status: "error", error: result.error } : prev));
+      return;
+    }
+    setSwapConfirm(null);
+    router.refresh();
   }
 
   // The moving appointment's own row/column follows dragState while a drag is live, then
@@ -300,11 +387,16 @@ export default function SpaScheduleGrid({
                       const start = slotIndexOf(a.startTime, schedule.openingTime, schedule.slotMinutes);
                       const span = slotSpanOf(a.durationMinutes, schedule.slotMinutes);
                       const dragging = dragState?.appointmentId === a.id;
+                      const isSwapTarget = dragState?.swapTarget?.appointmentId === a.id;
                       const tapHandlers = bindTapOrDoubleClick(() => setSelectedAppointmentId(a.id));
                       return (
                         <button
                           key={a.id}
                           type="button"
+                          data-appt-id={a.id}
+                          data-appt-table-id={a.tableId}
+                          data-appt-guest-name={a.guestName}
+                          data-appt-status={a.status}
                           onPointerDown={(e) => onAppointmentPointerDown(e, a)}
                           onPointerMove={onDragPointerMove}
                           onPointerUp={onDragPointerUp}
@@ -313,7 +405,7 @@ export default function SpaScheduleGrid({
                           onDoubleClick={tapHandlers.onDoubleClick}
                           className={`absolute rounded-md flex items-center gap-1 px-2 text-xs truncate ${STATUS_STYLES[a.status]} ${
                             dragging ? "opacity-50 ring-2 ring-dashed ring-cream" : ""
-                          } ${a.status === "BOOKED" ? "cursor-grab active:cursor-grabbing" : ""}`}
+                          } ${isSwapTarget ? "ring-2 ring-sea" : ""} ${a.status === "BOOKED" ? "cursor-grab active:cursor-grabbing" : ""}`}
                           // pointerEvents: "none" while dragging - same as BookingCalendarGrid's own
                           // dragged bar. Pointer capture (set in onAppointmentPointerDown) still
                           // routes this element's own move/up events to it regardless; what this
@@ -376,6 +468,51 @@ export default function SpaScheduleGrid({
             router.refresh();
           }}
         />
+      )}
+
+      {swapConfirm && (
+        <div className="fixed inset-0 z-50 bg-ink/80 flex items-center justify-center p-4" onClick={() => setSwapConfirm(null)}>
+          <div className="bg-ink2 border border-cream/15 rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <p className="eyebrow text-sea mb-1">Confirm table swap</p>
+            <p className="text-sm text-cream/60 mb-4">This moves two guests at once - check both before confirming.</p>
+            <div className="space-y-2 mb-4 text-sm">
+              <p className="text-cream">
+                {swapConfirm.guestName}
+                <span className="text-cream/40"> · </span>
+                {swapConfirm.tableLabel}
+                <span className="text-cream/40"> → </span>
+                {swapConfirm.otherTableLabel}
+              </p>
+              <p className="text-cream">
+                {swapConfirm.otherGuestName}
+                <span className="text-cream/40"> · </span>
+                {swapConfirm.otherTableLabel}
+                <span className="text-cream/40"> → </span>
+                {swapConfirm.tableLabel}
+              </p>
+            </div>
+
+            {swapConfirm.status === "error" && <p className="text-sm text-coral mb-3">{swapConfirm.error}</p>}
+
+            <div className="flex gap-3 flex-wrap">
+              <button
+                type="button"
+                disabled={swapConfirm.status === "loading"}
+                onClick={confirmTableSwap}
+                className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium disabled:opacity-60"
+              >
+                {swapConfirm.status === "loading" ? "Swapping…" : "Confirm swap"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSwapConfirm(null)}
+                className="text-sm text-cream/60 hover:text-cream transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

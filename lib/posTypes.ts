@@ -462,6 +462,15 @@ export type SpaAppointmentScheduleInput = {
   startTime: string;
 };
 
+// Body of POST /spa-appointments/{id}/swap-table - the drag-onto-another-appointment operation.
+// The URL names the dragged appointment; this names the other side. Table only: date, startTime,
+// therapistUserId, and durationMinutes never move on either side, which is what keeps this
+// well-defined regardless of how long either treatment runs - see the endpoint's own backend
+// description. Both appointments must be BOOKED.
+export type SwapSpaAppointmentTableInput = {
+  otherAppointmentId: string;
+};
+
 // Response of GET /spa-appointments?date=. openingTime/closingTime/slotMinutes come from the
 // backend's own config, not a frontend constant, so the grid can never render slots the server
 // wouldn't accept. tables is every active SPA-zone Table (the grid's rows); appointments is

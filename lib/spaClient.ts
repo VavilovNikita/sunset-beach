@@ -13,6 +13,7 @@ import type {
   SpaAppointmentTreatmentCreateInput,
   SpaSchedule,
   SpaTherapist,
+  SwapSpaAppointmentTableInput,
 } from "@/lib/posTypes";
 
 export type SpaScheduleResult = { ok: true; schedule: SpaSchedule } | { ok: false; error: string };
@@ -54,6 +55,17 @@ export async function updateSpaAppointmentSchedule(
   input: SpaAppointmentScheduleInput
 ): Promise<UpdateSpaAppointmentScheduleResult> {
   const result = await adminRequest<SpaAppointment>(`/spa-appointments/${id}/schedule`, adminJsonInit("PATCH", input), "Could not move this appointment.");
+  if (!result.ok) return { ok: false, error: result.error, status: result.status };
+  return { ok: true, appointment: result.data };
+}
+
+// status carried alongside the error so a caller can tell a genuine table conflict (409 - a
+// third appointment already on the target table) apart from any other failure, same reasoning as
+// UpdateSpaAppointmentScheduleResult above.
+export type SwapSpaAppointmentTableResult = { ok: true; appointment: SpaAppointment } | { ok: false; error: string; status: number };
+
+export async function swapSpaAppointmentTable(id: string, input: SwapSpaAppointmentTableInput): Promise<SwapSpaAppointmentTableResult> {
+  const result = await adminRequest<SpaAppointment>(`/spa-appointments/${id}/swap-table`, adminJsonInit("POST", input), "Could not swap tables.");
   if (!result.ok) return { ok: false, error: result.error, status: result.status };
   return { ok: true, appointment: result.data };
 }
