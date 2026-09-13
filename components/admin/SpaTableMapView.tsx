@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveTablePositions } from "@/lib/tablePositionsClient";
-import { uploadSpaMapImage } from "@/lib/spaMapClient";
+import { getSpaMap, uploadSpaMapImage } from "@/lib/spaMapClient";
+import { usePolling } from "@/lib/usePolling";
 import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
 import { resolveSpaTableFill } from "@/lib/spaMapDisplay";
 import SpaTableMapPanel from "@/components/admin/SpaTableMapPanel";
-import type { SpaMapTable, TablePositionInput } from "@/lib/posTypes";
+import type { SpaMap, SpaMapTable, TablePositionInput } from "@/lib/posTypes";
 
 // Pointer-drag mechanics are a direct copy of PropertyMapView.tsx's own approach (native Pointer
 // Events, pointer capture on the tile the drag started from, touchAction disabled on the
@@ -22,6 +23,14 @@ import type { SpaMapTable, TablePositionInput } from "@/lib/posTypes";
 // a drag without also opening the panel. A CASHIER viewer has no drag at all, so their tile only
 // ever gets the open gesture.
 const CLICK_THRESHOLD_PX = 6;
+
+// The map shows busy/free state that's true only as of the moment it was read - a page nobody
+// ever refreshes would show "free" from hours ago to whoever opens it in the morning. Polls at
+// the same 5s cadence PosTableBoard/OrderBoard already use for a live floor board - this screen
+// is the same kind of surface (many tables, glanced at repeatedly through a shift), not the
+// tighter 3s an actively-open single order needs or the looser 10-20s a background badge can get
+// away with.
+const POLL_INTERVAL_MS = 5000;
 
 type PendingPosition = { positionX: number | null; positionY: number | null };
 
@@ -40,19 +49,10 @@ const FILL_CLASS: Record<string, string> = {
   free: "bg-sea text-ink border-sea",
 };
 
-export default function SpaTableMapView({
-  imagePath,
-  imageUpdatedAt,
-  tables,
-  canManage,
-}: {
-  imagePath: string | null;
-  imageUpdatedAt: string | null;
-  tables: SpaMapTable[];
-  canManage: boolean;
-}) {
+export default function SpaTableMapView({ initialMap, canManage }: { initialMap: SpaMap; canManage: boolean }) {
   const router = useRouter();
 
+  const [spaMap, setSpaMap] = useState(initialMap);
   const [pending, setPending] = useState<Record<string, PendingPosition>>({});
   const [drag, setDrag] = useState<DragState | null>(null);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
@@ -61,9 +61,47 @@ export default function SpaTableMapView({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
+  const { imagePath, imageUpdatedAt, tables } = spaMap;
+
   const containerRef = useRef<HTMLDivElement>(null);
   const imageWrapperRef = useRef<HTMLDivElement>(null);
   const { note: notePointerType, bind: bindTapOrDoubleClick } = useTapOrDoubleClick();
+
+  const pendingCount = Object.keys(pending).length;
+  const isEditing = drag !== null || pendingCount > 0;
+
+  // Mirrors PosTableBoard's own initialX-prop-changed sync (router.refresh() after a save/upload
+  // re-fetches this page's server data, which flows back in as a new initialMap) - refIsSafe below
+  // is the one gate both this and the poll must pass, so a refresh landing mid-edit from *either*
+  // source is dropped the same way.
+  useEffect(() => {
+    applyIfSafe(initialMap);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMap]);
+
+  // Read at apply-time, not capture-time: a poll already in flight when a drag/pending edit
+  // starts must not land once it resolves - see applyIfSafe below for what happens to it instead.
+  const isEditingRef = useRef(isEditing);
+  isEditingRef.current = isEditing;
+
+  function applyIfSafe(map: SpaMap) {
+    // Don't move the ground under a manager mid-placement: a refresh that would land while a drag
+    // is live or positions are unsaved is dropped whole, not merged - the next successful poll
+    // (or the save/cancel that clears pending) is what catches the screen up, never a partial
+    // update layered on top of an edit in progress.
+    if (isEditingRef.current) return;
+    setSpaMap(map);
+  }
+
+  async function refetch() {
+    const result = await getSpaMap();
+    if (result.ok) applyIfSafe(result.map);
+  }
+
+  // Paused (not just a dropped-on-arrival response) while editing, so a manager mid-drag isn't
+  // burning a request every 5s for a response that's guaranteed to be discarded - usePolling
+  // itself also only ever fires while the tab is actually visible.
+  usePolling(refetch, POLL_INTERVAL_MS, !isEditing);
 
   useEffect(() => {
     if (!drag) return;
@@ -80,7 +118,6 @@ export default function SpaTableMapView({
 
   const placedTables = tables.filter((t) => effectivePosition(t).positionX !== null);
   const unplacedTables = tables.filter((t) => effectivePosition(t).positionX === null);
-  const pendingCount = Object.keys(pending).length;
 
   function onTilePointerDown(e: React.PointerEvent<HTMLButtonElement>, tableId: string) {
     notePointerType(e);
@@ -154,9 +191,19 @@ export default function SpaTableMapView({
 
   return (
     <div ref={containerRef}>
-      {canManage && (
-        <SpaMapUploadForm hasImage={Boolean(imagePath)} uploading={uploading} error={uploadError} onUpload={handleUpload} />
-      )}
+      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        {canManage ? (
+          <SpaMapUploadForm hasImage={Boolean(imagePath)} uploading={uploading} error={uploadError} onUpload={handleUpload} />
+        ) : (
+          <span />
+        )}
+        {/* Plainly says whether what's on screen is live or frozen - the fallback this project's
+            own rule requires ("never swallow a failure into a plausible-looking...state") applied
+            to staleness, not just failure: a paused board must never look the same as a live one. */}
+        <span className={`text-xs shrink-0 ${isEditing ? "text-amber-400" : "text-cream/40"}`}>
+          {isEditing ? "Paused — unsaved changes" : `Updates every ${POLL_INTERVAL_MS / 1000}s`}
+        </span>
+      </div>
 
       {!imagePath ? (
         <div className="mt-4 rounded-xl border border-dashed border-cream/20 p-10 text-center text-sm text-cream/50 min-w-[480px]">

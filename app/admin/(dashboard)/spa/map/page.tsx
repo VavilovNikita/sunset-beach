@@ -26,7 +26,7 @@ export default async function AdminSpaMapPage() {
         {canManage && " Drag a table onto the plan (or back to the list) to place it, then save the layout."}
       </p>
 
-      <SpaTableMapView imagePath={spaMap.imagePath} imageUpdatedAt={spaMap.imageUpdatedAt} tables={spaMap.tables} canManage={canManage} />
+      <SpaTableMapView initialMap={spaMap} canManage={canManage} />
     </div>
   );
 }
