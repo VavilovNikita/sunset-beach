@@ -165,7 +165,7 @@ export default function SpaAppointmentPanel({
               <span className="text-cream/40">Time:</span> {current.date} · {current.startTime} ({current.durationMinutes} min)
             </p>
             <p>
-              <span className="text-cream/40">Therapist:</span> {current.therapistEmail}
+              <span className="text-cream/40">Therapist:</span> {current.therapistName}
             </p>
           </div>
 

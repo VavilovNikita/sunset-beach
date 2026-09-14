@@ -383,9 +383,12 @@ export type SpaAppointmentTreatment = {
 
 // A half-hour-grid treatment slot - occupies both a POS Table (SPA zone) and a therapist for
 // [startTime, startTime + durationMinutes) on date. Always names a booking - hotel guests only,
-// no walk-in path, no separate client record. guestName/tableLabel/therapistEmail are
+// no walk-in path, no separate client record. guestName/tableLabel/therapistName are
 // denormalized by the backend at read time, not stored - don't re-derive them here.
 // date/startTime are plain date-only and local HH:mm strings - no time zone anywhere.
+// therapistEmail is null for a no-login therapist (see UserCreateInput) - THERAPIST is an
+// ordinary staff tag, unrelated to login, so therapistName is the field to display, never
+// absent.
 export type SpaAppointment = {
   id: string;
   bookingId: string;
@@ -393,7 +396,8 @@ export type SpaAppointment = {
   tableId: string;
   tableLabel: string;
   therapistUserId: string;
-  therapistEmail: string;
+  therapistName: string;
+  therapistEmail: string | null;
   // One row per treatment - always at least one, an appointment cannot exist with zero.
   treatments: SpaAppointmentTreatment[];
   date: string;
@@ -486,8 +490,11 @@ export type SpaSchedule = {
 
 // GET /spa-appointments/therapists - narrower than GET /users (ADMIN-only) so a CASHIER
 // creating an appointment can list valid therapists without that escalation. Excludes an
-// inactive user.
+// inactive user. email is absent for a no-login account (see UserCreateInput) - THERAPIST is an
+// ordinary staff tag, unrelated to login, so name is the field this picker displays, never
+// absent.
 export type SpaTherapist = {
   id: string;
-  email: string;
+  name: string;
+  email: string | null;
 };

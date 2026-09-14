@@ -137,7 +137,7 @@ export default function SpaAppointmentCreateModal({
                 >
                   {therapists.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.email}
+                      {t.name}
                     </option>
                   ))}
                 </select>
