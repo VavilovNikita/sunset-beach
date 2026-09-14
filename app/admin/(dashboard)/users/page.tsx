@@ -5,6 +5,7 @@ import UserRoleSelect from "@/components/admin/UserRoleSelect";
 import UserActiveToggle from "@/components/admin/UserActiveToggle";
 import UserFunctionsSelect from "@/components/admin/UserFunctionsSelect";
 import ResetPasswordButton from "@/components/admin/ResetPasswordButton";
+import GrantCredentialsButton from "@/components/admin/GrantCredentialsButton";
 import type { User } from "@/lib/types";
 
 export default async function AdminUsersPage() {
@@ -37,13 +38,15 @@ export default async function AdminUsersPage() {
           >
             <div className="flex-1 min-w-0">
               <p className="truncate">
-                {u.email}
+                {u.name}
                 {!u.active && <span className="ml-2 text-xs text-coral border border-coral/40 rounded-full px-2 py-0.5">Disabled</span>}
               </p>
-              <p className="text-xs text-cream/40">Joined {u.createdAt.slice(0, 10)}</p>
+              <p className="text-xs text-cream/40">
+                {u.email ?? "No login"} · Joined {u.createdAt.slice(0, 10)}
+              </p>
             </div>
             <UserFunctionsSelect userId={u.id} currentFunctions={u.functions} />
-            <ResetPasswordButton userId={u.id} />
+            {u.email ? <ResetPasswordButton userId={u.id} /> : <GrantCredentialsButton userId={u.id} name={u.name} />}
             <UserActiveToggle userId={u.id} active={u.active} disabled={u.id === sessionUser.id} />
             <UserRoleSelect userId={u.id} currentRole={u.role} disabled={u.id === sessionUser.id} />
           </div>

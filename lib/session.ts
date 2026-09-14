@@ -28,9 +28,19 @@ export type JobFunction = "ENGINEER" | "HOUSEKEEPER" | "THERAPIST";
 // nothing here currently reads `createdAt` off a session user, but there's
 // no reason a session-scoped type should structurally lie about what the
 // backend actually sends back.
+//
+// `email` is optional: this same type also stands in for every row GET
+// /users returns (see lib/types.ts's re-export comment), which includes
+// no-login accounts (see lib/types.ts's UserCreateInput) — an actual
+// getCurrentUser() session always has one in practice (logging in requires
+// it), but the shared type can't promise that for the admin-listing case
+// without lying about what a GET /users row can be. `name` is required
+// either way — see UserCreateInput's own comment for why it's the one
+// identifier that's never absent.
 export type SessionUser = {
   id: string;
-  email: string;
+  name: string;
+  email: string | null;
   role: Role;
   active: boolean;
   functions: JobFunction[];

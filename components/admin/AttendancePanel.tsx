@@ -76,7 +76,7 @@ export default function AttendancePanel({ employees }: { employees: RosterEmploy
         >
           {employees.map((emp) => (
             <option key={emp.id} value={emp.id}>
-              {emp.email}
+              {emp.name}
             </option>
           ))}
         </select>

@@ -57,7 +57,7 @@ export default function PayRateManager({ employees }: { employees: RosterEmploye
       >
         {employees.map((emp) => (
           <option key={emp.id} value={emp.id}>
-            {emp.email}
+            {emp.name}
           </option>
         ))}
       </select>

@@ -73,7 +73,7 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
   const { note: notePointerType, bind: bindTapOrDoubleClick } = useTapOrDoubleClick();
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<RosterEntry | null>(null);
-  const [createTarget, setCreateTarget] = useState<{ employeeUserId: string; employeeEmail: string; date: string } | null>(null);
+  const [createTarget, setCreateTarget] = useState<{ employeeUserId: string; employeeName: string; date: string } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -240,7 +240,7 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
                 )}
                 {group.employees.map((emp) => (
                   <tr key={emp.id}>
-                    <td className="sticky left-0 bg-ink px-3 py-2 truncate max-w-[180px]">{emp.email}</td>
+                    <td className="sticky left-0 bg-ink px-3 py-2 truncate max-w-[180px]">{emp.name}</td>
                     {dates.map((d) => {
                       const entry = entriesByKey.get(`${emp.id}|${d}`);
                       const isDragSource = dragState?.source.entryId === entry?.id;
@@ -261,7 +261,7 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
                             onPointerMove={onDragPointerMove}
                             onPointerUp={onDragPointerUp}
                             onPointerCancel={onDragPointerCancel}
-                            onClick={() => setCreateTarget({ employeeUserId: emp.id, employeeEmail: emp.email, date: d })}
+                            onClick={() => setCreateTarget({ employeeUserId: emp.id, employeeName: emp.name, date: d })}
                             className={`h-11 border-l border-cream/5 cursor-cell hover:bg-cream/5 ${
                               isDropTarget && !dropIsSwap ? "bg-sea/10 ring-1 ring-inset ring-sea" : ""
                             }`}
@@ -309,7 +309,7 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/60 p-4" onClick={() => setSelectedEntry(null)}>
           <div className="bg-ink2 border border-cream/10 rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
             <p className="eyebrow text-sea mb-1">{selectedEntry.date}</p>
-            <h2 className="font-display italic text-2xl mb-2">{selectedEntry.employeeEmail}</h2>
+            <h2 className="font-display italic text-2xl mb-2">{selectedEntry.employeeName}</h2>
             <p className="text-cream/70 text-sm mb-1">
               Shift: {selectedEntry.shiftCode.code}
               {selectedEntry.shiftCode.startTime1
@@ -348,7 +348,7 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/60 p-4" onClick={() => setCreateTarget(null)}>
           <div className="bg-ink2 border border-cream/10 rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
             <p className="eyebrow text-sea mb-1">{createTarget.date}</p>
-            <h2 className="font-display italic text-2xl mb-4">{createTarget.employeeEmail}</h2>
+            <h2 className="font-display italic text-2xl mb-4">{createTarget.employeeName}</h2>
             <p className="eyebrow text-cream/60 mb-2">Assign a shift code</p>
             <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
               {shiftCodes
@@ -360,7 +360,7 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
                     onClick={() => handleCreate(c.id)}
                     className="text-left px-3 py-2 rounded-lg hover:bg-cream/10 transition-colors text-sm"
                   >
-                    {c.code} <span className="text-cream/40">· {STAFF_AREA_LABELS[c.staffArea]}</span>
+                    {c.code} <span className="text-cream/40">· {c.staffArea ? STAFF_AREA_LABELS[c.staffArea] : "Shared"}</span>
                   </button>
                 ))}
             </div>

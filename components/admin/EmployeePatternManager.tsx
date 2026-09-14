@@ -55,7 +55,7 @@ function EditRow({
     return (
       <div className="flex items-center gap-4 bg-ink2/40 border border-cream/10 rounded-xl p-3">
         <div className="flex-1 min-w-0">
-          <p className="font-display text-lg truncate">{employee.email}</p>
+          <p className="font-display text-lg truncate">{employee.name}</p>
           {pattern ? (
             <p className="text-sm text-cream/60">
               {STAFF_AREA_LABELS[pattern.staffArea]} · {pattern.workDaysPerWeek} days/week · off {WEEKDAY_LABELS[pattern.weeklyDayOff]}
@@ -76,7 +76,7 @@ function EditRow({
 
   return (
     <div className="bg-ink2/40 border border-cream/10 rounded-xl p-4 space-y-3">
-      <p className="font-display text-lg truncate">{employee.email}</p>
+      <p className="font-display text-lg truncate">{employee.name}</p>
       <div className="grid sm:grid-cols-4 gap-3 items-end">
         <div>
           <label className="eyebrow text-cream/60 block mb-1">Area</label>

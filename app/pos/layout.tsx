@@ -44,7 +44,9 @@ export default async function PosRootLayout({ children }: Readonly<{ children: R
     <html lang="en" className={`${fraunces.variable} ${worksans.variable}`}>
       <body className="font-body bg-ink text-cream antialiased min-h-screen">
         <PosIdleLogout />
-        <PosTopBar email={user.email} role={user.role} />
+        {/* A no-login account (see lib/types.ts's UserCreateInput) can never reach requireSessionUser -
+            signing in at all requires an email - so this fallback is type-safety only, never real. */}
+        <PosTopBar email={user.email ?? user.name} role={user.role} />
         <main className="pb-[max(1rem,env(safe-area-inset-bottom))]">{children}</main>
       </body>
     </html>

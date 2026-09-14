@@ -4,12 +4,17 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { extractApiError } from "@/lib/apiError";
-import type { Role } from "@/lib/types";
+import type { Role, UserCreateInput } from "@/lib/types";
 
 const ROLES: Role[] = ["WAITER", "CASHIER", "MANAGER", "ADMIN"];
 
 export default function UserForm() {
   const router = useRouter();
+  const [name, setName] = useState("");
+  // Most staff being entered by hand (cooks, housekeepers) never sign in - they exist so the
+  // roster/attendance/pay-rate records have someone to point at. Login is opt-in, not the
+  // default, and the two fields travel together - see UserCreateInput's own comment.
+  const [canLogIn, setCanLogIn] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("MANAGER");
@@ -21,11 +26,13 @@ export default function UserForm() {
     setSubmitting(true);
     setError(null);
 
+    const input: UserCreateInput = canLogIn ? { name, email, password, role } : { name, role };
+
     const res = await fetch(`${ADMIN_API_URL}/users`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, role }),
+      body: JSON.stringify(input),
     });
 
     setSubmitting(false);
@@ -43,26 +50,53 @@ export default function UserForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
       <div>
-        <label className="eyebrow text-cream/60 block mb-1">Email</label>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full bg-transparent border-b border-cream/25 py-2 text-cream focus:outline-none focus:border-coral"
-        />
-      </div>
-      <div>
-        <label className="eyebrow text-cream/60 block mb-1">Temporary password</label>
+        <label className="eyebrow text-cream/60 block mb-1">Name</label>
         <input
           type="text"
           required
-          minLength={8}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
           className="w-full bg-transparent border-b border-cream/25 py-2 text-cream focus:outline-none focus:border-coral"
         />
       </div>
+
+      <label className="flex items-center gap-2 text-sm text-cream/70">
+        <input type="checkbox" checked={canLogIn} onChange={(e) => setCanLogIn(e.target.checked)} className="accent-coral" />
+        Can sign in
+      </label>
+      {!canLogIn && (
+        <p className="text-xs text-cream/40 -mt-2">
+          No email or password - this person exists in the roster but can&rsquo;t authenticate. Login can be added later
+          from the users list.
+        </p>
+      )}
+
+      {canLogIn && (
+        <>
+          <div>
+            <label className="eyebrow text-cream/60 block mb-1">Email</label>
+            <input
+              type="email"
+              required={canLogIn}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-transparent border-b border-cream/25 py-2 text-cream focus:outline-none focus:border-coral"
+            />
+          </div>
+          <div>
+            <label className="eyebrow text-cream/60 block mb-1">Temporary password</label>
+            <input
+              type="text"
+              required={canLogIn}
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-transparent border-b border-cream/25 py-2 text-cream focus:outline-none focus:border-coral"
+            />
+          </div>
+        </>
+      )}
+
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Role</label>
         <select

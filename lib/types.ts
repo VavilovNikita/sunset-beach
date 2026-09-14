@@ -27,6 +27,26 @@ export type UserUpdateResult = {
   warning: string | null;
 };
 
+// Body of POST /users. email/password are optional together: send both for a login-capable
+// account, or neither for one that can't authenticate at all (staff who exist so the roster/
+// attendance/pay-rate records have someone to point at, but never sign in - a cook or a
+// housekeeper, say). Sending exactly one of the two is a 400. `name` is required either way -
+// the one identifier that's never absent, unlike `email`.
+export type UserCreateInput = {
+  name: string;
+  email?: string;
+  password?: string;
+  role?: Role;
+};
+
+// Body of PATCH /users/{id}/credentials - turns a no-login account into one that can
+// authenticate (see UserCreateInput). Both fields required; only valid while the target has no
+// email yet.
+export type UserCredentialsInput = {
+  email: string;
+  password: string;
+};
+
 export type Room = {
   id: string;
   name: string;
@@ -658,20 +678,25 @@ export type ShiftCodeCreateInput = {
 };
 
 // GET /roster/employees - narrower than User/GET /users, same reasoning as
-// GET /spa-appointments/therapists' own narrower read.
+// GET /spa-appointments/therapists' own narrower read. `name` is what the roster grid displays
+// and sorts by - unlike `email`, it's never absent, including for a no-login account (see
+// UserCreateInput).
 export type RosterEmployee = {
   id: string;
-  email: string;
+  name: string;
+  email: string | null;
   active: boolean;
   staffArea: StaffArea | null;
 };
 
 // An employee's normal roster shape - what POST /roster/generate reads. defaultShiftCodeId is
 // nullable: some employees genuinely have no single "usual" code, so generation leaves their
-// dates blank for a manager to fill by hand.
+// dates blank for a manager to fill by hand. employeeEmail is null for a no-login account (see
+// UserCreateInput) - employeeName is the field to display, never absent.
 export type EmployeePattern = {
   employeeUserId: string;
-  employeeEmail: string;
+  employeeName: string;
+  employeeEmail: string | null;
   staffArea: StaffArea;
   defaultShiftCodeId: string | null;
   workDaysPerWeek: number;
@@ -688,11 +713,13 @@ export type EmployeePatternInput = {
 };
 
 // One employee's shift on one date. A day off is the absence of a row here, never a row of its
-// own kind.
+// own kind. employeeEmail is null for a no-login account (see UserCreateInput) - employeeName is
+// the field to display, never absent.
 export type RosterEntry = {
   id: string;
   employeeUserId: string;
-  employeeEmail: string;
+  employeeName: string;
+  employeeEmail: string | null;
   date: string;
   shiftCode: ShiftCode;
   note: string | null;
@@ -777,11 +804,14 @@ export type AttendanceDaySummary = {
 
 // One version of an employee's daily rate - never edited, only superseded, same "agreed terms are
 // frozen" shape as ShiftCode and BookingSegmentNightlyRate, so a rate change partway through a
-// month prices each day against whichever rate was actually in effect that day.
+// month prices each day against whichever rate was actually in effect that day. employeeEmail is
+// null for a no-login account (see UserCreateInput) - employeeName is the field to display,
+// never absent.
 export type EmployeePayRate = {
   id: string;
   employeeUserId: string;
-  employeeEmail: string;
+  employeeName: string;
+  employeeEmail: string | null;
   dailyRate: string;
   effectiveFrom: string;
   createdByEmail: string;
