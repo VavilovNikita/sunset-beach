@@ -771,10 +771,14 @@ export type StaffAreaCoverageRuleInput = { minimumWorking: number };
 
 // One raw clock-in or clock-out - not a paired session. Pairing consecutive IN/OUT punches into
 // worked intervals happens at read time (GET /attendance/summary), never at write time.
+// employeeEmail is null for a no-login account (see UserCreateInput) - attendance exists
+// specifically for staff who punch in and out without ever signing into this system, so
+// employeeName is the field to display, never absent.
 export type AttendancePunch = {
   id: string;
   employeeUserId: string;
-  employeeEmail: string;
+  employeeName: string;
+  employeeEmail: string | null;
   punchAt: string;
   direction: PunchDirection;
   source: PunchSource;
