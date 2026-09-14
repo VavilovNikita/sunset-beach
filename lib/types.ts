@@ -610,3 +610,186 @@ export type AuditLogPage = {
   pageSize: number;
   totalCount: number;
 };
+
+// --- Staff roster ---------------------------------------------------------
+// "Roster" (the plan) and "Attendance" (what actually happened) are deliberately two different
+// words, kept apart on purpose so "does the roster match attendance" stays a real question with a
+// real answer instead of a tautology - see CLAUDE.md's Naming section. Not named "Department":
+// PrinterDepartment/MenuDepartment already mean ticket/print routing in this app.
+
+export type StaffArea = "ADMIN" | "FRONT_OFFICE" | "MAINTENANCE" | "HOUSEKEEPING" | "RESTAURANT" | "KITCHEN";
+
+export type Weekday = "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
+
+export type PunchDirection = "IN" | "OUT";
+
+export type PunchSource = "MANUAL" | "SCANNER";
+
+// One version of one shift code in one StaffArea - never edited once a RosterEntry references it;
+// "editing" is creating a new version with a later effectiveFrom, which retires this one
+// (active=false) for new entries while every entry already pointing here keeps its old meaning.
+// Zero intervals (all four times null) means OP - worked, no fixed hours.
+export type ShiftCode = {
+  id: string;
+  staffArea: StaffArea;
+  code: string;
+  startTime1: string | null;
+  endTime1: string | null;
+  startTime2: string | null;
+  endTime2: string | null;
+  countsAsWorked: boolean;
+  isPaid: boolean;
+  effectiveFrom: string;
+  active: boolean;
+  createdByEmail: string;
+  createdAt: string;
+};
+
+export type ShiftCodeCreateInput = {
+  staffArea: StaffArea;
+  code: string;
+  startTime1?: string | null;
+  endTime1?: string | null;
+  startTime2?: string | null;
+  endTime2?: string | null;
+  countsAsWorked: boolean;
+  isPaid: boolean;
+  effectiveFrom: string;
+};
+
+// GET /roster/employees - narrower than User/GET /users, same reasoning as
+// GET /spa-appointments/therapists' own narrower read.
+export type RosterEmployee = {
+  id: string;
+  email: string;
+  active: boolean;
+  staffArea: StaffArea | null;
+};
+
+// An employee's normal roster shape - what POST /roster/generate reads. defaultShiftCodeId is
+// nullable: some employees genuinely have no single "usual" code, so generation leaves their
+// dates blank for a manager to fill by hand.
+export type EmployeePattern = {
+  employeeUserId: string;
+  employeeEmail: string;
+  staffArea: StaffArea;
+  defaultShiftCodeId: string | null;
+  workDaysPerWeek: number;
+  weeklyDayOff: Weekday;
+  updatedByEmail: string;
+  updatedAt: string;
+};
+
+export type EmployeePatternInput = {
+  staffArea: StaffArea;
+  defaultShiftCodeId?: string | null;
+  workDaysPerWeek: number;
+  weeklyDayOff: Weekday;
+};
+
+// One employee's shift on one date. A day off is the absence of a row here, never a row of its
+// own kind.
+export type RosterEntry = {
+  id: string;
+  employeeUserId: string;
+  employeeEmail: string;
+  date: string;
+  shiftCode: ShiftCode;
+  note: string | null;
+  locked: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RosterEntryCreateInput = {
+  employeeUserId: string;
+  date: string;
+  shiftCodeId: string;
+  note?: string | null;
+};
+
+export type RosterMoveInput = { date: string };
+export type RosterReassignInput = { employeeUserId: string };
+export type RosterSwapInput = { otherEntryId: string };
+export type RosterLockInput = { locked: boolean };
+
+// One (staffArea, date) below its StaffAreaCoverageRule.minimumWorking - a warning, never a
+// reason a roster can't be saved.
+export type RosterCoverageWarning = {
+  staffArea: StaffArea;
+  date: string;
+  workingCount: number;
+  minimumWorking: number;
+};
+
+export type RosterMonth = {
+  year: number;
+  month: number;
+  entries: RosterEntry[];
+  employees: RosterEmployee[];
+  coverageWarnings: RosterCoverageWarning[];
+};
+
+export type StaffAreaCoverageRule = {
+  staffArea: StaffArea;
+  minimumWorking: number;
+  updatedByEmail: string;
+  updatedAt: string;
+};
+
+export type StaffAreaCoverageRuleInput = { minimumWorking: number };
+
+// One raw clock-in or clock-out - not a paired session. Pairing consecutive IN/OUT punches into
+// worked intervals happens at read time (GET /attendance/summary), never at write time.
+export type AttendancePunch = {
+  id: string;
+  employeeUserId: string;
+  employeeEmail: string;
+  punchAt: string;
+  direction: PunchDirection;
+  source: PunchSource;
+  recordedByEmail: string | null;
+  note: string | null;
+  createdAt: string;
+};
+
+export type AttendancePunchCreateInput = {
+  employeeUserId: string;
+  punchAt: string;
+  direction: PunchDirection;
+  note?: string | null;
+};
+
+export type ShiftInterval = { startTime: string; endTime: string };
+
+// One day of GET /attendance/summary. shiftCode is null on a day with no RosterEntry (a day off)
+// - distinct from OP, which has a shiftCode but an empty plannedIntervals, so a genuinely open day
+// never shows a fabricated "0 minutes planned". incomplete is true when punches don't pair off
+// evenly (an odd count) - closed only by recording another punch with a note, never inferred.
+export type AttendanceDaySummary = {
+  date: string;
+  shiftCode: ShiftCode | null;
+  plannedIntervals: ShiftInterval[];
+  punches: AttendancePunch[];
+  workedMinutes: number | null;
+  incomplete: boolean;
+};
+
+// One version of an employee's daily rate - never edited, only superseded, same "agreed terms are
+// frozen" shape as ShiftCode and BookingSegmentNightlyRate, so a rate change partway through a
+// month prices each day against whichever rate was actually in effect that day.
+export type EmployeePayRate = {
+  id: string;
+  employeeUserId: string;
+  employeeEmail: string;
+  dailyRate: string;
+  effectiveFrom: string;
+  createdByEmail: string;
+  createdAt: string;
+};
+
+export type EmployeePayRateCreateInput = {
+  employeeUserId: string;
+  dailyRate: string;
+  effectiveFrom: string;
+};

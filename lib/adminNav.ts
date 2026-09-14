@@ -97,8 +97,17 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: "Staff",
-    // GET /users is ADMIN-only on the backend, hard-restricted regardless of the role hierarchy.
-    links: [{ href: "/admin/users", label: "Users", minRole: "ADMIN" }],
+    // GET /roster, /attendance, /employee-pay-rates and friends are all MANAGER+ on the backend
+    // (see openapi.yaml's Roster tag) - same floor as pay itself, since attendance is the data
+    // pay depends on. "My schedule" is the one exception: GET /roster/me has no role floor at
+    // all, matching the module's own "own schedule visible to each employee" decision - it needs
+    // no minRole here for exactly that reason. GET /users is ADMIN-only, hard-restricted
+    // regardless of the role hierarchy.
+    links: [
+      { href: "/admin/roster", label: "Roster", minRole: "MANAGER" },
+      { href: "/admin/schedule", label: "My schedule" },
+      { href: "/admin/users", label: "Users", minRole: "ADMIN" },
+    ],
   },
 ];
 

@@ -37,7 +37,7 @@ export default function AdminSidebar({ email, role }: { email: string; role: Rol
   const homeHref = isCashierPlus ? "/admin" : (allLinks[0]?.href ?? "/admin/pos");
 
   return (
-    <aside className="w-full md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-cream/10 md:min-h-screen bg-ink2/40">
+    <aside className="print:hidden w-full md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-cream/10 md:min-h-screen bg-ink2/40">
       <div className="p-6">
         <Link href={homeHref} className="font-display italic text-lg text-cream block mb-8">
           The Sunset Beach
