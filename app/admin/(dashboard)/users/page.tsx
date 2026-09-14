@@ -3,6 +3,7 @@ import { backendJson } from "@/lib/backendServer";
 import { requireAdminUser } from "@/lib/rbac";
 import UserRoleSelect from "@/components/admin/UserRoleSelect";
 import UserActiveToggle from "@/components/admin/UserActiveToggle";
+import UserOvertimeEligibilityToggle from "@/components/admin/UserOvertimeEligibilityToggle";
 import UserFunctionsSelect from "@/components/admin/UserFunctionsSelect";
 import ResetPasswordButton from "@/components/admin/ResetPasswordButton";
 import GrantCredentialsButton from "@/components/admin/GrantCredentialsButton";
@@ -46,6 +47,7 @@ export default async function AdminUsersPage() {
               </p>
             </div>
             <UserFunctionsSelect userId={u.id} currentFunctions={u.functions} />
+            <UserOvertimeEligibilityToggle userId={u.id} overtimeEligible={u.overtimeEligible} />
             {u.email ? <ResetPasswordButton userId={u.id} /> : <GrantCredentialsButton userId={u.id} name={u.name} />}
             <UserActiveToggle userId={u.id} active={u.active} disabled={u.id === sessionUser.id} />
             <UserRoleSelect userId={u.id} currentRole={u.role} disabled={u.id === sessionUser.id} />

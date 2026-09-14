@@ -44,6 +44,11 @@ export type SessionUser = {
   role: Role;
   active: boolean;
   functions: JobFunction[];
+  // A fact about the person, not derived from their shift code - see the backend's
+  // User.overtimeEligible doc for why. Defaults true at creation; set per person via
+  // PATCH /users/{id}/overtime-eligibility. Nothing in this app computes or accrues overtime
+  // pay from this yet - it only records the fact.
+  overtimeEligible: boolean;
   createdAt: string;
 };
 
