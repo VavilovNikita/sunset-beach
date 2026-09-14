@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { classifyRosterDrop, isValidSwapTarget, type RosterDragSource, type RosterDropTarget } from "./rosterGrid";
+import { classifyRosterDrop, isValidSwapTarget, resolveShiftCodesForArea, type RosterDragSource, type RosterDropTarget } from "./rosterGrid";
+import type { ShiftCode } from "./types";
 
 const source: RosterDragSource = { entryId: "e1", employeeUserId: "emp-1", date: "2026-09-10" };
 
@@ -66,6 +67,55 @@ describe("classifyRosterDrop — the sticky swap rule", () => {
 
   it("a drag that never touched a swap target still falls through to move/reassign on a miss", () => {
     expect(classifyRosterDrop(source, target(), false)).toEqual({ kind: "move", entryId: "e1", date: "2026-09-11" });
+  });
+});
+
+function code(overrides: Partial<ShiftCode> = {}): ShiftCode {
+  return {
+    id: overrides.code ?? "code",
+    staffArea: null,
+    code: "9",
+    startTime1: null,
+    endTime1: null,
+    startTime2: null,
+    endTime2: null,
+    countsAsWorked: true,
+    isPaid: true,
+    effectiveFrom: "2026-01-01",
+    active: true,
+    createdByEmail: "manager@example.com",
+    createdAt: "2026-01-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+describe("resolveShiftCodesForArea", () => {
+  it("a shared code (staffArea: null) is available in any area", () => {
+    const shared = code({ id: "shared-7", code: "7", staffArea: null });
+    expect(resolveShiftCodesForArea([shared], "RESTAURANT")).toEqual([shared]);
+    expect(resolveShiftCodesForArea([shared], "KITCHEN")).toEqual([shared]);
+  });
+
+  it("an area-scoped code only shows for its own area", () => {
+    const restaurantOnly = code({ id: "restaurant-9", code: "9", staffArea: "RESTAURANT" });
+    expect(resolveShiftCodesForArea([restaurantOnly], "RESTAURANT")).toEqual([restaurantOnly]);
+    expect(resolveShiftCodesForArea([restaurantOnly], "KITCHEN")).toEqual([]);
+  });
+
+  it("an area-scoped code wins over a shared code of the same `code` string, for that area only", () => {
+    const shared = code({ id: "shared-9", code: "9", staffArea: null });
+    const restaurantOverride = code({ id: "restaurant-9", code: "9", staffArea: "RESTAURANT" });
+
+    // Restaurant sees only the override, not both rows.
+    expect(resolveShiftCodesForArea([shared, restaurantOverride], "RESTAURANT")).toEqual([restaurantOverride]);
+    // Every other area still resolves to the shared row, untouched by the override.
+    expect(resolveShiftCodesForArea([shared, restaurantOverride], "KITCHEN")).toEqual([shared]);
+  });
+
+  it("a shared code with no colliding override appears alongside an unrelated area-scoped code", () => {
+    const sharedOp = code({ id: "shared-op", code: "OP", staffArea: null });
+    const restaurant9 = code({ id: "restaurant-9", code: "9", staffArea: "RESTAURANT" });
+    expect(resolveShiftCodesForArea([sharedOp, restaurant9], "RESTAURANT")).toEqual([restaurant9, sharedOp]);
   });
 });
 

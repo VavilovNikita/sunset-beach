@@ -8,10 +8,11 @@ import type { ShiftCode, ShiftCodeCreateInput, StaffArea } from "@/lib/types";
 
 const STAFF_AREAS: StaffArea[] = ["ADMIN", "FRONT_OFFICE", "MAINTENANCE", "HOUSEKEEPING", "RESTAURANT", "KITCHEN"];
 const TODAY = new Date().toISOString().slice(0, 10);
+const SHARED_LABEL = "Shared (every area)";
 
 function emptyForm(): ShiftCodeCreateInput {
   return {
-    staffArea: "RESTAURANT",
+    staffArea: null,
     code: "",
     startTime1: "",
     endTime1: "",
@@ -36,9 +37,14 @@ export default function ShiftCodeManager({ initialCodes }: { initialCodes: Shift
   const [error, setError] = useState<string | null>(null);
 
   const visible = filterArea ? codes.filter((c) => c.staffArea === filterArea) : codes;
-  const grouped = STAFF_AREAS.map((area) => ({ area, codes: visible.filter((c) => c.staffArea === area) })).filter(
-    (g) => g.codes.length > 0
-  );
+  // This list is the raw, unresolved "every code as stored" view (see GET /shift-codes's own
+  // description) - a shared and an area-scoped row for the same code both show up here, each in
+  // its own group, which is the point: this screen is for seeing the collision, not resolving it
+  // the way the roster grid's per-employee picker does.
+  const grouped = [
+    { area: null as StaffArea | null, codes: visible.filter((c) => c.staffArea === null) },
+    ...STAFF_AREAS.map((area) => ({ area: area as StaffArea | null, codes: visible.filter((c) => c.staffArea === area) })),
+  ].filter((g) => g.codes.length > 0);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -100,10 +106,11 @@ export default function ShiftCodeManager({ initialCodes }: { initialCodes: Shift
             <div>
               <label className="eyebrow text-cream/60 block mb-1">Area</label>
               <select
-                value={form.staffArea}
-                onChange={(e) => setForm({ ...form, staffArea: e.target.value as StaffArea })}
+                value={form.staffArea ?? ""}
+                onChange={(e) => setForm({ ...form, staffArea: e.target.value ? (e.target.value as StaffArea) : null })}
                 className="w-full bg-ink2 border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
               >
+                <option value="">{SHARED_LABEL}</option>
                 {STAFF_AREAS.map((a) => (
                   <option key={a} value={a}>
                     {STAFF_AREA_LABELS[a]}
@@ -216,8 +223,8 @@ export default function ShiftCodeManager({ initialCodes }: { initialCodes: Shift
 
       <div className="space-y-6">
         {grouped.map(({ area, codes: areaCodes }) => (
-          <div key={area}>
-            <p className="eyebrow text-cream/40 mb-2">{STAFF_AREA_LABELS[area]}</p>
+          <div key={area ?? "shared"}>
+            <p className="eyebrow text-cream/40 mb-2">{area ? STAFF_AREA_LABELS[area] : SHARED_LABEL}</p>
             <div className="space-y-2">
               {areaCodes.map((c) => (
                 <div key={c.id} className="flex items-center gap-4 bg-ink2/40 border border-cream/10 rounded-xl p-3">

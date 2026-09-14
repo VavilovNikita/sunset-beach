@@ -1,4 +1,4 @@
-import type { StaffArea, Weekday } from "@/lib/types";
+import type { ShiftCode, StaffArea, Weekday } from "@/lib/types";
 
 export const STAFF_AREA_LABELS: Record<StaffArea, string> = {
   ADMIN: "Admin",
@@ -8,6 +8,20 @@ export const STAFF_AREA_LABELS: Record<StaffArea, string> = {
   RESTAURANT: "Restaurant",
   KITCHEN: "Kitchen",
 };
+
+// Mirrors ShiftCodeService#list's own resolution on the backend (GET /shift-codes?staffArea=X):
+// every area-scoped code for this area, plus every shared (staffArea: null) code whose `code`
+// string isn't also defined for this area - the area-scoped version wins and the shared one is
+// left out, never both. `codes` is expected to be the raw, unfiltered "every active code as
+// stored" list (GET /shift-codes with no staffArea) - this function does the same resolution the
+// backend would for that one area, so a picker scoped to one employee's area sees shared codes
+// too, not just the ones explicitly defined for that area.
+export function resolveShiftCodesForArea(codes: ShiftCode[], area: StaffArea): ShiftCode[] {
+  const areaScoped = codes.filter((c) => c.staffArea === area);
+  const areaScopedCodeStrings = new Set(areaScoped.map((c) => c.code));
+  const shared = codes.filter((c) => c.staffArea === null && !areaScopedCodeStrings.has(c.code));
+  return [...areaScoped, ...shared];
+}
 
 export const WEEKDAY_LABELS: Record<Weekday, string> = {
   MONDAY: "Monday",

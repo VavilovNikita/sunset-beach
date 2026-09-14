@@ -645,13 +645,16 @@ export type PunchDirection = "IN" | "OUT";
 
 export type PunchSource = "MANUAL" | "SCANNER";
 
-// One version of one shift code in one StaffArea - never edited once a RosterEntry references it;
-// "editing" is creating a new version with a later effectiveFrom, which retires this one
-// (active=false) for new entries while every entry already pointing here keeps its old meaning.
-// Zero intervals (all four times null) means OP - worked, no fixed hours.
+// One version of one shift code, optionally scoped to one StaffArea - never edited once a
+// RosterEntry references it; "editing" is creating a new version with a later effectiveFrom,
+// which retires this one (active=false) for new entries while every entry already pointing here
+// keeps its old meaning. Zero intervals (all four times null) means OP - worked, no fixed hours.
+// A null staffArea means shared: available to every area. Where a shared and an area-scoped row
+// share the same `code`, the area-scoped one wins for that area (see lib/rosterClient.ts's
+// listShiftCodes, which resolves this the same way the backend does for a given area).
 export type ShiftCode = {
   id: string;
-  staffArea: StaffArea;
+  staffArea: StaffArea | null;
   code: string;
   startTime1: string | null;
   endTime1: string | null;
@@ -666,7 +669,7 @@ export type ShiftCode = {
 };
 
 export type ShiftCodeCreateInput = {
-  staffArea: StaffArea;
+  staffArea?: StaffArea | null;
   code: string;
   startTime1?: string | null;
   endTime1?: string | null;
