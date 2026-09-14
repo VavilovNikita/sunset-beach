@@ -3,8 +3,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
-import { classifyRosterDrop, isValidSwapTarget, type RosterDragSource, type RosterDropTarget } from "@/lib/rosterGrid";
-import { STAFF_AREA_LABELS } from "@/lib/rosterGrid";
+import { classifyRosterDrop, isValidSwapTarget, STAFF_AREA_LABELS, type RosterDragSource, type RosterDropTarget } from "@/lib/rosterGrid";
 import {
   createRosterEntry,
   deleteRosterEntry,
