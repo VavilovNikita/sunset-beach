@@ -45,6 +45,10 @@ export default function SpaScheduleGrid({
   const router = useRouter();
   const gridRef = useRef<HTMLDivElement>(null);
   const columns = buildSlotColumns(schedule.openingTime, schedule.closingTime, schedule.slotMinutes);
+  // Used by the move-confirm dialog below, same reason BookingCalendarGrid keeps its own
+  // roomUnitLabelById - a table id alone doesn't tell a receptionist which physical table a
+  // drag actually landed on.
+  const tableLabelById = new Map(schedule.tables.map((t) => [t.id, t.label]));
   // Density is client state, not URL-owned, same reasoning as the booking calendar's own: it
   // never changes what's fetched, only how the same schedule renders - hydrated from
   // localStorage once on mount (SSR has no localStorage, so first paint always uses the default).
@@ -91,13 +95,25 @@ export default function SpaScheduleGrid({
     // see onDragPointerUp's own comment.
     hasHoveredSwapTarget: boolean;
   } | null>(null);
-  // Applied to rendering immediately on drop, before the request resolves - a loser (409 table/
-  // therapist conflict, or any other failure) simply reverts: pendingMove is cleared and moveError
-  // shows what happened. A plain move needs no confirmation up front - it's one appointment, one
-  // guest, already being looked at - but a swap moves two, so it gets the same named confirm
-  // step the calendar's own room swap requires (swapConfirm, below) rather than firing on drop.
-  const [pendingMove, setPendingMove] = useState<{ appointmentId: string; tableId: string; startTime: string } | null>(null);
-  const [moveError, setMoveError] = useState<string | null>(null);
+  // Nothing moves on drop - same rule BookingCalendarGrid's own scheduleConfirm follows. The bar
+  // snaps back to wherever it actually is the instant the pointer is released (dragState is
+  // cleared first, below, before this is set - see effectiveAppointments, which no longer has
+  // anything to read once dragState is gone) and only moves for real once confirmMove resolves.
+  // Cancelling this dialog is then just "don't call the API" - there's nothing to roll back
+  // because nothing was ever applied.
+  const [moveConfirm, setMoveConfirm] = useState<{
+    appointmentId: string;
+    guestName: string;
+    treatmentNames: string;
+    therapistUserId: string;
+    fromTableLabel: string;
+    fromStartTime: string;
+    toTableId: string;
+    toTableLabel: string;
+    toStartTime: string;
+    status: "confirm" | "loading" | "error";
+    error?: string;
+  } | null>(null);
   const [swapConfirm, setSwapConfirm] = useState<{
     appointmentId: string;
     guestName: string;
@@ -226,26 +242,40 @@ export default function SpaScheduleGrid({
     if (!target) return;
     if (target.tableId === finished.originalTableId && target.startTime === finished.originalStartTime) return;
 
-    setMoveError(null);
-    setPendingMove({ appointmentId: finished.appointmentId, tableId: target.tableId, startTime: target.startTime });
-    const result = await updateSpaAppointmentSchedule(finished.appointmentId, {
-      tableId: target.tableId,
+    setMoveConfirm({
+      appointmentId: finished.appointmentId,
+      guestName: appointment.guestName,
+      treatmentNames: appointment.treatments.map((t) => t.treatmentName).join(", "),
       therapistUserId: appointment.therapistUserId,
-      date: schedule.date,
-      startTime: target.startTime,
+      fromTableLabel: tableLabelById.get(finished.originalTableId) ?? finished.originalTableId,
+      fromStartTime: finished.originalStartTime,
+      toTableId: target.tableId,
+      toTableLabel: tableLabelById.get(target.tableId) ?? target.tableId,
+      toStartTime: target.startTime,
+      status: "confirm",
     });
-    if (!result.ok) {
-      setPendingMove(null); // revert - the optimistic position was never real
-      setMoveError(result.error);
-      return;
-    }
-    setPendingMove(null);
-    router.refresh();
   }
 
   function onDragPointerCancel() {
     setTouchActionNone(false);
     setDragState(null);
+  }
+
+  async function confirmMove() {
+    if (!moveConfirm) return;
+    setMoveConfirm({ ...moveConfirm, status: "loading" });
+    const result = await updateSpaAppointmentSchedule(moveConfirm.appointmentId, {
+      tableId: moveConfirm.toTableId,
+      therapistUserId: moveConfirm.therapistUserId,
+      date: schedule.date,
+      startTime: moveConfirm.toStartTime,
+    });
+    if (!result.ok) {
+      setMoveConfirm((prev) => (prev ? { ...prev, status: "error", error: result.error } : prev));
+      return;
+    }
+    setMoveConfirm(null);
+    router.refresh();
   }
 
   async function confirmTableSwap() {
@@ -260,13 +290,14 @@ export default function SpaScheduleGrid({
     router.refresh();
   }
 
-  // The moving appointment's own row/column follows dragState while a drag is live, then
-  // pendingMove once dropped (optimistic, until the request resolves) - a plain array map, not a
-  // second appointments list, so every other read (occupiedCols, the bar itself) stays in sync
-  // with exactly one appointment's position at a time.
+  // The moving appointment's own row/column follows dragState only while a drag is actually
+  // live - dragState is cleared before moveConfirm is ever set (see onDragPointerUp), so the bar
+  // renders back at its real position the instant the pointer is released, and stays there,
+  // dialog open on top, until confirmMove resolves. A plain array map, not a second appointments
+  // list, so every other read (occupiedCols, the bar itself) stays in sync with exactly one
+  // appointment's position at a time.
   const effectiveAppointments = schedule.appointments.map((a) => {
     if (dragState && dragState.appointmentId === a.id) return { ...a, tableId: dragState.tableId, startTime: dragState.startTime };
-    if (pendingMove && pendingMove.appointmentId === a.id) return { ...a, tableId: pendingMove.tableId, startTime: pendingMove.startTime };
     return a;
   });
 
@@ -316,15 +347,6 @@ export default function SpaScheduleGrid({
           />
         </div>
       </div>
-
-      {moveError && (
-        <div className="flex items-center justify-between gap-3 bg-coral/10 border border-coral/30 rounded-lg px-3 py-2 mb-3">
-          <p className="text-sm text-coral">{moveError}</p>
-          <button type="button" onClick={() => setMoveError(null)} className="text-coral/70 hover:text-coral text-sm shrink-0">
-            Dismiss
-          </button>
-        </div>
-      )}
 
       {schedule.tables.length === 0 ? (
         <p className="text-sm text-cream/40 bg-ink2/40 border border-cream/10 rounded-xl px-4 py-3">
@@ -468,6 +490,43 @@ export default function SpaScheduleGrid({
             router.refresh();
           }}
         />
+      )}
+
+      {moveConfirm && (
+        <div className="fixed inset-0 z-50 bg-ink/80 flex items-center justify-center p-4" onClick={() => moveConfirm.status !== "loading" && setMoveConfirm(null)}>
+          <div className="bg-ink2 border border-cream/15 rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <p className="eyebrow text-sea mb-1">Confirm change</p>
+            <p className="text-cream mb-1">{moveConfirm.guestName}</p>
+            <p className="text-sm text-cream/60 mb-4">
+              {moveConfirm.treatmentNames}
+              <br />
+              {moveConfirm.fromTableLabel} · {moveConfirm.fromStartTime}
+              <span className="text-cream/40"> → </span>
+              {moveConfirm.toTableLabel} · {moveConfirm.toStartTime}
+            </p>
+
+            {moveConfirm.status === "error" && <p className="text-sm text-coral mb-3">{moveConfirm.error}</p>}
+
+            <div className="flex gap-3 flex-wrap">
+              <button
+                type="button"
+                disabled={moveConfirm.status === "loading"}
+                onClick={confirmMove}
+                className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium disabled:opacity-60"
+              >
+                {moveConfirm.status === "loading" ? "Moving…" : "Confirm"}
+              </button>
+              <button
+                type="button"
+                disabled={moveConfirm.status === "loading"}
+                onClick={() => setMoveConfirm(null)}
+                className="text-sm text-cream/60 hover:text-cream transition-colors disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {swapConfirm && (
