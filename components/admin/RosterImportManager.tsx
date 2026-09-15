@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   previewRosterImport,
@@ -20,6 +21,11 @@ import type {
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
 ];
+
+// The importer's own premise: shift codes are entered by hand, ahead of any import, on the
+// Shift codes tab - opened in a new tab (not navigated to) so a half-read file/half-resolved
+// preview on this screen survives the trip.
+const SHIFT_CODES_URL = "/admin/roster?tab=codes";
 
 // Only the fields the "map to an existing account" picker actually shows - narrower than the
 // full User shape, so a freshly-created-on-the-spot employee (which the backend returns as just
@@ -148,7 +154,7 @@ function ColorMappingRow({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (entry.resolved || !entry.fillColor) {
+  if (entry.resolved) {
     return (
       <li className="flex items-center justify-between gap-3 py-2 border-b border-cream/10 text-sm">
         <span>
@@ -157,6 +163,22 @@ function ColorMappingRow({
           <span className="text-cream/40">× {entry.occurrences}</span>
         </span>
         <span className="text-cream/60">{entry.shiftCodeDescription ?? "resolved"}</span>
+      </li>
+    );
+  }
+
+  // No colour ambiguity, but also no active shift code matched this text - there is nothing to
+  // pick here (that's only ever the colour picker below, for a "9"), the real problem is one of
+  // the "Could not read" issues elsewhere on this screen. This used to fall into the same branch
+  // as a genuine success above, printing the word "resolved" next to a code that had in fact
+  // failed - a failure shown as a success. Never do that; say plainly that it didn't resolve.
+  if (!entry.fillColor) {
+    return (
+      <li className="flex items-center justify-between gap-3 py-2 border-b border-cream/10 text-sm">
+        <span>
+          {entry.rawCode} <span className="text-cream/40">× {entry.occurrences}</span>
+        </span>
+        <span className="text-coral">not resolved - see &ldquo;Could not read&rdquo; above</span>
       </li>
     );
   }
@@ -185,30 +207,44 @@ function ColorMappingRow({
       </div>
       {/* Every area's own shift codes, not just one - this colour means the same code text
           everywhere, so whichever department's row the admin recognises works. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <select
-          value={selectedId}
-          onChange={(e) => setSelectedId(e.target.value)}
-          disabled={!shiftCodes}
-          className="bg-ink2 border-b border-cream/25 py-1 text-cream text-xs focus:outline-none focus:border-coral flex-1 min-w-[10rem]"
-        >
-          <option value="">{shiftCodes ? "Which shift code is this?" : "Loading shift codes…"}</option>
-          {shiftCodes?.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.code} ({c.staffArea ? STAFF_AREA_LABELS[c.staffArea] : "shared"}) -{" "}
-              {c.startTime1 ? `${c.startTime1}-${c.endTime1}${c.startTime2 ? ` / ${c.startTime2}-${c.endTime2}` : ""}` : "no fixed hours"}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving || !selectedId}
-          className="text-xs text-sea hover:text-coral transition-colors disabled:opacity-50"
-        >
-          {saving ? "…" : "Map"}
-        </button>
-      </div>
+      {shiftCodes && shiftCodes.length === 0 ? (
+        // The page-level notice above the upload form should already have caught this before a
+        // file was ever read - this is the defensive fallback for whatever got here anyway (a
+        // code created and retired between then and now, say), not the primary way this is meant
+        // to be discovered.
+        <p className="text-xs text-coral">
+          No shift codes exist yet -{" "}
+          <Link href={SHIFT_CODES_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-coraldeep">
+            create one
+          </Link>
+          , then come back to this tab.
+        </p>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={selectedId}
+            onChange={(e) => setSelectedId(e.target.value)}
+            disabled={!shiftCodes}
+            className="bg-ink2 border-b border-cream/25 py-1 text-cream text-xs focus:outline-none focus:border-coral flex-1 min-w-[10rem]"
+          >
+            <option value="">{shiftCodes ? "Which shift code is this?" : "Loading shift codes…"}</option>
+            {shiftCodes?.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.code} ({c.staffArea ? STAFF_AREA_LABELS[c.staffArea] : "shared"}) -{" "}
+                {c.startTime1 ? `${c.startTime1}-${c.endTime1}${c.startTime2 ? ` / ${c.startTime2}-${c.endTime2}` : ""}` : "no fixed hours"}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || !selectedId}
+            className="text-xs text-sea hover:text-coral transition-colors disabled:opacity-50"
+          >
+            {saving ? "…" : "Map"}
+          </button>
+        </div>
+      )}
       {error && <p className="text-xs text-coral mt-1">{error}</p>}
     </li>
   );
@@ -223,8 +259,12 @@ export default function RosterImportManager({ initialEmployees }: { initialEmplo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [employees, setEmployees] = useState(initialEmployees);
-  // Every area's active shift codes, loaded once (not per area) - a colour's code text is the
-  // same fact everywhere, so the picker just needs the full list to choose from.
+  // Every area's active shift codes - a colour's code text is the same fact everywhere, so the
+  // picker just needs the full list to choose from. Fetched unconditionally on mount (not gated
+  // behind a file having been read or a "9" turning up unresolved) specifically so an account
+  // with none yet can be told that up front, at the point the form is still empty - not after a
+  // person has read a file and resolved names only to find the code picker empty. See
+  // hasNoShiftCodes below and the notice next to the upload form.
   const [shiftCodes, setShiftCodes] = useState<ShiftCode[] | undefined>(undefined);
   const [committing, setCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
@@ -255,17 +295,24 @@ export default function RosterImportManager({ initialEmployees }: { initialEmplo
     await refreshPreview(file);
   }
 
-  // Loaded once whenever the preview shows at least one unresolved "9" colour to map - never
-  // per area, since one list covers every department's own shift codes.
-  const hasUnresolvedColors = preview?.codes.some((c) => c.fillColor && !c.resolved) ?? false;
+  async function refreshShiftCodes() {
+    const result = await listShiftCodes();
+    if (result.ok) setShiftCodes(result.data);
+  }
+
   useEffect(() => {
-    if (!hasUnresolvedColors || shiftCodes !== undefined) return;
-    listShiftCodes().then((result) => {
-      if (result.ok) {
-        setShiftCodes(result.data);
-      }
-    });
-  }, [hasUnresolvedColors, shiftCodes]);
+    refreshShiftCodes();
+  }, []);
+
+  // Someone told by the notice below to go create a shift code does that on the Shift codes tab
+  // (opened in a new tab, see SHIFT_CODES_URL) and comes back to THIS tab - refetching on focus
+  // is what picks that up, cheaper than adding a manual reload control for a one-time trip.
+  useEffect(() => {
+    window.addEventListener("focus", refreshShiftCodes);
+    return () => window.removeEventListener("focus", refreshShiftCodes);
+  }, []);
+
+  const hasNoShiftCodes = shiftCodes !== undefined && shiftCodes.length === 0;
 
   async function handleCommit() {
     if (!preview) return;
@@ -284,6 +331,19 @@ export default function RosterImportManager({ initialEmployees }: { initialEmplo
 
   return (
     <div className="max-w-3xl">
+      {hasNoShiftCodes && (
+        <div className="bg-ink2/40 border border-coral/40 rounded-xl p-4 mb-6 text-sm">
+          <p className="text-coral">
+            No shift codes exist yet. This importer maps the file&rsquo;s codes onto shift codes entered by hand
+            beforehand -{" "}
+            <Link href={SHIFT_CODES_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-coraldeep">
+              create them on the Shift codes tab
+            </Link>{" "}
+            first, then come back here.
+          </p>
+        </div>
+      )}
+
       <form onSubmit={handlePreviewSubmit} className="bg-ink2/40 border border-cream/10 rounded-xl p-4 space-y-3 mb-6">
         <div className="grid sm:grid-cols-3 gap-3 items-end">
           <div className="sm:col-span-1">
