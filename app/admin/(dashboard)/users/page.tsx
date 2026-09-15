@@ -5,6 +5,7 @@ import UserRoleSelect from "@/components/admin/UserRoleSelect";
 import UserActiveToggle from "@/components/admin/UserActiveToggle";
 import UserOvertimeEligibilityToggle from "@/components/admin/UserOvertimeEligibilityToggle";
 import UserFunctionsSelect from "@/components/admin/UserFunctionsSelect";
+import UserEnrollmentNumberField from "@/components/admin/UserEnrollmentNumberField";
 import ResetPasswordButton from "@/components/admin/ResetPasswordButton";
 import GrantCredentialsButton from "@/components/admin/GrantCredentialsButton";
 import type { User } from "@/lib/types";
@@ -47,6 +48,7 @@ export default async function AdminUsersPage() {
               </p>
             </div>
             <UserFunctionsSelect userId={u.id} currentFunctions={u.functions} />
+            <UserEnrollmentNumberField userId={u.id} enrollmentNumber={u.enrollmentNumber} />
             <UserOvertimeEligibilityToggle userId={u.id} overtimeEligible={u.overtimeEligible} />
             {u.email ? <ResetPasswordButton userId={u.id} /> : <GrantCredentialsButton userId={u.id} name={u.name} />}
             <UserActiveToggle userId={u.id} active={u.active} disabled={u.id === sessionUser.id} />

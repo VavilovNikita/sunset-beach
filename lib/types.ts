@@ -809,6 +809,32 @@ export type AttendanceDaySummary = {
   incomplete: boolean;
 };
 
+// A fingerprint terminal (ZKTeco K60) the backend polls for its attendance log - it never calls
+// this app. lastSeenAt is set on every successful poll and is the one signal that tells a quiet
+// month (nobody punched) apart from a terminal that quietly stopped reporting - see the backend's
+// AttendanceDevice doc. Null until the device has ever been reached.
+export type AttendanceDevice = {
+  id: string;
+  name: string;
+  serial: string;
+  address: string;
+  port: number;
+  timezone: string;
+  active: boolean;
+  lastSeenAt: string | null;
+  createdAt: string;
+};
+
+// Full replacement on PATCH, same convention as PrinterInput.
+export type AttendanceDeviceInput = {
+  name: string;
+  serial: string;
+  address: string;
+  port?: number;
+  timezone: string;
+  active?: boolean;
+};
+
 // One version of an employee's daily rate - never edited, only superseded, same "agreed terms are
 // frozen" shape as ShiftCode and BookingSegmentNightlyRate, so a rate change partway through a
 // month prices each day against whichever rate was actually in effect that day. employeeEmail is

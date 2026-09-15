@@ -42,14 +42,14 @@ describe("visibleNavGroups", () => {
     const byTitle = Object.fromEntries(groups.map((g) => [g.title, g.links.map((l) => l.label)]));
     expect(byTitle["Setup"]).toContain("Printers");
     expect(byTitle["Reports"]).toContain("History");
-    expect(byTitle["Staff"]).toEqual(["Roster", "My schedule"]); // no Users - ADMIN only
+    expect(byTitle["Staff"]).toEqual(["Roster", "My schedule", "Devices"]); // no Users - ADMIN only
   });
 
-  it("ADMIN sees everything, including Staff/Roster/My schedule/Users", () => {
+  it("ADMIN sees everything, including Staff/Roster/My schedule/Devices/Users", () => {
     const groups = visibleNavGroups("ADMIN");
     assertNoEmptyGroups(groups);
     expect(groups.map((g) => g.title)).toEqual(["Front desk", "Restaurant", "Setup", "Maintenance", "Reports", "Staff"]);
-    expect(groups.find((g) => g.title === "Staff")?.links.map((l) => l.label)).toEqual(["Roster", "My schedule", "Users"]);
+    expect(groups.find((g) => g.title === "Staff")?.links.map((l) => l.label)).toEqual(["Roster", "My schedule", "Devices", "Users"]);
   });
 
   it("every role's group list is a subsequence of the full six in the same relative order", () => {

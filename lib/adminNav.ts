@@ -102,10 +102,13 @@ export const NAV_GROUPS: NavGroup[] = [
     // pay depends on. "My schedule" is the one exception: GET /roster/me has no role floor at
     // all, matching the module's own "own schedule visible to each employee" decision - it needs
     // no minRole here for exactly that reason. GET /users is ADMIN-only, hard-restricted
-    // regardless of the role hierarchy.
+    // regardless of the role hierarchy. GET /attendance/devices is MANAGER+, same floor as the
+    // rest of this group - registering/editing physical hardware, same reasoning as Printers
+    // under Setup.
     links: [
       { href: "/admin/roster", label: "Roster", minRole: "MANAGER" },
       { href: "/admin/schedule", label: "My schedule" },
+      { href: "/admin/attendance-devices", label: "Devices", minRole: "MANAGER" },
       { href: "/admin/users", label: "Users", minRole: "ADMIN" },
     ],
   },

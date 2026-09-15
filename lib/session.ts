@@ -49,6 +49,10 @@ export type SessionUser = {
   // PATCH /users/{id}/overtime-eligibility. Nothing in this app computes or accrues overtime
   // pay from this yet - it only records the fact.
   overtimeEligible: boolean;
+  // The fingerprint terminal's own numeric PIN for this person, not this app's id - a device
+  // punch is attributed by this number alone. Null for staff who never punch a terminal. Set or
+  // cleared via PATCH /users/{id}/enrollment-number (ADMIN only, matching /users/** generally).
+  enrollmentNumber: number | null;
   createdAt: string;
 };
 
