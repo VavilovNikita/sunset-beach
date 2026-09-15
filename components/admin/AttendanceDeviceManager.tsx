@@ -27,6 +27,20 @@ function LastSeenLabel({ lastSeenAt }: { lastSeenAt: string | null }) {
   return <span className={stale ? "text-coral" : "text-cream/60"}>Last heard from {new Date(lastSeenAt).toLocaleString()}</span>;
 }
 
+// Set from what the device actually answered, never assumed - see the backend's
+// AttendanceDevice.windowedReadUnsupported doc. Shown so a device that turns out not to support
+// the windowed read doesn't just quietly read its whole log every poll forever unnoticed.
+function WindowedReadUnsupportedBadge() {
+  return (
+    <span
+      className="text-amber-400"
+      title="This terminal rejected the windowed attendance-log read the last time it was tried, so every poll currently reads the entire log instead of just what's new."
+    >
+      · Full reads only (windowed read not supported)
+    </span>
+  );
+}
+
 function DeviceFields({ values, onChange }: { values: AttendanceDeviceInput; onChange: (values: AttendanceDeviceInput) => void }) {
   return (
     <div className="grid sm:grid-cols-6 gap-3 items-end">
@@ -246,6 +260,7 @@ export default function AttendanceDeviceManager({ initialDevices }: { initialDev
                 </p>
                 <p className="text-xs mt-0.5">
                   <LastSeenLabel lastSeenAt={device.lastSeenAt} />
+                  {device.windowedReadUnsupported && <WindowedReadUnsupportedBadge />}
                 </p>
               </div>
               <ResyncButton deviceId={device.id} onResynced={handleResynced} />

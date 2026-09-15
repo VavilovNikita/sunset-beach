@@ -912,6 +912,10 @@ export type AttendanceDevice = {
   timezone: string;
   active: boolean;
   lastSeenAt: string | null;
+  // True if the most recent poll that actually tried a windowed read found this device
+  // rejecting it, so every poll since has read the entire log instead of a window - set from
+  // what the device answered, never a config guess, cleared the moment a window later succeeds.
+  windowedReadUnsupported: boolean;
   createdAt: string;
 };
 
