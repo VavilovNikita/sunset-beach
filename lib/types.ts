@@ -783,12 +783,12 @@ export type RosterImportNameEntry = {
   suggestedStaffArea?: StaffArea;
 };
 
-// One distinct code - the ambiguous "9" is grouped per (staffArea, fillColor), since which
-// ShiftCode it means is resolved per area (an area can genuinely use both colours).
+// One distinct code, grouped by text alone (plus fillColor for the ambiguous "9") - never by
+// area. Which ShiftCode a code text means for a given cell is resolved separately, per area, at
+// commit time; the colour-to-text mapping itself is the same fact everywhere in the file.
 export type RosterImportCodeEntry = {
   rawCode: string;
   fillColor?: FillColor;
-  staffArea?: StaffArea;
   occurrences: number;
   resolved: boolean;
   shiftCodeDescription?: string;
@@ -836,15 +836,16 @@ export type RosterImportNameMappingResult = {
   employeeName: string;
 };
 
+// Not scoped to an area - which code text a colour means is the same fact everywhere in the
+// file. shiftCodeId just needs to point at an active ShiftCode whose own shape (single interval
+// or two) matches fillColor.
 export type RosterImportColorMappingInput = {
-  staffArea: StaffArea;
   rawCode: string;
   fillColor: FillColor;
   shiftCodeId: string;
 };
 
 export type RosterImportColorMappingResult = {
-  staffArea: StaffArea;
   rawCode: string;
   fillColor: FillColor;
   resolvedCode: string;

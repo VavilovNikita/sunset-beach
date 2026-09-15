@@ -15,7 +15,6 @@ import type {
   RosterImportCodeEntry,
   RosterImportResult,
   ShiftCode,
-  StaffArea,
 } from "@/lib/types";
 
 const MONTH_NAMES = [
@@ -138,36 +137,24 @@ function NameMappingRow({
 
 function ColorMappingRow({
   entry,
-  shiftCodesByArea,
-  onLoadCodes,
+  shiftCodes,
   onResolved,
 }: {
   entry: RosterImportCodeEntry;
-  shiftCodesByArea: Record<string, ShiftCode[] | undefined>;
-  onLoadCodes: (area: StaffArea) => void;
+  shiftCodes: ShiftCode[] | undefined;
   onResolved: () => void;
 }) {
   const [selectedId, setSelectedId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const area = entry.staffArea;
-  const codes = area ? shiftCodesByArea[area] : undefined;
-  const needsCodes = !entry.resolved && !!entry.fillColor && !!area && codes === undefined;
 
-  useEffect(() => {
-    if (needsCodes && area) {
-      onLoadCodes(area);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [needsCodes, area]);
-
-  if (entry.resolved || !entry.fillColor || !area) {
+  if (entry.resolved || !entry.fillColor) {
     return (
       <li className="flex items-center justify-between gap-3 py-2 border-b border-cream/10 text-sm">
         <span>
           {entry.rawCode}
-          {entry.fillColor && <span className={`ml-1.5 text-xs ${entry.fillColor === "YELLOW" ? "text-amber-300" : "text-sea"}`}>({entry.fillColor.toLowerCase()})</span>}
-          {area && <span className="text-cream/40"> · {STAFF_AREA_LABELS[area]}</span>} <span className="text-cream/40">× {entry.occurrences}</span>
+          {entry.fillColor && <span className={`ml-1.5 text-xs ${entry.fillColor === "YELLOW" ? "text-amber-300" : "text-sea"}`}>({entry.fillColor.toLowerCase()})</span>}{" "}
+          <span className="text-cream/40">× {entry.occurrences}</span>
         </span>
         <span className="text-cream/60">{entry.shiftCodeDescription ?? "resolved"}</span>
       </li>
@@ -175,12 +162,10 @@ function ColorMappingRow({
   }
 
   async function handleSave() {
-    if (!area || !entry.fillColor) return;
+    if (!entry.fillColor) return;
     setSaving(true);
     setError(null);
-    const result = await createRosterImportColorMapping({
-      staffArea: area, rawCode: entry.rawCode, fillColor: entry.fillColor, shiftCodeId: selectedId,
-    });
+    const result = await createRosterImportColorMapping({ rawCode: entry.rawCode, fillColor: entry.fillColor, shiftCodeId: selectedId });
     setSaving(false);
     if (!result.ok) {
       setError(result.error);
@@ -195,20 +180,23 @@ function ColorMappingRow({
         <span>
           {entry.rawCode}{" "}
           <span className={`text-xs ${entry.fillColor === "YELLOW" ? "text-amber-300" : "text-sea"}`}>({entry.fillColor.toLowerCase()})</span>{" "}
-          <span className="text-cream/40">· {STAFF_AREA_LABELS[area]} · × {entry.occurrences}</span>
+          <span className="text-cream/40">× {entry.occurrences}</span>
         </span>
       </div>
+      {/* Every area's own shift codes, not just one - this colour means the same code text
+          everywhere, so whichever department's row the admin recognises works. */}
       <div className="flex flex-wrap items-center gap-2">
         <select
           value={selectedId}
           onChange={(e) => setSelectedId(e.target.value)}
-          disabled={!codes}
+          disabled={!shiftCodes}
           className="bg-ink2 border-b border-cream/25 py-1 text-cream text-xs focus:outline-none focus:border-coral flex-1 min-w-[10rem]"
         >
-          <option value="">{codes ? "Which shift code is this?" : "Loading shift codes…"}</option>
-          {codes?.map((c) => (
+          <option value="">{shiftCodes ? "Which shift code is this?" : "Loading shift codes…"}</option>
+          {shiftCodes?.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.code} ({c.startTime1 ? `${c.startTime1}-${c.endTime1}${c.startTime2 ? ` / ${c.startTime2}-${c.endTime2}` : ""}` : "no fixed hours"})
+              {c.code} ({c.staffArea ? STAFF_AREA_LABELS[c.staffArea] : "shared"}) -{" "}
+              {c.startTime1 ? `${c.startTime1}-${c.endTime1}${c.startTime2 ? ` / ${c.startTime2}-${c.endTime2}` : ""}` : "no fixed hours"}
             </option>
           ))}
         </select>
@@ -235,8 +223,9 @@ export default function RosterImportManager({ initialEmployees }: { initialEmplo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [employees, setEmployees] = useState(initialEmployees);
-  const [shiftCodesByArea, setShiftCodesByArea] = useState<Record<string, ShiftCode[] | undefined>>({});
-  const [loadingAreas, setLoadingAreas] = useState<Set<string>>(new Set());
+  // Every area's active shift codes, loaded once (not per area) - a colour's code text is the
+  // same fact everywhere, so the picker just needs the full list to choose from.
+  const [shiftCodes, setShiftCodes] = useState<ShiftCode[] | undefined>(undefined);
   const [committing, setCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
   const [commitResult, setCommitResult] = useState<RosterImportResult | null>(null);
@@ -266,20 +255,17 @@ export default function RosterImportManager({ initialEmployees }: { initialEmplo
     await refreshPreview(file);
   }
 
-  function handleLoadCodes(area: StaffArea) {
-    if (loadingAreas.has(area) || shiftCodesByArea[area] !== undefined) return;
-    setLoadingAreas((prev) => new Set(prev).add(area));
-    listShiftCodes(area).then((result) => {
-      setLoadingAreas((prev) => {
-        const next = new Set(prev);
-        next.delete(area);
-        return next;
-      });
+  // Loaded once whenever the preview shows at least one unresolved "9" colour to map - never
+  // per area, since one list covers every department's own shift codes.
+  const hasUnresolvedColors = preview?.codes.some((c) => c.fillColor && !c.resolved) ?? false;
+  useEffect(() => {
+    if (!hasUnresolvedColors || shiftCodes !== undefined) return;
+    listShiftCodes().then((result) => {
       if (result.ok) {
-        setShiftCodesByArea((prev) => ({ ...prev, [area]: result.data }));
+        setShiftCodes(result.data);
       }
     });
-  }
+  }, [hasUnresolvedColors, shiftCodes]);
 
   async function handleCommit() {
     if (!preview) return;
@@ -389,14 +375,8 @@ export default function RosterImportManager({ initialEmployees }: { initialEmplo
           <div className="bg-ink2/40 border border-cream/10 rounded-xl p-4">
             <p className="eyebrow text-cream/60 mb-2">Codes ({preview.codes.length})</p>
             <ul>
-              {preview.codes.map((c, i) => (
-                <ColorMappingRow
-                  key={`${c.rawCode}-${c.fillColor}-${c.staffArea}-${i}`}
-                  entry={c}
-                  shiftCodesByArea={shiftCodesByArea}
-                  onLoadCodes={handleLoadCodes}
-                  onResolved={handleResolved}
-                />
+              {preview.codes.map((c) => (
+                <ColorMappingRow key={`${c.rawCode}-${c.fillColor}`} entry={c} shiftCodes={shiftCodes} onResolved={handleResolved} />
               ))}
             </ul>
           </div>
