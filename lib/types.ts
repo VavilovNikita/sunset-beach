@@ -767,6 +767,96 @@ export type StaffAreaCoverageRule = {
   updatedAt: string;
 };
 
+// --- Excel schedule import ------------------------------------------------
+// Two shifts are both written "9" in the hotel's own file - yellow (single) or light blue
+// (split), the fill is the only thing telling them apart. See the backend's FillColor doc.
+export type FillColor = "YELLOW" | "BLUE";
+
+// One distinct name found in the sheet. mapped:false means POST /roster/import/name-mappings
+// must resolve it (to an existing account or a new no-login one) before commit can succeed.
+export type RosterImportNameEntry = {
+  rawName: string;
+  occurrences: number;
+  mapped: boolean;
+  employeeUserId?: string;
+  employeeName?: string;
+  suggestedStaffArea?: StaffArea;
+};
+
+// One distinct code - the ambiguous "9" is grouped per (staffArea, fillColor), since which
+// ShiftCode it means is resolved per area (an area can genuinely use both colours).
+export type RosterImportCodeEntry = {
+  rawCode: string;
+  fillColor?: FillColor;
+  staffArea?: StaffArea;
+  occurrences: number;
+  resolved: boolean;
+  shiftCodeDescription?: string;
+};
+
+export type RosterImportIssue = {
+  cellRef?: string;
+  message: string;
+};
+
+// A cell whose date already has a RosterEntry for that employee - always skipped, never
+// overwritten. Resolving one (if the new value should win) means clearing the existing entry by
+// hand first and re-running the import.
+export type RosterImportCollision = {
+  employeeName: string;
+  date: string;
+  existingShiftCodeDescription: string;
+  newShiftCodeDescription: string;
+};
+
+// Response of POST /roster/import/preview - a dry run, writes nothing. canCommit is true only
+// once every name is mapped, every "9" colour is resolved, and issues is empty.
+export type RosterImportPreview = {
+  importId: string;
+  year: number;
+  month: number;
+  names: RosterImportNameEntry[];
+  codes: RosterImportCodeEntry[];
+  issues: RosterImportIssue[];
+  collisions: RosterImportCollision[];
+  entriesToCreate: number;
+  canCommit: boolean;
+};
+
+// Body of POST /roster/import/name-mappings - exactly one of employeeUserId or newEmployeeName.
+export type RosterImportNameMappingInput = {
+  rawName: string;
+  employeeUserId?: string;
+  newEmployeeName?: string;
+};
+
+export type RosterImportNameMappingResult = {
+  rawName: string;
+  employeeUserId: string;
+  employeeName: string;
+};
+
+export type RosterImportColorMappingInput = {
+  staffArea: StaffArea;
+  rawCode: string;
+  fillColor: FillColor;
+  shiftCodeId: string;
+};
+
+export type RosterImportColorMappingResult = {
+  staffArea: StaffArea;
+  rawCode: string;
+  fillColor: FillColor;
+  resolvedCode: string;
+};
+
+export type RosterImportResult = {
+  year: number;
+  month: number;
+  created: number;
+  skippedCollisions: number;
+};
+
 export type StaffAreaCoverageRuleInput = { minimumWorking: number };
 
 // One raw clock-in or clock-out - not a paired session. Pairing consecutive IN/OUT punches into

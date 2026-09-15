@@ -17,6 +17,12 @@ import type {
   RosterEmployee,
   RosterEntry,
   RosterEntryCreateInput,
+  RosterImportColorMappingInput,
+  RosterImportColorMappingResult,
+  RosterImportNameMappingInput,
+  RosterImportNameMappingResult,
+  RosterImportPreview,
+  RosterImportResult,
   RosterMonth,
   RosterMoveInput,
   RosterReassignInput,
@@ -192,4 +198,45 @@ export async function exportRosterActualsCsv(year: number, month: number): Promi
     return { ok: false, error: extractApiError(data, "Could not export this month.") };
   }
   return { ok: true, data: await res.text() };
+}
+
+// --- Excel schedule import (ADMIN only) ------------------------------------------------------
+// See the backend's RosterImportService doc: preview is a dry run (writes nothing, not even a
+// mapping), name-mappings/color-mappings each resolve one unresolved item and are remembered from
+// then on, commit re-derives everything fresh from the staged file and writes it.
+
+export async function previewRosterImport(file: File, year: number, month: number): Promise<Result<RosterImportPreview>> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("year", String(year));
+  formData.append("month", String(month));
+  const result = await adminRequest<RosterImportPreview>(
+    "/roster/import/preview", { method: "POST", body: formData }, "Could not read this file."
+  );
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, data: result.data };
+}
+
+export async function createRosterImportNameMapping(input: RosterImportNameMappingInput): Promise<Result<RosterImportNameMappingResult>> {
+  const result = await adminRequest<RosterImportNameMappingResult>(
+    "/roster/import/name-mappings", adminJsonInit("POST", input), "Could not save this mapping."
+  );
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, data: result.data };
+}
+
+export async function createRosterImportColorMapping(input: RosterImportColorMappingInput): Promise<Result<RosterImportColorMappingResult>> {
+  const result = await adminRequest<RosterImportColorMappingResult>(
+    "/roster/import/color-mappings", adminJsonInit("POST", input), "Could not save this mapping."
+  );
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, data: result.data };
+}
+
+export async function commitRosterImport(importId: string): Promise<Result<RosterImportResult>> {
+  const result = await adminRequest<RosterImportResult>(
+    "/roster/import/commit", adminJsonInit("POST", { importId }), "Could not import this month."
+  );
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, data: result.data };
 }
