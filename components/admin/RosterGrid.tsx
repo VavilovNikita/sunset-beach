@@ -76,6 +76,49 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
   const [createTarget, setCreateTarget] = useState<{ employeeUserId: string; employeeName: string; date: string } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // Same rule the booking calendar and spa grid settled on (see the frontend CLAUDE.md's own
+  // drag-notes section): a drag has an ambiguous drop point and nothing here shows an optimistic
+  // position, so nothing may apply until confirmed. One state per classification, same shape as
+  // BookingCalendarGrid's scheduleConfirm/swapConfirm - the release only ever opens one of these,
+  // never calls the API directly (see openDragConfirm, below).
+  const [moveConfirm, setMoveConfirm] = useState<{
+    entryId: string;
+    employeeName: string;
+    shiftCode: string;
+    fromDate: string;
+    toDate: string;
+    status: "confirm" | "loading" | "error";
+    error?: string;
+  } | null>(null);
+  // A reassign takes a shift off an employee who was never dragged or clicked - the dialog says
+  // so explicitly (loses/gains), not just "from -> to", since "where it lands" alone would read
+  // as routine and bury the one thing worth double-checking: whose day this used to be.
+  const [reassignConfirm, setReassignConfirm] = useState<{
+    entryId: string;
+    fromEmployeeName: string;
+    toEmployeeUserId: string;
+    toEmployeeName: string;
+    date: string;
+    shiftCode: string;
+    status: "confirm" | "loading" | "error";
+    error?: string;
+  } | null>(null);
+  // Per RosterSwapInput's own backend description: (date, shiftCodeId) trades between the two
+  // entries, employeeUserId stays put on each - "exchange two employees' days", not a table/
+  // room swap. Both sides named, same two-line shape as the calendar/spa swap dialogs.
+  const [swapConfirm, setSwapConfirm] = useState<{
+    entryId: string;
+    otherEntryId: string;
+    employeeAName: string;
+    dateA: string;
+    shiftCodeA: string;
+    employeeBName: string;
+    dateB: string;
+    shiftCodeB: string;
+    status: "confirm" | "loading" | "error";
+    error?: string;
+  } | null>(null);
+
   useEffect(() => {
     if (!dragState) return;
     function onKeyDown(e: KeyboardEvent) {
@@ -122,22 +165,56 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
     setDragState({ ...dragState, targetEmployeeUserId: cell.employeeUserId, targetDate: cell.date, targetEntry: null });
   }
 
-  async function applyClassification(source: RosterDragSource, target: RosterDropTarget, hasHoveredSwapTarget: boolean) {
+  // Classifies the drop and opens the matching confirm dialog - never calls the API itself. A
+  // "cancel" classification (locked source/target, dropped back in place, a diagonal drop, or a
+  // swap attempt that missed on release) stays silent, same as before this round: there was
+  // never anything to confirm.
+  function openDragConfirm(source: RosterDragSource, target: RosterDropTarget, hasHoveredSwapTarget: boolean) {
     const classification = classifyRosterDrop(source, target, hasHoveredSwapTarget);
     if (classification.kind === "cancel") return;
-    setActionError(null);
+
+    const sourceEntry = entriesByKey.get(`${source.employeeUserId}|${source.date}`);
+    if (!sourceEntry) return;
 
     if (classification.kind === "move") {
-      const result = await moveRosterEntry(classification.entryId, { date: classification.date });
-      if (!result.ok) setActionError(result.error);
-    } else if (classification.kind === "reassign") {
-      const result = await reassignRosterEntry(classification.entryId, { employeeUserId: classification.employeeUserId });
-      if (!result.ok) setActionError(result.error);
-    } else {
-      const result = await swapRosterEntries(classification.entryId, { otherEntryId: classification.otherEntryId });
-      if (!result.ok) setActionError(result.error);
+      setMoveConfirm({
+        entryId: classification.entryId,
+        employeeName: sourceEntry.employeeName,
+        shiftCode: sourceEntry.shiftCode.code,
+        fromDate: sourceEntry.date,
+        toDate: classification.date,
+        status: "confirm",
+      });
+      return;
     }
-    router.refresh();
+
+    if (classification.kind === "reassign") {
+      const toEmployee = data.employees.find((emp) => emp.id === classification.employeeUserId);
+      setReassignConfirm({
+        entryId: classification.entryId,
+        fromEmployeeName: sourceEntry.employeeName,
+        toEmployeeUserId: classification.employeeUserId,
+        toEmployeeName: toEmployee?.name ?? classification.employeeUserId,
+        date: sourceEntry.date,
+        shiftCode: sourceEntry.shiftCode.code,
+        status: "confirm",
+      });
+      return;
+    }
+
+    const otherEntry = data.entries.find((e) => e.id === classification.otherEntryId);
+    if (!otherEntry) return;
+    setSwapConfirm({
+      entryId: classification.entryId,
+      otherEntryId: classification.otherEntryId,
+      employeeAName: sourceEntry.employeeName,
+      dateA: sourceEntry.date,
+      shiftCodeA: sourceEntry.shiftCode.code,
+      employeeBName: otherEntry.employeeName,
+      dateB: otherEntry.date,
+      shiftCodeB: otherEntry.shiftCode.code,
+      status: "confirm",
+    });
   }
 
   function onDragPointerUp(e: React.PointerEvent) {
@@ -156,11 +233,47 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
         ? { employeeUserId: cell.employeeUserId, date: cell.date, entry: null }
         : null;
     if (!target) return;
-    applyClassification(finished.source, target, finished.hasHoveredSwapTarget);
+    openDragConfirm(finished.source, target, finished.hasHoveredSwapTarget);
   }
 
   function onDragPointerCancel() {
     setDragState(null);
+  }
+
+  async function confirmMove() {
+    if (!moveConfirm) return;
+    setMoveConfirm({ ...moveConfirm, status: "loading" });
+    const result = await moveRosterEntry(moveConfirm.entryId, { date: moveConfirm.toDate });
+    if (!result.ok) {
+      setMoveConfirm((prev) => (prev ? { ...prev, status: "error", error: result.error } : prev));
+      return;
+    }
+    setMoveConfirm(null);
+    router.refresh();
+  }
+
+  async function confirmReassign() {
+    if (!reassignConfirm) return;
+    setReassignConfirm({ ...reassignConfirm, status: "loading" });
+    const result = await reassignRosterEntry(reassignConfirm.entryId, { employeeUserId: reassignConfirm.toEmployeeUserId });
+    if (!result.ok) {
+      setReassignConfirm((prev) => (prev ? { ...prev, status: "error", error: result.error } : prev));
+      return;
+    }
+    setReassignConfirm(null);
+    router.refresh();
+  }
+
+  async function confirmSwap() {
+    if (!swapConfirm) return;
+    setSwapConfirm({ ...swapConfirm, status: "loading" });
+    const result = await swapRosterEntries(swapConfirm.entryId, { otherEntryId: swapConfirm.otherEntryId });
+    if (!result.ok) {
+      setSwapConfirm((prev) => (prev ? { ...prev, status: "error", error: result.error } : prev));
+      return;
+    }
+    setSwapConfirm(null);
+    router.refresh();
   }
 
   async function handleToggleLock(entry: RosterEntry) {
@@ -367,6 +480,132 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
             <button type="button" onClick={() => setCreateTarget(null)} className="text-sm text-cream/50 hover:text-cream transition-colors mt-4">
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {moveConfirm && (
+        <div className="fixed inset-0 z-50 bg-ink/80 flex items-center justify-center p-4" onClick={() => moveConfirm.status !== "loading" && setMoveConfirm(null)}>
+          <div className="bg-ink2 border border-cream/15 rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <p className="eyebrow text-sea mb-1">Confirm move</p>
+            <p className="text-cream mb-1">{moveConfirm.employeeName}</p>
+            <p className="text-sm text-cream/60 mb-4">
+              {moveConfirm.shiftCode}
+              <br />
+              {moveConfirm.fromDate}
+              <span className="text-cream/40"> → </span>
+              {moveConfirm.toDate}
+            </p>
+
+            {moveConfirm.status === "error" && <p className="text-sm text-coral mb-3">{moveConfirm.error}</p>}
+
+            <div className="flex gap-3 flex-wrap">
+              <button
+                type="button"
+                disabled={moveConfirm.status === "loading"}
+                onClick={confirmMove}
+                className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium disabled:opacity-60"
+              >
+                {moveConfirm.status === "loading" ? "Moving…" : "Confirm"}
+              </button>
+              <button
+                type="button"
+                disabled={moveConfirm.status === "loading"}
+                onClick={() => setMoveConfirm(null)}
+                className="text-sm text-cream/60 hover:text-cream transition-colors disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reassignConfirm && (
+        <div className="fixed inset-0 z-50 bg-ink/80 flex items-center justify-center p-4" onClick={() => reassignConfirm.status !== "loading" && setReassignConfirm(null)}>
+          <div className="bg-ink2 border border-cream/15 rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <p className="eyebrow text-sea mb-1">Confirm reassign</p>
+            <p className="text-sm text-cream/60 mb-4">This takes a shift off one person and gives it to another - check both before confirming.</p>
+            <div className="space-y-2 mb-4 text-sm">
+              <p className="text-cream">
+                {reassignConfirm.fromEmployeeName}
+                <span className="text-cream/40"> loses </span>
+                {reassignConfirm.shiftCode}
+                <span className="text-cream/40"> · </span>
+                {reassignConfirm.date}
+              </p>
+              <p className="text-cream">
+                {reassignConfirm.toEmployeeName}
+                <span className="text-cream/40"> gains it</span>
+              </p>
+            </div>
+
+            {reassignConfirm.status === "error" && <p className="text-sm text-coral mb-3">{reassignConfirm.error}</p>}
+
+            <div className="flex gap-3 flex-wrap">
+              <button
+                type="button"
+                disabled={reassignConfirm.status === "loading"}
+                onClick={confirmReassign}
+                className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium disabled:opacity-60"
+              >
+                {reassignConfirm.status === "loading" ? "Reassigning…" : "Confirm"}
+              </button>
+              <button
+                type="button"
+                disabled={reassignConfirm.status === "loading"}
+                onClick={() => setReassignConfirm(null)}
+                className="text-sm text-cream/60 hover:text-cream transition-colors disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {swapConfirm && (
+        <div className="fixed inset-0 z-50 bg-ink/80 flex items-center justify-center p-4" onClick={() => swapConfirm.status !== "loading" && setSwapConfirm(null)}>
+          <div className="bg-ink2 border border-cream/15 rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <p className="eyebrow text-sea mb-1">Confirm swap</p>
+            <p className="text-sm text-cream/60 mb-4">This exchanges two people's days - check both before confirming.</p>
+            <div className="space-y-2 mb-4 text-sm">
+              <p className="text-cream">
+                {swapConfirm.employeeAName}
+                <span className="text-cream/40"> · </span>
+                {swapConfirm.dateA} · {swapConfirm.shiftCodeA}
+                <span className="text-cream/40"> → </span>
+                {swapConfirm.dateB} · {swapConfirm.shiftCodeB}
+              </p>
+              <p className="text-cream">
+                {swapConfirm.employeeBName}
+                <span className="text-cream/40"> · </span>
+                {swapConfirm.dateB} · {swapConfirm.shiftCodeB}
+                <span className="text-cream/40"> → </span>
+                {swapConfirm.dateA} · {swapConfirm.shiftCodeA}
+              </p>
+            </div>
+
+            {swapConfirm.status === "error" && <p className="text-sm text-coral mb-3">{swapConfirm.error}</p>}
+
+            <div className="flex gap-3 flex-wrap">
+              <button
+                type="button"
+                disabled={swapConfirm.status === "loading"}
+                onClick={confirmSwap}
+                className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium disabled:opacity-60"
+              >
+                {swapConfirm.status === "loading" ? "Swapping…" : "Confirm swap"}
+              </button>
+              <button
+                type="button"
+                disabled={swapConfirm.status === "loading"}
+                onClick={() => setSwapConfirm(null)}
+                className="text-sm text-cream/60 hover:text-cream transition-colors disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
