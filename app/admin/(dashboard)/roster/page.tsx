@@ -31,7 +31,7 @@ export default async function AdminRosterPage({
 }) {
   // Requires MANAGER or above on the backend for every read/write this page uses except
   // GET /roster/me (a different page - see app/admin/(dashboard)/schedule/page.tsx).
-  await requireRoleAtLeast("MANAGER");
+  const sessionUser = await requireRoleAtLeast("MANAGER");
 
   const now = new Date();
   const year = Number(searchParams.year) || now.getUTCFullYear();
@@ -77,7 +77,7 @@ export default async function AdminRosterPage({
           unlock, or remove it. A coral coverage figure means that area is below its minimum that day - a warning, not a
           block.
         </p>
-        <RosterGrid data={rosterMonth} year={year} month={month} shiftCodes={shiftCodes} />
+        <RosterGrid data={rosterMonth} year={year} month={month} shiftCodes={shiftCodes} isAdmin={sessionUser.role === "ADMIN"} />
       </>
     );
   } else if (tab === "codes") {

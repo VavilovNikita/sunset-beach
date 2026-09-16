@@ -37,6 +37,17 @@ export type UserCreateInput = {
   email?: string;
   password?: string;
   role?: Role;
+  // See User.staffArea's own comment. Omitted by the ordinary "New user" form; the roster
+  // importer sends it when creating a no-login account on the spot, from that name's own
+  // RosterImportNameEntry.suggestedStaffArea.
+  staffArea?: StaffArea;
+};
+
+// Body of PATCH /users/{id}/staff-area. Same nullable-but-required-presence shape as the
+// backend's own UserStaffAreaUpdateInput (see its openapi.yaml description) - null clears it,
+// omitting the field entirely is rejected server-side.
+export type UserStaffAreaUpdateInput = {
+  staffArea: StaffArea | null;
 };
 
 // Body of PATCH /users/{id}/credentials - turns a no-login account into one that can
@@ -780,6 +791,9 @@ export type RosterImportNameEntry = {
   mapped: boolean;
   employeeUserId?: string;
   employeeName?: string;
+  // The department this name's row sits under. Shown for context on every name; for one resolved
+  // by creating a new account, send this same value back as that call's own `staffArea` (see
+  // RosterImportNameMappingInput) - it becomes User.staffArea, not part of an EmployeePattern.
   suggestedStaffArea?: StaffArea;
 };
 
@@ -828,6 +842,9 @@ export type RosterImportNameMappingInput = {
   rawName: string;
   employeeUserId?: string;
   newEmployeeName?: string;
+  // Meaningful only with newEmployeeName - send RosterImportNameEntry.suggestedStaffArea back
+  // here to become the new account's User.staffArea. Ignored when mapping to an existing account.
+  staffArea?: StaffArea;
 };
 
 export type RosterImportNameMappingResult = {

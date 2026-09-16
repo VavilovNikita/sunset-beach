@@ -66,7 +66,13 @@ function NameMappingRow({
     const result =
       mode === "pick"
         ? await createRosterImportNameMapping({ rawName: entry.rawName, employeeUserId: selectedId })
-        : await createRosterImportNameMapping({ rawName: entry.rawName, newEmployeeName: newName.trim() });
+        : await createRosterImportNameMapping({
+            rawName: entry.rawName,
+            newEmployeeName: newName.trim(),
+            // The area is a fact about the person, set immediately - not part of the
+            // EmployeePattern this import still never fabricates (see that type's own comment).
+            staffArea: entry.suggestedStaffArea,
+          });
     setSaving(false);
     if (!result.ok) {
       setError(result.error);

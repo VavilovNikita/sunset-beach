@@ -32,6 +32,7 @@ import type {
   StaffArea,
   StaffAreaCoverageRule,
   StaffAreaCoverageRuleInput,
+  User,
 } from "@/lib/types";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -124,6 +125,16 @@ export async function swapRosterEntries(id: string, input: RosterSwapInput): Pro
 
 export async function setRosterEntryLocked(id: string, locked: boolean): Promise<Result<RosterEntry>> {
   const result = await adminRequest<RosterEntry>(`/roster/entries/${id}/lock`, adminJsonInit("PATCH", { locked }), "Could not change the lock.");
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, data: result.data };
+}
+
+// PATCH /users/{id}/staff-area - ADMIN only, unlike the rest of this file (staffArea lives under
+// /users/**, which is deliberately outside the ordinary role hierarchy - see the backend
+// CLAUDE.md's Authorization section). Called once per employee for the roster grid's own bulk
+// "no area set" fix - there is no separate batch endpoint.
+export async function updateUserStaffArea(userId: string, staffArea: StaffArea | null): Promise<Result<User>> {
+  const result = await adminRequest<User>(`/users/${userId}/staff-area`, adminJsonInit("PATCH", { staffArea }), "Could not set this employee's area.");
   if (!result.ok) return { ok: false, error: result.error };
   return { ok: true, data: result.data };
 }

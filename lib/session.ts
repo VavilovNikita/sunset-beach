@@ -1,4 +1,5 @@
 import { BACKEND_URL } from "@/lib/backend";
+import type { StaffArea } from "@/lib/types";
 
 // No `next/headers` import here on purpose — this module is also imported
 // by middleware.ts, which runs on the Edge runtime and reads cookies via
@@ -53,6 +54,12 @@ export type SessionUser = {
   // punch is attributed by this number alone. Null for staff who never punch a terminal. Set or
   // cleared via PATCH /users/{id}/enrollment-number (ADMIN only, matching /users/** generally).
   enrollmentNumber: number | null;
+  // What department this person belongs to - a fact about the person, not part of an
+  // EmployeePattern (which also needs workDaysPerWeek/weeklyDayOff, neither of which one month of
+  // attendance reliably establishes). Absent until set, at creation or via
+  // PATCH /users/{id}/staff-area (ADMIN only, matching /users/** generally). The roster grid
+  // groups by this field, so an account without one sits under "No area set".
+  staffArea: StaffArea | null;
   createdAt: string;
 };
 
