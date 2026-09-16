@@ -478,7 +478,7 @@ export default function RosterGrid({
                   </tr>
                 )}
                 {group.area === null && isAdmin && (
-                  <tr key="bulk-assign-area">
+                  <tr key="bulk-assign-area" className="print:hidden">
                     <td colSpan={dates.length + 1} className="bg-ink2/30 px-3 py-2">
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         <span className="text-cream/50">{bulkSelected.size} selected</span>
@@ -515,7 +515,7 @@ export default function RosterGrid({
                           type="checkbox"
                           checked={bulkSelected.has(emp.id)}
                           onChange={() => toggleBulkSelected(emp.id)}
-                          className="mr-2 accent-coral"
+                          className="print:hidden mr-2 accent-coral"
                           aria-label={`Select ${emp.name} for bulk area assignment`}
                         />
                       )}
