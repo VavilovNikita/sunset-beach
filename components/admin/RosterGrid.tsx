@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { dateOnlyUTC, toDateKey } from "@/lib/bookings";
 import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
 import { classifyRosterDrop, isValidSwapTarget, STAFF_AREA_LABELS, type RosterDragSource, type RosterDropTarget } from "@/lib/rosterGrid";
 import {
@@ -11,6 +12,7 @@ import {
   reassignRosterEntry,
   setRosterEntryLocked,
   swapRosterEntries,
+  updateUserStaffArea,
 } from "@/lib/rosterClient";
 import type { RosterCoverageWarning, RosterEmployee, RosterEntry, RosterMonth, ShiftCode, StaffArea } from "@/lib/types";
 
@@ -28,6 +30,21 @@ function datesOfMonth(year: number, month: number): string[] {
 function weekdayAbbrFor(dateKey: string) {
   const d = new Date(`${dateKey}T00:00:00Z`);
   return WEEKDAY_ABBR[d.getUTCDay()];
+}
+
+function isWeekendDate(dateKey: string) {
+  const day = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
+  return day === 0 || day === 6;
+}
+
+// Same hours a code carries everywhere else in this app (the create-modal's own list, the entry
+// detail panel) - repeated here rather than factored out, matching how those two already repeat
+// it rather than sharing a helper.
+function describeShiftHours(shiftCode: ShiftCode) {
+  if (!shiftCode.startTime1) return "Open schedule";
+  return shiftCode.startTime2
+    ? `${shiftCode.startTime1}–${shiftCode.endTime1}, ${shiftCode.startTime2}–${shiftCode.endTime2}`
+    : `${shiftCode.startTime1}–${shiftCode.endTime1}`;
 }
 
 type DragState = {
@@ -60,15 +77,101 @@ function coverageWarningFor(warnings: RosterCoverageWarning[], staffArea: StaffA
   return warnings.find((w) => w.staffArea === staffArea && w.date === date) ?? null;
 }
 
-export default function RosterGrid({ data, year, month, shiftCodes }: { data: RosterMonth; year: number; month: number; shiftCodes: ShiftCode[] }) {
+export default function RosterGrid({
+  data,
+  year,
+  month,
+  shiftCodes,
+  isAdmin,
+}: {
+  data: RosterMonth;
+  year: number;
+  month: number;
+  shiftCodes: ShiftCode[];
+  isAdmin: boolean;
+}) {
   const router = useRouter();
   const dates = datesOfMonth(year, month);
+  const todayKey = toDateKey(dateOnlyUTC(new Date()));
   const entriesByKey = new Map(data.entries.map((e) => [`${e.employeeUserId}|${e.date}`, e]));
 
-  const groups: { area: StaffArea | null; employees: RosterEmployee[] }[] = [
+  // An employee with zero entries anywhere in the visible month doesn't earn a row by default -
+  // someone from a past season, or an account (like an admin's own) that exists for another
+  // reason, shouldn't cost a permanent scroll. Toggled back on to add a first shift for someone
+  // who genuinely has none yet - see the checkbox below the grid header.
+  const [showEmptyRows, setShowEmptyRows] = useState(false);
+  const employeeIdsWithEntries = new Set(data.entries.map((e) => e.employeeUserId));
+
+  const allGroups: { area: StaffArea | null; employees: RosterEmployee[] }[] = [
     ...STAFF_AREAS.map((area) => ({ area, employees: data.employees.filter((e) => e.staffArea === area) })),
     { area: null, employees: data.employees.filter((e) => e.staffArea === null) },
-  ].filter((g) => g.employees.length > 0);
+  ];
+  const hiddenCount = allGroups.reduce(
+    (sum, g) => sum + g.employees.filter((e) => !employeeIdsWithEntries.has(e.id)).length,
+    0
+  );
+  const groups = allGroups
+    .map((g) => ({ ...g, employees: showEmptyRows ? g.employees : g.employees.filter((e) => employeeIdsWithEntries.has(e.id)) }))
+    .filter((g) => g.employees.length > 0);
+
+  // Bulk-fixes staffArea for accounts an import created without one (see User.staffArea's own
+  // description) - ADMIN only, since that field lives under /users/**, deliberately outside the
+  // ordinary role hierarchy (see the backend CLAUDE.md's Authorization section), even though this
+  // page itself is MANAGER+. Scoped to the "No area set" group - that's the only place this is
+  // ever needed, and the only place `isAdmin` renders a checkbox or this bar at all.
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+  const [bulkArea, setBulkArea] = useState<StaffArea | "">("");
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  function toggleBulkSelected(employeeUserId: string) {
+    setBulkSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(employeeUserId)) next.delete(employeeUserId);
+      else next.add(employeeUserId);
+      return next;
+    });
+  }
+
+  async function handleBulkAssign() {
+    if (!bulkArea || bulkSelected.size === 0) return;
+    setBulkSaving(true);
+    setBulkError(null);
+    const ids = Array.from(bulkSelected);
+    const results = await Promise.all(ids.map((id) => updateUserStaffArea(id, bulkArea)));
+    setBulkSaving(false);
+    const failed = results.filter((r) => !r.ok);
+    if (failed.length > 0) {
+      setBulkError(`${failed.length} of ${ids.length} failed - ${(failed[0] as { ok: false; error: string }).error}`);
+      return;
+    }
+    setBulkSelected(new Set());
+    setBulkArea("");
+    router.refresh();
+  }
+
+  // Hotel-wide daily totals - what the manager actually reads, brought back under the grid
+  // instead of living only on the Coverage tab (which only ever shows the configured minimums,
+  // never a day's real numbers). "Off" is the absence of an entry, never a row of its own (see
+  // RosterEntry's own convention) - never derived from a shift code's own flags. "On PH" is
+  // matched on the shift code's own text: the one place this app already treats "PH" as a fixed,
+  // known string rather than arbitrary user data (see ShiftCode's own openapi.yaml description) -
+  // countsAsWorked/isPaid alone can't tell PH apart from any other paid-non-worked code. Guarded
+  // by employeeIds so a since-deactivated employee's old entry (still in data.entries, no longer
+  // in data.employees) can't inflate "working"/"PH" or produce a negative "off".
+  const employeeIds = new Set(data.employees.map((e) => e.id));
+  const workingByDate = new Map<string, number>();
+  const phByDate = new Map<string, number>();
+  const presentByDate = new Map<string, number>();
+  for (const e of data.entries) {
+    if (!employeeIds.has(e.employeeUserId)) continue;
+    presentByDate.set(e.date, (presentByDate.get(e.date) ?? 0) + 1);
+    if (e.shiftCode.countsAsWorked) workingByDate.set(e.date, (workingByDate.get(e.date) ?? 0) + 1);
+    if (e.shiftCode.code === "PH") phByDate.set(e.date, (phByDate.get(e.date) ?? 0) + 1);
+  }
+  function coverageWarningsFor(date: string) {
+    return data.coverageWarnings.filter((w) => w.date === date);
+  }
 
   const { note: notePointerType, bind: bindTapOrDoubleClick } = useTapOrDoubleClick();
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -313,17 +416,36 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
         <p className="print:hidden text-sm text-coral bg-coral/10 border border-coral/30 rounded-xl px-4 py-3 mb-4">{actionError}</p>
       )}
 
+      <label className="print:hidden flex items-center gap-2 text-xs text-cream/50 mb-3">
+        <input
+          type="checkbox"
+          checked={showEmptyRows}
+          onChange={(e) => setShowEmptyRows(e.target.checked)}
+          className="accent-coral"
+        />
+        Show employees with no shifts this month ({hiddenCount})
+      </label>
+
       <div className="overflow-x-auto print:overflow-visible border border-cream/10 print:border-0 rounded-xl print:rounded-none">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr>
               <th className="sticky left-0 bg-ink2 text-left px-3 py-2 eyebrow text-cream/40 min-w-[180px]">Employee</th>
-              {dates.map((d) => (
-                <th key={d} className="px-1 py-2 text-center text-cream/40 text-xs min-w-[44px] border-l border-cream/5">
-                  <div>{Number(d.slice(8, 10))}</div>
-                  <div className="eyebrow">{weekdayAbbrFor(d)}</div>
-                </th>
-              ))}
+              {dates.map((d) => {
+                const isToday = d === todayKey;
+                const isWeekend = isWeekendDate(d);
+                return (
+                  <th
+                    key={d}
+                    className={`px-1 py-2 text-center text-xs min-w-[44px] border-l ${
+                      isToday ? "border-l-2 border-l-cream" : "border-cream/10"
+                    } ${isWeekend ? "bg-ink3/40" : ""} ${isToday ? "text-cream" : "text-cream/40"}`}
+                  >
+                    <div className={isToday ? "font-semibold" : ""}>{Number(d.slice(8, 10))}</div>
+                    <div className="eyebrow">{weekdayAbbrFor(d)}</div>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -339,10 +461,14 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
                     <td className="sticky left-0 bg-ink px-3 py-1 text-xs text-cream/30">Coverage</td>
                     {dates.map((d) => {
                       const warning = coverageWarningFor(data.coverageWarnings, group.area as StaffArea, d);
+                      const isToday = d === todayKey;
+                      const isWeekend = isWeekendDate(d);
                       return (
                         <td
                           key={d}
-                          className={`text-center text-[10px] py-1 border-l border-cream/5 ${warning ? "bg-coral/20 text-coral" : "text-cream/20"}`}
+                          className={`text-center text-[10px] py-1 border-l ${isToday ? "border-l-2 border-l-cream" : "border-cream/10"} ${
+                            warning ? "bg-coral/20 text-coral" : isWeekend ? "bg-ink3/20 text-cream/20" : "text-cream/20"
+                          }`}
                           title={warning ? `${warning.workingCount} working, minimum ${warning.minimumWorking}` : undefined}
                         >
                           {warning ? `${warning.workingCount}/${warning.minimumWorking}` : ""}
@@ -351,10 +477,53 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
                     })}
                   </tr>
                 )}
+                {group.area === null && isAdmin && (
+                  <tr key="bulk-assign-area">
+                    <td colSpan={dates.length + 1} className="bg-ink2/30 px-3 py-2">
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="text-cream/50">{bulkSelected.size} selected</span>
+                        <select
+                          value={bulkArea}
+                          onChange={(e) => setBulkArea(e.target.value as StaffArea | "")}
+                          className="bg-ink2 border-b border-cream/25 py-1 text-cream text-xs focus:outline-none focus:border-coral"
+                        >
+                          <option value="">Assign area…</option>
+                          {STAFF_AREAS.map((a) => (
+                            <option key={a} value={a}>
+                              {STAFF_AREA_LABELS[a]}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={handleBulkAssign}
+                          disabled={!bulkArea || bulkSelected.size === 0 || bulkSaving}
+                          className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-3 py-1 text-xs font-medium disabled:opacity-50"
+                        >
+                          {bulkSaving ? "…" : `Assign to ${bulkSelected.size}`}
+                        </button>
+                        {bulkError && <span className="text-coral">{bulkError}</span>}
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 {group.employees.map((emp) => (
                   <tr key={emp.id}>
-                    <td className="sticky left-0 bg-ink px-3 py-2 truncate max-w-[180px]">{emp.name}</td>
+                    <td className="sticky left-0 bg-ink px-3 py-2 truncate max-w-[180px]">
+                      {group.area === null && isAdmin && (
+                        <input
+                          type="checkbox"
+                          checked={bulkSelected.has(emp.id)}
+                          onChange={() => toggleBulkSelected(emp.id)}
+                          className="mr-2 accent-coral"
+                          aria-label={`Select ${emp.name} for bulk area assignment`}
+                        />
+                      )}
+                      {emp.name}
+                    </td>
                     {dates.map((d) => {
+                      const isToday = d === todayKey;
+                      const isWeekend = isWeekendDate(d);
                       const entry = entriesByKey.get(`${emp.id}|${d}`);
                       const isDragSource = dragState?.source.entryId === entry?.id;
                       const isDropTarget = dragState !== null && dragState.targetEmployeeUserId === emp.id && dragState.targetDate === d;
@@ -363,6 +532,8 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
                       // only way it can still be an invalid target.
                       const dropInvalid = isDropTarget && dragState!.targetEntry !== null && dragState!.targetEntry.locked;
                       const dropIsSwap = isDropTarget && dragState!.targetEntry !== null && !dropInvalid;
+
+                      const borderClass = isToday ? "border-l-2 border-l-cream" : "border-cream/10";
 
                       if (!entry) {
                         return (
@@ -375,8 +546,8 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
                             onPointerUp={onDragPointerUp}
                             onPointerCancel={onDragPointerCancel}
                             onClick={() => setCreateTarget({ employeeUserId: emp.id, employeeName: emp.name, date: d })}
-                            className={`h-11 border-l border-cream/5 cursor-cell hover:bg-cream/5 ${
-                              isDropTarget && !dropIsSwap ? "bg-sea/10 ring-1 ring-inset ring-sea" : ""
+                            className={`h-11 border-l ${borderClass} cursor-cell hover:bg-cream/5 ${
+                              isDropTarget && !dropIsSwap ? "bg-sea/10 ring-1 ring-inset ring-sea" : isWeekend ? "bg-ink3/20" : ""
                             }`}
                           />
                         );
@@ -397,10 +568,10 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
                           onPointerCancel={onDragPointerCancel}
                           onClick={tapHandlers.onClick}
                           onDoubleClick={tapHandlers.onDoubleClick}
-                          title={`${entry.shiftCode.code}${entry.note ? ` · ${entry.note}` : ""}`}
-                          className={`h-11 border-l border-cream/5 text-center align-middle select-none ${entry.locked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing"} ${
-                            isDragSource ? "opacity-40" : ""
-                          } ${dropIsSwap ? "ring-2 ring-sea" : ""} ${dropInvalid ? "ring-2 ring-coral" : ""}`}
+                          title={`${entry.shiftCode.code} · ${describeShiftHours(entry.shiftCode)}${entry.note ? ` · ${entry.note}` : ""}`}
+                          className={`h-11 border-l ${borderClass} text-center align-middle select-none ${isWeekend ? "bg-ink3/20" : ""} ${
+                            entry.locked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing"
+                          } ${isDragSource ? "opacity-40" : ""} ${dropIsSwap ? "ring-2 ring-sea" : ""} ${dropInvalid ? "ring-2 ring-coral" : ""}`}
                         >
                           <span className="inline-flex items-center gap-1 bg-ink2/60 border border-cream/10 rounded px-1.5 py-0.5 text-xs">
                             {entry.shiftCode.code}
@@ -415,6 +586,52 @@ export default function RosterGrid({ data, year, month, shiftCodes }: { data: Ro
               </Fragment>
             ))}
           </tbody>
+          <tfoot>
+            <tr>
+              <td className="sticky left-0 bg-ink2 px-3 py-1.5 text-xs text-cream/50 border-t border-cream/10">Working</td>
+              {dates.map((d) => {
+                const isToday = d === todayKey;
+                const warnings = coverageWarningsFor(d);
+                return (
+                  <td
+                    key={d}
+                    className={`text-center text-xs py-1.5 border-t border-l ${isToday ? "border-l-2 border-l-cream" : "border-cream/10"} ${
+                      warnings.length > 0 ? "bg-coral/20 text-coral" : "text-cream/70"
+                    }`}
+                    title={
+                      warnings.length > 0
+                        ? warnings.map((w) => `${STAFF_AREA_LABELS[w.staffArea]}: ${w.workingCount}/${w.minimumWorking}`).join(", ")
+                        : undefined
+                    }
+                  >
+                    {workingByDate.get(d) ?? 0}
+                  </td>
+                );
+              })}
+            </tr>
+            <tr>
+              <td className="sticky left-0 bg-ink2 px-3 py-1.5 text-xs text-cream/50">Off</td>
+              {dates.map((d) => {
+                const isToday = d === todayKey;
+                return (
+                  <td key={d} className={`text-center text-xs py-1.5 border-l ${isToday ? "border-l-2 border-l-cream" : "border-cream/10"} text-cream/70`}>
+                    {employeeIds.size - (presentByDate.get(d) ?? 0)}
+                  </td>
+                );
+              })}
+            </tr>
+            <tr>
+              <td className="sticky left-0 bg-ink2 px-3 py-1.5 text-xs text-cream/50">On PH</td>
+              {dates.map((d) => {
+                const isToday = d === todayKey;
+                return (
+                  <td key={d} className={`text-center text-xs py-1.5 border-l ${isToday ? "border-l-2 border-l-cream" : "border-cream/10"} text-cream/70`}>
+                    {phByDate.get(d) ?? 0}
+                  </td>
+                );
+              })}
+            </tr>
+          </tfoot>
         </table>
       </div>
 
