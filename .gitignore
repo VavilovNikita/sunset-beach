@@ -13,3 +13,5 @@ tsconfig.tsbuildinfo
 # Local planning/audit notes, not part of the shipped app
 audit-frontend.md
 pos-module-plan.md
+
+.codegraph/

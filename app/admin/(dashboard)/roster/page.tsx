@@ -7,14 +7,16 @@ import ShiftCodeManager from "@/components/admin/ShiftCodeManager";
 import EmployeePatternManager from "@/components/admin/EmployeePatternManager";
 import CoverageRuleManager from "@/components/admin/CoverageRuleManager";
 import AttendancePanel from "@/components/admin/AttendancePanel";
+import TodayShiftBoard from "@/components/admin/TodayShiftBoard";
 import PayRateManager from "@/components/admin/PayRateManager";
-import type { EmployeePattern, RosterEmployee, RosterMonth, ShiftCode, StaffAreaCoverageRule } from "@/lib/types";
+import type { EmployeePattern, RosterEmployee, RosterMonth, ShiftCode, StaffAreaCoverageRule, TodayShiftStatus } from "@/lib/types";
 
 const TABS = [
   { key: "grid", label: "Grid" },
   { key: "codes", label: "Shift codes" },
   { key: "patterns", label: "Patterns" },
   { key: "coverage", label: "Coverage" },
+  { key: "today", label: "Today" },
   { key: "attendance", label: "Attendance" },
   { key: "payrates", label: "Pay rates" },
 ] as const;
@@ -93,6 +95,9 @@ export default async function AdminRosterPage({
   } else if (tab === "coverage") {
     const rules = await backendJson<StaffAreaCoverageRule[]>("/staff-area-coverage-rules", { auth: true });
     content = <CoverageRuleManager initialRules={rules} />;
+  } else if (tab === "today") {
+    const statuses = await backendJson<TodayShiftStatus[]>("/attendance/today", { auth: true });
+    content = <TodayShiftBoard initialStatuses={statuses} />;
   } else if (tab === "attendance") {
     const employees = await backendJson<RosterEmployee[]>("/roster/employees", { auth: true });
     content = <AttendancePanel employees={employees} />;

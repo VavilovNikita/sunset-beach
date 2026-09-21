@@ -952,6 +952,36 @@ export type AttendanceDaySummary = {
   incomplete: boolean;
 };
 
+// "Who's on shift right now" - GET /attendance/today. Computed live from today's ShiftCode
+// interval(s) plus today's AttendancePunch rows, same pairing GET /attendance/summary uses - never
+// cached, so this is meant to be polled, not fetched once. Only employees with a countsAsWorked
+// RosterEntry today appear at all: an ABSENCE-kind entry (PH) and an employee with no entry today
+// are both simply absent, same "day off is the absence of a row" convention RosterEntry uses.
+export type TodayShiftState =
+  | "NOT_YET_ARRIVED"
+  | "ON_SHIFT"
+  | "FINISHED"
+  | "SCHEDULED"
+  | "ARRIVING_SOON"
+  | "LATE"
+  | "BETWEEN_SHIFTS"
+  | "MISSED";
+
+// referenceTime's meaning switches with state, deliberately - a raw timestamp, not a
+// pre-formatted "in 23 minutes" string, so the frontend derives (and re-derives, every poll tick)
+// the relative time itself and it never goes stale between polls on its own. SCHEDULED/
+// ARRIVING_SOON/LATE/BETWEEN_SHIFTS/MISSED: the current interval's own expected start time, today.
+// ON_SHIFT: the actual punch time of the trailing unmatched IN. FINISHED: the punch time of the
+// last completed pair's OUT. NOT_YET_ARRIVED: null - there is nothing to report yet.
+export type TodayShiftStatus = {
+  employeeUserId: string;
+  employeeName: string;
+  staffArea: StaffArea | null;
+  shiftCode: ShiftCode;
+  state: TodayShiftState;
+  referenceTime: string | null;
+};
+
 // A fingerprint terminal (ZKTeco K60) the backend polls for its attendance log - it never calls
 // this app. lastSeenAt is set on every successful poll and is the one signal that tells a quiet
 // month (nobody punched) apart from a terminal that quietly stopped reporting - see the backend's

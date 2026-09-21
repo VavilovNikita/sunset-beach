@@ -4,7 +4,14 @@ import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { dateOnlyUTC, toDateKey } from "@/lib/bookings";
 import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
-import { classifyRosterDrop, isValidSwapTarget, STAFF_AREA_LABELS, type RosterDragSource, type RosterDropTarget } from "@/lib/rosterGrid";
+import {
+  chipAppearanceFor,
+  classifyRosterDrop,
+  isValidSwapTarget,
+  STAFF_AREA_LABELS,
+  type RosterDragSource,
+  type RosterDropTarget,
+} from "@/lib/rosterGrid";
 import {
   createRosterEntry,
   deleteRosterEntry,
@@ -45,108 +52,6 @@ function describeShiftHours(shiftCode: ShiftCode) {
   return shiftCode.startTime2
     ? `${shiftCode.startTime1}–${shiftCode.endTime1}, ${shiftCode.startTime2}–${shiftCode.endTime2}`
     : `${shiftCode.startTime1}–${shiftCode.endTime1}`;
-}
-
-// --- Shift-kind visual scheme --------------------------------------------------------------
-// Kind supplies the SHAPE cue (fill vs. hatch vs. outline vs. hollow) - see the frontend CLAUDE.md's
-// Colour meanings section for the now-scoped exception that lets a shift code's own colour replace
-// the neutral tone below. Where a code has no displayColor (most codes, and every code until an
-// admin picks one), the original neutral scheme still applies exactly as before: a shift's start
-// time places it on a lightness scale within the SAME neutral family an ordinary occupied cell
-// already uses (ink2 is today's plain chip colour) - earliest lightest, latest darkest, one hue
-// throughout. SPLIT hatches between two bands either way - two positions on the neutral scale (its
-// own two intervals' start times) when unset, or two shades of the one chosen displayColor when
-// set, so the "two bands for two intervals" cue survives a single colour pick. OPEN_SCHEDULE (no
-// fixed hours) is an outline instead of a fill; ABSENCE is hollow with a small glyph - the one
-// place shape alone isn't enough, since an unfilled chip risks reading as an empty cell rather than
-// a recorded day off. Neither ever gains a fill from displayColor - a colour there recolours the
-// outline/border, never turns "no fill" into "fill", which is what actually carries the
-// worked/not-worked distinction those two kinds exist to show.
-const CHIP_DARK_HEX = "#153138"; // ink2 - today's ordinary occupied-cell chip colour
-const CHIP_LIGHT_HEX = "#FBF6EC"; // cream - this app's own light neutral
-const EARLIEST_MINUTES = 6 * 60; // 06:00 anchors the lightest end
-const LATEST_MINUTES = 23 * 60; // 23:00 anchors the darkest end
-const MAX_LIGHT_MIX = 0.55; // caps how far toward cream the lightest chip goes - stays a muted neutral, never literal cream
-// How far apart SPLIT's two hatch bands sit when both are shaded from one displayColor, instead of
-// from two different neutral-scale positions - close enough to read as "the same colour" (this is
-// one code, one choice), far enough that the two bands are still visibly two bands.
-const DISPLAY_COLOR_SPLIT_SHADE = 0.22;
-
-function hexToRgb(hex: string): [number, number, number] {
-  const n = parseInt(hex.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-function mixRgb(fromHex: string, toHex: string, amount: number): [number, number, number] {
-  const [fr, fg, fb] = hexToRgb(fromHex);
-  const [tr, tg, tb] = hexToRgb(toHex);
-  const mix = (a: number, b: number) => Math.round(a + (b - a) * amount);
-  return [mix(fr, tr), mix(fg, tg), mix(fb, tb)];
-}
-
-function rgbCss([r, g, b]: [number, number, number]) {
-  return `rgb(${r}, ${g}, ${b})`;
-}
-
-// 0 (latest) to 1 (earliest), clamped to the anchor range - a real, continuous position, not a
-// bucket, per the actual ask ("a shift falls naturally on a scale rather than into a set of
-// labels").
-function earlinessFor(time: string): number {
-  const [h, m] = time.split(":").map(Number);
-  const minutes = h * 60 + m;
-  const t = (LATEST_MINUTES - minutes) / (LATEST_MINUTES - EARLIEST_MINUTES);
-  return Math.max(0, Math.min(1, t));
-}
-
-function chipRgbFor(time: string): [number, number, number] {
-  return mixRgb(CHIP_DARK_HEX, CHIP_LIGHT_HEX, earlinessFor(time) * MAX_LIGHT_MIX);
-}
-
-// Plain luminance check so text stays readable at both ends of the scale - the lightest chips
-// need the app's own dark ink for text, not cream-on-cream. Also what auto-picks a chip's
-// text/icon colour against an admin-chosen displayColor, so labels stay legible whatever they pick.
-function contrastTextFor([r, g, b]: [number, number, number]) {
-  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-  return luminance > 150 ? "#0F262B" : "#FBF6EC";
-}
-
-type ChipAppearance = { style: React.CSSProperties; textColor: string; glyph?: string };
-
-// Null kind = a row that predates this field and hasn't been confirmed yet (see ShiftCode.kind's
-// own comment) - today's plain bg-ink2/60 chip, unstyled here, until someone confirms one on the
-// Shift codes screen. displayColor doesn't change that: there's nothing to recolour without a
-// kind to say what shape it should take.
-function chipAppearanceFor(shiftCode: ShiftCode): ChipAppearance | null {
-  const kind = shiftCode.kind;
-  if (!kind) return null;
-  const displayColor = shiftCode.displayColor;
-
-  if (kind === "MORNING" || kind === "EVENING") {
-    const rgb = displayColor ? hexToRgb(displayColor) : chipRgbFor(shiftCode.startTime1!);
-    return { style: { backgroundColor: rgbCss(rgb) }, textColor: contrastTextFor(rgb) };
-  }
-  if (kind === "SPLIT") {
-    const [rgb1, rgb2] = displayColor
-      ? [mixRgb(displayColor, "#000000", DISPLAY_COLOR_SPLIT_SHADE), mixRgb(displayColor, "#FFFFFF", DISPLAY_COLOR_SPLIT_SHADE)]
-      : [chipRgbFor(shiftCode.startTime1!), chipRgbFor(shiftCode.startTime2!)];
-    return {
-      style: { backgroundImage: `repeating-linear-gradient(45deg, ${rgbCss(rgb1)} 0px 6px, ${rgbCss(rgb2)} 6px 12px)` },
-      textColor: contrastTextFor(displayColor ? hexToRgb(displayColor) : rgb1),
-    };
-  }
-  if (kind === "OPEN_SCHEDULE") {
-    return {
-      style: { backgroundColor: "transparent", border: `1px solid ${displayColor ?? "rgba(251,246,236,0.5)"}` },
-      textColor: displayColor ? contrastTextFor(hexToRgb(displayColor)) : "rgba(251,246,236,0.8)",
-    };
-  }
-  // ABSENCE - still hollow regardless of displayColor: colour recolours the border/glyph, never
-  // fills the chip, so hollow-vs-filled keeps telling ABSENCE apart from a working shift.
-  return {
-    style: { backgroundColor: "transparent", border: `1px dashed ${displayColor ?? "rgba(251,246,236,0.25)"}` },
-    textColor: displayColor ?? "rgba(251,246,236,0.45)",
-    glyph: "–",
-  };
 }
 
 type DragState = {

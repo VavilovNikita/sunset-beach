@@ -34,6 +34,7 @@ import type {
   StaffArea,
   StaffAreaCoverageRule,
   StaffAreaCoverageRuleInput,
+  TodayShiftStatus,
   User,
 } from "@/lib/types";
 
@@ -197,6 +198,14 @@ export async function getAttendanceSummary(employeeUserId: string, year: number,
     undefined,
     "Could not load the attendance summary."
   );
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, data: result.data };
+}
+
+// "Who's on shift right now" - meant to be polled (see the Today tab), not fetched once. See
+// TodayShiftStatus's own comment for who appears here and what referenceTime means per state.
+export async function getTodayShiftBoard(): Promise<Result<TodayShiftStatus[]>> {
+  const result = await adminRequest<TodayShiftStatus[]>("/attendance/today", undefined, "Could not load today's shift board.");
   if (!result.ok) return { ok: false, error: result.error };
   return { ok: true, data: result.data };
 }
