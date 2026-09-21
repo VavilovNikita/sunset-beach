@@ -213,11 +213,15 @@ export async function createEmployeePayRate(input: EmployeePayRateCreateInput): 
   return { ok: true, data: result.data };
 }
 
-// Not JSON (the backend returns text/csv), so this bypasses adminRequest and reads the body as
-// text directly - same ADMIN_API_URL origin, same credentials:"include", same extractApiError
-// handling on failure (the admin-proxy route still returns a JSON ErrorMessage body on a non-2xx
-// status, since that path is only hit on a genuine error, never on the CSV success response).
-export async function exportRosterActualsCsv(year: number, month: number): Promise<Result<string>> {
+// Not JSON (the backend returns the .xlsx workbook's own binary content type), so this bypasses
+// adminRequest and reads the body as a Blob directly - same bypass-adminRequest shape as
+// exportRosterGridXlsx below, same ADMIN_API_URL origin, same credentials:"include", same
+// extractApiError handling on failure (the admin-proxy route still returns a JSON ErrorMessage
+// body on a non-2xx status, since that path is only hit on a genuine error, never on the
+// workbook's own success response). Was exportRosterActualsCsv/text/csv before this export
+// switched from planned roster hours to real attendance with a per-punch detail sheet, which
+// needed two sheets a CSV can't express.
+export async function exportRosterActualsXlsx(year: number, month: number): Promise<Result<Blob>> {
   let res: Response;
   try {
     res = await fetch(`${ADMIN_API_URL}/roster/actuals-export?year=${year}&month=${month}`, { credentials: "include" });
@@ -228,12 +232,12 @@ export async function exportRosterActualsCsv(year: number, month: number): Promi
     const data = await res.json().catch(() => null);
     return { ok: false, error: extractApiError(data, "Could not export this month.") };
   }
-  return { ok: true, data: await res.text() };
+  return { ok: true, data: await res.blob() };
 }
 
-// ADMIN only (stricter than the actuals export above - same floor as the Excel import). Not JSON
-// either, and binary rather than text this time, so this reads the body as a Blob directly -
-// same bypass-adminRequest shape as exportRosterActualsCsv, for the same reason.
+// ADMIN only (stricter than the actuals export above - same floor as the Excel import). Not JSON,
+// so this reads the body as a Blob directly - same bypass-adminRequest shape as
+// exportRosterActualsXlsx above, for the same reason.
 export async function exportRosterGridXlsx(year: number, month: number): Promise<Result<Blob>> {
   let res: Response;
   try {
