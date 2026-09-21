@@ -29,6 +29,7 @@ import type {
   RosterSwapInput,
   ShiftCode,
   ShiftCodeCreateInput,
+  ShiftCodeKind,
   StaffArea,
   StaffAreaCoverageRule,
   StaffAreaCoverageRuleInput,
@@ -48,6 +49,15 @@ export async function listShiftCodes(staffArea?: StaffArea): Promise<Result<Shif
 
 export async function createShiftCode(input: ShiftCodeCreateInput): Promise<Result<ShiftCode>> {
   const result = await adminRequest<ShiftCode>("/shift-codes", adminJsonInit("POST", input), "Could not save this shift code.");
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, data: result.data };
+}
+
+// The one field on ShiftCode mutated in place on an existing row rather than only ever versioned
+// by creating a new one - see ShiftCode.kind's own comment. Used to confirm (or correct)
+// suggestedKind for a code that predates this field.
+export async function updateShiftCodeKind(id: string, kind: ShiftCodeKind): Promise<Result<ShiftCode>> {
+  const result = await adminRequest<ShiftCode>(`/shift-codes/${id}/kind`, adminJsonInit("PATCH", { kind }), "Could not set this code's kind.");
   if (!result.ok) return { ok: false, error: result.error };
   return { ok: true, data: result.data };
 }

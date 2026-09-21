@@ -153,21 +153,22 @@ export default function RosterGrid({
   // Hotel-wide daily totals - what the manager actually reads, brought back under the grid
   // instead of living only on the Coverage tab (which only ever shows the configured minimums,
   // never a day's real numbers). "Off" is the absence of an entry, never a row of its own (see
-  // RosterEntry's own convention) - never derived from a shift code's own flags. "On PH" is
-  // matched on the shift code's own text: the one place this app already treats "PH" as a fixed,
-  // known string rather than arbitrary user data (see ShiftCode's own openapi.yaml description) -
-  // countsAsWorked/isPaid alone can't tell PH apart from any other paid-non-worked code. Guarded
-  // by employeeIds so a since-deactivated employee's old entry (still in data.entries, no longer
-  // in data.employees) can't inflate "working"/"PH" or produce a negative "off".
+  // RosterEntry's own convention) - never derived from a shift code's own flags. "Absent" counts
+  // by the shift code's own kind (ABSENCE) - not by matching code text against the literal
+  // string "PH", which used to break silently the moment a code was retyped (see ShiftCode.kind's
+  // own comment). An unconfirmed code (kind null) simply doesn't count as absent yet - undercounting
+  // until confirmed beats guessing. Guarded by employeeIds so a since-deactivated employee's old
+  // entry (still in data.entries, no longer in data.employees) can't inflate "working"/"absent" or
+  // produce a negative "off".
   const employeeIds = new Set(data.employees.map((e) => e.id));
   const workingByDate = new Map<string, number>();
-  const phByDate = new Map<string, number>();
+  const absentByDate = new Map<string, number>();
   const presentByDate = new Map<string, number>();
   for (const e of data.entries) {
     if (!employeeIds.has(e.employeeUserId)) continue;
     presentByDate.set(e.date, (presentByDate.get(e.date) ?? 0) + 1);
     if (e.shiftCode.countsAsWorked) workingByDate.set(e.date, (workingByDate.get(e.date) ?? 0) + 1);
-    if (e.shiftCode.code === "PH") phByDate.set(e.date, (phByDate.get(e.date) ?? 0) + 1);
+    if (e.shiftCode.kind === "ABSENCE") absentByDate.set(e.date, (absentByDate.get(e.date) ?? 0) + 1);
   }
   function coverageWarningsFor(date: string) {
     return data.coverageWarnings.filter((w) => w.date === date);
@@ -621,12 +622,12 @@ export default function RosterGrid({
               })}
             </tr>
             <tr>
-              <td className="sticky left-0 bg-ink2 px-3 py-1.5 text-xs text-cream/50">On PH</td>
+              <td className="sticky left-0 bg-ink2 px-3 py-1.5 text-xs text-cream/50">Absent</td>
               {dates.map((d) => {
                 const isToday = d === todayKey;
                 return (
                   <td key={d} className={`text-center text-xs py-1.5 border-l ${isToday ? "border-l-2 border-l-cream" : "border-cream/10"} text-cream/70`}>
-                    {phByDate.get(d) ?? 0}
+                    {absentByDate.get(d) ?? 0}
                   </td>
                 );
               })}

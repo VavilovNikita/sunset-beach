@@ -2,18 +2,32 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createShiftCode } from "@/lib/rosterClient";
+import { createShiftCode, updateShiftCodeKind } from "@/lib/rosterClient";
 import { STAFF_AREA_LABELS } from "@/lib/rosterGrid";
-import type { ShiftCode, ShiftCodeCreateInput, StaffArea } from "@/lib/types";
+import type { ShiftCode, ShiftCodeCreateInput, ShiftCodeKind, StaffArea } from "@/lib/types";
 
 const STAFF_AREAS: StaffArea[] = ["ADMIN", "FRONT_OFFICE", "MAINTENANCE", "HOUSEKEEPING", "RESTAURANT", "KITCHEN"];
 const TODAY = new Date().toISOString().slice(0, 10);
 const SHARED_LABEL = "Shared (every area)";
 
-function emptyForm(): ShiftCodeCreateInput {
+const SHIFT_CODE_KINDS: ShiftCodeKind[] = ["MORNING", "SPLIT", "EVENING", "OPEN_SCHEDULE", "ABSENCE"];
+const SHIFT_CODE_KIND_LABELS: Record<ShiftCodeKind, string> = {
+  MORNING: "Morning",
+  SPLIT: "Split",
+  EVENING: "Evening",
+  OPEN_SCHEDULE: "Open schedule",
+  ABSENCE: "Absence",
+};
+
+// Local-only form shape: kind starts unset ("") so nothing is silently defaulted - a person
+// chooses it, or the Save button stays disabled (see the required attribute below).
+type FormState = Omit<ShiftCodeCreateInput, "kind"> & { kind: ShiftCodeKind | "" };
+
+function emptyForm(): FormState {
   return {
     staffArea: null,
     code: "",
+    kind: "",
     startTime1: "",
     endTime1: "",
     startTime2: "",
@@ -24,6 +38,53 @@ function emptyForm(): ShiftCodeCreateInput {
   };
 }
 
+// The one row-level action here that mutates an existing ShiftCode in place instead of creating a
+// new version - see ShiftCode.kind's own comment. Pre-filled with the backend's own suggestion
+// (computed from the code's shape), editable before confirming.
+function KindConfirmRow({ code, onConfirmed }: { code: ShiftCode; onConfirmed: (updated: ShiftCode) => void }) {
+  const [selected, setSelected] = useState<ShiftCodeKind>(code.suggestedKind ?? "MORNING");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleConfirm() {
+    setSaving(true);
+    setError(null);
+    const result = await updateShiftCodeKind(code.id, selected);
+    setSaving(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    onConfirmed(result.data);
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 mt-1">
+      <span className="text-xs text-amber-400">Kind not set{code.suggestedKind ? " - suggested:" : ""}</span>
+      <select
+        value={selected}
+        onChange={(e) => setSelected(e.target.value as ShiftCodeKind)}
+        className="bg-ink2 border-b border-cream/25 py-0.5 text-cream text-xs focus:outline-none focus:border-coral"
+      >
+        {SHIFT_CODE_KINDS.map((k) => (
+          <option key={k} value={k}>
+            {SHIFT_CODE_KIND_LABELS[k]}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        onClick={handleConfirm}
+        disabled={saving}
+        className="text-xs text-sea hover:text-coral transition-colors disabled:opacity-50"
+      >
+        {saving ? "…" : "Confirm"}
+      </button>
+      {error && <span className="text-xs text-coral">{error}</span>}
+    </div>
+  );
+}
+
 // Shift codes are versioned, never edited (see ShiftCode's own description) - this manager only
 // ever creates a new row. Creating one with the same (staffArea, code) as an active row silently
 // retires that row on the backend; there is no separate "edit" action to offer here.
@@ -32,7 +93,7 @@ export default function ShiftCodeManager({ initialCodes }: { initialCodes: Shift
   const [codes, setCodes] = useState(initialCodes);
   const [filterArea, setFilterArea] = useState<StaffArea | "">("");
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState<ShiftCodeCreateInput>(emptyForm());
+  const [form, setForm] = useState<FormState>(emptyForm());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,11 +113,16 @@ export default function ShiftCodeManager({ initialCodes }: { initialCodes: Shift
       setError("A second interval needs a first one.");
       return;
     }
+    if (!form.kind) {
+      setError("Choose what kind of shift this is.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
 
     const input: ShiftCodeCreateInput = {
       ...form,
+      kind: form.kind,
       startTime1: form.startTime1 || null,
       endTime1: form.endTime1 || null,
       startTime2: form.startTime2 || null,
@@ -72,6 +138,14 @@ export default function ShiftCodeManager({ initialCodes }: { initialCodes: Shift
     setCodes((prev) => [...prev.filter((c) => !(c.staffArea === result.data.staffArea && c.code === result.data.code)), result.data]);
     setForm(emptyForm());
     setCreating(false);
+    router.refresh();
+  }
+
+  // Replaces the row in place - kind is mutated on the existing row, not versioned into a new
+  // one (see ShiftCode.kind's own comment), so this is the one update here that never touches
+  // which rows exist, only one row's own field.
+  function handleKindConfirmed(updated: ShiftCode) {
+    setCodes((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
     router.refresh();
   }
 
@@ -139,6 +213,22 @@ export default function ShiftCodeManager({ initialCodes }: { initialCodes: Shift
                 onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })}
                 className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
               />
+            </div>
+            <div>
+              <label className="eyebrow text-cream/60 block mb-1">Kind</label>
+              <select
+                required
+                value={form.kind}
+                onChange={(e) => setForm({ ...form, kind: e.target.value as ShiftCodeKind })}
+                className="w-full bg-ink2 border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
+              >
+                <option value="">Which kind is this?</option>
+                {SHIFT_CODE_KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {SHIFT_CODE_KIND_LABELS[k]}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <p className="text-xs text-cream/40">Leave every time blank for OP - worked, no fixed hours.</p>
@@ -240,7 +330,14 @@ export default function ShiftCodeManager({ initialCodes }: { initialCodes: Shift
                       {c.countsAsWorked ? "Counts as worked" : "Does not count as worked"}
                       {" · "}
                       {c.isPaid ? "Paid" : "Unpaid"}
+                      {c.kind && (
+                        <>
+                          {" · "}
+                          {SHIFT_CODE_KIND_LABELS[c.kind]}
+                        </>
+                      )}
                     </p>
+                    {!c.kind && <KindConfirmRow code={c} onConfirmed={handleKindConfirmed} />}
                   </div>
                   <p className="text-xs text-cream/40">from {c.effectiveFrom}</p>
                 </div>

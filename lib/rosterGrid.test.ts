@@ -85,6 +85,8 @@ function code(overrides: Partial<ShiftCode> = {}): ShiftCode {
     active: true,
     createdByEmail: "manager@example.com",
     createdAt: "2026-01-01T00:00:00Z",
+    kind: null,
+    suggestedKind: null,
     ...overrides,
   };
 }

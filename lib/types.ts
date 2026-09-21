@@ -656,6 +656,16 @@ export type PunchDirection = "IN" | "OUT";
 
 export type PunchSource = "MANUAL" | "SCANNER";
 
+// What a shift code actually is, named rather than re-derived from countsAsWorked/isPaid/interval
+// shape (or, worse, from `code` itself - the roster grid's own daily totals used to match
+// code === "PH" literally, which silently breaks the moment "PH" is retyped). MORNING/EVENING both
+// mean an ordinary single-interval shift - the roster grid's own colour is a continuous scale by
+// actual start time, not this field; the distinction here is only which half of the day it falls
+// in. SPLIT is a two-interval shift. OPEN_SCHEDULE is OP; ABSENCE is PH and anything like it -
+// deliberately not split further (holiday/annual-leave/kept-day-off stay one code, same as PH
+// always has). Chosen by a person at creation (see ShiftCodeCreateInput), not inferred.
+export type ShiftCodeKind = "MORNING" | "SPLIT" | "EVENING" | "OPEN_SCHEDULE" | "ABSENCE";
+
 // One version of one shift code, optionally scoped to one StaffArea - never edited once a
 // RosterEntry references it; "editing" is creating a new version with a later effectiveFrom,
 // which retires this one (active=false) for new entries while every entry already pointing here
@@ -663,6 +673,11 @@ export type PunchSource = "MANUAL" | "SCANNER";
 // A null staffArea means shared: available to every area. Where a shared and an area-scoped row
 // share the same `code`, the area-scoped one wins for that area (see lib/rosterClient.ts's
 // listShiftCodes, which resolves this the same way the backend does for a given area).
+//
+// kind is the one field on this type that IS mutated in place on an existing row (via
+// updateShiftCodeKind) rather than only ever created anew - see that function's own comment.
+// Null only for a row that predates the field; suggestedKind then offers a default guessed from
+// the row's own shape, shown for confirmation, never applied on its own.
 export type ShiftCode = {
   id: string;
   staffArea: StaffArea | null;
@@ -677,11 +692,14 @@ export type ShiftCode = {
   active: boolean;
   createdByEmail: string;
   createdAt: string;
+  kind: ShiftCodeKind | null;
+  suggestedKind: ShiftCodeKind | null;
 };
 
 export type ShiftCodeCreateInput = {
   staffArea?: StaffArea | null;
   code: string;
+  kind: ShiftCodeKind;
   startTime1?: string | null;
   endTime1?: string | null;
   startTime2?: string | null;
@@ -689,6 +707,12 @@ export type ShiftCodeCreateInput = {
   countsAsWorked: boolean;
   isPaid: boolean;
   effectiveFrom: string;
+};
+
+// Body of PATCH /shift-codes/{id}/kind - see ShiftCode.kind's own comment for why this is the one
+// in-place mutation on an otherwise-versioned row.
+export type ShiftCodeKindUpdateInput = {
+  kind: ShiftCodeKind;
 };
 
 // GET /roster/employees - narrower than User/GET /users, same reasoning as
