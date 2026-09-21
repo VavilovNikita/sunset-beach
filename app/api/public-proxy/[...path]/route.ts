@@ -33,6 +33,16 @@ const ALLOWED: { method: string; matches: (path: string[]) => boolean }[] = [
   },
   // POST /bookings — the public guest-inquiry flow (BookingCreateInput), not /bookings/staff.
   { method: "POST", matches: (p) => p.length === 1 && p[0] === "bookings" },
+  // GET /public/menu, GET /public/orders/{id}, POST /public/orders/{id}/items — dine-in QR
+  // ordering (app/order/[orderId]/page.tsx). Gated entirely by the `?token=` query string these
+  // requests carry (forwarded automatically via incomingUrl.search below, same as every other
+  // rule here) — see the backend's OrderService#requireGuestAccess.
+  { method: "GET", matches: (p) => p.length === 2 && p[0] === "public" && p[1] === "menu" },
+  { method: "GET", matches: (p) => p.length === 3 && p[0] === "public" && p[1] === "orders" && p[2] !== "" },
+  {
+    method: "POST",
+    matches: (p) => p.length === 4 && p[0] === "public" && p[1] === "orders" && p[2] !== "" && p[3] === "items",
+  },
 ];
 
 function isAllowed(method: string, path: string[]): boolean {

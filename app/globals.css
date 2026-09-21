@@ -42,3 +42,17 @@ body {
   background-size: 200% 100%;
   animation: driftglow 8s ease-in-out infinite;
 }
+
+/* Print isolation for the guest-order QR poster (components/GuestOrderQrButton.tsx). Scoped to a
+   body class toggled only while that one modal is open, so it's fully additive and never touches
+   the roster grid's own print:hidden / print:block Tailwind convention (see the admin roster
+   page), which relies on ordinary visible printing. */
+body.qr-print-mode > *:not(#guest-qr-print-root) {
+  visibility: hidden;
+}
+body.qr-print-mode #guest-qr-print-root {
+  visibility: visible;
+}
+body.qr-print-mode #guest-qr-print-root * {
+  visibility: visible;
+}

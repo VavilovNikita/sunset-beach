@@ -9,6 +9,7 @@ import { fetchCurrentShift } from "@/lib/pos/shiftsClient";
 import PosMenuPicker from "@/components/pos/PosMenuPicker";
 import PosRoomChargeSearch from "@/components/pos/PosRoomChargeSearch";
 import PosAttributedConfirm from "@/components/pos/PosAttributedConfirm";
+import GuestOrderQrButton from "@/components/GuestOrderQrButton";
 import type { Role } from "@/lib/session";
 import type { Order, MenuItem, PaymentMethod, PrintAttemptResult } from "@/lib/posTypes";
 
@@ -269,6 +270,16 @@ export default function PosOrderTicket({
             </p>
           )}
         </div>
+      )}
+
+      {/* Dine-in only - see the admin ticket's own comment (components/admin/pos/OrderTicket.tsx)
+          for why this is gated on tableId and hidden (not disabled) when guestAccessToken is null. */}
+      {closable && order.tableId && (
+        <GuestOrderQrButton
+          orderId={order.id}
+          guestAccessToken={order.guestAccessToken}
+          buttonClassName="w-full rounded-xl border border-cream/25 active:border-cream/50 transition-colors py-3 text-sm font-medium"
+        />
       )}
 
       {closable && canManagePayments && (

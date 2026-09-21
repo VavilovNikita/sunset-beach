@@ -7,6 +7,7 @@ import { usePolling } from "@/lib/usePolling";
 import { PAYMENT_METHOD_LABELS, STATUS_LABELS, STATUS_STYLES, isTerminalStatus } from "@/lib/posOrders";
 import AddOrderItemForm from "@/components/admin/pos/AddOrderItemForm";
 import RoomChargeLink from "@/components/admin/pos/RoomChargeLink";
+import GuestOrderQrButton from "@/components/GuestOrderQrButton";
 import type { Order, MenuItem, PaymentMethod, PrintAttemptResult } from "@/lib/posTypes";
 
 export default function OrderTicket({
@@ -255,6 +256,18 @@ export default function OrderTicket({
               </p>
             )}
           </div>
+        )}
+
+        {/* Dine-in only - a table is what the guest is sitting at when they'd scan this, and
+            what OrderService#requireGuestAccess's ADDABLE_STATUSES gate is scoped to below via
+            `closable`. Hidden entirely (not just disabled) once guestAccessToken is null - see
+            that component's own comment. */}
+        {closable && order.tableId && (
+          <GuestOrderQrButton
+            orderId={order.id}
+            guestAccessToken={order.guestAccessToken}
+            buttonClassName="w-full rounded-full border border-cream/25 hover:border-cream/50 transition-colors py-2.5 text-sm font-medium"
+          />
         )}
 
         {canEditItems && (

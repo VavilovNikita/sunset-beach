@@ -217,6 +217,11 @@ export type Order = {
   // null until the order is PAID; set once and never changed after that. See the field's
   // openapi.yaml doc for why it's on Order at all (there's no way to fetch a Payment by orderId).
   paymentMethod: PaymentMethod | null;
+  // Generated once, server-side, for every order — the dine-in QR ordering token (see
+  // lib/guestOrderTypes.ts). null only for an order created before this field existed. Never
+  // sent anywhere by this app except into the URL PrintQrButton encodes into the printed QR
+  // code itself.
+  guestAccessToken: string | null;
 };
 
 export type OrderCreateInput = {
