@@ -47,6 +47,95 @@ function describeShiftHours(shiftCode: ShiftCode) {
     : `${shiftCode.startTime1}–${shiftCode.endTime1}`;
 }
 
+// --- Shift-kind visual scheme --------------------------------------------------------------
+// No new hue (see the frontend CLAUDE.md's Colour meanings section: "the palette is full...
+// distinguish new states by shape, hatching or an icon rather than a new colour"). A shift's
+// start time places it on a lightness scale within the SAME neutral family an ordinary occupied
+// cell already uses (ink2 is today's plain chip colour) - earliest lightest, latest darkest, one
+// hue throughout. SPLIT hatches between its own two intervals' own colours on that same scale -
+// literally two bands for two intervals. OPEN_SCHEDULE (no fixed hours) is an outline instead of
+// a fill, since there's nothing to place on the scale. ABSENCE is hollow - a fainter, dashed
+// outline, deliberately weaker than OPEN_SCHEDULE's - plus a small glyph: the one place this
+// scheme can't rely on shape alone, since an unfilled chip risks reading as an empty cell rather
+// than a recorded day off, which the code's own text alone might not rescue at a glance.
+const CHIP_DARK_HEX = "#153138"; // ink2 - today's ordinary occupied-cell chip colour
+const CHIP_LIGHT_HEX = "#FBF6EC"; // cream - this app's own light neutral
+const EARLIEST_MINUTES = 6 * 60; // 06:00 anchors the lightest end
+const LATEST_MINUTES = 23 * 60; // 23:00 anchors the darkest end
+const MAX_LIGHT_MIX = 0.55; // caps how far toward cream the lightest chip goes - stays a muted neutral, never literal cream
+
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function mixRgb(fromHex: string, toHex: string, amount: number): [number, number, number] {
+  const [fr, fg, fb] = hexToRgb(fromHex);
+  const [tr, tg, tb] = hexToRgb(toHex);
+  const mix = (a: number, b: number) => Math.round(a + (b - a) * amount);
+  return [mix(fr, tr), mix(fg, tg), mix(fb, tb)];
+}
+
+function rgbCss([r, g, b]: [number, number, number]) {
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+// 0 (latest) to 1 (earliest), clamped to the anchor range - a real, continuous position, not a
+// bucket, per the actual ask ("a shift falls naturally on a scale rather than into a set of
+// labels").
+function earlinessFor(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  const minutes = h * 60 + m;
+  const t = (LATEST_MINUTES - minutes) / (LATEST_MINUTES - EARLIEST_MINUTES);
+  return Math.max(0, Math.min(1, t));
+}
+
+function chipRgbFor(time: string): [number, number, number] {
+  return mixRgb(CHIP_DARK_HEX, CHIP_LIGHT_HEX, earlinessFor(time) * MAX_LIGHT_MIX);
+}
+
+// Plain luminance check so text stays readable at both ends of the scale - the lightest chips
+// need the app's own dark ink for text, not cream-on-cream.
+function contrastTextFor([r, g, b]: [number, number, number]) {
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  return luminance > 150 ? "#0F262B" : "#FBF6EC";
+}
+
+type ChipAppearance = { style: React.CSSProperties; textColor: string; glyph?: string };
+
+// Null kind = a row that predates this field and hasn't been confirmed yet (see ShiftCode.kind's
+// own comment) - today's plain bg-ink2/60 chip, unstyled here, until someone confirms one on the
+// Shift codes screen.
+function chipAppearanceFor(shiftCode: ShiftCode): ChipAppearance | null {
+  const kind = shiftCode.kind;
+  if (!kind) return null;
+
+  if (kind === "MORNING" || kind === "EVENING") {
+    const rgb = chipRgbFor(shiftCode.startTime1!);
+    return { style: { backgroundColor: rgbCss(rgb) }, textColor: contrastTextFor(rgb) };
+  }
+  if (kind === "SPLIT") {
+    const rgb1 = chipRgbFor(shiftCode.startTime1!);
+    const rgb2 = chipRgbFor(shiftCode.startTime2!);
+    return {
+      style: { backgroundImage: `repeating-linear-gradient(45deg, ${rgbCss(rgb1)} 0px 6px, ${rgbCss(rgb2)} 6px 12px)` },
+      textColor: contrastTextFor(rgb1),
+    };
+  }
+  if (kind === "OPEN_SCHEDULE") {
+    return {
+      style: { backgroundColor: "transparent", border: "1px solid rgba(251,246,236,0.5)" },
+      textColor: "rgba(251,246,236,0.8)",
+    };
+  }
+  // ABSENCE
+  return {
+    style: { backgroundColor: "transparent", border: "1px dashed rgba(251,246,236,0.25)" },
+    textColor: "rgba(251,246,236,0.45)",
+    glyph: "–",
+  };
+}
+
 type DragState = {
   source: RosterDragSource;
   hasHoveredSwapTarget: boolean;
@@ -555,6 +644,7 @@ export default function RosterGrid({
                       }
 
                       const tapHandlers = bindTapOrDoubleClick(() => setSelectedEntry(entry));
+                      const appearance = chipAppearanceFor(entry.shiftCode);
                       return (
                         <td
                           key={d}
@@ -574,7 +664,13 @@ export default function RosterGrid({
                             entry.locked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing"
                           } ${isDragSource ? "opacity-40" : ""} ${dropIsSwap ? "ring-2 ring-sea" : ""} ${dropInvalid ? "ring-2 ring-coral" : ""}`}
                         >
-                          <span className="inline-flex items-center gap-1 bg-ink2/60 border border-cream/10 rounded px-1.5 py-0.5 text-xs">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs ${
+                              appearance ? "" : "bg-ink2/60 border border-cream/10"
+                            }`}
+                            style={appearance ? { ...appearance.style, color: appearance.textColor } : undefined}
+                          >
+                            {appearance?.glyph && <span aria-hidden="true">{appearance.glyph}</span>}
                             {entry.shiftCode.code}
                             {entry.locked && <span title="Locked">🔒</span>}
                             {entry.note && <span className="text-sea" title={entry.note}>●</span>}
