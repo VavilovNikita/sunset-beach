@@ -2,9 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createShiftCode, updateShiftCodeKind } from "@/lib/rosterClient";
+import { createShiftCode, updateShiftCodeDisplayColor, updateShiftCodeKind } from "@/lib/rosterClient";
 import { STAFF_AREA_LABELS } from "@/lib/rosterGrid";
 import type { ShiftCode, ShiftCodeCreateInput, ShiftCodeKind, StaffArea } from "@/lib/types";
+
+// Neutral starting point for the picker on a code with no displayColor and no suggestedColor -
+// never saved on its own; the admin still has to press Save. Matches this screen's own ink2 tone.
+const NEUTRAL_COLOR_DEFAULT = "#153138";
 
 const STAFF_AREAS: StaffArea[] = ["ADMIN", "FRONT_OFFICE", "MAINTENANCE", "HOUSEKEEPING", "RESTAURANT", "KITCHEN"];
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -85,6 +89,79 @@ function KindConfirmRow({ code, onConfirmed }: { code: ShiftCode; onConfirmed: (
   );
 }
 
+// The second field mutated in place on an existing ShiftCode row - see ShiftCode.displayColor's
+// own comment. Always rendered (unlike KindConfirmRow, which only shows once kind is unset):
+// there's no "unconfirmed" state to protect here, a colour is either picked or it isn't, and an
+// admin may want to change or clear one that's already set. Prefilled with suggestedColor only
+// for "9"/"9S" - every other code starts from a plain neutral swatch nobody is nudged toward.
+function DisplayColorRow({ code, onSaved }: { code: ShiftCode; onSaved: (updated: ShiftCode) => void }) {
+  const [color, setColor] = useState(code.displayColor ?? code.suggestedColor ?? NEUTRAL_COLOR_DEFAULT);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const dirty = color !== (code.displayColor ?? code.suggestedColor ?? NEUTRAL_COLOR_DEFAULT);
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    const result = await updateShiftCodeDisplayColor(code.id, { displayColor: color });
+    setSaving(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    onSaved(result.data);
+  }
+
+  async function handleClear() {
+    setSaving(true);
+    setError(null);
+    const result = await updateShiftCodeDisplayColor(code.id, { displayColor: null });
+    setSaving(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setColor(NEUTRAL_COLOR_DEFAULT);
+    onSaved(result.data);
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 mt-1">
+      <span className="text-xs text-cream/40">Colour{!code.displayColor && code.suggestedColor ? " - suggested:" : ""}</span>
+      <input
+        type="color"
+        value={color}
+        onChange={(e) => setColor(e.target.value)}
+        className="h-6 w-8 rounded border border-cream/20 bg-transparent p-0 cursor-pointer"
+        aria-label={`Colour for code ${code.code}`}
+      />
+      <span className="text-xs text-cream/40 tabular-nums">{color}</span>
+      {dirty && (
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="text-xs text-sea hover:text-coral transition-colors disabled:opacity-50"
+        >
+          {saving ? "…" : "Save"}
+        </button>
+      )}
+      {code.displayColor && (
+        <button
+          type="button"
+          onClick={handleClear}
+          disabled={saving}
+          className="text-xs text-cream/40 hover:text-coral transition-colors disabled:opacity-50"
+        >
+          Clear
+        </button>
+      )}
+      {error && <span className="text-xs text-coral">{error}</span>}
+    </div>
+  );
+}
+
 // Shift codes are versioned, never edited (see ShiftCode's own description) - this manager only
 // ever creates a new row. Creating one with the same (staffArea, code) as an active row silently
 // retires that row on the backend; there is no separate "edit" action to offer here.
@@ -145,6 +222,13 @@ export default function ShiftCodeManager({ initialCodes }: { initialCodes: Shift
   // one (see ShiftCode.kind's own comment), so this is the one update here that never touches
   // which rows exist, only one row's own field.
   function handleKindConfirmed(updated: ShiftCode) {
+    setCodes((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+    router.refresh();
+  }
+
+  // Same in-place row replacement as handleKindConfirmed - displayColor is the second field
+  // mutated on an existing row rather than versioned (see ShiftCode.displayColor's own comment).
+  function handleDisplayColorSaved(updated: ShiftCode) {
     setCodes((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
     router.refresh();
   }
@@ -338,6 +422,7 @@ export default function ShiftCodeManager({ initialCodes }: { initialCodes: Shift
                       )}
                     </p>
                     {!c.kind && <KindConfirmRow code={c} onConfirmed={handleKindConfirmed} />}
+                    <DisplayColorRow code={c} onSaved={handleDisplayColorSaved} />
                   </div>
                   <p className="text-xs text-cream/40">from {c.effectiveFrom}</p>
                 </div>

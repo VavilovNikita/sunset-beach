@@ -29,6 +29,7 @@ import type {
   RosterSwapInput,
   ShiftCode,
   ShiftCodeCreateInput,
+  ShiftCodeDisplayColorUpdateInput,
   ShiftCodeKind,
   StaffArea,
   StaffAreaCoverageRule,
@@ -58,6 +59,15 @@ export async function createShiftCode(input: ShiftCodeCreateInput): Promise<Resu
 // suggestedKind for a code that predates this field.
 export async function updateShiftCodeKind(id: string, kind: ShiftCodeKind): Promise<Result<ShiftCode>> {
   const result = await adminRequest<ShiftCode>(`/shift-codes/${id}/kind`, adminJsonInit("PATCH", { kind }), "Could not set this code's kind.");
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, data: result.data };
+}
+
+// The second field mutated in place on an existing row rather than versioned - see
+// ShiftCode.displayColor's own comment. Unlike kind, input.displayColor may be omitted/null to
+// clear a code back to unset.
+export async function updateShiftCodeDisplayColor(id: string, input: ShiftCodeDisplayColorUpdateInput): Promise<Result<ShiftCode>> {
+  const result = await adminRequest<ShiftCode>(`/shift-codes/${id}/display-color`, adminJsonInit("PATCH", input), "Could not set this code's colour.");
   if (!result.ok) return { ok: false, error: result.error };
   return { ok: true, data: result.data };
 }
@@ -219,6 +229,23 @@ export async function exportRosterActualsCsv(year: number, month: number): Promi
     return { ok: false, error: extractApiError(data, "Could not export this month.") };
   }
   return { ok: true, data: await res.text() };
+}
+
+// ADMIN only (stricter than the actuals export above - same floor as the Excel import). Not JSON
+// either, and binary rather than text this time, so this reads the body as a Blob directly -
+// same bypass-adminRequest shape as exportRosterActualsCsv, for the same reason.
+export async function exportRosterGridXlsx(year: number, month: number): Promise<Result<Blob>> {
+  let res: Response;
+  try {
+    res = await fetch(`${ADMIN_API_URL}/roster/export?year=${year}&month=${month}`, { credentials: "include" });
+  } catch {
+    return { ok: false, error: "No connection — check the network and try again." };
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    return { ok: false, error: extractApiError(data, "Could not export this month.") };
+  }
+  return { ok: true, data: await res.blob() };
 }
 
 // --- Excel schedule import (ADMIN only) ------------------------------------------------------

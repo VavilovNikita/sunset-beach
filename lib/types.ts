@@ -674,10 +674,13 @@ export type ShiftCodeKind = "MORNING" | "SPLIT" | "EVENING" | "OPEN_SCHEDULE" | 
 // share the same `code`, the area-scoped one wins for that area (see lib/rosterClient.ts's
 // listShiftCodes, which resolves this the same way the backend does for a given area).
 //
-// kind is the one field on this type that IS mutated in place on an existing row (via
-// updateShiftCodeKind) rather than only ever created anew - see that function's own comment.
-// Null only for a row that predates the field; suggestedKind then offers a default guessed from
-// the row's own shape, shown for confirmation, never applied on its own.
+// kind and displayColor are the two fields on this type that ARE mutated in place on an existing
+// row (via updateShiftCodeKind / updateShiftCodeDisplayColor) rather than only ever created anew -
+// see those functions' own comments. kind is null only for a row that predates the field;
+// suggestedKind then offers a default guessed from the row's own shape, shown for confirmation,
+// never applied on its own. displayColor is null for every code by default (nothing looks
+// different until an admin picks one); suggestedColor offers a default for "9"/"9S" specifically,
+// same "suggest, don't silently apply" shape.
 export type ShiftCode = {
   id: string;
   staffArea: StaffArea | null;
@@ -694,6 +697,8 @@ export type ShiftCode = {
   createdAt: string;
   kind: ShiftCodeKind | null;
   suggestedKind: ShiftCodeKind | null;
+  displayColor: string | null;
+  suggestedColor: string | null;
 };
 
 export type ShiftCodeCreateInput = {
@@ -713,6 +718,12 @@ export type ShiftCodeCreateInput = {
 // in-place mutation on an otherwise-versioned row.
 export type ShiftCodeKindUpdateInput = {
   kind: ShiftCodeKind;
+};
+
+// Body of PATCH /shift-codes/{id}/display-color - unlike kind, displayColor may be omitted or
+// sent null to clear a code back to unset, so this field is optional rather than required.
+export type ShiftCodeDisplayColorUpdateInput = {
+  displayColor?: string | null;
 };
 
 // GET /roster/employees - narrower than User/GET /users, same reasoning as

@@ -69,7 +69,7 @@ export default async function AdminRosterPage({
               Next →
             </Link>
           </div>
-          <RosterToolbar year={year} month={month} />
+          <RosterToolbar year={year} month={month} isAdmin={sessionUser.role === "ADMIN"} />
         </div>
         <p className="print:hidden text-xs text-cream/40 mb-4 max-w-2xl">
           Drag a shift onto an empty day for the same person to move it, onto an empty day for someone else to give it to

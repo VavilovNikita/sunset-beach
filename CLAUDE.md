@@ -72,6 +72,8 @@ Established across all screens; do not repurpose. Named by their Tailwind class,
 
 The palette is full. Distinguish new states by shape, hatching or an icon rather than a new colour. Known remaining ambiguity: `sea` also colours the `NEW` booking status, which is not "free" — left as is deliberately.
 
+**Scoped exception: shift-code chips.** `ShiftCode.displayColor` (`RosterGrid.tsx`, `ShiftCodeManager.tsx`) is an admin-chosen, per-code colour — the one deliberate departure from "no new colour" in this app. The roster grid's chips are a closed, small legend (a couple dozen codes at most) that accountants and staff already read off a paper schedule by real colour, not by a narrow lightness ramp — the fixed palette above has no room to give each code its own distinguishable hue, and forcing one through it would defeat the reason this exception exists. `kind`'s own shape cues (fill/hatch/outline/hollow) still do the structural work; `displayColor`, where an admin has set one, only ever replaces the *neutral* tone within that shape — it never turns an outline into a fill or a hollow chip into a solid one (see `chipAppearanceFor`'s own comment). This does not reopen the rule anywhere else: every other screen in this app still picks from the fixed palette above, unchanged.
+
 ## Testing
 
 Vitest, pure functions only — there are no DOM tests. Anything in `lib/` that computes a number, a date or a display decision should be tested, because a wrong result there is invisible on screen.
