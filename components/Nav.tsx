@@ -4,6 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import type { GuestSessionAccount } from "@/lib/guestSession";
+import type { SessionUser } from "@/lib/session";
 
 const links = [
   { href: "/", label: "Hotel" },
@@ -14,7 +16,12 @@ const links = [
   { href: "/contact", label: "Contact" },
 ];
 
-export default function Nav() {
+type NavProps = {
+  guestAccount?: GuestSessionAccount | null;
+  staffUser?: SessionUser | null;
+};
+
+export default function Nav({ guestAccount = null, staffUser = null }: NavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -47,12 +54,24 @@ export default function Nav() {
               </Link>
             );
           })}
-          <Link href="/login" className="text-sm tracking-wide text-cream/80 hover:text-coral transition-colors">
-            Sign in
-          </Link>
-          <Link href="/guest/register" className="text-sm tracking-wide text-cream/80 hover:text-coral transition-colors">
-            Create account
-          </Link>
+          {staffUser ? (
+            <Link href="/admin" className="text-sm tracking-wide text-cream/80 hover:text-coral transition-colors">
+              Dashboard
+            </Link>
+          ) : guestAccount ? (
+            <Link href="/guest/account" className="text-sm tracking-wide text-cream/80 hover:text-coral transition-colors">
+              My account
+            </Link>
+          ) : (
+            <>
+              <Link href="/login" className="text-sm tracking-wide text-cream/80 hover:text-coral transition-colors">
+                Sign in
+              </Link>
+              <Link href="/guest/register" className="text-sm tracking-wide text-cream/80 hover:text-coral transition-colors">
+                Create account
+              </Link>
+            </>
+          )}
           <Link
             href="/booking"
             className="ml-2 rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium text-cream"
@@ -85,16 +104,32 @@ export default function Nav() {
               {l.label}
             </Link>
           ))}
-          <Link href="/login" onClick={() => setOpen(false)} className={`text-sm ${pathname === "/login" ? "text-coral" : "text-cream/80"}`}>
-            Sign in
-          </Link>
-          <Link
-            href="/guest/register"
-            onClick={() => setOpen(false)}
-            className={`text-sm ${pathname === "/guest/register" ? "text-coral" : "text-cream/80"}`}
-          >
-            Create account
-          </Link>
+          {staffUser ? (
+            <Link href="/admin" onClick={() => setOpen(false)} className={`text-sm ${pathname === "/admin" ? "text-coral" : "text-cream/80"}`}>
+              Dashboard
+            </Link>
+          ) : guestAccount ? (
+            <Link
+              href="/guest/account"
+              onClick={() => setOpen(false)}
+              className={`text-sm ${pathname === "/guest/account" ? "text-coral" : "text-cream/80"}`}
+            >
+              My account
+            </Link>
+          ) : (
+            <>
+              <Link href="/login" onClick={() => setOpen(false)} className={`text-sm ${pathname === "/login" ? "text-coral" : "text-cream/80"}`}>
+                Sign in
+              </Link>
+              <Link
+                href="/guest/register"
+                onClick={() => setOpen(false)}
+                className={`text-sm ${pathname === "/guest/register" ? "text-coral" : "text-cream/80"}`}
+              >
+                Create account
+              </Link>
+            </>
+          )}
         </nav>
       )}
     </header>
