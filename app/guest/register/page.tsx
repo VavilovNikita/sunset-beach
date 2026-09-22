@@ -42,7 +42,10 @@ export default function GuestRegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-6">
       <div className="w-full max-w-sm">
-        <p className="eyebrow text-sea mb-2 text-center">Guest account</p>
+        <Link href="/" className="text-sm text-cream/50 hover:text-cream/80 transition-colors">
+          ← The Sunset Beach
+        </Link>
+        <p className="eyebrow text-sea mb-2 text-center mt-6">Guest account</p>
         <h1 className="font-display italic text-3xl text-center mb-8">Create your account</h1>
 
         {message ? (

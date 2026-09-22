@@ -57,15 +57,13 @@ function VerifyBody() {
         <div className="bg-ink2/60 border border-cream/10 rounded-xl p-6">
           {status === "verifying" && <p className="text-cream/70">One moment…</p>}
           {status === "success" && <p className="text-cream/90">Verified! Taking you to your account…</p>}
-          {status === "error" && (
-            <>
-              <p className="text-coral">{error}</p>
-              <p className="text-sm text-cream/50 mt-4">
-                <Link href="/guest/login" className="text-coral hover:underline">
-                  Back to sign in
-                </Link>
-              </p>
-            </>
+          {status === "error" && <p className="text-coral">{error}</p>}
+          {status !== "success" && (
+            <p className="text-sm text-cream/50 mt-4">
+              <Link href="/login" className="text-coral hover:underline">
+                Back to sign in
+              </Link>
+            </p>
           )}
         </div>
       </div>

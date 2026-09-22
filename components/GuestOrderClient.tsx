@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePolling } from "@/lib/usePolling";
 import { fetchGuestMenu, fetchGuestOrder, addGuestOrderItems } from "@/lib/guestOrderClient";
 import type { MenuItem } from "@/lib/posTypes";
@@ -100,6 +101,9 @@ export default function GuestOrderClient({ orderId, token }: { orderId: string; 
         <div className="max-w-xs">
           <p className="eyebrow text-sea mb-3">Sunset Beach</p>
           <p className="text-cream/70 text-sm">{gateError}</p>
+          <Link href="/" className="inline-block mt-6 text-sm text-coral hover:underline">
+            Visit our website
+          </Link>
         </div>
       </div>
     );

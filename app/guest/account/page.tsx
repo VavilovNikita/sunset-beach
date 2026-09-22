@@ -25,7 +25,10 @@ export default async function GuestAccountPage() {
   return (
     <div className="min-h-screen px-6 py-12">
       <div className="max-w-2xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <Link href="/" className="text-sm text-cream/50 hover:text-cream/80 transition-colors">
+          ← The Sunset Beach
+        </Link>
+        <div className="flex items-center justify-between mb-8 mt-6">
           <div>
             <p className="eyebrow text-sea mb-2">Guest account</p>
             <h1 className="font-display italic text-3xl">{account.name ?? account.email}</h1>

@@ -102,7 +102,10 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-6">
       <div className="w-full max-w-sm">
-        <p className="eyebrow text-sea mb-2 text-center">Sign in</p>
+        <Link href="/" className="text-sm text-cream/50 hover:text-cream/80 transition-colors">
+          ← The Sunset Beach
+        </Link>
+        <p className="eyebrow text-sea mb-2 text-center mt-6">Sign in</p>
         <h1 className="font-display italic text-3xl text-center mb-8">Welcome back</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4 bg-ink2/60 border border-cream/10 rounded-xl p-6">
