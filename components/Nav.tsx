@@ -48,10 +48,10 @@ export default function Nav() {
             );
           })}
           <Link href="/login" className="text-sm tracking-wide text-cream/80 hover:text-coral transition-colors">
-            Войти
+            Sign in
           </Link>
           <Link href="/guest/register" className="text-sm tracking-wide text-cream/80 hover:text-coral transition-colors">
-            Создать аккаунт
+            Create account
           </Link>
           <Link
             href="/booking"
@@ -86,14 +86,14 @@ export default function Nav() {
             </Link>
           ))}
           <Link href="/login" onClick={() => setOpen(false)} className={`text-sm ${pathname === "/login" ? "text-coral" : "text-cream/80"}`}>
-            Войти
+            Sign in
           </Link>
           <Link
             href="/guest/register"
             onClick={() => setOpen(false)}
             className={`text-sm ${pathname === "/guest/register" ? "text-coral" : "text-cream/80"}`}
           >
-            Создать аккаунт
+            Create account
           </Link>
         </nav>
       )}
