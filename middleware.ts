@@ -3,7 +3,7 @@ import { getCurrentUser, SESSION_COOKIE_NAME } from "@/lib/session";
 import { getCurrentGuestAccount, GUEST_SESSION_COOKIE_NAME } from "@/lib/guestSession";
 
 export async function middleware(req: NextRequest) {
-  if (req.nextUrl.pathname.startsWith("/guest/account")) {
+  if (req.nextUrl.pathname.startsWith("/guest/account") || req.nextUrl.pathname.startsWith("/guest/room-service")) {
     return guestMiddleware(req);
   }
   return staffMiddleware(req);
@@ -48,7 +48,8 @@ export const config = {
   // /pos is a separate root section (staff floor UI for WAITER/CASHIER, see app/pos/layout.tsx)
   // but shares this same auth check and the same /admin/login page — it has no login route of
   // its own, so an unauthenticated visit here also needs covering, or /pos would be reachable
-  // with no session at all. /guest/account is the one guest-facing route that needs a session;
-  // /guest/register|login|verify are deliberately not listed, same reasoning as /admin/login.
-  matcher: ["/admin/:path*", "/pos/:path*", "/guest/account/:path*"],
+  // with no session at all. /guest/account and /guest/room-service are the guest-facing routes
+  // that need a session; /guest/register|login|verify are deliberately not listed, same
+  // reasoning as /admin/login.
+  matcher: ["/admin/:path*", "/pos/:path*", "/guest/account/:path*", "/guest/room-service/:path*"],
 };

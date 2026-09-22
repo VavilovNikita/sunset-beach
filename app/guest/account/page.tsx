@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireGuestSessionAccount } from "@/lib/guestRbac";
 import { guestBackendJson } from "@/lib/guestBackendServer";
 import type { GuestBooking } from "@/lib/guestSession";
@@ -17,6 +18,9 @@ export default async function GuestAccountPage() {
   // own description) - this account's history is already complete the moment its email verifies,
   // no matter how many stays it covers or when they happened.
   const bookings = await guestBackendJson<GuestBooking[]>("/guest/bookings");
+  // UI convenience only - the actual gate lives on the backend and is re-checked on every
+  // /guest/orders write (see GuestRoomServiceClient's own comment).
+  const canOrderRoomService = bookings.some((b) => b.occupancyStatus === "CHECKED_IN");
 
   return (
     <div className="min-h-screen px-6 py-12">
@@ -29,6 +33,15 @@ export default async function GuestAccountPage() {
           </div>
           <GuestSignOutButton />
         </div>
+
+        {canOrderRoomService && (
+          <Link
+            href="/guest/room-service"
+            className="block mb-10 rounded-xl bg-coral hover:bg-coraldeep transition-colors px-5 py-4 text-center font-medium"
+          >
+            Order room service
+          </Link>
+        )}
 
         <section className="mb-10">
           <h2 className="eyebrow text-cream/60 mb-4">Your bookings</h2>

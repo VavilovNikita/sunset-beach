@@ -17,14 +17,18 @@ export type GuestSessionAccount = {
 
 // The narrow shape GET /guest/bookings returns - deliberately not the staff Booking type (see
 // that operation's own description): no paymentNote, source, guestId/guest, roomUnitId/roomUnit,
-// or occupancy fields.
+// or occupancy timestamps. occupancyStatus is the one occupancy field it does carry - a UI
+// convenience so the frontend can offer room service only on a CHECKED_IN booking; the real gate
+// is server-side on every /guest/orders write, re-checked on every call, never trusted from here.
 export type GuestBooking = {
   id: string;
   roomName: string;
+  roomLabel: string | null;
   checkIn: string;
   checkOut: string;
   totalPrice: string;
   status: "NEW" | "CONFIRMED" | "PAID" | "CANCELLED";
+  occupancyStatus: "EXPECTED" | "CHECKED_IN" | "CHECKED_OUT" | "NO_SHOW";
   createdAt: string;
 };
 

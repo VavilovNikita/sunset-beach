@@ -47,6 +47,12 @@ export default function Nav() {
               </Link>
             );
           })}
+          <Link href="/login" className="text-sm tracking-wide text-cream/80 hover:text-coral transition-colors">
+            Войти
+          </Link>
+          <Link href="/guest/register" className="text-sm tracking-wide text-cream/80 hover:text-coral transition-colors">
+            Создать аккаунт
+          </Link>
           <Link
             href="/booking"
             className="ml-2 rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium text-cream"
@@ -79,6 +85,16 @@ export default function Nav() {
               {l.label}
             </Link>
           ))}
+          <Link href="/login" onClick={() => setOpen(false)} className={`text-sm ${pathname === "/login" ? "text-coral" : "text-cream/80"}`}>
+            Войти
+          </Link>
+          <Link
+            href="/guest/register"
+            onClick={() => setOpen(false)}
+            className={`text-sm ${pathname === "/guest/register" ? "text-coral" : "text-cream/80"}`}
+          >
+            Создать аккаунт
+          </Link>
         </nav>
       )}
     </header>

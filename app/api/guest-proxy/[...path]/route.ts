@@ -5,11 +5,13 @@ import { GUEST_SESSION_COOKIE_NAME } from "@/lib/guestSession";
 
 // Guest-account analogue of /api/admin-proxy - reads the httpOnly guest-session cookie
 // server-side and forwards it as `Authorization: Bearer <token>` to sunset's /guest/** routes,
-// since browser JS can't read that cookie to do this itself. GET-only: every /guest/** route this
-// app currently calls through here (GET /guest/me, GET /guest/bookings) is a read; the one write
-// (PATCH /guest/password) needs its own route to rewrite the httpOnly cookie with the fresh token
-// the backend returns - see /api/guest-session/change-password's own comment for why that can't
-// go through a generic pass-through proxy at all.
+// since browser JS can't read that cookie to do this itself. PATCH /guest/password is still the
+// one exception that needs its own dedicated route rather than going through here - it rotates
+// `tokenVersion` server-side, so the response has to rewrite the httpOnly cookie with the fresh
+// token, something a generic pass-through can't do (see /api/guest-session/change-password's own
+// comment). POST is otherwise a plain pass-through like GET: room-service ordering
+// (POST /guest/orders, POST /guest/orders/{id}/items) never rotates the token, so there's nothing
+// for this proxy to rewrite - the body is just forwarded through, same as the response.
 async function proxy(req: Request, path: string[]) {
   const store = await cookies();
   const token = store.get(GUEST_SESSION_COOKIE_NAME)?.value;
@@ -20,8 +22,14 @@ async function proxy(req: Request, path: string[]) {
   const incomingUrl = new URL(req.url);
   const target = `${BACKEND_URL}/guest/${path.join("/")}${incomingUrl.search}`;
 
+  const headers = new Headers({ Authorization: `Bearer ${token}` });
+  const hasBody = req.method !== "GET" && req.method !== "HEAD";
+  if (hasBody) headers.set("Content-Type", req.headers.get("content-type") ?? "application/json");
+
   const res = await fetch(target, {
-    headers: { Authorization: `Bearer ${token}` },
+    method: req.method,
+    headers,
+    body: hasBody ? await req.text() : undefined,
     cache: "no-store",
   });
   const body = await res.arrayBuffer();
@@ -34,5 +42,9 @@ async function proxy(req: Request, path: string[]) {
 type RouteContext = { params: { path: string[] } };
 
 export async function GET(req: Request, { params }: RouteContext) {
+  return proxy(req, params.path);
+}
+
+export async function POST(req: Request, { params }: RouteContext) {
   return proxy(req, params.path);
 }

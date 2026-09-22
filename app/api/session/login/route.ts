@@ -17,11 +17,17 @@ export async function POST(req: Request) {
     cache: "no-store",
   });
 
+  const data = await backendRes.json().catch(() => null);
+
   if (!backendRes.ok) {
-    return NextResponse.json({ error: "Invalid email or password" }, { status: backendRes.status === 401 ? 401 : 502 });
+    // Passed through as-is, status included - a 401 ("Invalid email or password") and a 429
+    // ("Too many failed login attempts...") are distinct cases a caller needs to tell apart (see
+    // the unified /login page, which only falls back to guest login on the plain 401, never on a
+    // rate limit or a network/server error). Collapsing every failure into one status here used to
+    // make that distinction impossible for any caller of this route.
+    return NextResponse.json(data ?? { error: "Could not log in" }, { status: backendRes.status });
   }
 
-  const data = await backendRes.json().catch(() => null);
   const token = typeof data?.token === "string" ? data.token : null;
   if (!token) {
     return NextResponse.json({ error: "Unexpected response from auth server" }, { status: 502 });
