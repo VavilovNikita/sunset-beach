@@ -27,9 +27,15 @@ const ACTIONS: AuditAction[] = [
   "ROOM_UNIT_DELETED",
   "ROOM_UNIT_BLOCK_CREATED",
   "ROOM_UNIT_BLOCK_DELETED",
+  "ATTENDANCE_DEVICE_CREATED",
+  "ATTENDANCE_DEVICE_UPDATED",
+  "ATTENDANCE_DEVICE_DELETED",
+  "MENU_ITEM_CREATED",
+  "MENU_ITEM_UPDATED",
+  "MENU_ITEM_DELETED",
 ];
 
-const ENTITY_TYPES: AuditEntityType[] = ["BOOKING", "ROOM", "ORDER", "SHIFT", "USER", "ROOM_UNIT"];
+const ENTITY_TYPES: AuditEntityType[] = ["BOOKING", "ROOM", "ORDER", "SHIFT", "USER", "ROOM_UNIT", "ATTENDANCE_DEVICE", "MENU_ITEM"];
 
 const PAGE_SIZE = 50;
 
@@ -176,7 +182,7 @@ export default async function AdminHistoryPage({
             </div>
             <p className="text-cream/70 mt-1">{entry.summary}</p>
             <p className="text-xs text-cream/40 mt-2">
-              {entry.actorEmail} ({entry.actorRole})
+              {entry.actorEmail} ({entry.actorRole ?? "System"})
               {entry.entityId && (
                 <>
                   {" · "}

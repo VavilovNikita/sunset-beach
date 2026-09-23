@@ -613,12 +613,23 @@ export type AuditAction =
   | "ROOM_UNIT_UPDATED"
   | "ROOM_UNIT_DELETED"
   | "ROOM_UNIT_BLOCK_CREATED"
-  | "ROOM_UNIT_BLOCK_DELETED";
+  | "ROOM_UNIT_BLOCK_DELETED"
+  | "ATTENDANCE_DEVICE_CREATED"
+  | "ATTENDANCE_DEVICE_UPDATED"
+  | "ATTENDANCE_DEVICE_DELETED"
+  | "MENU_ITEM_CREATED"
+  | "MENU_ITEM_UPDATED"
+  | "MENU_ITEM_DELETED";
+// NOTE: this union (and ACTIONS in app/admin/(dashboard)/history/page.tsx) is a hand-copied,
+// already-incomplete subset of the backend's real AuditAction enum - see that enum's own
+// openapi.yaml description. A value missing here only breaks the "Action" filter dropdown, not
+// rendering an entry that already has it (describeAction works on any string). Not fixed
+// wholesale here - out of scope for the change that added the values above.
 
 // SCREAMING_SNAKE_CASE, not PascalCase entity names - see openapi.yaml's AuditEntityType schema
 // description: Spring's default query-param enum binding uses the Java constant name, so this
 // has to match that, not read nicely as a class name.
-export type AuditEntityType = "BOOKING" | "ROOM" | "ORDER" | "SHIFT" | "USER" | "ROOM_UNIT";
+export type AuditEntityType = "BOOKING" | "ROOM" | "ORDER" | "SHIFT" | "USER" | "ROOM_UNIT" | "ATTENDANCE_DEVICE" | "MENU_ITEM";
 
 export type AuditLogEntry = {
   id: string;
@@ -627,7 +638,10 @@ export type AuditLogEntry = {
   // openapi.yaml's AuditLogEntry.actorEmail description. Still the right field to display: it's
   // who did it, even if that account was since renamed or (were deletion ever added) removed.
   actorEmail: string;
-  actorRole: Role;
+  // Null only for a system-initiated action with no authenticated staff principal (e.g. the
+  // booking-expiry sweep's auto-cancellation) - see AuditLogService#recordSystemAction's javadoc.
+  // Never null for anything a real staff member did.
+  actorRole: Role | null;
   action: AuditAction;
   entityType: AuditEntityType;
   entityId: string | null;
