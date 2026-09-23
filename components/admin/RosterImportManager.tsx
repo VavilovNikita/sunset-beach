@@ -32,7 +32,10 @@ const SHIFT_CODES_URL = "/admin/roster?tab=codes";
 // {employeeUserId, employeeName}) can be added to this list without fabricating the rest of User.
 type EmployeeOption = { id: string; name: string; email?: string | null };
 
-function NameMappingRow({
+// Exported for reuse by RosterGridImportManager - resolving a name here also resolves it there
+// (both hit the same POST /roster/import/name-mappings, remembered against the same table).
+export type { EmployeeOption };
+export function NameMappingRow({
   entry,
   employees,
   onResolved,

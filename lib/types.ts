@@ -910,6 +910,149 @@ export type RosterImportResult = {
   skippedCollisions: number;
 };
 
+// --- Roster grid re-import (ADMIN only) - re-imports a file THIS app's own GET /roster/export
+// produced, not the hotel's hand-built schedule (RosterImport* above is that one). See
+// RosterGridImportService's own doc: a cell resolves positionally against a hidden export
+// timestamp/shift-code dictionary the export embeds - never by matching code text, since
+// ShiftCode.code is only unique per (staffArea, code, effectiveFrom), not globally - falling back
+// to ordinary name/code-text resolution only for a row or cell with no metadata (added or
+// retyped by hand since export). Sync semantics, not wholesale replace: diffRows lists only the
+// (employeeUserId, date) cells that actually differ from the current RosterEntry state.
+
+export type RosterGridImportDiffRow = {
+  employeeUserId: string;
+  employeeName: string;
+  date: string;
+  // ADD: blank in the DB, coded in the file. REMOVE: coded in the DB, blank in the file. CHANGE: coded differently in each.
+  changeType: "ADD" | "REMOVE" | "CHANGE";
+  previousCode?: string;
+  newCode?: string;
+  // POSITIONAL: both the row and this cell matched the export's own hidden metadata. FALLBACK_*:
+  // the row and/or this cell had none (added or retyped by hand since export), so that side
+  // resolved the ordinary way - by name against /roster/import/name-mappings, and/or by matching
+  // newCode against an active ShiftCode for this employee's own area.
+  resolution: "POSITIONAL" | "FALLBACK_NAME" | "FALLBACK_CODE" | "FALLBACK_BOTH";
+  // True when this REMOVE/CHANGE's existing RosterEntry has locked: true - never overwritten by
+  // commit regardless of the file, counted in RosterGridImportResult.skippedLocked instead.
+  lockedConflict: boolean;
+  // True when the existing RosterEntry (REMOVE/CHANGE only) was created or modified after this
+  // file's own exportedAt - the file may not know about a change made after it was exported.
+  // Never blocks commit; list it in RosterGridImportCommitInput.excludeCells to skip it.
+  staleSinceExport: boolean;
+  // Set when newCode resolves, by metadata, to a ShiftCode id listed in RosterGridImportPreview.retiredCodes.
+  pendingRetiredCodeId?: string;
+  // True when newCode has no metadata and matches no active ShiftCode - listed in RosterGridImportPreview.unknownCodes.
+  pendingUnknownCode: boolean;
+};
+
+// A ShiftCode id the file's metadata names that no longer resolves to an *active* row -
+// superseded by a later definition of the same (staffArea, code) since export. Every field here
+// is the exact historical definition read from the export's own metadata, never a guess -
+// recreate it (edited first, if the reason it needed recreating is that something was wrong)
+// via RosterGridImportRetiredCodeResolution with the same shiftCodeId.
+export type RosterGridImportRetiredCode = {
+  shiftCodeId: string;
+  staffArea: StaffArea | null;
+  code: string;
+  kind: ShiftCodeKind;
+  startTime1?: string;
+  endTime1?: string;
+  startTime2?: string;
+  endTime2?: string;
+  countsAsWorked: boolean;
+  isPaid: boolean;
+  effectiveFrom: string; // the retired row's own original date - recreating always uses today's date instead
+  displayColor?: string;
+  occurrences: number;
+};
+
+// A code with no export metadata at all for this cell (added or retyped by hand since export)
+// and no active ShiftCode matching its text either - nothing to prefill from, define it from
+// scratch via RosterGridImportUnknownCodeResolution, the same fields POST /shift-codes takes.
+export type RosterGridImportUnknownCode = {
+  rawCode: string;
+  staffArea: StaffArea | null;
+  occurrences: number;
+};
+
+export type RosterGridImportPreview = {
+  importId: string;
+  year: number;
+  month: number;
+  exportedAt: string;
+  diffRows: RosterGridImportDiffRow[];
+  addCount: number;
+  removeCount: number;
+  changeCount: number;
+  unchangedCount: number;
+  staleCount: number;
+  lockedConflictCount: number;
+  // A row with no matching employee in the metadata and no exact-name match either - resolve
+  // exactly like the hand-built importer's own name entries, via POST /roster/import/name-mappings
+  // (the same remembered mapping either importer resolves reuses the other's).
+  unmatchedEmployees: RosterImportNameEntry[];
+  retiredCodes: RosterGridImportRetiredCode[];
+  unknownCodes: RosterGridImportUnknownCode[];
+  // True only once unmatchedEmployees, retiredCodes and unknownCodes are all empty - a
+  // lockedConflict or staleSinceExport diff row never blocks it.
+  canCommit: boolean;
+};
+
+export type RosterGridImportRetiredCodeResolution = {
+  shiftCodeId: string;
+  staffArea?: StaffArea | null;
+  code: string;
+  kind: ShiftCodeKind;
+  startTime1?: string | null;
+  endTime1?: string | null;
+  startTime2?: string | null;
+  endTime2?: string | null;
+  countsAsWorked: boolean;
+  isPaid: boolean;
+  effectiveFrom: string;
+  displayColor?: string | null;
+};
+
+export type RosterGridImportUnknownCodeResolution = {
+  rawCode: string;
+  staffArea?: StaffArea | null;
+  code: string;
+  kind: ShiftCodeKind;
+  startTime1?: string | null;
+  endTime1?: string | null;
+  startTime2?: string | null;
+  endTime2?: string | null;
+  countsAsWorked: boolean;
+  isPaid: boolean;
+  effectiveFrom: string;
+  displayColor?: string | null;
+};
+
+export type RosterGridImportExcludedCell = {
+  employeeUserId: string;
+  date: string;
+};
+
+export type RosterGridImportCommitInput = {
+  importId: string;
+  retiredCodeResolutions?: RosterGridImportRetiredCodeResolution[];
+  unknownCodeResolutions?: RosterGridImportUnknownCodeResolution[];
+  // Non-locked cells to leave untouched even though the file's diff would otherwise apply them -
+  // typically ones flagged staleSinceExport. A locked cell is already always excluded.
+  excludeCells?: RosterGridImportExcludedCell[];
+};
+
+export type RosterGridImportResult = {
+  year: number;
+  month: number;
+  created: number;
+  removed: number;
+  changed: number;
+  skippedLocked: number;
+  skippedExcluded: number;
+  createdShiftCodes: number;
+};
+
 export type StaffAreaCoverageRuleInput = { minimumWorking: number };
 
 // One raw clock-in or clock-out - not a paired session. Pairing consecutive IN/OUT punches into

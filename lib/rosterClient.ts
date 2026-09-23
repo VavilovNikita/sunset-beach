@@ -23,6 +23,9 @@ import type {
   RosterImportNameMappingResult,
   RosterImportPreview,
   RosterImportResult,
+  RosterGridImportCommitInput,
+  RosterGridImportPreview,
+  RosterGridImportResult,
   RosterMonth,
   RosterMoveInput,
   RosterReassignInput,
@@ -297,6 +300,30 @@ export async function createRosterImportColorMapping(input: RosterImportColorMap
 export async function commitRosterImport(importId: string): Promise<Result<RosterImportResult>> {
   const result = await adminRequest<RosterImportResult>(
     "/roster/import/commit", adminJsonInit("POST", { importId }), "Could not import this month."
+  );
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, data: result.data };
+}
+
+// --- Roster grid re-import (ADMIN only) - re-imports THIS app's own GET /roster/export output.
+// See RosterGridImportPreview's own comment in lib/types.ts for how it differs from the importer
+// above.
+
+export async function previewRosterGridImport(file: File, year: number, month: number): Promise<Result<RosterGridImportPreview>> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("year", String(year));
+  formData.append("month", String(month));
+  const result = await adminRequest<RosterGridImportPreview>(
+    "/roster/grid-import/preview", { method: "POST", body: formData }, "Could not read this file."
+  );
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, data: result.data };
+}
+
+export async function commitRosterGridImport(input: RosterGridImportCommitInput): Promise<Result<RosterGridImportResult>> {
+  const result = await adminRequest<RosterGridImportResult>(
+    "/roster/grid-import/commit", adminJsonInit("POST", input), "Could not import this month."
   );
   if (!result.ok) return { ok: false, error: result.error };
   return { ok: true, data: result.data };
