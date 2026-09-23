@@ -8,14 +8,15 @@ import type { ShiftCode, StaffArea, Weekday } from "@/lib/types";
 // admin picks one), the original neutral scheme still applies exactly as before: a shift's start
 // time places it on a lightness scale within the SAME neutral family an ordinary occupied cell
 // already uses (ink2 is today's plain chip colour) - earliest lightest, latest darkest, one hue
-// throughout. SPLIT hatches between two bands either way - two positions on the neutral scale (its
-// own two intervals' start times) when unset, or two shades of the one chosen displayColor when
-// set, so the "two bands for two intervals" cue survives a single colour pick. OPEN_SCHEDULE (no
-// fixed hours) is an outline instead of a fill; ABSENCE is hollow with a small glyph - the one
-// place shape alone isn't enough, since an unfilled chip risks reading as an empty cell rather than
-// a recorded day off. Neither ever gains a fill from displayColor - a colour there recolours the
-// outline/border, never turns "no fill" into "fill", which is what actually carries the
-// worked/not-worked distinction those two kinds exist to show.
+// throughout. SPLIT hatches between two bands when unset - two positions on the neutral scale
+// (its own two intervals' start times). OPEN_SCHEDULE (no fixed hours) is an outline instead of a
+// fill; ABSENCE is hollow with a small glyph - the one place shape alone isn't enough, since an
+// unfilled chip risks reading as an empty cell rather than a recorded day off.
+//
+// When displayColor IS set, every kind - including SPLIT/OPEN_SCHEDULE/ABSENCE - renders as a
+// plain solid fill of that colour: no border, no hatch, no glyph. An admin picking a colour is
+// choosing what the chip looks like, full stop; a hatch/outline/hollow-with-glyph on top of a
+// deliberately chosen colour would just be three renderings fighting over the same cell.
 //
 // Shared (not local to RosterGrid.tsx) so the Today tab's own status board can render the exact
 // same chip for a shift code, recognisable at a glance from the grid - one copy of "what does this
@@ -25,10 +26,6 @@ const CHIP_LIGHT_HEX = "#FBF6EC"; // cream - this app's own light neutral
 const EARLIEST_MINUTES = 6 * 60; // 06:00 anchors the lightest end
 const LATEST_MINUTES = 23 * 60; // 23:00 anchors the darkest end
 const MAX_LIGHT_MIX = 0.55; // caps how far toward cream the lightest chip goes - stays a muted neutral, never literal cream
-// How far apart SPLIT's two hatch bands sit when both are shaded from one displayColor, instead of
-// from two different neutral-scale positions - close enough to read as "the same colour" (this is
-// one code, one choice), far enough that the two bands are still visibly two bands.
-const DISPLAY_COLOR_SPLIT_SHADE = 0.22;
 
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16);
@@ -84,25 +81,34 @@ export function chipAppearanceFor(shiftCode: ShiftCode): ChipAppearance | null {
     return { style: { backgroundColor: rgbCss(rgb) }, textColor: contrastTextFor(rgb) };
   }
   if (kind === "SPLIT") {
-    const [rgb1, rgb2] = displayColor
-      ? [mixRgb(displayColor, "#000000", DISPLAY_COLOR_SPLIT_SHADE), mixRgb(displayColor, "#FFFFFF", DISPLAY_COLOR_SPLIT_SHADE)]
-      : [chipRgbFor(shiftCode.startTime1!), chipRgbFor(shiftCode.startTime2!)];
+    if (displayColor) {
+      const rgb = hexToRgb(displayColor);
+      return { style: { backgroundColor: rgbCss(rgb) }, textColor: contrastTextFor(rgb) };
+    }
+    const [rgb1, rgb2] = [chipRgbFor(shiftCode.startTime1!), chipRgbFor(shiftCode.startTime2!)];
     return {
       style: { backgroundImage: `repeating-linear-gradient(45deg, ${rgbCss(rgb1)} 0px 6px, ${rgbCss(rgb2)} 6px 12px)` },
-      textColor: contrastTextFor(displayColor ? hexToRgb(displayColor) : rgb1),
+      textColor: contrastTextFor(rgb1),
     };
   }
   if (kind === "OPEN_SCHEDULE") {
+    if (displayColor) {
+      const rgb = hexToRgb(displayColor);
+      return { style: { backgroundColor: rgbCss(rgb) }, textColor: contrastTextFor(rgb) };
+    }
     return {
-      style: { backgroundColor: "transparent", border: `1px solid ${displayColor ?? "rgba(251,246,236,0.5)"}` },
-      textColor: displayColor ? contrastTextFor(hexToRgb(displayColor)) : "rgba(251,246,236,0.8)",
+      style: { backgroundColor: "transparent", border: "1px solid rgba(251,246,236,0.5)" },
+      textColor: "rgba(251,246,236,0.8)",
     };
   }
-  // ABSENCE - still hollow regardless of displayColor: colour recolours the border/glyph, never
-  // fills the chip, so hollow-vs-filled keeps telling ABSENCE apart from a working shift.
+  // ABSENCE
+  if (displayColor) {
+    const rgb = hexToRgb(displayColor);
+    return { style: { backgroundColor: rgbCss(rgb) }, textColor: contrastTextFor(rgb) };
+  }
   return {
-    style: { backgroundColor: "transparent", border: `1px dashed ${displayColor ?? "rgba(251,246,236,0.25)"}` },
-    textColor: displayColor ?? "rgba(251,246,236,0.45)",
+    style: { backgroundColor: "transparent", border: "1px dashed rgba(251,246,236,0.25)" },
+    textColor: "rgba(251,246,236,0.45)",
     glyph: "–",
   };
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { classifyRosterDrop, isValidSwapTarget, resolveShiftCodesForArea, type RosterDragSource, type RosterDropTarget } from "./rosterGrid";
-import type { ShiftCode } from "./types";
+import { chipAppearanceFor, classifyRosterDrop, isValidSwapTarget, resolveShiftCodesForArea, type RosterDragSource, type RosterDropTarget } from "./rosterGrid";
+import type { ShiftCode, ShiftCodeKind } from "./types";
 
 const source: RosterDragSource = { entryId: "e1", employeeUserId: "emp-1", date: "2026-09-10" };
 
@@ -92,6 +92,47 @@ function code(overrides: Partial<ShiftCode> = {}): ShiftCode {
     ...overrides,
   };
 }
+
+describe("chipAppearanceFor — displayColor set: solid fill for every kind, no border/hatch/glyph", () => {
+  const displayColor = "#3366CC";
+  const expectedRgb = "rgb(51, 102, 204)";
+
+  it.each<[ShiftCodeKind, Partial<ShiftCode>]>([
+    ["MORNING", { startTime1: "09:00", endTime1: "18:00" }],
+    ["EVENING", { startTime1: "14:00", endTime1: "23:00" }],
+    ["SPLIT", { startTime1: "07:00", endTime1: "11:00", startTime2: "17:00", endTime2: "21:00" }],
+    ["OPEN_SCHEDULE", {}],
+    ["ABSENCE", {}],
+  ])("%s renders a plain solid fill with no border, hatch, or glyph", (kind, timeFields) => {
+    const result = chipAppearanceFor(code({ kind, displayColor, ...timeFields }));
+    expect(result).not.toBeNull();
+    expect(result!.style.backgroundColor).toBe(expectedRgb);
+    expect(result!.style.backgroundImage).toBeUndefined();
+    expect(result!.style.border).toBeUndefined();
+    expect(result!.glyph).toBeUndefined();
+  });
+});
+
+describe("chipAppearanceFor — displayColor unset: unchanged per-kind rendering", () => {
+  it("SPLIT still hatches between two neutral-scale bands", () => {
+    const result = chipAppearanceFor(code({ kind: "SPLIT", startTime1: "07:00", startTime2: "17:00" }));
+    expect(result!.style.backgroundImage).toContain("repeating-linear-gradient");
+    expect(result!.style.backgroundColor).toBeUndefined();
+  });
+
+  it("OPEN_SCHEDULE stays transparent with a neutral border", () => {
+    const result = chipAppearanceFor(code({ kind: "OPEN_SCHEDULE" }));
+    expect(result!.style.backgroundColor).toBe("transparent");
+    expect(result!.style.border).toBe("1px solid rgba(251,246,236,0.5)");
+  });
+
+  it("ABSENCE stays transparent with a dashed border and the '–' glyph", () => {
+    const result = chipAppearanceFor(code({ kind: "ABSENCE" }));
+    expect(result!.style.backgroundColor).toBe("transparent");
+    expect(result!.style.border).toBe("1px dashed rgba(251,246,236,0.25)");
+    expect(result!.glyph).toBe("–");
+  });
+});
 
 describe("resolveShiftCodesForArea", () => {
   it("a shared code (staffArea: null) is available in any area", () => {
