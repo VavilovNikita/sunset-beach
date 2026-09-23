@@ -9,7 +9,18 @@ import CoverageRuleManager from "@/components/admin/CoverageRuleManager";
 import AttendancePanel from "@/components/admin/AttendancePanel";
 import TodayShiftBoard from "@/components/admin/TodayShiftBoard";
 import PayRateManager from "@/components/admin/PayRateManager";
-import type { EmployeePattern, RosterEmployee, RosterMonth, ShiftCode, StaffAreaCoverageRule, TodayShiftStatus } from "@/lib/types";
+import type { EmployeePattern, RosterEmployee, RosterMonth, ServerTime, ShiftCode, StaffAreaCoverageRule, TodayShiftStatus } from "@/lib/types";
+
+// Same "slice the ISO string, don't reformat through Date" convention TodayShiftBoard's own
+// timeLabel already uses - `serverTime.now` is already the backend clock's own zone, so parsing
+// it through a Date here would re-interpret it through this server's own ambient zone, exactly
+// the ambient-zone dependence this diagnostic exists to avoid.
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function formatServerTime(serverTime: ServerTime): string {
+  const [year, month, day] = serverTime.now.slice(0, 10).split("-");
+  const time = serverTime.now.slice(11, 16);
+  return `${Number(day)} ${MONTH_LABELS[Number(month) - 1]} ${year}, ${time} (${serverTime.zone})`;
+}
 
 const TABS = [
   { key: "grid", label: "Grid" },
@@ -96,8 +107,16 @@ export default async function AdminRosterPage({
     const rules = await backendJson<StaffAreaCoverageRule[]>("/staff-area-coverage-rules", { auth: true });
     content = <CoverageRuleManager initialRules={rules} />;
   } else if (tab === "today") {
-    const statuses = await backendJson<TodayShiftStatus[]>("/attendance/today", { auth: true });
-    content = <TodayShiftBoard initialStatuses={statuses} />;
+    const [statuses, serverTime] = await Promise.all([
+      backendJson<TodayShiftStatus[]>("/attendance/today", { auth: true }),
+      backendJson<ServerTime>("/attendance/server-time", { auth: true }),
+    ]);
+    content = (
+      <>
+        <p className="text-xs text-cream/40 mb-4">Server time: {formatServerTime(serverTime)}</p>
+        <TodayShiftBoard initialStatuses={statuses} />
+      </>
+    );
   } else if (tab === "attendance") {
     const employees = await backendJson<RosterEmployee[]>("/roster/employees", { auth: true });
     content = <AttendancePanel employees={employees} />;

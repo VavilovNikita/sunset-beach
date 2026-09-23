@@ -1125,6 +1125,15 @@ export type TodayShiftStatus = {
   referenceTime: string | null;
 };
 
+// GET /attendance/server-time - a diagnostic snapshot of what the backend's own injected Clock
+// currently thinks "now" is, so a clock/timezone drift shows up at a glance instead of only as a
+// subtly wrong attendance status. `now` is read straight off that clock's own zone, never
+// reformatted client-side, so it's never contaminated by the viewer's browser timezone either.
+export type ServerTime = {
+  now: string;
+  zone: string;
+};
+
 // A fingerprint terminal (ZKTeco K60) the backend polls for its attendance log - it never calls
 // this app. lastSeenAt is set on every successful poll and is the one signal that tells a quiet
 // month (nobody punched) apart from a terminal that quietly stopped reporting - see the backend's
