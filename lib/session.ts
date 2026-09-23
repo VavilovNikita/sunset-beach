@@ -65,13 +65,13 @@ export type SessionUser = {
 
 export const SESSION_COOKIE_NAME = "session-token";
 
-// The VPS this app deploys to (thesunsetbeachsip.ddns.net:8888, see
-// DEPLOY.md) serves plain HTTP — its ISP blocks inbound 80/443, so there is
-// no TLS and no Let's Encrypt cert in this setup. A `secure` cookie is
-// silently dropped by the browser over HTTP, which would break login there.
-// `NODE_ENV` is "production" in that deployment too, so it can't be used to
-// decide `secure` — this has to be its own explicit flag, opt-in only when
-// the deployment actually terminates TLS in front of this app.
+// Production (sunsetsamui.com) is HTTPS-only: nginx terminates TLS with a
+// Let's Encrypt cert, port 80 only redirects to HTTPS, and this app listens
+// only on 127.0.0.1:3000 behind it. So COOKIE_SECURE=true there, and it must
+// stay true — the session cookie should never travel over plain HTTP. It's
+// still its own explicit flag rather than derived from `NODE_ENV` so a local
+// `next start` over plain http://localhost (where a `secure` cookie would be
+// dropped and break login) can leave it unset.
 const COOKIE_SECURE = process.env.COOKIE_SECURE === "true";
 
 export function sessionCookieOptions() {

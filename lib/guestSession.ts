@@ -34,9 +34,10 @@ export type GuestBooking = {
 
 export const GUEST_SESSION_COOKIE_NAME = "guest-session-token";
 
-// Same VPS/plain-HTTP caveat as lib/session.ts's COOKIE_SECURE — see that file's own comment.
+// Same HTTPS-only production setup as lib/session.ts's COOKIE_SECURE (true in production) — see
+// that file's own comment.
 // Deliberately the same env flag, not a second one: both cookies are dropped by the same browser
-// under the same deployment, so there's nothing for a separate flag to express.
+// under the same deployment if it's wrong, so there's nothing for a separate flag to express.
 const COOKIE_SECURE = process.env.COOKIE_SECURE === "true";
 
 export function guestSessionCookieOptions() {
