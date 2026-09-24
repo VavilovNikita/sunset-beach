@@ -4,6 +4,7 @@ import RoomBookingPanel from "@/components/RoomBookingPanel";
 import { backendJson } from "@/lib/backendServer";
 import { BackendError, resolveImageUrl } from "@/lib/backend";
 import { getRoomQuote } from "@/lib/publicQuote";
+import { getGuestSessionAccount } from "@/lib/guestRbac";
 import type { Room } from "@/lib/types";
 
 export const metadata = { title: "Confirm your stay — The Sunset Beach Resort & Spa" };
@@ -30,7 +31,13 @@ export default async function BookRoomPage({
     throw e;
   }
 
-  const { available, totalPrice } = await getRoomQuote(room.id, checkIn, checkOut);
+  const [{ available, totalPrice }, account] = await Promise.all([
+    getRoomQuote(room.id, checkIn, checkOut),
+    getGuestSessionAccount(),
+  ]);
+  // Only what the form prefills - not the whole account, which would otherwise be serialized
+  // into the client component's props.
+  const guestAccount = account ? { name: account.name, email: account.email } : null;
 
   return (
     <section className="mx-auto max-w-3xl px-6 py-16">
@@ -50,6 +57,7 @@ export default async function BookRoomPage({
         initialCheckIn={checkIn}
         initialCheckOut={checkOut}
         initialQuote={{ available, totalPrice }}
+        guestAccount={guestAccount}
       />
     </section>
   );

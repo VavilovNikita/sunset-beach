@@ -3,18 +3,22 @@
 import { useState } from "react";
 import Link from "next/link";
 import { PUBLIC_PROXY_URL } from "@/lib/backend";
+import { bookingRequestBody, guestFormDefaults, type BookingGuestPrefill } from "@/lib/bookingGuestForm";
 
 export default function BookingGuestForm({
   roomId,
   checkIn,
   checkOut,
   disabled = false,
+  guestAccount = null,
 }: {
   roomId: string;
   checkIn: string;
   checkOut: string;
   disabled?: boolean;
+  guestAccount?: BookingGuestPrefill | null;
 }) {
+  const defaults = guestFormDefaults(guestAccount);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
@@ -28,14 +32,7 @@ export default function BookingGuestForm({
     const res = await fetch(`${PUBLIC_PROXY_URL}/bookings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        roomId,
-        checkIn,
-        checkOut,
-        guestName: formData.get("guestName"),
-        guestEmail: formData.get("guestEmail"),
-        guestPhone: formData.get("guestPhone"),
-      }),
+      body: JSON.stringify(bookingRequestBody(roomId, checkIn, checkOut, formData)),
     });
 
     if (!res.ok) {
@@ -68,6 +65,7 @@ export default function BookingGuestForm({
         <input
           type="text"
           name="guestName"
+          defaultValue={defaults.guestName}
           placeholder="Your name"
           minLength={2}
           required
@@ -78,6 +76,7 @@ export default function BookingGuestForm({
         <input
           type="email"
           name="guestEmail"
+          defaultValue={defaults.guestEmail}
           placeholder="Email"
           required
           className="w-full bg-transparent border-b border-cream/25 py-2 text-cream placeholder:text-cream/40 focus:outline-none focus:border-coral"

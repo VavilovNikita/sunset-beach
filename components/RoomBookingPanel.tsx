@@ -7,17 +7,20 @@ import BookingGuestForm from "@/components/BookingGuestForm";
 import { getRoomQuoteClient } from "@/lib/publicQuoteClient";
 import { addDaysUTC, parseDateKey, toDateKey } from "@/lib/bookings";
 import type { RoomQuote } from "@/lib/quote";
+import type { BookingGuestPrefill } from "@/lib/bookingGuestForm";
 
 export default function RoomBookingPanel({
   roomId,
   initialCheckIn,
   initialCheckOut,
   initialQuote,
+  guestAccount = null,
 }: {
   roomId: string;
   initialCheckIn: string;
   initialCheckOut: string;
   initialQuote: RoomQuote;
+  guestAccount?: BookingGuestPrefill | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -113,7 +116,13 @@ export default function RoomBookingPanel({
           </button>
         </p>
       ) : quote.available ? (
-        <BookingGuestForm roomId={roomId} checkIn={checkIn} checkOut={checkOut} disabled={loading} />
+        <BookingGuestForm
+          roomId={roomId}
+          checkIn={checkIn}
+          checkOut={checkOut}
+          disabled={loading}
+          guestAccount={guestAccount}
+        />
       ) : (
         <p className="text-center text-coral">
           Sorry, this room is no longer available for those dates.{" "}
