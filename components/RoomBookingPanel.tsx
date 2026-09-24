@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import BookingGuestForm from "@/components/BookingGuestForm";
@@ -34,6 +34,8 @@ export default function RoomBookingPanel({
   const [quote, setQuote] = useState<RoomQuote>(initialQuote);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState(false);
+  const checkInId = useId();
+  const checkOutId = useId();
 
   function fetchQuote(nextCheckIn: string, nextCheckOut: string) {
     const requestId = ++latestRequestId.current;
@@ -75,21 +77,23 @@ export default function RoomBookingPanel({
     <>
       <div className="grid sm:grid-cols-3 gap-4 items-end mb-10">
         <div>
-          <label className="eyebrow text-cream/40 block mb-1 text-center sm:text-left">Check-in</label>
+          <label htmlFor={checkInId} className="eyebrow text-cream/40 block mb-1 text-center sm:text-left">Check-in</label>
           <input
+            id={checkInId}
             type="date"
             value={checkIn}
             onChange={(e) => handleCheckInChange(e.target.value)}
-            className="w-full bg-transparent border-b border-cream/25 py-1 text-sm text-center sm:text-left focus:outline-none focus:border-coral"
+            className="w-full bg-transparent border-b border-cream/25 py-2 text-base text-center sm:text-left focus:outline-none focus:border-coral"
           />
         </div>
         <div>
-          <label className="eyebrow text-cream/40 block mb-1 text-center sm:text-left">Check-out</label>
+          <label htmlFor={checkOutId} className="eyebrow text-cream/40 block mb-1 text-center sm:text-left">Check-out</label>
           <input
+            id={checkOutId}
             type="date"
             value={checkOut}
             onChange={(e) => handleCheckOutChange(e.target.value)}
-            className="w-full bg-transparent border-b border-cream/25 py-1 text-sm text-center sm:text-left focus:outline-none focus:border-coral"
+            className="w-full bg-transparent border-b border-cream/25 py-2 text-base text-center sm:text-left focus:outline-none focus:border-coral"
           />
         </div>
         <div>

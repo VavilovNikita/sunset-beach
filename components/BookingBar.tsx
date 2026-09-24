@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type BookingBarProps = {
@@ -24,6 +24,8 @@ export default function BookingBar({
   const [checkInState, setCheckInState] = useState("");
   const [checkOutState, setCheckOutState] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const checkInId = useId();
+  const checkOutId = useId();
 
   const checkIn = checkInProp ?? checkInState;
   const checkOut = checkOutProp ?? checkOutState;
@@ -48,21 +50,23 @@ export default function BookingBar({
     <form onSubmit={handleSubmit} className="relative z-10 mx-auto max-w-4xl -mt-10 md:-mt-14 px-4">
       <div className="bg-sand text-ink rounded-2xl shadow-2xl shadow-black/40 px-6 py-5 grid gap-4 sm:grid-cols-3 items-end">
         <div>
-          <label className="eyebrow text-coraldeep block mb-1">Check in</label>
+          <label htmlFor={checkInId} className="eyebrow text-coraldeep block mb-1">Check in</label>
           <input
+            id={checkInId}
             type="date"
             value={checkIn}
             onChange={(e) => setCheckIn(e.target.value)}
-            className="w-full bg-transparent border-b border-ink/20 py-1 text-sm focus:outline-none focus:border-coral"
+            className="w-full bg-transparent border-b border-ink/20 py-2 text-base focus:outline-none focus:border-coral"
           />
         </div>
         <div>
-          <label className="eyebrow text-coraldeep block mb-1">Check out</label>
+          <label htmlFor={checkOutId} className="eyebrow text-coraldeep block mb-1">Check out</label>
           <input
+            id={checkOutId}
             type="date"
             value={checkOut}
             onChange={(e) => setCheckOut(e.target.value)}
-            className="w-full bg-transparent border-b border-ink/20 py-1 text-sm focus:outline-none focus:border-coral"
+            className="w-full bg-transparent border-b border-ink/20 py-2 text-base focus:outline-none focus:border-coral"
           />
         </div>
         <button
