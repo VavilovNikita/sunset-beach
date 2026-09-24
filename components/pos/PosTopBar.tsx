@@ -39,20 +39,31 @@ export default function PosTopBar({ email, role }: { email: string; role: Role }
     // longer email down to a handful of characters before an ellipsis, which defeats the whole
     // point of showing it. Stacked, the email only ever wraps if it's implausibly long for a
     // phone this narrow, and the button stays a fixed, predictable tap target underneath.
+    //
+    // The way back to the board is a real 44px button in that same bottom row, not a line of
+    // small text stacked above the email - it's the main way out of every screen, and a text line
+    // of its own only made this sticky bar taller. The role moves to the email line to make room.
     <div className="sticky top-0 z-40 bg-ink2 border-b border-cream/10 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-      {!onBoard && (
-        <Link href="/pos" className="text-sm text-cream/50 hover:text-cream/80 transition-colors">
-          ← Table board
-        </Link>
-      )}
-      <p className="text-base text-cream font-medium break-words leading-snug">{email}</p>
-      <div className="flex items-center justify-between gap-3 mt-1">
-        <p className="eyebrow text-sea text-[0.7rem]">{ROLE_LABELS[role]}</p>
+      <p className="text-base text-cream font-medium break-words leading-snug">
+        {email}
+        <span className="eyebrow text-sea text-[0.7rem] ml-2 whitespace-nowrap">{ROLE_LABELS[role]}</span>
+      </p>
+      <div className="flex items-center justify-between gap-3 mt-2">
+        {!onBoard ? (
+          <Link
+            href="/pos"
+            className="shrink-0 min-h-11 inline-flex items-center rounded-full border border-cream/25 active:border-cream/50 transition-colors px-4 text-sm font-medium"
+          >
+            ← Table board
+          </Link>
+        ) : (
+          <span />
+        )}
         <button
           type="button"
           onClick={handleSwitchUser}
           disabled={switching}
-          className="shrink-0 rounded-full border border-cream/25 active:border-cream/50 transition-colors px-4 py-2 text-sm font-medium disabled:opacity-60"
+          className="shrink-0 min-h-11 rounded-full border border-cream/25 active:border-cream/50 transition-colors px-4 text-sm font-medium disabled:opacity-60"
         >
           {switching ? "…" : "Not you? Switch"}
         </button>

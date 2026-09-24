@@ -112,8 +112,11 @@ export default function PosPrintQueue({ initialJobs, initialFilter }: { initialJ
         ))}
       </div>
 
-      <label className="flex items-center gap-2 mb-5 text-sm text-cream/60">
-        <input type="checkbox" checked={showDismissed} onChange={(e) => handleShowDismissedChange(e.target.checked)} className="w-4 h-4" />
+      {/* Selection controls here are sized for a thumb, like the rest of /pos: every checkbox sits
+          in a 44px-tall label (the whole row/box is the tap target, not the 20px box itself), and
+          "Select all failed" is a chip like the filter chips above, not a text link. */}
+      <label className="flex items-center gap-3 min-h-11 mb-3 text-sm text-cream/60 cursor-pointer">
+        <input type="checkbox" checked={showDismissed} onChange={(e) => handleShowDismissedChange(e.target.checked)} className="w-5 h-5 accent-coral" />
         Show dismissed
       </label>
 
@@ -122,7 +125,7 @@ export default function PosPrintQueue({ initialJobs, initialFilter }: { initialJ
           <button
             type="button"
             onClick={() => setSelected(allFailedSelected ? new Set() : new Set(failedJobIds))}
-            className="text-sm text-sea underline underline-offset-4"
+            className="shrink-0 min-h-11 rounded-full border border-sea/40 text-sea active:bg-sea/15 transition-colors px-4 text-sm font-medium"
           >
             {allFailedSelected ? "Clear selection" : `Select all failed (${failedJobIds.length})`}
           </button>
@@ -131,7 +134,7 @@ export default function PosPrintQueue({ initialJobs, initialFilter }: { initialJ
               type="button"
               onClick={() => handleDismiss([...selected])}
               disabled={dismissing}
-              className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-4 py-2 text-sm font-medium disabled:opacity-60"
+              className="shrink-0 min-h-11 rounded-full bg-coral active:bg-coraldeep transition-colors px-4 text-sm font-medium disabled:opacity-60"
             >
               {dismissing ? "Dismissing…" : `Dismiss selected (${selected.size})`}
             </button>
@@ -148,13 +151,17 @@ export default function PosPrintQueue({ initialJobs, initialFilter }: { initialJ
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex items-center gap-2 min-w-0">
                   {job.status === "FAILED" && !isDismissed && (
-                    <input
-                      type="checkbox"
-                      checked={selected.has(job.id)}
-                      onChange={() => toggleSelected(job.id)}
-                      className="w-4 h-4 shrink-0"
-                      aria-label="Select for bulk dismiss"
-                    />
+                    // -m-3 keeps the card's own layout where it was while giving the box a 44x44
+                    // tap area (20px box + 12px padding each side).
+                    <label className="-m-3 p-3 shrink-0 flex items-center justify-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(job.id)}
+                        onChange={() => toggleSelected(job.id)}
+                        className="w-5 h-5 accent-coral"
+                        aria-label="Select for bulk dismiss"
+                      />
+                    </label>
                   )}
                   <span className={`text-xs rounded-full px-3 py-1 shrink-0 ${PRINT_JOB_STATUS_STYLES[job.status]}`}>
                     {PRINT_JOB_STATUS_LABELS[job.status]}

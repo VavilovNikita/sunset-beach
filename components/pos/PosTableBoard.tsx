@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePolling } from "@/lib/usePolling";
 import { fetchBoardData, createTableOrder, createTicketOrder } from "@/lib/pos/ordersClient";
@@ -33,11 +33,18 @@ export default function PosTableBoard({
   const [creatingTicket, setCreatingTicket] = useState(false);
   const [newTicketName, setNewTicketName] = useState("");
   const [pickerTableId, setPickerTableId] = useState<string | null>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setTables(initialTables);
   }, [initialTables]);
+
+  // Once per opening, not on every render - the 5s poll re-renders this board, and re-scrolling
+  // each time would yank the page back to the picker while someone is looking elsewhere.
+  useEffect(() => {
+    if (pickerTableId) pickerRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [pickerTableId]);
 
   async function refetch() {
     const result = await fetchBoardData();
@@ -126,72 +133,74 @@ export default function PosTableBoard({
             return (
               <div key={zone}>
                 <p className="eyebrow text-cream/50 mb-3">{ZONE_LABELS[zone]}</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 grid-flow-dense">
                   {zoneTables.map((table) => {
                     const tableOrders = ordersByTableId.get(table.id) ?? [];
                     const busy = creatingTableId === table.id;
                     return (
-                      <button
-                        key={table.id}
-                        type="button"
-                        disabled={busy}
-                        onClick={() => handleTableClick(table)}
-                        className={`min-h-[76px] rounded-2xl text-base flex flex-col items-center justify-center gap-1.5 transition-colors ${
-                          tableOrders.length > 0 ? "bg-coral/20 text-coral" : "bg-sea/10 text-cream/80 active:bg-sea/20"
-                        } ${!table.isActive ? "border border-dashed border-cream/30" : ""} ${busy ? "opacity-50" : ""}`}
-                      >
-                        <span className="font-display text-2xl">{table.label}</span>
-                        {tableOrders.length === 1 && (
-                          <span className={`text-xs rounded-full px-2.5 py-1 ${STATUS_STYLES[tableOrders[0].status]}`}>
-                            {STATUS_LABELS[tableOrders[0].status]}
-                          </span>
+                      <Fragment key={table.id}>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => handleTableClick(table)}
+                          className={`min-h-[76px] rounded-2xl text-base flex flex-col items-center justify-center gap-1.5 transition-colors ${
+                            tableOrders.length > 0 ? "bg-coral/20 text-coral" : "bg-sea/10 text-cream/80 active:bg-sea/20"
+                          } ${!table.isActive ? "border border-dashed border-cream/30" : ""} ${busy ? "opacity-50" : ""}`}
+                        >
+                          <span className="font-display text-2xl">{table.label}</span>
+                          {tableOrders.length === 1 && (
+                            <span className={`text-xs rounded-full px-2.5 py-1 ${STATUS_STYLES[tableOrders[0].status]}`}>
+                              {STATUS_LABELS[tableOrders[0].status]}
+                            </span>
+                          )}
+                          {tableOrders.length > 1 && (
+                            <span className="text-xs rounded-full px-2.5 py-1 bg-coral/30 text-coral">
+                              {tableOrders.length} open
+                            </span>
+                          )}
+                          {!table.isActive && <span className="text-xs text-cream/40">Inactive</span>}
+                        </button>
+                        {/* Anchored to the tapped table, not rendered once below every zone: with
+                            several zones a page-bottom picker could open off-screen, so the tap
+                            looked like it did nothing. col-span-full puts it on the row directly
+                            under this table; the grid's dense flow lets the next table back-fill the
+                            cell beside this one instead of leaving a hole. */}
+                        {pickerTableId === table.id && tableOrders.length > 1 && (
+                          <div
+                            ref={pickerRef}
+                            className="col-span-full bg-ink2 border border-coral/40 rounded-2xl p-4"
+                          >
+                            <p className="text-sm text-cream/70 mb-3">
+                              {table.label} has {tableOrders.length} open orders — pick one:
+                            </p>
+                            <div className="flex flex-col gap-2 mb-3">
+                              {tableOrders.map((o) => (
+                                <button
+                                  key={o.id}
+                                  type="button"
+                                  onClick={() => router.push(`/pos/orders/${o.id}`)}
+                                  className="text-sm text-left rounded-xl border border-cream/25 active:border-cream/50 transition-colors px-4 py-3"
+                                >
+                                  #{o.id.slice(-6)} · {STATUS_LABELS[o.status]}
+                                </button>
+                              ))}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setPickerTableId(null)}
+                              className="w-full min-h-11 text-sm text-cream/50 active:text-cream/70 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         )}
-                        {tableOrders.length > 1 && (
-                          <span className="text-xs rounded-full px-2.5 py-1 bg-coral/30 text-coral">
-                            {tableOrders.length} open
-                          </span>
-                        )}
-                        {!table.isActive && <span className="text-xs text-cream/40">Inactive</span>}
-                      </button>
+                      </Fragment>
                     );
                   })}
                 </div>
               </div>
             );
           })}
-
-          {pickerTableId &&
-            (() => {
-              const table = tables.find((t) => t.id === pickerTableId);
-              const tableOrders = ordersByTableId.get(pickerTableId) ?? [];
-              if (!table || tableOrders.length === 0) return null;
-              return (
-                <div className="bg-ink2 border border-cream/10 rounded-2xl p-4">
-                  <p className="text-sm text-cream/70 mb-3">
-                    {table.label} has {tableOrders.length} open orders — pick one:
-                  </p>
-                  <div className="flex flex-col gap-2 mb-3">
-                    {tableOrders.map((o) => (
-                      <button
-                        key={o.id}
-                        type="button"
-                        onClick={() => router.push(`/pos/orders/${o.id}`)}
-                        className="text-sm text-left rounded-xl border border-cream/25 active:border-cream/50 transition-colors px-4 py-3"
-                      >
-                        #{o.id.slice(-6)} · {STATUS_LABELS[o.status]}
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setPickerTableId(null)}
-                    className="text-sm text-cream/50 active:text-cream/70 transition-colors py-2"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              );
-            })()}
 
           {visibleTables.length === 0 && <p className="text-cream/50 text-sm">No tables set up yet.</p>}
         </div>

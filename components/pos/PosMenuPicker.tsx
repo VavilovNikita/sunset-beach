@@ -9,11 +9,13 @@ import type { MenuItem, Order } from "@/lib/posTypes";
 // to lose track of). Adding a second of the same item is another tap - see the +/- stepper on
 // the ticket's own item rows for adjusting a line already on the order.
 //
-// The small note button in each card's corner is a deliberately separate tap target (its own
-// stopPropagation'd button, not a mode the card itself enters) so the common no-note case never
-// grows an extra step: the card's own tap area still adds instantly. Only tapping the note
-// button first swaps that one card into a text field + its own "Add" button - every other card
-// stays one tap, and adding a note is opt-in, one extra tap, never a default detour.
+// The note button is a deliberately separate tap target (its own button, not a mode the card
+// itself enters) so the common no-note case never grows an extra step: the card's own tap area
+// still adds instantly. Only tapping the note button first swaps that one card into a text
+// field + its own "Add" button - every other card stays one tap, and adding a note is opt-in,
+// one extra tap, never a default detour. It's a full-height 44px column beside the add area,
+// never a small overlay in the add area's corner: a corner overlay sat inside the card's own tap
+// area, so a slightly-off tap aimed at the note silently added the item with no note instead.
 //
 // SPA-department items are never excluded from this picker (a treatment that can't be added to
 // a ticket can't be billed, and the spa auto-link is built on an order containing one - see
@@ -132,26 +134,26 @@ export default function PosMenuPicker({
                   type="button"
                   disabled={addingId === item.id}
                   onClick={() => handleTap(item, noteDraft)}
-                  className="flex-1 rounded-full bg-coral hover:bg-coraldeep transition-colors py-1.5 text-xs font-medium disabled:opacity-50"
+                  className="flex-1 min-h-11 rounded-full border border-coral bg-coral active:bg-coraldeep transition-colors text-sm font-medium disabled:opacity-50"
                 >
                   {addingId === item.id ? "Adding…" : "Add"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setNoteDraftId(null)}
-                  className="text-xs text-cream/50 hover:text-cream transition-colors px-2"
+                  className="flex-1 min-h-11 rounded-full border border-cream/25 active:border-cream/50 transition-colors text-sm font-medium"
                 >
                   Cancel
                 </button>
               </div>
             </div>
           ) : (
-            <div key={item.id} className="relative min-h-[64px] rounded-xl bg-ink2 border border-cream/10">
+            <div key={item.id} className="flex min-h-[64px] rounded-xl bg-ink2 border border-cream/10 overflow-hidden">
               <button
                 type="button"
                 disabled={addingId === item.id}
                 onClick={() => handleTap(item)}
-                className="w-full h-full rounded-xl active:bg-sea/15 active:border-sea/40 transition-colors px-3 py-2.5 pr-8 text-left disabled:opacity-50"
+                className="flex-1 min-w-0 active:bg-sea/15 transition-colors px-3 py-2.5 text-left disabled:opacity-50"
               >
                 <p className="text-cream text-sm leading-snug">{item.name}</p>
                 <p className="text-cream/50 text-xs mt-0.5">฿{Number(item.price).toLocaleString("en-US")}</p>
@@ -159,11 +161,8 @@ export default function PosMenuPicker({
               <button
                 type="button"
                 aria-label={`Add ${item.name} with a note`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openNoteDraft(item);
-                }}
-                className="absolute top-1 right-1 w-7 h-7 flex items-center justify-center rounded-full text-cream/40 hover:text-coral hover:bg-ink transition-colors text-sm"
+                onClick={() => openNoteDraft(item)}
+                className="shrink-0 w-11 flex items-center justify-center border-l border-cream/10 text-cream/50 active:bg-sea/15 active:text-coral transition-colors text-base"
               >
                 ✎
               </button>
