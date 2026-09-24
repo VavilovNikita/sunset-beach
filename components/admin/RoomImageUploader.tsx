@@ -46,6 +46,7 @@ export default function RoomImageUploader({
   }
 
   async function handleRemove(imagePath: string) {
+    if (!window.confirm("Remove this photo from the room? This can't be undone.")) return;
     setRemoving(imagePath);
     setError(null);
 
@@ -71,7 +72,7 @@ export default function RoomImageUploader({
 
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mb-4">
         {images.map((src) => (
-          <div key={src} className="relative aspect-[4/3] rounded-lg overflow-hidden group">
+          <div key={src} className="relative aspect-[4/3] rounded-lg overflow-hidden">
             <Image
               src={resolveImageUrl(src)!}
               alt=""
@@ -80,14 +81,27 @@ export default function RoomImageUploader({
               className="object-cover"
               unoptimized={src.startsWith("/uploads/")}
             />
+            {/* Always visible and corner-sized, never a hover-revealed overlay across the whole
+                thumbnail: a touch screen has no hover, so an invisible full-size Remove button
+                made the first tap anywhere on a photo delete it. The confirm in handleRemove is
+                the second guard. */}
             <button
               type="button"
               onClick={() => handleRemove(src)}
               disabled={removing === src}
-              className="absolute inset-0 bg-ink/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs text-cream disabled:opacity-100"
+              aria-label="Remove photo"
+              title="Remove photo"
+              className="absolute top-1 right-1 w-11 h-11 flex items-center justify-center rounded-full bg-ink/75 text-cream hover:bg-coral transition-colors disabled:opacity-60"
             >
-              {removing === src ? "Removing…" : "Remove"}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
             </button>
+            {removing === src && (
+              <div className="absolute inset-0 bg-ink/70 flex items-center justify-center text-xs text-cream pointer-events-none">
+                Removing…
+              </div>
+            )}
           </div>
         ))}
         {images.length === 0 && <p className="col-span-full text-sm text-cream/50">No photos yet.</p>}

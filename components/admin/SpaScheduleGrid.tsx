@@ -427,7 +427,13 @@ export default function SpaScheduleGrid({
                           onDoubleClick={tapHandlers.onDoubleClick}
                           className={`absolute rounded-md flex items-center gap-1 px-2 text-xs truncate ${STATUS_STYLES[a.status]} ${
                             dragging ? "opacity-50 ring-2 ring-dashed ring-cream" : ""
-                          } ${isSwapTarget ? "ring-2 ring-sea" : ""} ${a.status === "BOOKED" ? "cursor-grab active:cursor-grabbing" : ""}`}
+                          } ${isSwapTarget ? "ring-2 ring-sea" : ""} ${
+                            // touch-none is static, not left to onAppointmentPointerDown's
+                            // setTouchActionNone: a browser fixes a touch gesture's touch-action
+                            // when the finger lands, so setting it inside pointerdown is too late -
+                            // the first move pans and fires pointercancel. Same as PropertyMapView.
+                            a.status === "BOOKED" ? "cursor-grab active:cursor-grabbing touch-none" : ""
+                          }`}
                           // pointerEvents: "none" while dragging - same as BookingCalendarGrid's own
                           // dragged bar. Pointer capture (set in onAppointmentPointerDown) still
                           // routes this element's own move/up events to it regardless; what this

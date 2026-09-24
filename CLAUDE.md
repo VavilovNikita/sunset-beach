@@ -10,7 +10,9 @@ Rules below were learned from real bugs. Where one looks arbitrary, the reason i
 
 No state manager. No date library. No drag-and-drop library. No UI kit. These are choices, not gaps — do not add one without asking.
 
-Data comes from `fetch` in Server Components and `useState` in client ones. Drag interactions use native Pointer Events; `BookingCalendarGrid` and the property map are the reference implementations, and both work on tablets.
+Data comes from `fetch` in Server Components and `useState` in client ones. Drag interactions use native Pointer Events; `BookingCalendarGrid` and the property map are the reference implementations.
+
+**A drag source needs `touch-none` as a static class, never set only from its own `pointerdown` handler.** A browser fixes a touch gesture's `touch-action` when the finger lands, before `pointerdown` runs — so `setTouchActionNone(true)` inside the handler is already too late: the first finger move pans instead and fires `pointercancel`, killing the drag. `BookingCalendarGrid`, `SpaScheduleGrid` and `RosterGrid` all shipped that way and could not be dragged by touch at all, despite this file once claiming the calendar "works on tablets" — found by a synthetic-touch test, not by reading the code. `PropertyMapView`'s tiles had it right. Put `touch-none` only on what's actually draggable (conditioned the same way the drag itself is: `canManage`, `allowDrag`, `status === "BOOKED"`, `!locked`), never on a grid's background cells, or the grid can no longer be scrolled by touch — which is why the calendar's drag-to-select-a-range stays mouse-only (a tap on a free cell still opens the create form).
 
 The tap-to-open-on-touch / double-click-to-open-on-mouse gesture that has to coexist with a drag on a pointer-driven grid lives in `lib/useTapOrDoubleClick.ts` — `BookingCalendarGrid`, `SpaScheduleGrid`, and `SpaTableMapView` all use it. Extend that hook if another grid needs the same gesture; do not write a third inline version.
 

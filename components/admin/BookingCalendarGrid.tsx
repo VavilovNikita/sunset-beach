@@ -852,7 +852,16 @@ export default function BookingCalendarGrid({
                   <div
                     className={`absolute inset-0 rounded-md flex items-center overflow-hidden ${STATUS_BAR_STYLES[booking.status] ?? "bg-cream/20 text-cream"} ${
                       dragging ? (eff.dropInvalid ? "opacity-50 ring-2 ring-coral" : "opacity-50 ring-2 ring-dashed ring-cream") : ""
-                    } ${eff.isSwapTarget ? "ring-2 ring-sea" : ""} ${booking.segmentCount > 1 ? "ring-1 ring-inset ring-cream/40" : ""}`}
+                    } ${eff.isSwapTarget ? "ring-2 ring-sea" : ""} ${booking.segmentCount > 1 ? "ring-1 ring-inset ring-cream/40" : ""} ${
+                      // Static, not set in onBarPointerDown: a browser fixes a touch gesture's
+                      // touch-action when the finger lands, so setTouchActionNone() running inside
+                      // pointerdown is already too late - the first move pans instead and fires
+                      // pointercancel, killing the drag. Same as PropertyMapView's tiles. Only on
+                      // what's actually draggable: the free cells stay pannable so the grid can
+                      // still be scrolled by touch at all (which makes range-select a mouse-only
+                      // gesture - a tap on a free cell still opens the create form).
+                      canMoveWholeBar(booking) ? "touch-none" : ""
+                    }`}
                     style={{ cursor: dragging ? "grabbing" : canMoveWholeBar(booking) ? "grab" : "pointer" }}
                     onPointerDown={(e) => onBarPointerDown(e, booking)}
                     onPointerMove={onDragPointerMove}
@@ -866,7 +875,7 @@ export default function BookingCalendarGrid({
                   </div>
                   {edgeTarget?.canDragStart && (
                     <div
-                      className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize"
+                      className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize touch-none"
                       onPointerDown={(e) => onResizeHandlePointerDown(e, booking, "start")}
                       onPointerMove={onDragPointerMove}
                       onPointerUp={onDragPointerUp}
@@ -875,7 +884,7 @@ export default function BookingCalendarGrid({
                   )}
                   {edgeTarget?.canDragEnd && (
                     <div
-                      className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize"
+                      className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize touch-none"
                       onPointerDown={(e) => onResizeHandlePointerDown(e, booking, "end")}
                       onPointerMove={onDragPointerMove}
                       onPointerUp={onDragPointerUp}

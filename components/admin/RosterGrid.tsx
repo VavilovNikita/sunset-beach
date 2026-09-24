@@ -579,7 +579,10 @@ export default function RosterGrid({
                           onDoubleClick={tapHandlers.onDoubleClick}
                           title={`${entry.shiftCode.code} · ${describeShiftHours(entry.shiftCode)}${entry.note ? ` · ${entry.note}` : ""}`}
                           className={`h-11 border-l ${borderClass} text-center align-middle select-none ${isWeekend ? "bg-ink3/20" : ""} ${
-                            entry.locked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing"
+                            // touch-none on every draggable chip, set statically (never inside
+                            // onChipPointerDown): without it a finger drag pans the grid and fires
+                            // pointercancel on the first move. Same as PropertyMapView's tiles.
+                            entry.locked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing touch-none"
                           } ${isDragSource ? "opacity-40" : ""} ${dropIsSwap ? "ring-2 ring-sea" : ""} ${dropInvalid ? "ring-2 ring-coral" : ""}`}
                         >
                           <span
