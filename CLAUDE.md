@@ -50,6 +50,8 @@ Use `adminRequest` / `posRequest`. They distinguish a connection failure from a 
 
 Any action that can fail shows its failure next to the control that triggered it, and returns that control to a usable state.
 
+**`COOKIE_SECURE` (`lib/session.ts`, shared by the staff and guest session cookies) must be `true` in production.** This site is HTTPS-only in production (nginx terminates TLS, port 80 only redirects) — `COOKIE_SECURE=false` was found still set in `.env.production` on the live server, dropping both session cookies without the `Secure` attribute. It's environment-specific, not a constant: keep it `false` for local plain-HTTP development, `true` wherever the site is actually served over HTTPS. Don't "fix" it back to `false` because an old comment or `.env.production.example` default says to — check how the site is actually being served first.
+
 ## Roles
 
 `hasRoleAtLeast` and the `requireRoleAtLeast` guards. Hierarchy: `ADMIN > MANAGER > CASHIER > WAITER`.
@@ -57,6 +59,8 @@ Any action that can fail shows its failure next to the control that triggered it
 Hide actions a role cannot perform — do not show a working form that fails on save. Guard the page itself too, not only the link: a hidden link is not access control.
 
 Landing after sign-in depends on role. Nav grouping and visibility live in `lib/adminNav.ts` — `NAV_GROUPS` data plus `isNavLinkVisible`/`visibleNavGroups`, both pure and tested in `adminNav.test.ts` (including "no group ever renders empty"); keep new links there rather than scattering role checks through JSX.
+
+**An audit log row's `actorRole` can be `null` — that means a system-initiated action (a scheduled sweep), not missing data.** The History page renders a `null` actorRole as "System" rather than blank or an error. See the backend's own CLAUDE.md, "Audit log", for what produces one.
 
 ## Colour meanings
 
@@ -72,7 +76,11 @@ Established across all screens; do not repurpose. Named by their Tailwind class,
 
 The palette is full. Distinguish new states by shape, hatching or an icon rather than a new colour. Known remaining ambiguity: `sea` also colours the `NEW` booking status, which is not "free" — left as is deliberately.
 
-**Scoped exception: shift-code chips.** `ShiftCode.displayColor` (`RosterGrid.tsx`, `ShiftCodeManager.tsx`) is an admin-chosen, per-code colour — the one deliberate departure from "no new colour" in this app. The roster grid's chips are a closed, small legend (a couple dozen codes at most) that accountants and staff already read off a paper schedule by real colour, not by a narrow lightness ramp — the fixed palette above has no room to give each code its own distinguishable hue, and forcing one through it would defeat the reason this exception exists. `kind`'s own shape cues (fill/hatch/outline/hollow) still do the structural work; `displayColor`, where an admin has set one, only ever replaces the *neutral* tone within that shape — it never turns an outline into a fill or a hollow chip into a solid one (see `chipAppearanceFor`'s own comment). This does not reopen the rule anywhere else: every other screen in this app still picks from the fixed palette above, unchanged.
+**Scoped exception: shift-code chips.** `ShiftCode.displayColor` (`RosterGrid.tsx`, `ShiftCodeManager.tsx`) is an admin-chosen, per-code colour — the one deliberate departure from "no new colour" in this app. The roster grid's chips are a closed, small legend (a couple dozen codes at most) that accountants and staff already read off a paper schedule by real colour, not by a narrow lightness ramp — the fixed palette above has no room to give each code its own distinguishable hue, and forcing one through it would defeat the reason this exception exists. This does not reopen the rule anywhere else: every other screen in this app still picks from the fixed palette above, unchanged.
+
+`chipAppearanceFor` (`lib/rosterGrid.ts`, shared by `RosterGrid.tsx` and `TodayShiftBoard.tsx`) now does the opposite of what this section used to say: where an admin has set a `displayColor`, every `kind` renders as a plain solid fill in that colour, full stop — no border, hatch, or glyph, regardless of what `kind` is. The old per-`kind` shape cues (neutral time-based shading for MORNING/EVENING, two-tone diagonal hatch for SPLIT, transparent+border for OPEN_SCHEDULE, transparent+dashed-border+"–"-glyph for ABSENCE) only apply when no `displayColor` is set at all. This was a deliberate simplification — the fill/hatch/outline/hollow system was found unreadable in practice — not a partial state to "finish"; don't reintroduce shape distinctions under a set colour without raising it as its own design question first.
+
+**`RosterExportService#chipCellStyle` (Java, Excel export) is a second, independent implementation of this same visual scheme and needs to be checked against this file whenever one changes** — there is no shared code between them. As of the last check, `chipCellStyle` still has the *old* per-`kind` styling and has not been updated to match this simplification; confirm its current state before assuming it's in sync.
 
 ## Testing
 
