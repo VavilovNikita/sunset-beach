@@ -25,8 +25,12 @@ export default async function AdminSchedulePage({ searchParams }: { searchParams
   const days = Array.from({ length: daysInMonth }, (_, i) => {
     const d = i + 1;
     const key = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    return { day: d, key, weekday: WEEKDAY_ABBR[new Date(`${key}T00:00:00Z`).getUTCDay()], entry: byDate.get(key) };
+    return { day: d, key, entry: byDate.get(key) };
   });
+  // Blank cells before day 1 so it lands under its own weekday column (WEEKDAY_ABBR is Sun-first).
+  const leadingBlanks = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+  // Hotel-local today, not the server's zone - only used to highlight a cell.
+  const todayKey = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(now);
 
   return (
     <div>
@@ -45,24 +49,56 @@ export default async function AdminSchedulePage({ searchParams }: { searchParams
         </Link>
       </div>
 
-      <div className="max-w-xl space-y-1">
-        {days.map(({ day, key, weekday, entry }) => (
-          <div key={key} className="flex items-center gap-4 bg-ink2/40 border border-cream/10 rounded-lg px-4 py-2">
-            <p className="w-14 tabular-nums text-cream/60 text-sm">
-              {day} {weekday}
-            </p>
+      <div className="max-w-4xl grid grid-cols-7 gap-1 sm:gap-2">
+        {WEEKDAY_ABBR.map((w) => (
+          <p key={w} className="eyebrow text-cream/40 text-center pb-1">
+            {w}
+          </p>
+        ))}
+        {Array.from({ length: leadingBlanks }, (_, i) => (
+          <div key={`blank-${i}`} aria-hidden />
+        ))}
+        {days.map(({ day, key, entry }) => (
+          <div
+            key={key}
+            title={entry?.note ?? undefined}
+            className={`min-h-[4.5rem] sm:min-h-[6rem] min-w-0 rounded-lg border px-1.5 py-1 sm:px-2 sm:py-1.5 ${
+              entry ? "bg-ink2/60 border-cream/15" : "bg-ink2/20 border-cream/5"
+            } ${key === todayKey ? "ring-1 ring-coral" : ""}`}
+          >
+            <p className={`text-xs tabular-nums ${key === todayKey ? "text-coral" : "text-cream/50"}`}>{day}</p>
             {entry ? (
-              <p className="flex-1 text-sm">
-                {entry.shiftCode.code}
-                {entry.shiftCode.startTime1
-                  ? ` · ${entry.shiftCode.startTime1}–${entry.shiftCode.endTime1}${
-                      entry.shiftCode.startTime2 ? `, ${entry.shiftCode.startTime2}–${entry.shiftCode.endTime2}` : ""
-                    }`
-                  : " · OP"}
-                {entry.note && <span className="text-cream/40"> · {entry.note}</span>}
-              </p>
+              <div className="mt-0.5 text-[10px] sm:text-xs leading-tight tabular-nums">
+                <p className="font-medium text-sm sm:text-base text-cream truncate">{entry.shiftCode.code}</p>
+                {entry.shiftCode.startTime1 ? (
+                  <>
+                    <p className="text-cream/70">
+                      {entry.shiftCode.startTime1}–<wbr />
+                      {entry.shiftCode.endTime1}
+                    </p>
+                    {entry.shiftCode.startTime2 && (
+                      <p className="text-cream/70">
+                        {entry.shiftCode.startTime2}–<wbr />
+                        {entry.shiftCode.endTime2}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-cream/70">OP</p>
+                )}
+                {/* Too long for a cell: a marker on phones (tap to reveal), the text itself from sm up. */}
+                {entry.note && (
+                  <>
+                    <details className="sm:hidden mt-0.5">
+                      <summary className="cursor-pointer list-none text-sea">Note</summary>
+                      <p className="text-cream/60 break-words">{entry.note}</p>
+                    </details>
+                    <p className="hidden sm:block mt-0.5 text-cream/40 truncate">{entry.note}</p>
+                  </>
+                )}
+              </div>
             ) : (
-              <p className="flex-1 text-sm text-cream/30">Day off</p>
+              <p className="mt-0.5 text-[10px] sm:text-xs text-cream/30">Day off</p>
             )}
           </div>
         ))}
