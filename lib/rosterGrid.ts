@@ -113,6 +113,9 @@ export function chipAppearanceFor(shiftCode: ShiftCode): ChipAppearance | null {
   };
 }
 
+// Display order for department groups - the roster grid and the Users page both group by this.
+export const STAFF_AREAS: StaffArea[] = ["ADMIN", "FRONT_OFFICE", "MAINTENANCE", "HOUSEKEEPING", "RESTAURANT", "KITCHEN"];
+
 export const STAFF_AREA_LABELS: Record<StaffArea, string> = {
   ADMIN: "Admin",
   FRONT_OFFICE: "Front office",

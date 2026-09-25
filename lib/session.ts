@@ -41,6 +41,10 @@ export type JobFunction = "ENGINEER" | "HOUSEKEEPER" | "THERAPIST";
 export type SessionUser = {
   id: string;
   name: string;
+  // Optional full legal name, admin reference only - separate from `name`, which stays the short
+  // display name every other screen (POS headers, punch logs, audit entries) shows. The backend
+  // omits it when unset. Set at creation or via PATCH /users/{id}/full-name (ADMIN only).
+  fullName?: string | null;
   email: string | null;
   role: Role;
   active: boolean;

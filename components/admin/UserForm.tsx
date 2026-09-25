@@ -11,6 +11,7 @@ const ROLES: Role[] = ["WAITER", "CASHIER", "MANAGER", "ADMIN"];
 export default function UserForm() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [fullName, setFullName] = useState("");
   // Most staff being entered by hand (cooks, housekeepers) never sign in - they exist so the
   // roster/attendance/pay-rate records have someone to point at. Login is opt-in, not the
   // default, and the two fields travel together - see UserCreateInput's own comment.
@@ -27,6 +28,7 @@ export default function UserForm() {
     setError(null);
 
     const input: UserCreateInput = canLogIn ? { name, email, password, role } : { name, role };
+    if (fullName.trim()) input.fullName = fullName.trim();
 
     const res = await fetch(`${ADMIN_API_URL}/users`, {
       method: "POST",
@@ -56,6 +58,19 @@ export default function UserForm() {
           required
           value={name}
           onChange={(e) => setName(e.target.value)}
+          className="w-full bg-transparent border-b border-cream/25 py-2 text-cream focus:outline-none focus:border-coral"
+        />
+      </div>
+
+      <div>
+        <label className="eyebrow text-cream/60 block mb-1">
+          Full name <span className="normal-case text-cream/40">(optional)</span>
+        </label>
+        <input
+          type="text"
+          maxLength={200}
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
           className="w-full bg-transparent border-b border-cream/25 py-2 text-cream focus:outline-none focus:border-coral"
         />
       </div>

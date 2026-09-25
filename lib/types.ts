@@ -34,6 +34,8 @@ export type UserUpdateResult = {
 // the one identifier that's never absent, unlike `email`.
 export type UserCreateInput = {
   name: string;
+  // See User.fullName's own comment. Optional; omitted when left blank.
+  fullName?: string;
   email?: string;
   password?: string;
   role?: Role;

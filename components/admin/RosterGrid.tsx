@@ -8,6 +8,7 @@ import {
   chipAppearanceFor,
   classifyRosterDrop,
   isValidSwapTarget,
+  STAFF_AREAS,
   STAFF_AREA_LABELS,
   type RosterDragSource,
   type RosterDropTarget,
@@ -24,7 +25,6 @@ import {
 import type { RosterCoverageWarning, RosterEmployee, RosterEntry, RosterMonth, ShiftCode, StaffArea } from "@/lib/types";
 
 const WEEKDAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const STAFF_AREAS: StaffArea[] = ["ADMIN", "FRONT_OFFICE", "MAINTENANCE", "HOUSEKEEPING", "RESTAURANT", "KITCHEN"];
 
 function datesOfMonth(year: number, month: number): string[] {
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
