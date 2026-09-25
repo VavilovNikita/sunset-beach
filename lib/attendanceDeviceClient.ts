@@ -18,6 +18,14 @@ export async function updateAttendanceDevice(id: string, input: AttendanceDevice
   return { ok: true, device: result.data };
 }
 
+// Plain list refetch - AttendanceDeviceManager polls this so lastSeenAt (and the next-poll
+// countdown derived from it) moves without a manual page refresh.
+export async function listAttendanceDevices(): Promise<{ ok: true; devices: AttendanceDevice[] } | { ok: false; error: string }> {
+  const result = await adminRequest<AttendanceDevice[]>("/attendance/devices", undefined, "Could not load devices.");
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, devices: result.data };
+}
+
 // Forces a full re-read regardless of the device's usual windowed poll - see the backend's
 // POST /attendance/devices/{id}/resync doc. Returns 200 either way; whether it actually reached
 // the device is read off the returned lastSeenAt, not a separate success flag.

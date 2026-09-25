@@ -3,21 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL } from "@/lib/backend";
-import { createAttendanceDevice, updateAttendanceDevice, resyncAttendanceDevice } from "@/lib/attendanceDeviceClient";
+import { createAttendanceDevice, updateAttendanceDevice, resyncAttendanceDevice, listAttendanceDevices } from "@/lib/attendanceDeviceClient";
+import { usePolling } from "@/lib/usePolling";
+import { isStale } from "@/lib/attendanceDeviceHealth";
 import DeleteButton from "@/components/admin/DeleteButton";
 import type { AttendanceDevice, AttendanceDeviceInput } from "@/lib/types";
 
 const EMPTY_FORM: AttendanceDeviceInput = { name: "", serial: "", address: "", port: 4370, timezone: "Asia/Bangkok", active: true };
-
-// A device that's gone quiet this long looks, in the punch data alone, exactly like a stretch
-// where nobody worked - same threshold the backend's own device-silence-warning-hours default
-// uses, so this screen flags a device before it becomes a payroll surprise, not after.
-const SILENCE_WARNING_HOURS = 24;
-
-function isStale(lastSeenAt: string | null): boolean {
-  if (lastSeenAt === null) return true;
-  return Date.now() - new Date(lastSeenAt).getTime() > SILENCE_WARNING_HOURS * 60 * 60 * 1000;
-}
 
 function LastSeenLabel({ lastSeenAt }: { lastSeenAt: string | null }) {
   if (lastSeenAt === null) {
@@ -25,6 +17,33 @@ function LastSeenLabel({ lastSeenAt }: { lastSeenAt: string | null }) {
   }
   const stale = isStale(lastSeenAt);
   return <span className={stale ? "text-coral" : "text-cream/60"}>Last heard from {new Date(lastSeenAt).toLocaleString()}</span>;
+}
+
+// Mirrors the backend's app.attendance.device-poll-interval-ms default (AttendanceDevicePollService).
+// Not exposed by any API, so it's hardcoded here - change both together.
+const POLL_INTERVAL_MS = 300_000;
+// How far past the expected poll we wait before saying it's late rather than "due now". A poll
+// itself takes a few seconds, and the list below refetches only every 30s.
+const OVERDUE_GRACE_MS = 60_000;
+
+// An estimate, not a schedule: the backend poll is fixedDelay (next attempt = interval after the
+// previous one *finished*), and lastSeenAt only moves on a *successful* poll, so after a failed
+// attempt the real next try is sooner than lastSeenAt + interval suggests. Hence the "~", and
+// "overdue" rather than a negative countdown when the expected poll never landed.
+function NextPollLabel({ lastSeenAt }: { lastSeenAt: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  usePolling(() => setNow(Date.now()), 1000);
+
+  const remainingMs = new Date(lastSeenAt).getTime() + POLL_INTERVAL_MS - now;
+  if (remainingMs < -OVERDUE_GRACE_MS) {
+    return <span className="text-amber-400"> · next poll overdue (last attempt may have failed)</span>;
+  }
+  if (remainingMs <= 0) {
+    return <span className="text-cream/40"> · next poll due now</span>;
+  }
+  const label =
+    remainingMs >= 60_000 ? `~${Math.ceil(remainingMs / 60_000)}m` : `~${Math.max(10, Math.ceil(remainingMs / 10_000) * 10)}s`;
+  return <span className="text-cream/40"> · next in {label}</span>;
 }
 
 // Set from what the device actually answered, never assumed - see the backend's
@@ -161,6 +180,12 @@ function ResyncButton({ deviceId, onResynced }: { deviceId: string; onResynced: 
 export default function AttendanceDeviceManager({ initialDevices }: { initialDevices: AttendanceDevice[] }) {
   const router = useRouter();
   const [devices, setDevices] = useState(initialDevices);
+  // Keeps lastSeenAt current so NextPollLabel's countdown restarts after each real poll. Edit
+  // forms hold their own values (editValues/newValues), so replacing the list never clobbers one.
+  usePolling(async () => {
+    const result = await listAttendanceDevices();
+    if (result.ok) setDevices(result.devices);
+  }, 30_000);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<AttendanceDeviceInput>(EMPTY_FORM);
   const [creating, setCreating] = useState(false);
@@ -260,6 +285,7 @@ export default function AttendanceDeviceManager({ initialDevices }: { initialDev
                 </p>
                 <p className="text-xs mt-0.5">
                   <LastSeenLabel lastSeenAt={device.lastSeenAt} />
+                  {device.active && device.lastSeenAt !== null && <NextPollLabel lastSeenAt={device.lastSeenAt} />}
                   {device.windowedReadUnsupported && <WindowedReadUnsupportedBadge />}
                 </p>
               </div>
