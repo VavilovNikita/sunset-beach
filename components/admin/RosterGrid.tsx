@@ -460,8 +460,14 @@ export default function RosterGrid({
             {groups.map((group) => (
               <Fragment key={group.area ?? "none"}>
                 <tr key={`${group.area ?? "none"}-header`}>
-                  <td colSpan={dates.length + 1} className="bg-ink2/60 px-3 py-1 eyebrow text-cream/50">
-                    {group.area ? STAFF_AREA_LABELS[group.area] : "No area set"}
+                  {/* The label, not the cell, is sticky: a cell spanning the whole row is already as
+                      wide as its containing block, so `sticky` on the <td> itself has no room to
+                      move and scrolls away. Pinning the inner span keeps the department name in
+                      view alongside the sticky employee-name column. */}
+                  <td colSpan={dates.length + 1} className="bg-ink2/60 py-1 eyebrow text-cream/50">
+                    <span className="sticky left-0 inline-block px-3">
+                      {group.area ? STAFF_AREA_LABELS[group.area] : "No area set"}
+                    </span>
                   </td>
                 </tr>
                 {group.area && (
