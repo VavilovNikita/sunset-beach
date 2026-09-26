@@ -23,7 +23,10 @@ export default function GuestCard({ guest }: { guest: GuestDetail }) {
     <div className="space-y-8">
       <div className="bg-ink2/40 border border-cream/10 rounded-xl p-5">
         <div className="flex items-center justify-between gap-3 mb-3">
-          <p className="eyebrow text-cream/60">Contact details</p>
+          <div className="flex items-center gap-3">
+            <p className="eyebrow text-cream/60">Contact details</p>
+            <AccountBadge account={guest.account} />
+          </div>
           {!editing && (
             <div className="flex items-center gap-4">
               <button
@@ -76,6 +79,19 @@ export default function GuestCard({ guest }: { guest: GuestDetail }) {
         )}
       </div>
     </div>
+  );
+}
+
+// Whether this guest has a self-service login on the public site. Nothing shown without one —
+// most guests never register.
+function AccountBadge({ account }: { account: GuestDetail["account"] }) {
+  if (!account) return null;
+  return account.emailVerified ? (
+    <span className="rounded-full px-2.5 py-1 text-xs bg-sea/15 text-sea">Has account (verified)</span>
+  ) : (
+    <span className="rounded-full px-2.5 py-1 text-xs bg-amber-400/15 text-amber-400" title="Signed up but hasn't confirmed their email yet">
+      Has account (unverified)
+    </span>
   );
 }
 

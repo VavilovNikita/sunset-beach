@@ -288,8 +288,9 @@ export type BookingSegment = {
 };
 
 // The guest as a person, distinct from a Booking's own frozen guestName/guestEmail/guestPhone
-// snapshot above — created explicitly (never inferred), searched by name/email/phone
-// (GET /guests?q=), and linked to a booking as a separate, reversible action. Carries no
+// snapshot above — created by staff, or found-or-created automatically by email when a booking
+// is made or a guest verifies a self-service account (never guessed between duplicate cards),
+// searched by name/email/phone (GET /guests?q=), and relinkable on a booking by hand. Carries no
 // computed field (no stay count, no lifetime total) — every fact about a guest is reached by
 // walking to Booking via guestId, never cached here. email/phone/notes are free text and may be
 // null; name is required.
@@ -306,9 +307,15 @@ export type Guest = {
 // Response of GET /guests/{id} — the full guest card. bookings is this guest's entire stay
 // history (every booking with this guestId, any status, cancelled included), newest first.
 // Deliberately no lifetime-spend/stay-count total — each booking already shows its own
-// totalPrice/status.
+// totalPrice/status. account is the linked self-service GuestAccount (presence and verification
+// only — never credentials), or null when this card has none.
 export type GuestDetail = Guest & {
   bookings: Booking[];
+  account: GuestAccountLinkSummary | null;
+};
+
+export type GuestAccountLinkSummary = {
+  emailVerified: boolean;
 };
 
 // Body of POST /guests. Nothing here is checked against existing guests before creating — no
