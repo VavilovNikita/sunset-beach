@@ -7,6 +7,7 @@ import UserOvertimeEligibilityToggle from "@/components/admin/UserOvertimeEligib
 import UserFunctionsSelect from "@/components/admin/UserFunctionsSelect";
 import UserEnrollmentNumberField from "@/components/admin/UserEnrollmentNumberField";
 import UserFullNameField from "@/components/admin/UserFullNameField";
+import UserNameField from "@/components/admin/UserNameField";
 import ResetPasswordButton from "@/components/admin/ResetPasswordButton";
 import GrantCredentialsButton from "@/components/admin/GrantCredentialsButton";
 import { STAFF_AREAS, STAFF_AREA_LABELS } from "@/lib/rosterGrid";
@@ -20,7 +21,10 @@ import type { StaffArea, User } from "@/lib/types";
 //
 // Grouped by department in the same order and with the same labels as RosterGrid, plus a
 // trailing "No area set" group. Each row shows identity only; every editable control lives in a
-// per-row disclosure panel so the list stays scannable.
+// per-row disclosure panel so the list stays scannable. The one exception to "identity only" is
+// the terminal PIN (enrollmentNumber), shown read-only on the collapsed row too: it's what staff
+// type into the ZK terminal's keypad when enrolling a fingerprint, so it needs to be visible
+// without opening every row. Still edited only in the panel.
 export default function UsersList({ users, sessionUserId }: { users: User[]; sessionUserId: string }) {
   const [showDeactivated, setShowDeactivated] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -77,6 +81,11 @@ export default function UsersList({ users, sessionUserId }: { users: User[]; ses
                         <p className="truncate">
                           {u.name}
                           {u.fullName && <span className="ml-2 text-sm text-cream/40">{u.fullName}</span>}
+                          {u.enrollmentNumber != null && (
+                            <span className="ml-2 font-mono text-xs text-cream/60 border border-cream/20 rounded px-1.5 py-0.5">
+                              PIN {u.enrollmentNumber}
+                            </span>
+                          )}
                           {!u.active && (
                             <span className="ml-2 text-xs text-coral border border-coral/40 rounded-full px-2 py-0.5">Disabled</span>
                           )}
@@ -96,6 +105,11 @@ export default function UsersList({ users, sessionUserId }: { users: User[]; ses
                         id={panelId}
                         className="border-t border-cream/10 px-4 py-4 grid gap-x-4 gap-y-3 sm:grid-cols-[9rem_1fr] sm:items-center text-sm"
                       >
+                        <span className="eyebrow text-cream/40">Name</span>
+                        <div>
+                          <UserNameField userId={u.id} name={u.name} />
+                        </div>
+
                         <span className="eyebrow text-cream/40">Full name</span>
                         <div>
                           <UserFullNameField userId={u.id} fullName={u.fullName ?? null} />
