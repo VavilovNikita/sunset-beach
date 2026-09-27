@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { updateGuest, deleteGuest } from "@/lib/guestClient";
+import { formatDateOfBirth, formatTagsInput, parseTagsInput } from "@/lib/guestProfile";
+import VipBadge from "@/components/admin/VipBadge";
 import type { GuestDetail } from "@/lib/types";
 
 // The guest card: contact details plus this guest's entire stay history (every booking with
@@ -25,6 +27,7 @@ export default function GuestCard({ guest }: { guest: GuestDetail }) {
         <div className="flex items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-3">
             <p className="eyebrow text-cream/60">Contact details</p>
+            <VipBadge vip={guest.vip} />
             <AccountBadge account={guest.account} />
           </div>
           {!editing && (
@@ -45,6 +48,16 @@ export default function GuestCard({ guest }: { guest: GuestDetail }) {
           <div className="space-y-1 text-sm">
             <p className="text-cream">{guest.email || "No email on file"}</p>
             <p className="text-cream">{guest.phone || "No phone on file"}</p>
+            {guest.dateOfBirth && <p className="text-cream/60">Born {formatDateOfBirth(guest.dateOfBirth)}</p>}
+            {guest.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-2">
+                {guest.tags.map((tag) => (
+                  <span key={tag} className="rounded-full px-2.5 py-0.5 text-xs bg-cream/10 text-cream/80">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
             {guest.notes && <p className="text-cream/60 whitespace-pre-wrap mt-2">{guest.notes}</p>}
           </div>
         ) : (
@@ -108,6 +121,9 @@ function GuestEditForm({
   const [email, setEmail] = useState(guest.email ?? "");
   const [phone, setPhone] = useState(guest.phone ?? "");
   const [notes, setNotes] = useState(guest.notes ?? "");
+  const [vip, setVip] = useState(guest.vip);
+  const [dateOfBirth, setDateOfBirth] = useState(guest.dateOfBirth ?? "");
+  const [tags, setTags] = useState(formatTagsInput(guest.tags));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -121,6 +137,9 @@ function GuestEditForm({
       email: email.trim() || null,
       phone: phone.trim() || null,
       notes: notes.trim() || null,
+      vip,
+      dateOfBirth: dateOfBirth || null,
+      tags: parseTagsInput(tags),
     });
     setSaving(false);
     if (!result.ok) {
@@ -160,6 +179,36 @@ function GuestEditForm({
           className="w-full bg-ink border border-cream/20 rounded-lg px-3 py-2 text-sm"
         />
       </div>
+      <div>
+        <label className="eyebrow text-cream/60 block mb-1">Date of birth</label>
+        <div className="flex items-center gap-3">
+          <input
+            type="date"
+            value={dateOfBirth}
+            onChange={(e) => setDateOfBirth(e.target.value)}
+            className="bg-ink border border-cream/20 rounded-lg px-3 py-2 text-sm"
+          />
+          {dateOfBirth && (
+            <button type="button" onClick={() => setDateOfBirth("")} className="text-sm text-cream/50 hover:text-cream transition-colors">
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+      <div>
+        <label className="eyebrow text-cream/60 block mb-1">Tags</label>
+        <input
+          type="text"
+          value={tags}
+          onChange={(e) => setTags(e.target.value)}
+          placeholder="Comma-separated — honeymoon, repeat guest, …"
+          className="w-full bg-ink border border-cream/20 rounded-lg px-3 py-2 text-sm placeholder:text-cream/30"
+        />
+      </div>
+      <label className="flex items-center gap-2 text-sm text-cream">
+        <input type="checkbox" checked={vip} onChange={(e) => setVip(e.target.checked)} className="accent-coral" />
+        VIP
+      </label>
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Notes</label>
         <textarea

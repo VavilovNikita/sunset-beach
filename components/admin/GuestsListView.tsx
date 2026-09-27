@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { searchGuests } from "@/lib/guestClient";
 import GuestCreateForm from "@/components/admin/GuestCreateForm";
+import VipBadge from "@/components/admin/VipBadge";
 import type { Guest } from "@/lib/types";
 
 const DEBOUNCE_MS = 300;
@@ -80,7 +81,10 @@ export default function GuestsListView({ initialGuests }: { initialGuests: Guest
               href={`/admin/guests/${g.id}`}
               className="flex items-center justify-between gap-4 bg-ink2/40 border border-cream/10 rounded-xl p-4 text-sm hover:bg-cream/5 transition-colors"
             >
-              <span className="text-cream font-medium truncate">{g.name}</span>
+              <span className="flex items-center gap-2 min-w-0">
+                <span className="text-cream font-medium truncate">{g.name}</span>
+                <VipBadge vip={g.vip} />
+              </span>
               <span className="text-cream/50 text-xs shrink-0">{g.email || g.phone || ""}</span>
             </Link>
           ))}

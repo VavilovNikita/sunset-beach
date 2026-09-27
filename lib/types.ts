@@ -293,13 +293,18 @@ export type BookingSegment = {
 // searched by name/email/phone (GET /guests?q=), and relinkable on a booking by hand. Carries no
 // computed field (no stay count, no lifetime total) — every fact about a guest is reached by
 // walking to Booking via guestId, never cached here. email/phone/notes are free text and may be
-// null; name is required.
+// null; name is required. vip/dateOfBirth/tags are staff-entered facts, carried on Guest itself
+// (not only GuestDetail) so every Booking that embeds its guest shows the VIP flag too.
+// dateOfBirth is a date-only "YYYY-MM-DD" key or null; tags is [] (never null) when there are none.
 export type Guest = {
   id: string;
   name: string;
   email: string | null;
   phone: string | null;
   notes: string | null;
+  vip: boolean;
+  dateOfBirth: string | null;
+  tags: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -325,15 +330,24 @@ export type GuestCreateInput = {
   email?: string | null;
   phone?: string | null;
   notes?: string | null;
+  // Omitted -> false / null / [] on the server.
+  vip?: boolean;
+  dateOfBirth?: string | null;
+  tags?: string[];
 };
 
 // Body of PATCH /guests/{id} — full replacement, same convention as RoomUnitUpdateInput: no
-// partial update, every field is sent every time.
+// partial update, every field is sent every time. The server rejects a body without vip (400)
+// rather than treating it as "unmark VIP, clear tags". dateOfBirth may not be in the future;
+// blank and exact-duplicate tags are dropped server-side (see lib/guestProfile.ts).
 export type GuestUpdateInput = {
   name: string;
   email: string | null;
   phone: string | null;
   notes: string | null;
+  vip: boolean;
+  dateOfBirth: string | null;
+  tags: string[];
 };
 
 export type Booking = {

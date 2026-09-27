@@ -5,6 +5,7 @@ import Link from "next/link";
 import { searchGuests } from "@/lib/guestClient";
 import { assignBookingGuest } from "@/lib/bookingGuestClient";
 import GuestCreateForm from "@/components/admin/GuestCreateForm";
+import VipBadge from "@/components/admin/VipBadge";
 import type { Booking, Guest } from "@/lib/types";
 
 const DEBOUNCE_MS = 300;
@@ -43,6 +44,7 @@ export default function GuestLinkEditor({ booking, onSaved }: { booking: Booking
                 {booking.guest.name}
               </Link>
             </span>
+            <VipBadge vip={booking.guest.vip} />
             <button type="button" onClick={() => setOpen(true)} className="text-xs text-sea hover:text-coral transition-colors">
               Change
             </button>
