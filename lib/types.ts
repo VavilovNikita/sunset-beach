@@ -18,6 +18,12 @@ export type { SessionUser as User } from "@/lib/session";
 import type { JobFunction, SessionUser } from "@/lib/session";
 export type BookingStatus = "NEW" | "CONFIRMED" | "PAID" | "CANCELLED";
 
+// How a booking reached the hotel — a label staff record, not an OTA integration. The public
+// form always sets DIRECT server-side; required on POST /bookings/staff; editable afterwards
+// via PATCH /bookings/{id}. Unrelated to the backend's internal public/staff "source" field.
+// Bookings older than the field read DIRECT (public form) or OTHER (staff-entered).
+export type BookingChannel = "DIRECT" | "PHONE" | "WALK_IN" | "BOOKING_COM" | "AIRBNB" | "AGODA" | "OTHER";
+
 // Response of PATCH /users/{id}/active and PATCH /users/{id}/functions. warning is set (the
 // change still succeeds) when the user being disabled, or having THERAPIST removed, holds one
 // or more future BOOKED spa appointments - warn, don't block; nothing here cancels those
@@ -372,6 +378,7 @@ export type Booking = {
   checkOut: string;
   totalPrice: string;
   status: BookingStatus;
+  channel: BookingChannel;
   paymentNote: string | null;
   // Whether the guest is physically at the hotel — deliberately separate from `status` (which
   // stays commercial only: confirmed/paid/cancelled). One value per booking, not per segment: a
@@ -604,6 +611,8 @@ export type StaffBookingCreateInput = {
   checkIn: string;
   checkOut: string;
   roomUnitId?: string | null;
+  // Required — front desk always knows how a phone/walk-in booking reached them.
+  channel: BookingChannel;
 };
 
 // --- Audit log (GET /audit-log) ---

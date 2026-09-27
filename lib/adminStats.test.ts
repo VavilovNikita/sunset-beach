@@ -34,6 +34,7 @@ function booking(overrides: Partial<Booking>): Booking {
     checkOut: "2026-06-18",
     totalPrice: "3000.00",
     status: "CONFIRMED",
+    channel: "DIRECT",
     paymentNote: null,
     occupancyStatus: "EXPECTED",
     checkedInAt: null,

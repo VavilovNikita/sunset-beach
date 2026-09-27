@@ -108,6 +108,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             bookingId={booking.id}
             currentStatus={booking.status}
             currentPaymentNote={booking.paymentNote}
+            currentChannel={booking.channel}
             folio={folio}
           />
         </div>

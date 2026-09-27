@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDateOfBirth, formatTagsInput, parseTagsInput } from "./guestProfile";
+import { formatDateOfBirth, formatTagsInput, isRepeatGuest, parseTagsInput } from "./guestProfile";
 
 describe("parseTagsInput", () => {
   it("trims each tag and drops blank ones", () => {
@@ -24,5 +24,19 @@ describe("formatDateOfBirth", () => {
   it("formats a date-only key without shifting the day", () => {
     expect(formatDateOfBirth("1987-04-12")).toBe("Apr 12, 1987");
     expect(formatDateOfBirth("2000-01-01")).toBe("Jan 1, 2000");
+  });
+});
+
+describe("isRepeatGuest", () => {
+  it("is true with two non-cancelled bookings", () => {
+    expect(isRepeatGuest([{ status: "PAID" }, { status: "NEW" }])).toBe(true);
+  });
+
+  it("is false with one non-cancelled booking, however many cancelled ones there are", () => {
+    expect(isRepeatGuest([{ status: "CONFIRMED" }, { status: "CANCELLED" }, { status: "CANCELLED" }])).toBe(false);
+  });
+
+  it("is false with no bookings", () => {
+    expect(isRepeatGuest([])).toBe(false);
   });
 });

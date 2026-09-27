@@ -4,7 +4,8 @@ import { useState } from "react";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { extractApiError } from "@/lib/apiError";
 import { getNights, parseDateKey } from "@/lib/bookings";
-import type { Booking, StaffBookingCreateInput } from "@/lib/types";
+import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS } from "@/lib/bookingChannel";
+import type { Booking, BookingChannel, StaffBookingCreateInput } from "@/lib/types";
 
 // Opened two ways from the booking calendar grid, both landing here with the same props shape:
 // dragging out a date range on a free row (wide-enough columns - the range is already precise,
@@ -46,6 +47,9 @@ export default function BookingCreateFromGridModal({
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
+  // Starts unset on purpose: the backend requires a channel with no default, and a preselected
+  // value would get submitted unread just the same as a silent server-side default.
+  const [channel, setChannel] = useState<BookingChannel | "">("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<Booking | null>(null);
@@ -68,6 +72,10 @@ export default function BookingCreateFromGridModal({
       setError("Check-in must be before check-out.");
       return;
     }
+    if (!channel) {
+      setError("Choose how this booking came in.");
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -79,6 +87,7 @@ export default function BookingCreateFromGridModal({
       checkIn,
       checkOut,
       roomUnitId,
+      channel,
     };
 
     const res = await fetch(`${ADMIN_API_URL}/bookings/staff`, {
@@ -188,6 +197,25 @@ export default function BookingCreateFromGridModal({
                 onChange={(e) => setGuestPhone(e.target.value)}
                 className="w-full bg-ink border border-cream/20 rounded-lg px-3 py-2 text-sm"
               />
+            </div>
+
+            <div>
+              <label className="eyebrow text-cream/60 block mb-1">Channel</label>
+              <select
+                value={channel}
+                onChange={(e) => setChannel(e.target.value as BookingChannel)}
+                required
+                className="w-full bg-ink border border-cream/20 rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="" disabled>
+                  How did this booking come in?
+                </option>
+                {BOOKING_CHANNELS.map((c) => (
+                  <option key={c} value={c}>
+                    {BOOKING_CHANNEL_LABELS[c]}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {error && <p className="text-sm text-coral">{error}</p>}

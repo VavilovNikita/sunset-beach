@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { updateGuest, deleteGuest } from "@/lib/guestClient";
-import { formatDateOfBirth, formatTagsInput, parseTagsInput } from "@/lib/guestProfile";
+import { formatDateOfBirth, formatTagsInput, isRepeatGuest, parseTagsInput } from "@/lib/guestProfile";
 import VipBadge from "@/components/admin/VipBadge";
 import type { GuestDetail } from "@/lib/types";
 
@@ -28,6 +28,9 @@ export default function GuestCard({ guest }: { guest: GuestDetail }) {
           <div className="flex items-center gap-3">
             <p className="eyebrow text-cream/60">Contact details</p>
             <VipBadge vip={guest.vip} />
+            {isRepeatGuest(guest.bookings) && (
+              <span className="rounded-full px-2.5 py-1 text-xs font-medium bg-sand/15 text-sand shrink-0">Repeat guest</span>
+            )}
             <AccountBadge account={guest.account} />
           </div>
           {!editing && (

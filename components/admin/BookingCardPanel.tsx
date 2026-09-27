@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
+import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS } from "@/lib/bookingChannel";
 import { quoteBookingRelocation, applyBookingRelocation, undoBookingRelocation } from "@/lib/bookingRelocationClient";
 import { quoteBookingReprice, applyBookingReprice } from "@/lib/bookingRepriceClient";
 import RoomChargeDebtBadge from "@/components/admin/RoomChargeDebtBadge";
 import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
 import { BookingScheduleEditor, RoomUnitAssignmentEditor } from "@/components/admin/BookingScheduleEditor";
-import type { Booking, BookingScheduleQuote, Room, RoomUnit, AuditLogEntry } from "@/lib/types";
+import type { Booking, BookingChannel, BookingScheduleQuote, Room, RoomUnit, AuditLogEntry } from "@/lib/types";
 import type { BookingPosOrder, Folio } from "@/lib/posTypes";
 
 const STATUSES = ["NEW", "CONFIRMED", "PAID", "CANCELLED"] as const;
@@ -206,13 +207,15 @@ export default function BookingCardPanel({
 function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; folio: Folio | null; onSaved: () => void }) {
   const [status, setStatus] = useState(booking.status);
   const [paymentNote, setPaymentNote] = useState(booking.paymentNote ?? "");
+  const [channel, setChannel] = useState(booking.channel);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setStatus(booking.status);
     setPaymentNote(booking.paymentNote ?? "");
-  }, [booking.status, booking.paymentNote]);
+    setChannel(booking.channel);
+  }, [booking.status, booking.paymentNote, booking.channel]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -220,7 +223,7 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
     setError(null);
     const result = await adminRequest(
       `/bookings/${booking.id}`,
-      adminJsonInit("PATCH", { status, paymentNote: paymentNote || null }),
+      adminJsonInit("PATCH", { status, paymentNote: paymentNote || null, channel }),
       "Could not update booking."
     );
     setSaving(false);
@@ -230,6 +233,7 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
       // value on change, so a failed save has to jump it back, or the form looks like it saved.
       setStatus(booking.status);
       setPaymentNote(booking.paymentNote ?? "");
+      setChannel(booking.channel);
       return;
     }
     onSaved();
@@ -260,6 +264,20 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
           what was collected.
         </p>
       )}
+      <div>
+        <label className="eyebrow text-cream/60 block mb-1">Channel</label>
+        <select
+          value={channel}
+          onChange={(e) => setChannel(e.target.value as BookingChannel)}
+          className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
+        >
+          {BOOKING_CHANNELS.map((c) => (
+            <option key={c} value={c}>
+              {BOOKING_CHANNEL_LABELS[c]}
+            </option>
+          ))}
+        </select>
+      </div>
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Payment note</label>
         <textarea

@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
+import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS } from "@/lib/bookingChannel";
 import type { Folio } from "@/lib/posTypes";
+import type { BookingChannel } from "@/lib/types";
 
 const STATUSES = ["NEW", "CONFIRMED", "PAID", "CANCELLED"] as const;
 
@@ -11,11 +13,13 @@ export default function BookingStatusForm({
   bookingId,
   currentStatus,
   currentPaymentNote,
+  currentChannel,
   folio,
 }: {
   bookingId: string;
   currentStatus: string;
   currentPaymentNote: string | null;
+  currentChannel: BookingChannel;
   // Purely informational — nothing here writes to paymentNote or blocks
   // saving. null covers both "no POS orders" and "folio failed to load";
   // either way there's nothing safe to warn about, so no banner.
@@ -24,6 +28,7 @@ export default function BookingStatusForm({
   const router = useRouter();
   const [status, setStatus] = useState(currentStatus);
   const [paymentNote, setPaymentNote] = useState(currentPaymentNote ?? "");
+  const [channel, setChannel] = useState<BookingChannel>(currentChannel);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +39,7 @@ export default function BookingStatusForm({
 
     const result = await adminRequest(
       `/bookings/${bookingId}`,
-      adminJsonInit("PATCH", { status, paymentNote: paymentNote || null }),
+      adminJsonInit("PATCH", { status, paymentNote: paymentNote || null, channel }),
       "Could not update booking."
     );
 
@@ -48,6 +53,7 @@ export default function BookingStatusForm({
       // at a glance, dropdown showing the new value) reads as a silent success.
       setStatus(currentStatus);
       setPaymentNote(currentPaymentNote ?? "");
+      setChannel(currentChannel);
       return;
     }
     router.refresh();
@@ -78,6 +84,21 @@ export default function BookingStatusForm({
           the room total.
         </p>
       )}
+
+      <div>
+        <label className="eyebrow text-cream/60 block mb-1">Channel</label>
+        <select
+          value={channel}
+          onChange={(e) => setChannel(e.target.value as BookingChannel)}
+          className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
+        >
+          {BOOKING_CHANNELS.map((c) => (
+            <option key={c} value={c}>
+              {BOOKING_CHANNEL_LABELS[c]}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Payment note</label>

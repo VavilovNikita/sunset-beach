@@ -1,4 +1,5 @@
 import { parseDateKey } from "@/lib/bookings";
+import type { Booking } from "@/lib/types";
 
 // Turns the guest form's comma-separated tags field into the array PATCH/POST /guests expects.
 // Mirrors the server's own normalization (GuestMapper#normalizeTags): trim each tag, drop blank
@@ -26,4 +27,11 @@ export function formatTagsInput(tags: string[]): string {
 // never shifts by a day in this timezone - see CLAUDE.md, "Dates".
 export function formatDateOfBirth(key: string): string {
   return parseDateKey(key).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
+// "Repeat guest" = more than one stay that wasn't cancelled. Derived from the card's own stay
+// history (GuestDetail.bookings, every status included) — deliberately not a stored flag or an
+// API field, since everything needed is already on the object the card has.
+export function isRepeatGuest(bookings: Pick<Booking, "status">[]): boolean {
+  return bookings.filter((b) => b.status !== "CANCELLED").length > 1;
 }
