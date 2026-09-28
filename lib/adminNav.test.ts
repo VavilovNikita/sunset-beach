@@ -40,7 +40,7 @@ describe("visibleNavGroups", () => {
     expect(groups.map((g) => g.title)).toEqual(["Front desk", "Restaurant", "Setup", "Maintenance", "Reports", "Staff"]);
 
     const byTitle = Object.fromEntries(groups.map((g) => [g.title, g.links.map((l) => l.label)]));
-    expect(byTitle["Setup"]).toContain("Printers");
+    expect(byTitle["Setup"]).toEqual(["Rooms", "Pricing", "Availability", "Printers"]); // no Guest emails - ADMIN only
     expect(byTitle["Reports"]).toContain("History");
     expect(byTitle["Staff"]).toEqual(["Roster", "My schedule", "Devices"]); // no Import schedule/Users - ADMIN only
   });
@@ -52,6 +52,7 @@ describe("visibleNavGroups", () => {
     expect(groups.find((g) => g.title === "Staff")?.links.map((l) => l.label)).toEqual([
       "Roster", "My schedule", "Devices", "Import schedule", "Users",
     ]);
+    expect(groups.find((g) => g.title === "Setup")?.links.map((l) => l.label)).toContain("Guest emails");
   });
 
   it("every role's group list is a subsequence of the full six in the same relative order", () => {

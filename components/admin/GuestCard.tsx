@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { updateGuest, deleteGuest } from "@/lib/guestClient";
 import { formatDateOfBirth, formatTagsInput, isRepeatGuest, parseTagsInput } from "@/lib/guestProfile";
+import { LIFECYCLE_EMAIL_LABELS, formatSentAt } from "@/lib/lifecycleEmails";
 import VipBadge from "@/components/admin/VipBadge";
 import type { GuestDetail } from "@/lib/types";
 
@@ -94,6 +95,56 @@ export default function GuestCard({ guest }: { guest: GuestDetail }) {
           </div>
         )}
       </div>
+
+      <EmailHistory guest={guest} />
+    </div>
+  );
+}
+
+// Automated lifecycle emails (pre-arrival, post-stay, win-back) this guest was actually sent,
+// newest first. Only a guest with a verified account can ever get one, so for everyone else the
+// empty state says why rather than looking like nothing has happened yet.
+function EmailHistory({ guest }: { guest: GuestDetail }) {
+  const history = guest.emailHistory;
+  const emptyText = !guest.account?.emailVerified
+    ? "No automated emails — these only go to guests with a verified account."
+    : guest.account.marketingEmailsOptOut
+      ? "No automated emails sent. This guest has unsubscribed."
+      : "No automated emails sent yet.";
+
+  return (
+    <div>
+      <p className="eyebrow text-sea mb-3">
+        Email history <span className="text-cream/40">({history.length})</span>
+      </p>
+      {history.length === 0 ? (
+        <p className="text-sm text-cream/40">{emptyText}</p>
+      ) : (
+        <div className="space-y-2">
+          {history.map((entry, i) => (
+            <div
+              key={`${entry.type}-${entry.sentAt}-${i}`}
+              className="flex items-center justify-between gap-4 bg-ink2/40 border border-cream/10 rounded-xl p-4 text-sm"
+            >
+              <div className="min-w-0">
+                <p className="text-cream truncate">{entry.subject}</p>
+                <p className="text-xs text-cream/40">
+                  {LIFECYCLE_EMAIL_LABELS[entry.type]}
+                  {entry.bookingId && (
+                    <>
+                      {" · "}
+                      <Link href={`/admin/bookings/${entry.bookingId}`} className="text-sea hover:text-coral transition-colors">
+                        booking
+                      </Link>
+                    </>
+                  )}
+                </p>
+              </div>
+              <span className="text-cream/60 shrink-0">{formatSentAt(entry.sentAt)}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -103,7 +154,14 @@ export default function GuestCard({ guest }: { guest: GuestDetail }) {
 function AccountBadge({ account }: { account: GuestDetail["account"] }) {
   if (!account) return null;
   return account.emailVerified ? (
-    <span className="rounded-full px-2.5 py-1 text-xs bg-sea/15 text-sea">Has account (verified)</span>
+    <>
+      <span className="rounded-full px-2.5 py-1 text-xs bg-sea/15 text-sea">Has account (verified)</span>
+      {account.marketingEmailsOptOut && (
+        <span className="rounded-full px-2.5 py-1 text-xs bg-cream/10 text-cream/60" title="Won't receive automated guest emails">
+          Unsubscribed
+        </span>
+      )}
+    </>
   ) : (
     <span className="rounded-full px-2.5 py-1 text-xs bg-amber-400/15 text-amber-400" title="Signed up but hasn't confirmed their email yet">
       Has account (unverified)

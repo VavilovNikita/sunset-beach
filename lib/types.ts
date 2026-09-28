@@ -319,15 +319,49 @@ export type Guest = {
 // history (every booking with this guestId, any status, cancelled included), newest first.
 // Deliberately no lifetime-spend/stay-count total — each booking already shows its own
 // totalPrice/status. account is the linked self-service GuestAccount (presence and verification
-// only — never credentials), or null when this card has none.
+// only — never credentials), or null when this card has none. emailHistory is every automated
+// lifecycle email actually sent to this guest, newest first (a row exists only once a send
+// succeeded).
 export type GuestDetail = Guest & {
   bookings: Booking[];
   account: GuestAccountLinkSummary | null;
+  emailHistory: GuestEmailHistoryEntry[];
 };
 
 export type GuestAccountLinkSummary = {
   emailVerified: boolean;
+  // True once the guest unsubscribed from lifecycle emails (GET /guest-auth/unsubscribe).
+  marketingEmailsOptOut: boolean;
 };
+
+export type LifecycleEmailType = "PRE_ARRIVAL" | "POST_STAY" | "WIN_BACK";
+
+export type GuestEmailHistoryEntry = {
+  type: LifecycleEmailType;
+  subject: string;
+  // date-time with the hotel's own +07:00 offset.
+  sentAt: string;
+  // The stay the email was about; null for WIN_BACK.
+  bookingId: string | null;
+};
+
+// GET/PUT /settings/lifecycle-emails (ADMIN only). Controls whether and when each automated
+// guest email is sent — never its wording, which is fixed in the backend. Only guests with a
+// verified, not-unsubscribed GuestAccount ever receive one.
+export type LifecycleEmailSettings = {
+  preArrivalEnabled: boolean;
+  preArrivalDaysBefore: number;
+  postStayEnabled: boolean;
+  postStayDaysAfter: number;
+  postStayReviewUrl: string | null;
+  winBackEnabled: boolean;
+  winBackMonthsSinceStay: number;
+  updatedAt: string;
+};
+
+// Body of PUT /settings/lifecycle-emails — every field (a full replace). Ranges enforced
+// server-side: days 0-60, months 1-120; postStayReviewUrl must be http(s) or blank/null for none.
+export type LifecycleEmailSettingsUpdateInput = Omit<LifecycleEmailSettings, "updatedAt">;
 
 // Body of POST /guests. Nothing here is checked against existing guests before creating — no
 // automatic merging; GET /guests?q= is how a caller checks for a likely duplicate first.
