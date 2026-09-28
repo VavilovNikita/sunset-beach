@@ -363,6 +363,60 @@ export type LifecycleEmailSettings = {
 // server-side: days 0-60, months 1-120; postStayReviewUrl must be http(s) or blank/null for none.
 export type LifecycleEmailSettingsUpdateInput = Omit<LifecycleEmailSettings, "updatedAt">;
 
+// One room type's figures from GET /reports/occupancy, or the property total (roomId/roomName
+// null). Money and percentages are decimal strings, computed and rounded server-side; a ratio is
+// null when its denominator is zero.
+export type OccupancyReportRow = {
+  roomId: string | null;
+  roomName: string | null;
+  activeUnits: number;
+  roomNightsAvailable: number;
+  roomNightsSold: number;
+  occupancyPercent: string | null;
+  roomRevenue: string;
+  adr: string | null;
+  revpar: string | null;
+};
+
+// GET /night-audit (CASHIER+). missedArrivals: EXPECTED, not CANCELLED, checkIn on or before
+// date. missedDepartures: CHECKED_IN, checkOut on or before date. Both are the bookings' state
+// now, not a historical snapshot. snapshot is exactly GET /reports/occupancy?from=date&to=date's
+// total row. closure is null until someone closes the date.
+export type NightAudit = {
+  date: string;
+  missedArrivals: NightAuditBooking[];
+  missedDepartures: NightAuditBooking[];
+  snapshot: OccupancyReportRow;
+  closure: NightAuditClosure | null;
+};
+
+export type NightAuditBooking = {
+  id: string;
+  guestName: string;
+  roomName: string;
+  roomUnitLabel: string | null;
+  checkIn: string;
+  checkOut: string;
+  status: BookingStatus;
+  occupancyStatus: OccupancyStatus;
+};
+
+// A receipt that someone reviewed a date - it locks and blocks nothing. closedByName is the
+// user's current name, read live. closedAt is a UTC date-time.
+export type NightAuditClosure = {
+  date: string;
+  closedByUserId: string;
+  closedByName: string;
+  closedAt: string;
+  notes: string | null;
+};
+
+// Body of POST /night-audit/close. One closure per date; a second is a 409.
+export type NightAuditCloseInput = {
+  date: string;
+  notes?: string | null;
+};
+
 // Body of POST /guests. Nothing here is checked against existing guests before creating — no
 // automatic merging; GET /guests?q= is how a caller checks for a likely duplicate first.
 export type GuestCreateInput = {
@@ -685,7 +739,8 @@ export type AuditAction =
   | "ATTENDANCE_DEVICE_DELETED"
   | "MENU_ITEM_CREATED"
   | "MENU_ITEM_UPDATED"
-  | "MENU_ITEM_DELETED";
+  | "MENU_ITEM_DELETED"
+  | "NIGHT_AUDIT_CLOSED";
 // NOTE: this union (and ACTIONS in app/admin/(dashboard)/history/page.tsx) is a hand-copied,
 // already-incomplete subset of the backend's real AuditAction enum - see that enum's own
 // openapi.yaml description. A value missing here only breaks the "Action" filter dropdown, not
@@ -695,7 +750,7 @@ export type AuditAction =
 // SCREAMING_SNAKE_CASE, not PascalCase entity names - see openapi.yaml's AuditEntityType schema
 // description: Spring's default query-param enum binding uses the Java constant name, so this
 // has to match that, not read nicely as a class name.
-export type AuditEntityType = "BOOKING" | "ROOM" | "ORDER" | "SHIFT" | "USER" | "ROOM_UNIT" | "ATTENDANCE_DEVICE" | "MENU_ITEM";
+export type AuditEntityType = "BOOKING" | "ROOM" | "ORDER" | "SHIFT" | "USER" | "ROOM_UNIT" | "ATTENDANCE_DEVICE" | "MENU_ITEM" | "NIGHT_AUDIT";
 
 export type AuditLogEntry = {
   id: string;

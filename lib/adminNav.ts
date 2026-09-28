@@ -44,6 +44,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/property-map", label: "Property map", minRole: "CASHIER" },
       { href: "/admin/housekeeping", label: "Housekeeping", minRole: "CASHIER" },
       { href: "/admin/spa", label: "Spa", minRole: "CASHIER" },
+      // GET /night-audit and POST /night-audit/close are CASHIER+ - the daily close is routine
+      // front-desk work, not a MANAGER+ report.
+      { href: "/admin/night-audit", label: "Night audit", minRole: "CASHIER" },
     ],
   },
   {
