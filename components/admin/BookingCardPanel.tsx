@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS } from "@/lib/bookingChannel";
+import { BOOKING_PURPOSE_LABELS, formatPartySize, parsePartySize } from "@/lib/bookingPurpose";
+import BookingPurposePartyFields from "@/components/admin/BookingPurposePartyFields";
 import { quoteBookingRelocation, applyBookingRelocation, undoBookingRelocation } from "@/lib/bookingRelocationClient";
 import { quoteBookingReprice, applyBookingReprice } from "@/lib/bookingRepriceClient";
 import RoomChargeDebtBadge from "@/components/admin/RoomChargeDebtBadge";
@@ -117,6 +119,12 @@ export default function BookingCardPanel({
               <h2 className="font-display italic text-2xl mb-1">{booking.guestName}</h2>
               <p className="text-sm text-cream/50">{booking.guestEmail || "No email on file"}</p>
               <p className="text-sm text-cream/50">{booking.guestPhone || "No phone on file"}</p>
+              <p className="text-sm text-cream/50">
+                {formatPartySize(booking.adults, booking.children)}
+                {booking.purpose !== "STANDARD" && (
+                  <span className="ml-2 text-sea">{BOOKING_PURPOSE_LABELS[booking.purpose]}</span>
+                )}
+              </p>
               <div className="mt-2">
                 <GuestLinkEditor booking={booking} onSaved={refetch} />
               </div>
@@ -208,6 +216,9 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
   const [status, setStatus] = useState(booking.status);
   const [paymentNote, setPaymentNote] = useState(booking.paymentNote ?? "");
   const [channel, setChannel] = useState(booking.channel);
+  const [purpose, setPurpose] = useState(booking.purpose);
+  const [adults, setAdults] = useState(String(booking.adults));
+  const [children, setChildren] = useState(String(booking.children));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -215,15 +226,30 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
     setStatus(booking.status);
     setPaymentNote(booking.paymentNote ?? "");
     setChannel(booking.channel);
-  }, [booking.status, booking.paymentNote, booking.channel]);
+    setPurpose(booking.purpose);
+    setAdults(String(booking.adults));
+    setChildren(String(booking.children));
+  }, [booking.status, booking.paymentNote, booking.channel, booking.purpose, booking.adults, booking.children]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const party = parsePartySize(adults, children);
+    if ("error" in party) {
+      setError(party.error);
+      return;
+    }
     setSaving(true);
     setError(null);
     const result = await adminRequest(
       `/bookings/${booking.id}`,
-      adminJsonInit("PATCH", { status, paymentNote: paymentNote || null, channel }),
+      adminJsonInit("PATCH", {
+        status,
+        paymentNote: paymentNote || null,
+        channel,
+        purpose,
+        adults: party.adults,
+        children: party.children,
+      }),
       "Could not update booking."
     );
     setSaving(false);
@@ -234,6 +260,9 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
       setStatus(booking.status);
       setPaymentNote(booking.paymentNote ?? "");
       setChannel(booking.channel);
+      setPurpose(booking.purpose);
+      setAdults(String(booking.adults));
+      setChildren(String(booking.children));
       return;
     }
     onSaved();
@@ -278,6 +307,15 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
           ))}
         </select>
       </div>
+      <BookingPurposePartyFields
+        purpose={purpose}
+        onPurposeChange={setPurpose}
+        adults={adults}
+        onAdultsChange={setAdults}
+        childCount={children}
+        onChildCountChange={setChildren}
+        inputClassName="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
+      />
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Payment note</label>
         <textarea

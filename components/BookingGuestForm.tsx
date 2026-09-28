@@ -92,6 +92,25 @@ export default function BookingGuestForm({
           className="w-full bg-transparent border-b border-cream/25 py-2 text-cream placeholder:text-cream/40 focus:outline-none focus:border-coral"
         />
       </div>
+      <div className="flex gap-4">
+        <input
+          type="number"
+          name="adults"
+          placeholder="Adults"
+          min={1}
+          step={1}
+          required
+          className="w-full bg-transparent border-b border-cream/25 py-2 text-cream placeholder:text-cream/40 focus:outline-none focus:border-coral"
+        />
+        <input
+          type="number"
+          name="children"
+          placeholder="Children"
+          min={0}
+          step={1}
+          className="w-full bg-transparent border-b border-cream/25 py-2 text-cream placeholder:text-cream/40 focus:outline-none focus:border-coral"
+        />
+      </div>
 
       {status === "error" && (
         <p className="text-sm text-coral">

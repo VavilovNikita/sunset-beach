@@ -25,5 +25,9 @@ export function bookingRequestBody(roomId: string, checkIn: string, checkOut: st
     guestName: formData.get("guestName"),
     guestEmail: formData.get("guestEmail"),
     guestPhone: formData.get("guestPhone"),
+    // Required by the API (at least 1); the input itself is required, so it's never blank here.
+    adults: Number(formData.get("adults")),
+    // Optional on the API (defaults to 0) - a blank field sends 0 rather than NaN.
+    children: Number(formData.get("children") || 0),
   };
 }

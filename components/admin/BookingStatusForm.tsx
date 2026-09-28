@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS } from "@/lib/bookingChannel";
+import { parsePartySize } from "@/lib/bookingPurpose";
 import type { Folio } from "@/lib/posTypes";
-import type { BookingChannel } from "@/lib/types";
+import type { BookingChannel, BookingPurpose } from "@/lib/types";
+import BookingPurposePartyFields from "@/components/admin/BookingPurposePartyFields";
 
 const STATUSES = ["NEW", "CONFIRMED", "PAID", "CANCELLED"] as const;
 
@@ -14,12 +16,18 @@ export default function BookingStatusForm({
   currentStatus,
   currentPaymentNote,
   currentChannel,
+  currentPurpose,
+  currentAdults,
+  currentChildren,
   folio,
 }: {
   bookingId: string;
   currentStatus: string;
   currentPaymentNote: string | null;
   currentChannel: BookingChannel;
+  currentPurpose: BookingPurpose;
+  currentAdults: number;
+  currentChildren: number;
   // Purely informational — nothing here writes to paymentNote or blocks
   // saving. null covers both "no POS orders" and "folio failed to load";
   // either way there's nothing safe to warn about, so no banner.
@@ -29,17 +37,32 @@ export default function BookingStatusForm({
   const [status, setStatus] = useState(currentStatus);
   const [paymentNote, setPaymentNote] = useState(currentPaymentNote ?? "");
   const [channel, setChannel] = useState<BookingChannel>(currentChannel);
+  const [purpose, setPurpose] = useState<BookingPurpose>(currentPurpose);
+  const [adults, setAdults] = useState(String(currentAdults));
+  const [children, setChildren] = useState(String(currentChildren));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const party = parsePartySize(adults, children);
+    if ("error" in party) {
+      setError(party.error);
+      return;
+    }
     setSaving(true);
     setError(null);
 
     const result = await adminRequest(
       `/bookings/${bookingId}`,
-      adminJsonInit("PATCH", { status, paymentNote: paymentNote || null, channel }),
+      adminJsonInit("PATCH", {
+        status,
+        paymentNote: paymentNote || null,
+        channel,
+        purpose,
+        adults: party.adults,
+        children: party.children,
+      }),
       "Could not update booking."
     );
 
@@ -54,6 +77,9 @@ export default function BookingStatusForm({
       setStatus(currentStatus);
       setPaymentNote(currentPaymentNote ?? "");
       setChannel(currentChannel);
+      setPurpose(currentPurpose);
+      setAdults(String(currentAdults));
+      setChildren(String(currentChildren));
       return;
     }
     router.refresh();
@@ -99,6 +125,16 @@ export default function BookingStatusForm({
           ))}
         </select>
       </div>
+
+      <BookingPurposePartyFields
+        purpose={purpose}
+        onPurposeChange={setPurpose}
+        adults={adults}
+        onAdultsChange={setAdults}
+        childCount={children}
+        onChildCountChange={setChildren}
+        inputClassName="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
+      />
 
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Payment note</label>

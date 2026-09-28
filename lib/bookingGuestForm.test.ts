@@ -39,6 +39,8 @@ describe("bookingRequestBody", () => {
       guestName: "Ben Jones",
       guestEmail: "ben@example.com",
       guestPhone: "+66 81 234 5678",
+      adults: "2",
+      children: "1",
     });
 
     const body = bookingRequestBody("room-1", "2026-10-01", "2026-10-03", submitted);
@@ -50,8 +52,22 @@ describe("bookingRequestBody", () => {
       guestName: "Ben Jones",
       guestEmail: "ben@example.com",
       guestPhone: "+66 81 234 5678",
+      adults: 2,
+      children: 1,
     });
     expect(body.guestName).not.toBe(defaults.guestName);
     expect(body.guestEmail).not.toBe(defaults.guestEmail);
+  });
+
+  it("sends 0 children when the field is left blank", () => {
+    const body = bookingRequestBody(
+      "room-1",
+      "2026-10-01",
+      "2026-10-03",
+      form({ guestName: "Ben", guestEmail: "ben@example.com", guestPhone: "+66 81 234 5678", adults: "1", children: "" })
+    );
+
+    expect(body.adults).toBe(1);
+    expect(body.children).toBe(0);
   });
 });

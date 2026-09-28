@@ -22,7 +22,13 @@ export type BookingStatus = "NEW" | "CONFIRMED" | "PAID" | "CANCELLED";
 // form always sets DIRECT server-side; required on POST /bookings/staff; editable afterwards
 // via PATCH /bookings/{id}. Unrelated to the backend's internal public/staff "source" field.
 // Bookings older than the field read DIRECT (public form) or OTHER (staff-entered).
-export type BookingChannel = "DIRECT" | "PHONE" | "WALK_IN" | "BOOKING_COM" | "AIRBNB" | "AGODA" | "OTHER";
+export type BookingChannel = "DIRECT" | "PHONE" | "WALK_IN" | "BOOKING_COM" | "AIRBNB" | "AGODA" | "EXPEDIA" | "OTHER";
+
+// Why the room is occupied — a paying stay, a comp, or internal house use. Independent of
+// channel (a comp booked by phone is COMPLIMENTARY + PHONE). Still a booking that occupies the
+// room either way; the price isn't forced to zero. The public form is always STANDARD; optional
+// on POST /bookings/staff (defaults STANDARD); editable via PATCH /bookings/{id}.
+export type BookingPurpose = "STANDARD" | "COMPLIMENTARY" | "HOUSE_USE";
 
 // Response of PATCH /users/{id}/active and PATCH /users/{id}/functions. warning is set (the
 // change still succeeds) when the user being disabled, or having THERAPIST removed, holds one
@@ -378,6 +384,52 @@ export type OccupancyReportRow = {
   revpar: string | null;
 };
 
+// GET /reports/top-production (MANAGER+). One row per producer with room-nights in the range,
+// most room-nights first. producer is a BookingChannel value, or COMPLIMENTARY / HOUSE_USE for a
+// booking with that purpose (whatever its channel); producer/label are null on the total row.
+// Same room-night population and prorated revenue as GET /reports/occupancy.
+export type TopProductionRow = {
+  producer: string | null;
+  label: string | null;
+  roomNights: number;
+  roomNightsPercent: string | null;
+  revenue: string;
+  revenuePercent: string | null;
+  adr: string | null;
+};
+
+export type TopProductionReport = {
+  from: string;
+  to: string;
+  producers: TopProductionRow[];
+  total: TopProductionRow;
+};
+
+// GET /reports/market-segment (MANAGER+). COM = COMPLIMENTARY, HFO = HOUSE_USE, otherwise by
+// channel: OTA (Booking.com/Airbnb/Agoda/Expedia/Other), WLK (walk-in), DIR (direct/phone).
+export type MarketSegment = "COM" | "DIR" | "HFO" | "OTA" | "WLK";
+
+// guests is adults + children over the distinct bookings with a night in the range — a head
+// count of parties, not guest-nights. segment is null on the total row.
+export type MarketSegmentRow = {
+  segment: MarketSegment | null;
+  roomNights: number;
+  roomNightsPercent: string | null;
+  guests: number;
+  guestsPercent: string | null;
+  revenue: string;
+  revenuePercent: string | null;
+  averageRate: string | null;
+};
+
+// Always all five segments, in the order COM, DIR, HFO, OTA, WLK.
+export type MarketSegmentReport = {
+  from: string;
+  to: string;
+  segments: MarketSegmentRow[];
+  total: MarketSegmentRow;
+};
+
 // GET /night-audit (CASHIER+). missedArrivals: EXPECTED, not CANCELLED, checkIn on or before
 // date. missedDepartures: CHECKED_IN, checkOut on or before date. Both are the bookings' state
 // now, not a historical snapshot. snapshot is exactly GET /reports/occupancy?from=date&to=date's
@@ -467,6 +519,11 @@ export type Booking = {
   totalPrice: string;
   status: BookingStatus;
   channel: BookingChannel;
+  purpose: BookingPurpose;
+  // Party size. Bookings made before these fields existed read 1 adult / 0 children — an
+  // assumed default, not a recorded count.
+  adults: number;
+  children: number;
   paymentNote: string | null;
   // Whether the guest is physically at the hotel — deliberately separate from `status` (which
   // stays commercial only: confirmed/paid/cancelled). One value per booking, not per segment: a
@@ -701,6 +758,12 @@ export type StaffBookingCreateInput = {
   roomUnitId?: string | null;
   // Required — front desk always knows how a phone/walk-in booking reached them.
   channel: BookingChannel;
+  // Omitted means STANDARD.
+  purpose?: BookingPurpose;
+  // At least 1.
+  adults: number;
+  // Omitted means 0.
+  children?: number;
 };
 
 // --- Audit log (GET /audit-log) ---

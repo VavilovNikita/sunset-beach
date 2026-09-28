@@ -5,7 +5,9 @@ import { ADMIN_API_URL } from "@/lib/backend";
 import { extractApiError } from "@/lib/apiError";
 import { getNights, parseDateKey } from "@/lib/bookings";
 import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS } from "@/lib/bookingChannel";
-import type { Booking, BookingChannel, StaffBookingCreateInput } from "@/lib/types";
+import { parsePartySize } from "@/lib/bookingPurpose";
+import type { Booking, BookingChannel, BookingPurpose, StaffBookingCreateInput } from "@/lib/types";
+import BookingPurposePartyFields from "@/components/admin/BookingPurposePartyFields";
 
 // Opened two ways from the booking calendar grid, both landing here with the same props shape:
 // dragging out a date range on a free row (wide-enough columns - the range is already precise,
@@ -50,6 +52,11 @@ export default function BookingCreateFromGridModal({
   // Starts unset on purpose: the backend requires a channel with no default, and a preselected
   // value would get submitted unread just the same as a silent server-side default.
   const [channel, setChannel] = useState<BookingChannel | "">("");
+  const [purpose, setPurpose] = useState<BookingPurpose>("STANDARD");
+  // Adults starts empty for the same reason channel does: the backend requires it with no
+  // default, so a prefilled 1 would be sent unread. Children genuinely defaults to 0.
+  const [adults, setAdults] = useState("");
+  const [children, setChildren] = useState("0");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<Booking | null>(null);
@@ -76,6 +83,11 @@ export default function BookingCreateFromGridModal({
       setError("Choose how this booking came in.");
       return;
     }
+    const party = parsePartySize(adults, children);
+    if ("error" in party) {
+      setError(party.error);
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -88,6 +100,9 @@ export default function BookingCreateFromGridModal({
       checkOut,
       roomUnitId,
       channel,
+      purpose,
+      adults: party.adults,
+      children: party.children,
     };
 
     const res = await fetch(`${ADMIN_API_URL}/bookings/staff`, {
@@ -217,6 +232,16 @@ export default function BookingCreateFromGridModal({
                 ))}
               </select>
             </div>
+
+            <BookingPurposePartyFields
+              purpose={purpose}
+              onPurposeChange={setPurpose}
+              adults={adults}
+              onAdultsChange={setAdults}
+              childCount={children}
+              onChildCountChange={setChildren}
+              inputClassName="w-full bg-ink border border-cream/20 rounded-lg px-3 py-2 text-sm"
+            />
 
             {error && <p className="text-sm text-coral">{error}</p>}
 

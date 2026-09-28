@@ -7,6 +7,7 @@ import BookingStatusForm from "@/components/admin/BookingStatusForm";
 import BookingScheduleForm from "@/components/admin/BookingScheduleForm";
 import FolioPaymentPanel from "@/components/admin/FolioPaymentPanel";
 import BookingGuestLinkSection from "@/components/admin/BookingGuestLinkSection";
+import { BOOKING_PURPOSE_LABELS, formatPartySize } from "@/lib/bookingPurpose";
 import type { AuditLogPage, Booking, RoomUnit } from "@/lib/types";
 import type { BookingPosOrder, Folio, FolioPayment } from "@/lib/posTypes";
 
@@ -87,6 +88,12 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             <span className="text-cream/40">Phone:</span> {booking.guestPhone}
           </p>
           <p>
+            <span className="text-cream/40">Guests:</span> {formatPartySize(booking.adults, booking.children)}
+          </p>
+          <p>
+            <span className="text-cream/40">Purpose:</span> {BOOKING_PURPOSE_LABELS[booking.purpose]}
+          </p>
+          <p>
             <span className="text-cream/40">Total:</span> ฿{Number(booking.totalPrice).toLocaleString("en-US")}
           </p>
           <p>
@@ -109,6 +116,9 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             currentStatus={booking.status}
             currentPaymentNote={booking.paymentNote}
             currentChannel={booking.channel}
+            currentPurpose={booking.purpose}
+            currentAdults={booking.adults}
+            currentChildren={booking.children}
             folio={folio}
           />
         </div>
