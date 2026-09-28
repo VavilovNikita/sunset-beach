@@ -95,9 +95,11 @@ export const NAV_GROUPS: NavGroup[] = [
     // Dashboard belongs here, not Front desk: every figure on it (bookings/occupancy/revenue,
     // POS revenue) comes from the same CASHIER+ reads as the rest of this group, and it answers
     // "how are we doing", not "what do I do right now" - that's Today's job. History (the audit
-    // log) is MANAGER+ - GET /audit-log has no lower-privilege read.
+    // log) is MANAGER+ - GET /audit-log has no lower-privilege read. Room production is MANAGER+
+    // too - GET /reports/top-production and /reports/market-segment share the revenue export's floor.
     links: [
       { href: "/admin", label: "Dashboard", minRole: "CASHIER" },
+      { href: "/admin/reports", label: "Room production", minRole: "MANAGER" },
       { href: "/admin/history", label: "History", minRole: "MANAGER" },
     ],
   },
