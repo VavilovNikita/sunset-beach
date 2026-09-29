@@ -524,6 +524,36 @@ export type NightAuditCloseInput = {
   notes?: string | null;
 };
 
+// GET /reports/in-house (CASHIER+, unlike the rest of /reports). One row per room occupied on
+// the night `date` by a guest who was physically there: CHECKED_IN, or CHECKED_OUT after that
+// night (past dates only). EXPECTED and NO_SHOW are never listed. A booking's segments never
+// overlap, so a booking is one row and adults/children are its own counts. arrival/departure are
+// the whole booking's checkIn/checkOut. Sorted by room label, unassigned last. Nationality,
+// company and remark from the legacy Z180 are not recorded anywhere, so they're absent.
+export type InHouseReport = {
+  date: string;
+  rooms: InHouseRow[];
+  total: InHouseTotal;
+};
+
+export type InHouseRow = {
+  bookingId: string;
+  roomName: string;
+  roomUnitLabel: string | null;
+  adults: number;
+  children: number;
+  guestName: string;
+  marketSegment: MarketSegment;
+  arrival: string;
+  departure: string;
+};
+
+export type InHouseTotal = {
+  rooms: number;
+  adults: number;
+  children: number;
+};
+
 // Body of POST /guests. Nothing here is checked against existing guests before creating — no
 // automatic merging; GET /guests?q= is how a caller checks for a likely duplicate first.
 export type GuestCreateInput = {
