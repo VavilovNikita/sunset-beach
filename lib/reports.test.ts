@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { formatBaht, formatPercent, isRangeInverted, parseReportRange } from "@/lib/reports";
+import {
+  GUEST_LTV_DEFAULT_LIMIT,
+  formatBaht,
+  formatBahtOrDash,
+  formatPercent,
+  isRangeInverted,
+  parseGuestLtvLimit,
+  parseReportRange,
+} from "@/lib/reports";
 
 describe("parseReportRange", () => {
   it("keeps a valid range", () => {
@@ -36,5 +44,32 @@ describe("formatBaht", () => {
   it("formats a server decimal string", () => {
     expect(formatBaht("12345.50")).toBe("฿12,345.5");
     expect(formatBaht("0.00")).toBe("฿0");
+  });
+});
+
+describe("formatBahtOrDash", () => {
+  it("shows a null ratio as a dash, not ฿0", () => {
+    expect(formatBahtOrDash(null)).toBe("—");
+    expect(formatBahtOrDash("0.00")).toBe("฿0");
+    expect(formatBahtOrDash("1500.50")).toBe("฿1,500.5");
+  });
+});
+
+describe("parseGuestLtvLimit", () => {
+  it("defaults to the backend's own default of 50", () => {
+    expect(GUEST_LTV_DEFAULT_LIMIT).toBe(50);
+    expect(parseGuestLtvLimit(undefined)).toBe(50);
+  });
+
+  it("keeps an offered limit", () => {
+    expect(parseGuestLtvLimit("10")).toBe(10);
+    expect(parseGuestLtvLimit("200")).toBe(200);
+  });
+
+  it("falls back to the default for anything else", () => {
+    expect(parseGuestLtvLimit("0")).toBe(50);
+    expect(parseGuestLtvLimit("37")).toBe(50);
+    expect(parseGuestLtvLimit("500")).toBe(50);
+    expect(parseGuestLtvLimit("abc")).toBe(50);
   });
 });

@@ -1,4 +1,5 @@
 import { parseDateKey } from "@/lib/bookings";
+import type { MenuDepartment } from "@/lib/posTypes";
 import type { MarketSegment } from "@/lib/types";
 
 // Display helpers for the reports page. Pure, so they're tested in reports.test.ts.
@@ -41,6 +42,30 @@ export function formatPercent(percent: string | null): string {
 export function formatBaht(amount: string): string {
   return `฿${Number(amount).toLocaleString("en-US")}`;
 }
+
+// A ratio (ADR, RevPAR) is null when its denominator is zero - nothing sold or nothing
+// available - which is "no figure", not ฿0.
+export function formatBahtOrDash(amount: string | null): string {
+  return amount === null ? "—" : formatBaht(amount);
+}
+
+// GET /reports/guest-ltv's own default (openapi.yaml: limit default 50, 1-200). The selector
+// offers these; a ?limit= that isn't one of them (a hand-edited URL) falls back to the default.
+export const GUEST_LTV_DEFAULT_LIMIT = 50;
+export const GUEST_LTV_LIMIT_OPTIONS = [10, 25, 50, 100, 200] as const;
+
+export function parseGuestLtvLimit(param: string | undefined): number {
+  const limit = Number(param);
+  return (GUEST_LTV_LIMIT_OPTIONS as readonly number[]).includes(limit) ? limit : GUEST_LTV_DEFAULT_LIMIT;
+}
+
+// Sales-mix rows are about what sold, not ticket routing, so SPA is just "Spa" here rather than
+// lib/posOrders.ts's "Spa (no ticket)".
+export const SALES_MIX_DEPARTMENT_LABELS: Record<MenuDepartment, string> = {
+  KITCHEN: "Kitchen",
+  BAR: "Bar",
+  SPA: "Spa",
+};
 
 export const MARKET_SEGMENT_LABELS: Record<MarketSegment, string> = {
   COM: "Complimentary",

@@ -16,6 +16,7 @@ import type { Role } from "@/lib/session";
 // means that kind of drift can only happen once instead of twice.
 export type { SessionUser as User } from "@/lib/session";
 import type { JobFunction, SessionUser } from "@/lib/session";
+import type { MenuDepartment } from "@/lib/posTypes";
 export type BookingStatus = "NEW" | "CONFIRMED" | "PAID" | "CANCELLED";
 
 // How a booking reached the hotel — a label staff record, not an OTA integration. The public
@@ -383,6 +384,60 @@ export type OccupancyReportRow = {
   adr: string | null;
   revpar: string | null;
 };
+
+// GET /reports/occupancy (MANAGER+). rooms is one row per room type, sorted by name; total sums
+// them with its ratios recomputed from the sums. roomNightsAvailable is today's active units ×
+// nights, not a historical count, and blocked nights aren't subtracted.
+export type OccupancyReport = {
+  from: string;
+  to: string;
+  nights: number;
+  rooms: OccupancyReportRow[];
+  total: OccupancyReportRow;
+};
+
+// GET /reports/pos-sales-mix (MANAGER+). Items of PAID orders whose payment falls in the range,
+// ROOM_CHARGE included. revenue uses each line's frozen price; name/category/department are the
+// menu item's current ones. Every list is sorted by revenue, highest first.
+export type PosSalesMixItem = {
+  menuItemId: string;
+  name: string;
+  category: string;
+  department: MenuDepartment;
+  quantity: number;
+  revenue: string;
+};
+
+export type PosSalesMixCategory = { category: string; quantity: number; revenue: string };
+
+export type PosSalesMixDepartment = { department: MenuDepartment; quantity: number; revenue: string };
+
+export type PosSalesMixReport = {
+  from: string;
+  to: string;
+  totalQuantity: number;
+  totalRevenue: string;
+  items: PosSalesMixItem[];
+  categories: PosSalesMixCategory[];
+  departments: PosSalesMixDepartment[];
+};
+
+// GET /reports/guest-ltv (MANAGER+). Lifetime, no date range. Non-cancelled bookings linked to a
+// guest card, ranked by roomRevenue (room price only). roomChargesTotal is POS spend charged to
+// the room, reported alongside, not part of the ranking. lastCheckIn can be in the future.
+export type GuestLtvRow = {
+  guestId: string;
+  name: string;
+  email: string | null;
+  bookingCount: number;
+  totalNights: number;
+  roomRevenue: string;
+  roomChargesTotal: string;
+  firstCheckIn: string;
+  lastCheckIn: string;
+};
+
+export type GuestLtvReport = { guests: GuestLtvRow[] };
 
 // GET /reports/top-production (MANAGER+). One row per producer with room-nights in the range,
 // most room-nights first. producer is a BookingChannel value, or COMPLIMENTARY / HOUSE_USE for a

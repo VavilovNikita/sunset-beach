@@ -1,57 +1,88 @@
+import Link from "next/link";
 import { backendJson } from "@/lib/backendServer";
 import { requireRoleAtLeast } from "@/lib/rbac";
 import { hotelDateKey } from "@/lib/dashboardOps";
 import {
+  GUEST_LTV_LIMIT_OPTIONS,
   MARKET_SEGMENT_LABELS,
+  SALES_MIX_DEPARTMENT_LABELS,
   formatBaht,
+  formatBahtOrDash,
   formatPercent,
   isRangeInverted,
+  parseGuestLtvLimit,
   parseReportRange,
   type ReportRange,
 } from "@/lib/reports";
-import type { MarketSegmentReport, MarketSegmentRow, TopProductionReport } from "@/lib/types";
+import type {
+  GuestLtvReport,
+  MarketSegmentReport,
+  MarketSegmentRow,
+  OccupancyReport,
+  OccupancyReportRow,
+  PosSalesMixReport,
+  TopProductionReport,
+} from "@/lib/types";
 
-// Room-night reports over one shared date range. GET /reports/top-production and
-// /reports/market-segment are both MANAGER+ (same floor as the revenue export). Both count the
-// same population as GET /reports/occupancy: nights of non-cancelled bookings inside the range,
-// with from/to as inclusive nights. Every figure and share is the server's; nothing is summed here.
+// Every report here is MANAGER+ (same floor as the revenue export). All but guest LTV share one
+// date range. The room reports (occupancy, top production, market segment) count the same
+// population: nights of non-cancelled bookings inside the range, with from/to as inclusive
+// nights. The POS sales mix buckets paid orders by payment day over the same from/to. Guest LTV
+// is lifetime and takes only its own ?limit=. Every figure, share and ratio is the server's;
+// nothing is summed here.
 //
-// Each report loads on its own, so one failing shows its own error without hiding the other.
-export default async function ReportsPage({ searchParams }: { searchParams: { from?: string; to?: string } }) {
+// Each report loads on its own, so one failing shows its own error without hiding the others.
+// The two forms each carry the other's params as hidden inputs, so changing the range keeps the
+// guest LTV limit and vice versa.
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams: { from?: string; to?: string; limit?: string };
+}) {
   await requireRoleAtLeast("MANAGER");
 
   const range = parseReportRange(searchParams.from, searchParams.to, hotelDateKey(new Date()));
   const inverted = isRangeInverted(range);
+  const limit = parseGuestLtvLimit(searchParams.limit);
   const query = `from=${range.from}&to=${range.to}`;
 
-  const [topProduction, marketSegment] = inverted
-    ? [null, null]
-    : await Promise.all([
-        load<TopProductionReport>(`/reports/top-production?${query}`),
-        load<MarketSegmentReport>(`/reports/market-segment?${query}`),
-      ]);
+  const [ranged, guestLtv] = await Promise.all([
+    inverted
+      ? null
+      : Promise.all([
+          load<OccupancyReport>(`/reports/occupancy?${query}`),
+          load<TopProductionReport>(`/reports/top-production?${query}`),
+          load<MarketSegmentReport>(`/reports/market-segment?${query}`),
+          load<PosSalesMixReport>(`/reports/pos-sales-mix?${query}`),
+        ]),
+    load<GuestLtvReport>(`/reports/guest-ltv?limit=${limit}`),
+  ]);
 
   return (
     <div className="max-w-4xl">
       <div className="mb-8">
         <p className="eyebrow text-sea mb-2">Reports</p>
-        <h1 className="font-display italic text-3xl">Room production</h1>
+        <h1 className="font-display italic text-3xl">Rooms, sales and guests</h1>
         <p className="text-sm text-cream/60 mt-3">
-          Room-nights and room revenue by where the booking came from. Counts every night of every booking that isn&apos;t
-          cancelled, with both dates included as nights. Revenue is the agreed room price, not money collected.
+          Room reports count every night of every booking that isn&apos;t cancelled, with both dates included as nights.
+          Room revenue is the agreed room price, not money collected.
         </p>
       </div>
 
-      <RangeForm range={range} />
+      <RangeForm range={range} limit={limit} />
 
-      {inverted ? (
-        <p className="text-sm text-coral">&ldquo;From&rdquo; must be on or before &ldquo;To&rdquo;.</p>
+      {ranged === null ? (
+        <p className="text-sm text-coral mb-8">&ldquo;From&rdquo; must be on or before &ldquo;To&rdquo;.</p>
       ) : (
         <>
-          <TopProductionSection result={topProduction!} />
-          <MarketSegmentSection result={marketSegment!} />
+          <OccupancySection result={ranged[0]} />
+          <TopProductionSection result={ranged[1]} />
+          <MarketSegmentSection result={ranged[2]} />
+          <SalesMixSection result={ranged[3]} />
         </>
       )}
+
+      <GuestLtvSection result={guestLtv} range={range} limit={limit} />
     </div>
   );
 }
@@ -66,11 +97,12 @@ async function load<T>(path: string): Promise<Loaded<T>> {
   }
 }
 
-function RangeForm({ range }: { range: ReportRange }) {
+function RangeForm({ range, limit }: { range: ReportRange; limit: number }) {
   const inputClass =
     "bg-transparent border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral";
   return (
     <form method="get" className="flex flex-wrap items-end gap-3 mb-8">
+      <input type="hidden" name="limit" value={limit} />
       <div>
         <label className="eyebrow text-cream/60 block mb-1">From</label>
         <input type="date" name="from" defaultValue={range.from} className={inputClass} />
@@ -100,6 +132,66 @@ const td = "px-4 py-2";
 
 function Share({ percent }: { percent: string | null }) {
   return <span className="text-xs text-cream/40 ml-2">{formatPercent(percent)}</span>;
+}
+
+function OccupancySection({ result }: { result: Loaded<OccupancyReport> }) {
+  return (
+    <section className="mb-8">
+      <SectionHeader
+        title="Occupancy, ADR and RevPAR"
+        hint="One set of figures for the whole range, per room type and for the property. ADR is room revenue per night sold; RevPAR is room revenue per night available."
+      />
+      {!result.ok ? (
+        <p className="text-sm text-coral">Couldn&apos;t load occupancy: {result.error}</p>
+      ) : (
+        <>
+          <div className="border border-cream/10 rounded-xl overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left">
+                <tr className="border-b border-cream/10">
+                  <th className={th}>Room type</th>
+                  <th className={`${th} text-right`}>Occupancy</th>
+                  <th className={`${th} text-right`}>Sold / available</th>
+                  <th className={`${th} text-right`}>Revenue</th>
+                  <th className={`${th} text-right`}>ADR</th>
+                  <th className={`${th} text-right`}>RevPAR</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-cream/10">
+                {result.data.rooms.map((row) => (
+                  <OccupancyRow key={row.roomId} label={row.roomName ?? ""} row={row} />
+                ))}
+              </tbody>
+              <tfoot>
+                <OccupancyRow label="Total" row={result.data.total} className="border-t border-cream/20 font-medium" />
+              </tfoot>
+            </table>
+          </div>
+          <p className="text-xs text-cream/40 mt-2">
+            Nights available is today&apos;s active rooms × {result.data.nights}{" "}
+            {result.data.nights === 1 ? "night" : "nights"} - not a day-by-day history. A room added or taken out of
+            service during the range counts as if it had always been in today&apos;s state, and blocked nights
+            aren&apos;t subtracted, so occupancy and RevPAR for a past range are approximate.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
+function OccupancyRow({ label, row, className }: { label: string; row: OccupancyReportRow; className?: string }) {
+  return (
+    <tr className={className}>
+      <td className={td}>{label}</td>
+      <td className={`${td} text-right`}>{formatPercent(row.occupancyPercent)}</td>
+      <td className={`${td} text-right whitespace-nowrap`}>
+        {row.roomNightsSold} / {row.roomNightsAvailable}
+      </td>
+      <td className={`${td} text-right whitespace-nowrap`}>{formatBaht(row.roomRevenue)}</td>
+      <td className={`${td} text-right whitespace-nowrap`}>{formatBahtOrDash(row.adr)}</td>
+      <td className={`${td} text-right whitespace-nowrap`}>{formatBahtOrDash(row.revpar)}</td>
+    </tr>
+  );
 }
 
 function TopProductionSection({ result }: { result: Loaded<TopProductionReport> }) {
@@ -215,5 +307,191 @@ function SegmentRow({ row }: { row: MarketSegmentRow }) {
         <Share percent={row.revenuePercent} />
       </td>
     </tr>
+  );
+}
+
+function SalesMixSection({ result }: { result: Loaded<PosSalesMixReport> }) {
+  return (
+    <section className="mb-8">
+      <SectionHeader
+        title="POS sales mix"
+        hint="Items on paid orders, by the day they were paid - room charges included. Revenue is the price on the order, not today's menu price; names and groupings are the menu's current ones."
+      />
+      {!result.ok ? (
+        <p className="text-sm text-coral">Couldn&apos;t load the sales mix: {result.error}</p>
+      ) : result.data.items.length === 0 ? (
+        <p className="text-sm text-cream/60">No paid orders in this range.</p>
+      ) : (
+        <div className="space-y-4">
+          <MixTable
+            heading="Department"
+            rows={result.data.departments.map((d) => ({
+              key: d.department,
+              label: SALES_MIX_DEPARTMENT_LABELS[d.department],
+              quantity: d.quantity,
+              revenue: d.revenue,
+            }))}
+            totalQuantity={result.data.totalQuantity}
+            totalRevenue={result.data.totalRevenue}
+          />
+          <MixTable
+            heading="Category"
+            rows={result.data.categories.map((c) => ({
+              key: c.category,
+              label: c.category,
+              quantity: c.quantity,
+              revenue: c.revenue,
+            }))}
+            totalQuantity={result.data.totalQuantity}
+            totalRevenue={result.data.totalRevenue}
+          />
+          <details>
+            <summary className="cursor-pointer text-sm text-sea hover:text-coral transition-colors mb-3">
+              All {result.data.items.length} items
+            </summary>
+            <MixTable
+              heading="Item"
+              rows={result.data.items.map((item) => ({
+                key: item.menuItemId,
+                label: item.name,
+                detail: `${item.category} · ${SALES_MIX_DEPARTMENT_LABELS[item.department]}`,
+                quantity: item.quantity,
+                revenue: item.revenue,
+              }))}
+              totalQuantity={result.data.totalQuantity}
+              totalRevenue={result.data.totalRevenue}
+            />
+          </details>
+        </div>
+      )}
+    </section>
+  );
+}
+
+type MixRow = { key: string; label: string; detail?: string; quantity: number; revenue: string };
+
+function MixTable({
+  heading,
+  rows,
+  totalQuantity,
+  totalRevenue,
+}: {
+  heading: string;
+  rows: MixRow[];
+  totalQuantity: number;
+  totalRevenue: string;
+}) {
+  return (
+    <div className="border border-cream/10 rounded-xl overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="text-left">
+          <tr className="border-b border-cream/10">
+            <th className={th}>{heading}</th>
+            <th className={`${th} text-right`}>Qty</th>
+            <th className={`${th} text-right`}>Revenue</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-cream/10">
+          {rows.map((row) => (
+            <tr key={row.key}>
+              <td className={td}>
+                {row.label}
+                {row.detail && <span className="text-xs text-cream/40 ml-2">{row.detail}</span>}
+              </td>
+              <td className={`${td} text-right`}>{row.quantity}</td>
+              <td className={`${td} text-right whitespace-nowrap`}>{formatBaht(row.revenue)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-cream/20 font-medium">
+            <td className={td}>Total</td>
+            <td className={`${td} text-right`}>{totalQuantity}</td>
+            <td className={`${td} text-right whitespace-nowrap`}>{formatBaht(totalRevenue)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
+// Lifetime, so it takes no from/to of its own: its form only carries the shared range through as
+// hidden inputs so picking a limit doesn't reset the sections above.
+function GuestLtvSection({
+  result,
+  range,
+  limit,
+}: {
+  result: Loaded<GuestLtvReport>;
+  range: ReportRange;
+  limit: number;
+}) {
+  return (
+    <section className="mb-8 border-t border-cream/10 pt-8">
+      <SectionHeader
+        title="Guest lifetime value"
+        hint="Every booking ever made, future ones included - not affected by the dates above. Only bookings linked to a guest card count, cancelled ones excluded. Ranked by room revenue; room charges (POS orders charged to the room) are shown alongside but don't affect the rank."
+      />
+      <form method="get" className="flex flex-wrap items-end gap-3 mb-4">
+        <input type="hidden" name="from" value={range.from} />
+        <input type="hidden" name="to" value={range.to} />
+        <div>
+          <label className="eyebrow text-cream/60 block mb-1">Show top</label>
+          <select name="limit" defaultValue={limit} className="bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm">
+            {GUEST_LTV_LIMIT_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                {n} guests
+              </option>
+            ))}
+          </select>
+        </div>
+        <button type="submit" className="rounded-full border border-cream/20 hover:border-coral px-4 py-2 text-sm">
+          View
+        </button>
+      </form>
+      {!result.ok ? (
+        <p className="text-sm text-coral">Couldn&apos;t load guest lifetime value: {result.error}</p>
+      ) : result.data.guests.length === 0 ? (
+        <p className="text-sm text-cream/60">No guests with a linked, non-cancelled booking yet.</p>
+      ) : (
+        <div className="border border-cream/10 rounded-xl overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-left">
+              <tr className="border-b border-cream/10">
+                <th className={th}>#</th>
+                <th className={th}>Guest</th>
+                <th className={`${th} text-right`}>Bookings</th>
+                <th className={`${th} text-right`}>Nights</th>
+                <th className={`${th} text-right`}>Room revenue</th>
+                <th className={`${th} text-right`}>Room charges</th>
+                <th className={th}>First stay</th>
+                <th className={th}>Latest stay</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-cream/10">
+              {result.data.guests.map((row, i) => (
+                <tr key={row.guestId}>
+                  <td className={`${td} text-cream/40`}>{i + 1}</td>
+                  <td className={td}>
+                    <Link href={`/admin/guests/${row.guestId}`} className="text-sea hover:text-coral transition-colors">
+                      {row.name}
+                    </Link>
+                    {row.email && <div className="text-xs text-cream/40">{row.email}</div>}
+                  </td>
+                  <td className={`${td} text-right`}>{row.bookingCount}</td>
+                  <td className={`${td} text-right`}>{row.totalNights}</td>
+                  <td className={`${td} text-right whitespace-nowrap`}>{formatBaht(row.roomRevenue)}</td>
+                  <td className={`${td} text-right whitespace-nowrap text-cream/60`}>
+                    {formatBaht(row.roomChargesTotal)}
+                  </td>
+                  <td className={`${td} whitespace-nowrap`}>{row.firstCheckIn}</td>
+                  <td className={`${td} whitespace-nowrap`}>{row.lastCheckIn}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
