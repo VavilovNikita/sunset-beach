@@ -554,6 +554,70 @@ export type InHouseTotal = {
   children: number;
 };
 
+// GET /reports/manager (MANAGER+) - one night and the same calendar date a year earlier, each
+// computed identically. Ratios and percentages are two-decimal strings, null when their
+// denominator is zero. Field-by-field definitions live on the operation in openapi.yaml.
+export type ManagerReport = {
+  date: string;
+  lastYearDate: string;
+  today: ManagerReportDay;
+  lastYear: ManagerReportDay;
+};
+
+export type ManagerReportDay = {
+  rooms: ManagerRoomStatistic;
+  guests: ManagerGuestStatistic;
+  accounts: ManagerAccountCount;
+  revenue: ManagerRevenue;
+  tomorrow: ManagerForecast;
+};
+
+export type ManagerRoomStatistic = {
+  totalRooms: number;
+  outOfOrder: number;
+  availableForSale: number;
+  occupied: number;
+  complimentary: number;
+  houseUse: number;
+  occupiedExcludingCompAndHouseUse: number;
+  occupancyPercent: string | null;
+  averageRatePerOccupiedRoom: string | null;
+  averageRevenuePerAvailableRoom: string | null;
+};
+
+export type ManagerGuestStatistic = {
+  adultsInHouse: number;
+  childrenInHouse: number;
+  guestsInHouse: number;
+  averageGuestsPerRoom: string | null;
+  averageRatePerGuest: string | null;
+  averageLengthOfStay: string | null;
+  complimentaryGuests: number;
+  houseUseGuests: number;
+};
+
+export type ManagerAccountCount = {
+  arrivals: number;
+  departures: number;
+  cancellations: number;
+  noShows: number;
+  walkInRooms: number;
+};
+
+export type ManagerRevenue = {
+  roomRevenue: string;
+  averageRevenuePerInHouseGuest: string | null;
+};
+
+export type ManagerForecast = {
+  date: string;
+  arrivals: number;
+  departures: number;
+  occupied: number;
+  availableForSale: number;
+  occupancyPercent: string | null;
+};
+
 // Body of POST /guests. Nothing here is checked against existing guests before creating — no
 // automatic merging; GET /guests?q= is how a caller checks for a likely duplicate first.
 export type GuestCreateInput = {

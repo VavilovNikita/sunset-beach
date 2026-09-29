@@ -99,9 +99,12 @@ export const NAV_GROUPS: NavGroup[] = [
     // "how are we doing", not "what do I do right now" - that's Today's job. History (the audit
     // log) is MANAGER+ - GET /audit-log has no lower-privilege read. Room production is MANAGER+
     // too - GET /reports/top-production and /reports/market-segment share the revenue export's floor.
+    // Manager report (GET /reports/manager) is MANAGER+ like the rest of /reports/* - so it lives
+    // here, not beside the CASHIER+ Night audit / In house under Front desk.
     links: [
       { href: "/admin", label: "Dashboard", minRole: "CASHIER" },
       { href: "/admin/reports", label: "Room production", minRole: "MANAGER" },
+      { href: "/admin/manager-report", label: "Manager report", minRole: "MANAGER" },
       { href: "/admin/history", label: "History", minRole: "MANAGER" },
     ],
   },

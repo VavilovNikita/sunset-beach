@@ -41,7 +41,7 @@ describe("visibleNavGroups", () => {
 
     const byTitle = Object.fromEntries(groups.map((g) => [g.title, g.links.map((l) => l.label)]));
     expect(byTitle["Setup"]).toEqual(["Rooms", "Pricing", "Availability", "Printers"]); // no Guest emails - ADMIN only
-    expect(byTitle["Reports"]).toContain("History");
+    expect(byTitle["Reports"]).toEqual(["Dashboard", "Room production", "Manager report", "History"]);
     expect(byTitle["Staff"]).toEqual(["Roster", "My schedule", "Devices"]); // no Import schedule/Users - ADMIN only
   });
 
