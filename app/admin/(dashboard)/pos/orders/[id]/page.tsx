@@ -45,7 +45,7 @@ export default async function OrderTicketPage({ params }: { params: { id: string
 
   return (
     <div>
-      <p className="eyebrow text-sea mb-2">POS</p>
+      <p className="eyebrow text-sea mb-2">Restaurant</p>
       <h1 className="font-display italic text-3xl">{table ? table.label : ticketTitle(order)}</h1>
       <p className="text-sm text-cream/50 mb-8">
         Order {orderNumberLabel(order)} <span className="font-mono text-xs text-cream/40">ref {orderRefLabel(order)}</span>

@@ -6,8 +6,30 @@ import { ADMIN_API_URL } from "@/lib/backend";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { usePolling } from "@/lib/usePolling";
 import StatCard from "@/components/admin/StatCard";
-import { reconcileCash } from "@/lib/shiftReconciliation";
+import { reconcileCash, shiftOpeningFacts } from "@/lib/shiftReconciliation";
 import type { ShiftSummary } from "@/lib/posTypes";
+
+// Who opened this drawer, when, and with how much - the float is what the close is reconciled
+// against, so it has to be visible for the whole shift, not only in the form that set it.
+function OpeningFacts({ shift }: { shift: ShiftSummary }) {
+  const facts = shiftOpeningFacts(shift);
+  return (
+    <dl className="grid sm:grid-cols-3 gap-x-6 gap-y-2 text-sm bg-ink2/40 border border-cream/10 rounded-xl px-5 py-3 mb-6">
+      <div>
+        <dt className="eyebrow text-cream/50">Opened by</dt>
+        <dd className="text-cream truncate">{facts.openedBy}</dd>
+      </div>
+      <div>
+        <dt className="eyebrow text-cream/50">Opened at</dt>
+        <dd className="text-cream">{facts.openedAt}</dd>
+      </div>
+      <div>
+        <dt className="eyebrow text-cream/50">Opening cash float</dt>
+        <dd className="text-cream">{facts.openingFloat}</dd>
+      </div>
+    </dl>
+  );
+}
 
 function DiscrepancyBlock({ expectedCash, counted, discrepancy }: { expectedCash: number; counted: number | null; discrepancy: number | null }) {
   if (counted === null) return null;
@@ -159,6 +181,7 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
             onChange={(e) => setOpeningFloat(e.target.value)}
             className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
           />
+          <p className="text-xs text-cream/40 mt-1">Cash in the drawer before the first sale — the close is counted against it.</p>
         </div>
         {error && <p className="text-sm text-coral">{error}</p>}
         <button
@@ -176,6 +199,7 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
 
   return (
     <div className="max-w-2xl">
+      <OpeningFacts shift={shift} />
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         <StatCard label="Cash" value={`฿${Number(shift.totals.cash).toLocaleString("en-US")}`} />
         <StatCard label="Card" value={`฿${Number(shift.totals.card).toLocaleString("en-US")}`} />

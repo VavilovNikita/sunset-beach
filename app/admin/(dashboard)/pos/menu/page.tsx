@@ -29,7 +29,7 @@ export default async function AdminMenuPage({ searchParams }: { searchParams: { 
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <p className="eyebrow text-sea mb-2">POS</p>
+          <p className="eyebrow text-sea mb-2">Restaurant</p>
           <h1 className="font-display italic text-3xl">Menu</h1>
         </div>
         {canManage && (

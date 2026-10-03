@@ -8,15 +8,14 @@ import {
   PRINT_JOB_STATUS_STYLES,
   PRINT_DOCUMENT_TYPE_LABELS,
 } from "@/lib/posOrders";
-import type { PrintJob, PrintJobStatus, PrintDocumentType } from "@/lib/posTypes";
-
-const FILTERS: (PrintJobStatus | "")[] = ["FAILED", "PENDING", "SENT", ""];
-const FILTER_LABELS: Record<PrintJobStatus | "", string> = {
-  FAILED: "Failed",
-  PENDING: "Pending",
-  SENT: "Sent",
-  "": "All",
-};
+import {
+  PRINT_QUEUE_FILTERS,
+  PRINT_QUEUE_FILTER_LABELS,
+  emptyPrintQueueText,
+  jobMatchesFilter,
+  type PrintQueueFilter,
+} from "@/lib/printQueue";
+import type { PrintJob, PrintDocumentType } from "@/lib/posTypes";
 
 // Kitchen and bar tickets used to be one document type (KITCHEN_TICKET
 // covered both); now that the backend splits them, a station filter lets
@@ -41,7 +40,7 @@ export default function PrintQueue({
   initialFilter,
 }: {
   initialJobs: PrintJob[];
-  initialFilter: PrintJobStatus | "";
+  initialFilter: PrintQueueFilter;
 }) {
   const [jobs, setJobs] = useState(initialJobs);
   const [filter, setFilter] = useState(initialFilter);
@@ -58,7 +57,7 @@ export default function PrintQueue({
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   async function refetch(
-    activeFilter: PrintJobStatus | "" = filter,
+    activeFilter: PrintQueueFilter = filter,
     activeDocTypeFilter: PrintDocumentType | "" = docTypeFilter,
     activeShowDismissed: boolean = showDismissed
   ) {
@@ -73,7 +72,7 @@ export default function PrintQueue({
 
   usePolling(() => refetch(), 10000);
 
-  function handleFilterChange(next: PrintJobStatus | "") {
+  function handleFilterChange(next: PrintQueueFilter) {
     setFilter(next);
     setSelected(new Set());
     refetch(next, docTypeFilter, showDismissed);
@@ -106,10 +105,10 @@ export default function PrintQueue({
     }
     const updated = result.job;
     // A retry that now falls outside the active filter (e.g. FAILED -> SENT
-    // while viewing "Failed") should drop off the list rather than linger
+    // while viewing "Not printed") should drop off the list rather than linger
     // showing a stale status.
     setJobs((prev) =>
-      filter && updated.status !== filter ? prev.filter((j) => j.id !== id) : prev.map((j) => (j.id === id ? updated : j))
+      !jobMatchesFilter(updated, filter) ? prev.filter((j) => j.id !== id) : prev.map((j) => (j.id === id ? updated : j))
     );
   }
 
@@ -152,7 +151,7 @@ export default function PrintQueue({
       {fetchError && <p className="text-sm text-coral mb-4">{fetchError}</p>}
 
       <div className="flex flex-wrap gap-2 mb-6">
-        {FILTERS.map((f) => (
+        {PRINT_QUEUE_FILTERS.map((f) => (
           <button
             key={f || "ALL"}
             type="button"
@@ -161,7 +160,7 @@ export default function PrintQueue({
               filter === f ? "bg-coral text-ink" : "bg-ink2/40 border border-cream/10 text-cream/70 hover:text-cream"
             }`}
           >
-            {FILTER_LABELS[f]}
+            {PRINT_QUEUE_FILTER_LABELS[f]}
           </button>
         ))}
       </div>
@@ -266,7 +265,7 @@ export default function PrintQueue({
             </div>
           );
         })}
-        {jobs.length === 0 && <p className="text-cream/50 text-sm">No print jobs{filter ? ` with status ${FILTER_LABELS[filter].toLowerCase()}` : ""}.</p>}
+        {jobs.length === 0 && <p className="text-cream/50 text-sm">{emptyPrintQueueText(filter)}</p>}
       </div>
     </div>
   );

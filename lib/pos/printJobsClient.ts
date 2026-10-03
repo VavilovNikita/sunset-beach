@@ -1,4 +1,5 @@
 import { posRequest, posJsonInit, type PosResult } from "@/lib/pos/posFetch";
+import { mergePrintJobLists, statusesForFilter, type PrintQueueFilter } from "@/lib/printQueue";
 import type { DismissPrintJobsInput, PrintJob, PrintJobStatus } from "@/lib/posTypes";
 
 // The backend already scopes what comes back to the caller's role (WAITER/CASHIER only ever see
@@ -12,6 +13,18 @@ export function fetchPrintJobs(status?: PrintJobStatus, includeDismissed?: boole
   if (includeDismissed) params.set("includeDismissed", "true");
   const query = params.toString();
   return posRequest<PrintJob[]>(`/print-jobs${query ? `?${query}` : ""}`, undefined, "Could not load print jobs.");
+}
+
+// Same merge as the admin client: "Not printed" is two requests (FAILED + PENDING), see
+// lib/printQueue.ts.
+export async function fetchPrintJobsForFilter(filter: PrintQueueFilter, includeDismissed?: boolean): Promise<PosResult<PrintJob[]>> {
+  const results = await Promise.all(statusesForFilter(filter).map((status) => fetchPrintJobs(status, includeDismissed)));
+  const lists: PrintJob[][] = [];
+  for (const result of results) {
+    if (!result.ok) return result;
+    lists.push(result.data);
+  }
+  return { ok: true, data: mergePrintJobLists(lists), status: 200 };
 }
 
 export function retryPrintJob(id: string): Promise<PosResult<PrintJob>> {

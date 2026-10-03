@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { createSpaAppointment } from "@/lib/spaClient";
-import type { MenuItem, SpaTherapist } from "@/lib/posTypes";
+import { tableClash, therapistClash, therapistDay } from "@/lib/spaAvailability";
+import type { MenuItem, SpaAppointment, SpaTherapist } from "@/lib/posTypes";
 import type { Booking } from "@/lib/types";
 import { formatDate, formatDateRange } from "@/lib/formatDate";
 
@@ -11,6 +12,11 @@ import { formatDate, formatDateRange } from "@/lib/formatDate";
 // `bookings`/`therapists`/`treatments` are all fetched server-side by the page (not here) since
 // the date is already known at render time - see app/admin/(dashboard)/spa/page.tsx's own
 // comment on why its bookings query is widened to [date-1, date].
+//
+// `dayAppointments` is the schedule already on screen: a therapist busy at this time (for the
+// chosen treatment's length) is shown disabled with who they're with, and a treatment that would
+// run into the next appointment on this table is flagged - before saving, not as a 409 after.
+// The server's constraints still decide; this is only what the grid already knows.
 export default function SpaAppointmentCreateModal({
   date,
   tableId,
@@ -19,6 +25,7 @@ export default function SpaAppointmentCreateModal({
   bookings,
   therapists,
   treatments,
+  dayAppointments,
   onClose,
   onCreated,
 }: {
@@ -29,18 +36,27 @@ export default function SpaAppointmentCreateModal({
   bookings: Booking[];
   therapists: SpaTherapist[];
   treatments: MenuItem[];
+  dayAppointments: SpaAppointment[];
   onClose: () => void;
   onCreated: () => void;
 }) {
   const [bookingId, setBookingId] = useState(bookings[0]?.id ?? "");
-  const [therapistUserId, setTherapistUserId] = useState(therapists[0]?.id ?? "");
   const [treatmentMenuItemId, setTreatmentMenuItemId] = useState(treatments[0]?.id ?? "");
+  const durationMinutes = treatments.find((t) => t.id === treatmentMenuItemId)?.durationMinutes ?? 0;
+  const clashFor = (therapistId: string) => therapistClash(dayAppointments, therapistId, startTime, durationMinutes);
+  // Starts on the first therapist who is actually free, not just the first in the list.
+  const [therapistUserId, setTherapistUserId] = useState(
+    () => (therapists.find((t) => !clashFor(t.id)) ?? therapists[0])?.id ?? ""
+  );
+  const selectedTherapistClash = therapistUserId ? clashFor(therapistUserId) : null;
+  const selectedTherapistDay = therapistUserId ? therapistDay(dayAppointments, therapistUserId) : [];
+  const tableConflict = durationMinutes ? tableClash(dayAppointments, tableId, startTime, durationMinutes) : null;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  const canSubmit = bookingId && therapistUserId && treatmentMenuItemId;
+  const canSubmit = bookingId && therapistUserId && treatmentMenuItemId && !selectedTherapistClash && !tableConflict;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -122,6 +138,12 @@ export default function SpaAppointmentCreateModal({
                   ))}
                 </select>
               )}
+              {tableConflict && (
+                <p className="text-xs text-coral mt-1">
+                  Runs into {tableConflict.guestName}&rsquo;s appointment on this table ({tableConflict.from}–{tableConflict.to}) — pick
+                  a shorter treatment or another time.
+                </p>
+              )}
             </div>
 
             <div>
@@ -136,12 +158,29 @@ export default function SpaAppointmentCreateModal({
                   onChange={(e) => setTherapistUserId(e.target.value)}
                   className="w-full bg-ink border border-cream/20 rounded-lg px-3 py-2 text-sm"
                 >
-                  {therapists.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
+                  {therapists.map((t) => {
+                    const clash = clashFor(t.id);
+                    return (
+                      <option key={t.id} value={t.id} disabled={!!clash}>
+                        {clash ? `${t.name} — busy ${clash.from}–${clash.to} (${clash.guestName})` : t.name}
+                      </option>
+                    );
+                  })}
                 </select>
+              )}
+              {selectedTherapistClash ? (
+                <p className="text-xs text-coral mt-1">
+                  Busy {selectedTherapistClash.from}–{selectedTherapistClash.to} with {selectedTherapistClash.guestName} — choose
+                  another therapist or time.
+                </p>
+              ) : (
+                therapistUserId && (
+                  <p className="text-xs text-cream/40 mt-1">
+                    {selectedTherapistDay.length === 0
+                      ? "Nothing else booked for this therapist today."
+                      : `Already booked today: ${selectedTherapistDay.map((d) => `${d.from}–${d.to}`).join(", ")}`}
+                  </p>
+                )
               )}
             </div>
 

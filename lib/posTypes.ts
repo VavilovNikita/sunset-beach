@@ -60,6 +60,11 @@ export type Printer = {
   codepage: PrinterCodepage;
   isActive: boolean;
   createdAt: string;
+  // From the print queue, not a heartbeat (nothing polls an idle printer): when it last took a
+  // job, and when an attempt to it last failed (dismissed jobs left out). Absent = never.
+  // lib/printerHealth.ts turns the pair into the online/offline indicator.
+  lastSentAt?: string | null;
+  lastFailedAt?: string | null;
 };
 
 export type PrinterInput = {
@@ -331,7 +336,9 @@ export type ShiftTotals = {
   paymentCount: number;
 };
 
-export type ShiftSummary = Shift & { totals: ShiftTotals };
+// openedByEmail/closedByEmail: who opened/closed the drawer, resolved server-side (a CASHIER
+// can't look the ids up through GET /users). closedByEmail is absent while the shift is open.
+export type ShiftSummary = Shift & { totals: ShiftTotals; openedByEmail?: string | null; closedByEmail?: string | null };
 
 export type ShiftOpenInput = { openingCashFloat?: number };
 export type ShiftCloseInput = { closingCashCounted?: number; notes?: string };
@@ -472,6 +479,9 @@ export type SpaAppointment = {
   therapistUserId: string;
   therapistName: string;
   therapistEmail: string | null;
+  // The physical room the guest is in on `date` (from the booking's segments, so a relocated
+  // stay shows that day's room). Absent when the booking has no room unit assigned.
+  roomUnitLabel?: string | null;
   // One row per treatment - always at least one, an appointment cannot exist with zero.
   treatments: SpaAppointmentTreatment[];
   date: string;

@@ -15,7 +15,7 @@ export default async function AdminPrintersPage() {
 
   return (
     <div>
-      <p className="eyebrow text-sea mb-2">POS</p>
+      <p className="eyebrow text-sea mb-2">Restaurant</p>
       <h1 className="font-display italic text-3xl mb-8">Printers</h1>
       <p className="text-sm text-cream/60 mb-6 max-w-2xl">
         Each department (Kitchen, Bar, Cashier) can have at most one active printer. Use{" "}

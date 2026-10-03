@@ -3,11 +3,15 @@
 import { useState } from "react";
 import { usePolling } from "@/lib/usePolling";
 import { PRINT_JOB_STATUS_LABELS, PRINT_JOB_STATUS_STYLES, PRINT_DOCUMENT_TYPE_LABELS } from "@/lib/posOrders";
-import { fetchPrintJobs, retryPrintJob, dismissPrintJobs } from "@/lib/pos/printJobsClient";
-import type { PrintJob, PrintJobStatus } from "@/lib/posTypes";
-
-const FILTERS: (PrintJobStatus | "")[] = ["FAILED", "PENDING", "SENT", ""];
-const FILTER_LABELS: Record<PrintJobStatus | "", string> = { FAILED: "Failed", PENDING: "Pending", SENT: "Sent", "": "All" };
+import { fetchPrintJobsForFilter, retryPrintJob, dismissPrintJobs } from "@/lib/pos/printJobsClient";
+import {
+  PRINT_QUEUE_FILTERS,
+  PRINT_QUEUE_FILTER_LABELS,
+  emptyPrintQueueText,
+  jobMatchesFilter,
+  type PrintQueueFilter,
+} from "@/lib/printQueue";
+import type { PrintJob } from "@/lib/posTypes";
 
 // What comes back is already scoped server-side to what this role may see (WAITER/CASHIER: their
 // own kitchen/bar tickets and pre-bills only; Z-reports and guest receipts are hidden) — rendered
@@ -15,7 +19,7 @@ const FILTER_LABELS: Record<PrintJobStatus | "", string> = { FAILED: "Failed", P
 // a higher one - a dismissal can only ever touch a document type this role could already see and
 // retry, and the person who told the kitchen by voice that a ticket doesn't need reprinting is
 // routinely the one standing here, not a manager who wasn't.
-export default function PosPrintQueue({ initialJobs, initialFilter }: { initialJobs: PrintJob[]; initialFilter: PrintJobStatus | "" }) {
+export default function PosPrintQueue({ initialJobs, initialFilter }: { initialJobs: PrintJob[]; initialFilter: PrintQueueFilter }) {
   const [jobs, setJobs] = useState(initialJobs);
   const [filter, setFilter] = useState(initialFilter);
   const [showDismissed, setShowDismissed] = useState(false);
@@ -25,14 +29,14 @@ export default function PosPrintQueue({ initialJobs, initialFilter }: { initialJ
   const [dismissing, setDismissing] = useState(false);
   const [dismissError, setDismissError] = useState<string | null>(null);
 
-  async function refetch(activeFilter: PrintJobStatus | "" = filter, activeShowDismissed: boolean = showDismissed) {
-    const result = await fetchPrintJobs(activeFilter || undefined, activeShowDismissed);
+  async function refetch(activeFilter: PrintQueueFilter = filter, activeShowDismissed: boolean = showDismissed) {
+    const result = await fetchPrintJobsForFilter(activeFilter, activeShowDismissed);
     if (result.ok) setJobs(result.data);
   }
 
   usePolling(() => refetch(), 10000);
 
-  function handleFilterChange(next: PrintJobStatus | "") {
+  function handleFilterChange(next: PrintQueueFilter) {
     setFilter(next);
     setSelected(new Set());
     refetch(next, showDismissed);
@@ -58,7 +62,7 @@ export default function PosPrintQueue({ initialJobs, initialFilter }: { initialJ
     }
     const updated = result.data;
     setJobs((prev) =>
-      filter && updated.status !== filter ? prev.filter((j) => j.id !== id) : prev.map((j) => (j.id === id ? updated : j))
+      !jobMatchesFilter(updated, filter) ? prev.filter((j) => j.id !== id) : prev.map((j) => (j.id === id ? updated : j))
     );
   }
 
@@ -98,7 +102,7 @@ export default function PosPrintQueue({ initialJobs, initialFilter }: { initialJ
   return (
     <div className="p-4">
       <div className="flex gap-2 overflow-x-auto pb-1 mb-3 -mx-1 px-1">
-        {FILTERS.map((f) => (
+        {PRINT_QUEUE_FILTERS.map((f) => (
           <button
             key={f || "ALL"}
             type="button"
@@ -107,7 +111,7 @@ export default function PosPrintQueue({ initialJobs, initialFilter }: { initialJ
               filter === f ? "bg-coral text-ink" : "bg-ink2 text-cream/70"
             }`}
           >
-            {FILTER_LABELS[f]}
+            {PRINT_QUEUE_FILTER_LABELS[f]}
           </button>
         ))}
       </div>
@@ -203,7 +207,7 @@ export default function PosPrintQueue({ initialJobs, initialFilter }: { initialJ
           );
         })}
         {jobs.length === 0 && (
-          <p className="text-cream/50 text-sm">No print jobs{filter ? ` with status ${FILTER_LABELS[filter].toLowerCase()}` : ""}.</p>
+          <p className="text-cream/50 text-sm">{emptyPrintQueueText(filter)}</p>
         )}
       </div>
     </div>

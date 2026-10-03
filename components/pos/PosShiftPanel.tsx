@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePolling } from "@/lib/usePolling";
 import { fetchCurrentShift, fetchShift, openShift, closeShift } from "@/lib/pos/shiftsClient";
-import { reconcileCash } from "@/lib/shiftReconciliation";
+import { reconcileCash, shiftOpeningFacts } from "@/lib/shiftReconciliation";
 import PosAttributedConfirm from "@/components/pos/PosAttributedConfirm";
 import type { Role } from "@/lib/session";
 import type { ShiftSummary } from "@/lib/posTypes";
@@ -17,6 +17,27 @@ function StatTile({ label, value }: { label: string; value: string }) {
       <p className="eyebrow text-cream/50 mb-1">{label}</p>
       <p className="font-display italic text-xl text-coral">{value}</p>
     </div>
+  );
+}
+
+// Same facts as the admin ShiftPanel's header: who opened this drawer, when, with how much.
+function OpeningFacts({ shift }: { shift: ShiftSummary }) {
+  const facts = shiftOpeningFacts(shift);
+  return (
+    <dl className="bg-ink2 border border-cream/10 rounded-2xl px-4 py-3 mb-4 space-y-1.5 text-sm">
+      <div className="flex justify-between gap-3">
+        <dt className="text-cream/50 shrink-0">Opened by</dt>
+        <dd className="text-cream truncate">{facts.openedBy}</dd>
+      </div>
+      <div className="flex justify-between gap-3">
+        <dt className="text-cream/50 shrink-0">Opened at</dt>
+        <dd className="text-cream">{facts.openedAt}</dd>
+      </div>
+      <div className="flex justify-between gap-3">
+        <dt className="text-cream/50 shrink-0">Opening cash float</dt>
+        <dd className="text-cream">{facts.openingFloat}</dd>
+      </div>
+    </dl>
   );
 }
 
@@ -158,6 +179,7 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
             onChange={(e) => setOpeningFloat(e.target.value)}
             className="w-full bg-ink2 border border-cream/20 rounded-xl px-4 py-3 text-cream text-base focus:outline-none focus:border-coral"
           />
+          <p className="text-xs text-cream/40 mt-1">Cash in the drawer before the first sale — the close is counted against it.</p>
         </div>
         {error && <p className="text-sm text-coral">{error}</p>}
         <button
@@ -175,6 +197,7 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
 
   return (
     <div className="p-4">
+      <OpeningFacts shift={shift} />
       <div className="grid grid-cols-2 gap-3 mb-6">
         <StatTile label="Cash" value={`฿${Number(shift.totals.cash).toLocaleString("en-US")}`} />
         <StatTile label="Card" value={`฿${Number(shift.totals.card).toLocaleString("en-US")}`} />

@@ -6,6 +6,7 @@ import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import StatCard from "@/components/admin/StatCard";
 import type { ShiftSummary } from "@/lib/posTypes";
 import { formatTimestamp } from "@/lib/formatDate";
+import { shiftOpeningFacts } from "@/lib/shiftReconciliation";
 
 export default async function ShiftReportPage({ params }: { params: { id: string } }) {
   // GET /shifts/{id} is CASHIER+ on the backend.
@@ -26,11 +27,14 @@ export default async function ShiftReportPage({ params }: { params: { id: string
 
   return (
     <div>
-      <p className="eyebrow text-sea mb-2">POS</p>
+      <p className="eyebrow text-sea mb-2">Restaurant</p>
       <h1 className="font-display italic text-3xl mb-2">Shift report</h1>
-      <p className="text-sm text-cream/50 mb-8">
+      <p className="text-sm text-cream/50 mb-2">
         {formatTimestamp(shift.openedAt)} —{" "}
         {shift.closedAt ? formatTimestamp(shift.closedAt) : "open"}
+      </p>
+      <p className="text-sm text-cream/60 mb-8">
+        Opened by {shiftOpeningFacts(shift).openedBy} · Opening cash float {shiftOpeningFacts(shift).openingFloat}
       </p>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">

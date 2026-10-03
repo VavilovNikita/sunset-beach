@@ -2,6 +2,7 @@ import Link from "next/link";
 import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import { addDaysUTC, dateOnlyUTC, parseDateKey, toDateKey } from "@/lib/bookings";
+import { hotelDateKey } from "@/lib/hotelDate";
 import SpaScheduleGrid from "@/components/admin/SpaScheduleGrid";
 import type { MenuItem, SpaSchedule, SpaTherapist } from "@/lib/posTypes";
 import type { Booking } from "@/lib/types";
@@ -17,7 +18,8 @@ function parseDateParam(value: string | undefined): string {
       // fall through to today
     }
   }
-  return toDateKey(new Date());
+  // The hotel's date (Asia/Bangkok), not the Next server's zone - same rule as the calendar.
+  return hotelDateKey(new Date());
 }
 
 export default async function AdminSpaPage({ searchParams }: { searchParams: { date?: string } }) {

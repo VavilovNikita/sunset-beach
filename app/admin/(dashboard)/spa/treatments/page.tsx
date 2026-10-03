@@ -3,6 +3,7 @@ import { backendJson } from "@/lib/backendServer";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import DeleteButton from "@/components/admin/DeleteButton";
+import SubpageBackLink from "@/components/admin/SubpageBackLink";
 import type { MenuItem } from "@/lib/posTypes";
 
 // GET /menu has no department filter on the backend - fetch everything and keep only SPA-
@@ -19,6 +20,7 @@ export default async function AdminSpaTreatmentsPage() {
 
   return (
     <div>
+      <SubpageBackLink href="/admin/spa" label="Spa schedule" />
       <div className="flex items-center justify-between mb-8">
         <div>
           <p className="eyebrow text-sea mb-2">Spa</p>

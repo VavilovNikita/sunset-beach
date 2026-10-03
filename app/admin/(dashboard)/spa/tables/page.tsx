@@ -1,6 +1,7 @@
 import { backendJsonOrDefault } from "@/lib/backendServer";
 import { requireRoleAtLeast } from "@/lib/rbac";
 import TableManager from "@/components/admin/pos/TableManager";
+import SubpageBackLink from "@/components/admin/SubpageBackLink";
 import type { Table } from "@/lib/posTypes";
 
 // PATCH/POST/DELETE /tables are MANAGER+ on the backend. Unlike /admin/spa/map (CASHIER+ now that
@@ -14,9 +15,21 @@ export default async function AdminSpaTablesPage() {
 
   return (
     <div>
-      <p className="eyebrow text-sea mb-2">Spa</p>
-      <h1 className="font-display italic text-3xl mb-8">Tables</h1>
-      <TableManager initialTables={spaTables} canManage zones={["SPA"]} standalone />
+      <SubpageBackLink href="/admin/spa" label="Spa schedule" />
+      {/* The heading goes in through TableManager so "New table" can sit at its top right - the
+          same place "New treatment" sits on Treatments. */}
+      <TableManager
+        initialTables={spaTables}
+        canManage
+        zones={["SPA"]}
+        standalone
+        header={
+          <div>
+            <p className="eyebrow text-sea mb-2">Spa</p>
+            <h1 className="font-display italic text-3xl">Tables</h1>
+          </div>
+        }
+      />
     </div>
   );
 }

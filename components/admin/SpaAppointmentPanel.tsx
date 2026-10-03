@@ -8,6 +8,7 @@ import { billSpaAppointment } from "@/lib/spaOrderClient";
 import { adminRequest } from "@/lib/adminFetch";
 import { orderNumberLabel } from "@/lib/posOrders";
 import { sumTreatmentPrices } from "@/lib/spaTreatmentPricing";
+import { billTreatmentsLabel } from "@/lib/spaAppointmentDisplay";
 import type { MenuItem, Order, SpaAppointment, SpaAppointmentStatus } from "@/lib/posTypes";
 import { formatDate } from "@/lib/formatDate";
 
@@ -18,7 +19,7 @@ import { formatDate } from "@/lib/formatDate";
 //
 // The billing door lives here too, not on the grid cell itself - reception is already looking at
 // this panel to work the appointment, and it's the one place that knows whether an order is
-// already linked. BOOKED or COMPLETED with no orderId offers "Bill this treatment" (opens one via
+// already linked. BOOKED or COMPLETED with no orderId offers "Bill treatment" / "Bill N treatments" (opens one via
 // lib/spaOrderClient.ts, sending spaAppointmentId explicitly); any status with an orderId offers
 // a link to reach it. Not offered for CANCELLED/NO_SHOW with no order - nothing to bill.
 //
@@ -95,7 +96,7 @@ export default function SpaAppointmentPanel({
     // panel - too soon to fire here). billedOrderId already covers the gap until this lands, but
     // the appointment prop itself needs the real orderId too: closing this panel without
     // navigating and reopening the same appointment would otherwise mount a fresh instance with
-    // no local state and a still-stale `appointment.orderId: null`, offering "Bill this treatment"
+    // no local state and a still-stale `appointment.orderId: null`, offering the bill button
     // again for an appointment that's already linked.
     router.refresh();
     if (!result.itemAdded) {
@@ -184,6 +185,11 @@ export default function SpaAppointmentPanel({
           </div>
 
           <div className="space-y-1 text-sm">
+            {current.roomUnitLabel && (
+              <p>
+                <span className="text-cream/40">Room:</span> {current.roomUnitLabel}
+              </p>
+            )}
             <p>
               <span className="text-cream/40">Table:</span> {current.tableLabel}
             </p>
@@ -300,7 +306,7 @@ export default function SpaAppointmentPanel({
                   disabled={billing}
                   className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-4 py-2 text-sm font-medium disabled:opacity-50"
                 >
-                  {billing ? "Opening…" : "Bill this treatment"}
+                  {billing ? "Opening…" : billTreatmentsLabel(current.treatments.length)}
                 </button>
                 {billError && <p className="text-sm text-coral">{billError}</p>}
               </div>

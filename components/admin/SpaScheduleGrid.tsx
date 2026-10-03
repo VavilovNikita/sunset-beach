@@ -12,6 +12,8 @@ import SpaAppointmentPanel from "@/components/admin/SpaAppointmentPanel";
 import type { MenuItem, SpaAppointment, SpaSchedule, SpaTherapist } from "@/lib/posTypes";
 import type { Booking } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
+import { hotelDateKey } from "@/lib/hotelDate";
+import { spaBlockMark, spaBlockTitle } from "@/lib/spaAppointmentDisplay";
 
 const ROW_HEIGHT = 44;
 const LABEL_WIDTH = 160;
@@ -26,8 +28,16 @@ const OCCUPYING_STATUSES = new Set<SpaAppointment["status"]>(["BOOKED", "COMPLET
 const STATUS_STYLES: Record<SpaAppointment["status"], string> = {
   BOOKED: "bg-sea text-ink",
   COMPLETED: "bg-green-600 text-cream",
-  CANCELLED: "bg-cream/10 text-cream/40 line-through",
-  NO_SHOW: "bg-coral/15 text-coral/70 line-through",
+  // Shape, not a new colour (the palette is full): a dashed outline over hatching, plus the ✕/⊘
+  // mark from spaBlockMark - so a cancellation can't pass for an ordinary appointment that has
+  // simply happened.
+  CANCELLED: "text-cream/50 border border-dashed border-cream/40",
+  NO_SHOW: "text-coral/80 border border-dashed border-coral/60",
+};
+
+const STATUS_HATCH: Partial<Record<SpaAppointment["status"], string>> = {
+  CANCELLED: "repeating-linear-gradient(-45deg, rgba(245,239,230,0.10) 0px 5px, rgba(245,239,230,0.02) 5px 10px)",
+  NO_SHOW: "repeating-linear-gradient(-45deg, rgba(226,97,47,0.18) 0px 5px, rgba(226,97,47,0.04) 5px 10px)",
 };
 
 export default function SpaScheduleGrid({
@@ -309,9 +319,12 @@ export default function SpaScheduleGrid({
     appointmentsByTable.set(a.tableId, list);
   }
 
+  // The day lives in the URL (?date=), so a reload or a shared link stays on it.
   function goToDate(next: string) {
     router.push(`/admin/spa?date=${next}`);
   }
+  // The hotel's date, not UTC's or the browser's - same rule as the booking calendar's Today.
+  const todayKey = hotelDateKey(new Date());
 
   const selectedAppointment = schedule.appointments.find((a) => a.id === selectedAppointmentId) ?? null;
   const treatments = menuItems.filter((m) => m.department === "SPA" && m.durationMinutes != null);
@@ -334,6 +347,21 @@ export default function SpaScheduleGrid({
         >
           Next day →
         </button>
+        <button
+          type="button"
+          onClick={() => goToDate(todayKey)}
+          disabled={date === todayKey}
+          className="rounded-full border border-cream/25 hover:border-cream/50 transition-colors px-3 py-1.5 text-sm disabled:opacity-40"
+        >
+          Today
+        </button>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => e.target.value && goToDate(e.target.value)}
+          aria-label="Go to date"
+          className="bg-ink2 border border-cream/20 rounded-lg px-3 py-1.5 text-sm"
+        />
         <div className="flex items-center gap-2 ml-auto">
           <span className="eyebrow text-cream/40">Density</span>
           <input
@@ -412,6 +440,7 @@ export default function SpaScheduleGrid({
                       const dragging = dragState?.appointmentId === a.id;
                       const isSwapTarget = dragState?.swapTarget?.appointmentId === a.id;
                       const tapHandlers = bindTapOrDoubleClick(() => setSelectedAppointmentId(a.id));
+                      const mark = spaBlockMark(a.status);
                       return (
                         <button
                           key={a.id}
@@ -453,10 +482,23 @@ export default function SpaScheduleGrid({
                             top: 3,
                             height: ROW_HEIGHT - 6,
                             pointerEvents: dragging ? "none" : "auto",
+                            backgroundImage: STATUS_HATCH[a.status],
                           }}
-                          title={`${a.guestName} · ${a.treatments.map((t) => t.treatmentName).join(", ")} · ${a.status}`}
+                          title={spaBlockTitle(a)}
                         >
-                          <span className="truncate">{a.guestName}</span>
+                          {mark && (
+                            <span className="shrink-0 font-semibold no-underline" aria-label={mark.label}>
+                              {mark.icon}
+                            </span>
+                          )}
+                          {/* The name keeps a minimum width; on a narrow block the room chip is
+                              what gets squeezed (the full text is in the title either way). */}
+                          <span className={`truncate min-w-[2.5rem] ${mark ? "line-through" : ""}`}>{a.guestName}</span>
+                          {a.roomUnitLabel && (
+                            <span className="min-w-0 truncate text-[10px] rounded px-1 bg-ink/25" title={`Room ${a.roomUnitLabel}`}>
+                              {a.roomUnitLabel}
+                            </span>
+                          )}
                           {a.treatments.length > 1 && <span className="text-[10px] opacity-70">×{a.treatments.length}</span>}
                           {a.missingTreatmentNames.length > 0 && <span title="Not yet fully charged">⚠</span>}
                         </button>
@@ -479,6 +521,7 @@ export default function SpaScheduleGrid({
           bookings={bookings}
           therapists={therapists}
           treatments={treatments}
+          dayAppointments={schedule.appointments}
           onClose={() => setCreateTarget(null)}
           onCreated={() => {
             setCreateTarget(null);

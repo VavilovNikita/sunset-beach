@@ -90,6 +90,7 @@ export default function TableManager({
   canManage,
   zones,
   standalone,
+  header,
 }: {
   initialTables: Table[];
   canManage: boolean;
@@ -102,6 +103,9 @@ export default function TableManager({
   // collapse-behind-a-toggle chrome that makes sense when this sits underneath a live floor view
   // (the restaurant's /admin/pos) but not when it's the page's own primary content.
   standalone?: boolean;
+  // Standalone only: the page's own heading, rendered in a row with "New table" on its right -
+  // the create button's place on every list page (Treatments' "New treatment", Menu's "New item").
+  header?: React.ReactNode;
 }) {
   const router = useRouter();
   const emptyForm: TableInput = { zone: zones[0], label: "", capacity: 4, shape: "ROUND", isActive: true };
@@ -166,8 +170,52 @@ export default function TableManager({
     router.refresh();
   }
 
+  const createForm = (
+    <form onSubmit={handleCreate} className="bg-ink2/40 border border-cream/10 rounded-xl p-4 space-y-3">
+      <p className="eyebrow text-cream/60">New table</p>
+      <TableFields values={newValues} onChange={setNewValues} zones={zones} />
+      <div className="flex gap-3">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium disabled:opacity-60"
+        >
+          {submitting ? "Creating…" : "Create table"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setCreating(false);
+            setNewValues(emptyForm);
+            setError(null);
+          }}
+          className="text-sm text-cream/50 hover:text-cream transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+
+  const newTableButton = (
+    <button
+      type="button"
+      onClick={() => setCreating(true)}
+      disabled={creating}
+      className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2.5 text-sm font-medium disabled:opacity-60"
+    >
+      New table
+    </button>
+  );
+
   return (
     <div id="table-manager" className={standalone ? undefined : "mt-8 pt-8 border-t border-cream/10"}>
+      {standalone && (
+        <div className="flex items-center justify-between gap-4 mb-8">
+          {header}
+          {canManage && newTableButton}
+        </div>
+      )}
       {!standalone && (
         <button
           type="button"
@@ -180,6 +228,8 @@ export default function TableManager({
 
       {open && (
         <div className={standalone ? "space-y-4 max-w-3xl" : "mt-4 space-y-4 max-w-3xl"}>
+          {/* Standalone: the form opens right under the header button that opened it. */}
+          {canManage && standalone && creating && createForm}
           {tables.length === 0 && (
             <p className="text-cream/50 text-sm">
               {canManage ? "No tables set up yet — add one below." : "No tables set up yet. Ask a manager to add some."}
@@ -242,41 +292,7 @@ export default function TableManager({
             )}
           </div>
 
-          {canManage &&
-            (creating ? (
-              <form onSubmit={handleCreate} className="bg-ink2/40 border border-cream/10 rounded-xl p-4 space-y-3">
-                <p className="eyebrow text-cream/60">New table</p>
-                <TableFields values={newValues} onChange={setNewValues} zones={zones} />
-                <div className="flex gap-3">
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium disabled:opacity-60"
-                  >
-                    {submitting ? "Creating…" : "Create table"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCreating(false);
-                      setNewValues(emptyForm);
-                      setError(null);
-                    }}
-                    className="text-sm text-cream/50 hover:text-cream transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setCreating(true)}
-                className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2.5 text-sm font-medium"
-              >
-                New table
-              </button>
-            ))}
+          {canManage && !standalone && (creating ? createForm : newTableButton)}
 
           {error && <p className="text-sm text-coral">{error}</p>}
         </div>

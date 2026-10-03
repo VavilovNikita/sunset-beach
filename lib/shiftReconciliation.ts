@@ -1,4 +1,5 @@
 import type { ShiftSummary } from "@/lib/posTypes";
+import { formatTimestamp } from "@/lib/formatDate";
 
 // expectedCash/discrepancy are never returned by the API - the backend computes the same
 // arithmetic (openingFloat + cash payments, counted - expected) three separate times
@@ -23,4 +24,17 @@ export function reconcileCash(shift: ShiftSummary, countedInput: string): Reconc
   const counted = shift.closingCashCounted != null ? Number(shift.closingCashCounted) : countedInput ? Number(countedInput) : null;
   const discrepancy = counted !== null ? counted - expectedCash : null;
   return { expectedCash, counted, discrepancy };
+}
+
+// The "who opened this drawer, when, with how much" facts shown at the top of an open or closed
+// shift on every shift screen (admin panel, phone panel, shift report). Display only - the float
+// is the server's own figure, never re-derived.
+export type ShiftOpeningFacts = { openedBy: string; openedAt: string; openingFloat: string };
+
+export function shiftOpeningFacts(shift: Pick<ShiftSummary, "openedByEmail" | "openedAt" | "openingCashFloat">): ShiftOpeningFacts {
+  return {
+    openedBy: shift.openedByEmail || "Unknown staff member",
+    openedAt: formatTimestamp(shift.openedAt),
+    openingFloat: shift.openingCashFloat != null ? `฿${Number(shift.openingCashFloat).toLocaleString("en-US")}` : "Not entered",
+  };
 }

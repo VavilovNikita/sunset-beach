@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reconcileCash } from "./shiftReconciliation";
+import { reconcileCash, shiftOpeningFacts } from "./shiftReconciliation";
 import type { ShiftSummary } from "./posTypes";
 
 function shift(overrides: Partial<ShiftSummary>): ShiftSummary {
@@ -68,5 +68,21 @@ describe("reconcileCash", () => {
   it("treats an empty live input as no count yet, not zero", () => {
     const result = reconcileCash(shift({ openingCashFloat: "1000.00", totals: { cash: "500.00", card: "0", roomCharge: "0", other: "0", paymentCount: 1 } }), "");
     expect(result.counted).toBeNull();
+  });
+});
+
+describe("shiftOpeningFacts", () => {
+  it("names who opened the drawer, when (hotel time), and the float", () => {
+    expect(shiftOpeningFacts(shift({ openedByEmail: "anna@sunset.test", openingCashFloat: "2000.00" }))).toEqual({
+      openedBy: "anna@sunset.test",
+      openedAt: "15 Jun 2026, 16:00",
+      openingFloat: "฿2,000",
+    });
+  });
+
+  // A float left blank at open is not a ฿0 float - the reconciliation treats it as 0, but the
+  // screen says it was never entered.
+  it("says the float was not entered rather than showing ฿0", () => {
+    expect(shiftOpeningFacts(shift({ openingCashFloat: null })).openingFloat).toBe("Not entered");
   });
 });

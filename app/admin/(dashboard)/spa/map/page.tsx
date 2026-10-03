@@ -1,6 +1,7 @@
 import { backendJson } from "@/lib/backendServer";
 import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import SpaTableMapView from "@/components/admin/SpaTableMapView";
+import SubpageBackLink from "@/components/admin/SubpageBackLink";
 import type { SpaMap } from "@/lib/posTypes";
 
 // GET /spa-map is CASHIER+ on the backend, same floor as GET /spa-appointments - a receptionist
@@ -18,6 +19,7 @@ export default async function AdminSpaMapPage() {
 
   return (
     <div>
+      <SubpageBackLink href="/admin/spa" label="Spa schedule" />
       <p className="eyebrow text-sea mb-2">Spa</p>
       <h1 className="font-display italic text-3xl mb-2">Spa table map</h1>
       <p className="text-xs text-cream/40 mb-6 max-w-2xl">

@@ -3,26 +3,29 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePolling } from "@/lib/usePolling";
-import { fetchPrintJobs } from "@/lib/pos/printJobsClient";
+import { fetchPrintJobsForFilter } from "@/lib/pos/printJobsClient";
+import { notPrintedBannerText, summarizeNotPrinted, type NotPrintedSummary } from "@/lib/printQueue";
 
 // Full-width and on the main screen itself, not a small corner badge (a waiter needs this the
 // moment they look at the board — an unprinted kitchen ticket is a dish nobody's cooking yet).
-// `count === null` means "couldn't check", kept as its own state rather than folded into zero:
+// Counts every job that hasn't printed - FAILED and still-retrying PENDING alike - by the same
+// rule as the print queue's default "Not printed" tab (lib/printQueue.ts), so the two always agree.
+// `summary === null` means "couldn't check", kept as its own state rather than folded into zero:
 // a print backend that's down or restarting is exactly the situation where prints might also be
-// silently failing, so "no failures" and "couldn't tell" must never look the same.
-export default function PosFailedPrintBanner({ initialCount }: { initialCount: number | null }) {
-  const [count, setCount] = useState<number | null>(initialCount);
+// silently failing, so "nothing waiting" and "couldn't tell" must never look the same.
+export default function PosFailedPrintBanner({ initialSummary }: { initialSummary: NotPrintedSummary | null }) {
+  const [summary, setSummary] = useState<NotPrintedSummary | null>(initialSummary);
 
   async function refetch() {
-    const result = await fetchPrintJobs("FAILED");
-    if (result.ok) setCount(result.data.length);
-    // Leave count as-is on a failed poll — a transient miss shouldn't erase the last known-good
+    const result = await fetchPrintJobsForFilter("NOT_PRINTED");
+    if (result.ok) setSummary(summarizeNotPrinted(result.data));
+    // Leave the summary as-is on a failed poll — a transient miss shouldn't erase the last known-good
     // reading, only the very first load has nothing to fall back on.
   }
 
   usePolling(refetch, 15000);
 
-  if (count === null) {
+  if (summary === null) {
     return (
       <Link
         href="/pos/print-jobs"
@@ -34,7 +37,7 @@ export default function PosFailedPrintBanner({ initialCount }: { initialCount: n
     );
   }
 
-  if (count === 0) return null;
+  if (summary.total === 0) return null;
 
   return (
     <Link
@@ -42,7 +45,7 @@ export default function PosFailedPrintBanner({ initialCount }: { initialCount: n
       className="flex items-center justify-center gap-2 bg-coral text-ink px-4 py-3 text-sm font-semibold active:bg-coraldeep transition-colors"
     >
       <span className="w-2 h-2 rounded-full bg-ink shrink-0" />
-      {count} failed print {count === 1 ? "job" : "jobs"} — a ticket may not have reached the kitchen/bar
+      {notPrintedBannerText(summary)}
     </Link>
   );
 }

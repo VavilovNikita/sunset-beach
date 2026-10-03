@@ -21,7 +21,7 @@ export default async function NewOrderTicketPage({ searchParams }: { searchParam
 
   return (
     <div>
-      <p className="eyebrow text-sea mb-2">POS</p>
+      <p className="eyebrow text-sea mb-2">Restaurant</p>
       <h1 className="font-display italic text-3xl mb-8">{table ? table.label : draft.guestName ?? "New ticket"}</h1>
 
       <OrderTicket

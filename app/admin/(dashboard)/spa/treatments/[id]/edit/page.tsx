@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { backendJson } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
+import SubpageBackLink from "@/components/admin/SubpageBackLink";
 import { requireRoleAtLeast } from "@/lib/rbac";
 import TreatmentForm from "@/components/admin/spa/TreatmentForm";
 import type { MenuItem } from "@/lib/posTypes";
@@ -22,6 +23,7 @@ export default async function EditTreatmentPage({ params }: { params: { id: stri
 
   return (
     <div>
+      <SubpageBackLink href="/admin/spa/treatments" label="Treatments" />
       <p className="eyebrow text-sea mb-2">Spa</p>
       <h1 className="font-display italic text-3xl mb-8">{item.name}</h1>
       <TreatmentForm

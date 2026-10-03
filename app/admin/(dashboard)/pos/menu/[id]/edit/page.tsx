@@ -27,7 +27,7 @@ export default async function EditMenuItemPage({ params }: { params: { id: strin
 
   return (
     <div>
-      <p className="eyebrow text-sea mb-2">POS</p>
+      <p className="eyebrow text-sea mb-2">Restaurant</p>
       <h1 className="font-display italic text-3xl mb-8">{item.name}</h1>
       <MenuItemForm
         mode="edit"

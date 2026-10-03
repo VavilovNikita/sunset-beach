@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { createPrinter, updatePrinter, testPrint } from "@/lib/printerClient";
 import { PRINTER_DEPARTMENT_LABELS, PRINT_JOB_STATUS_LABELS } from "@/lib/posOrders";
 import DeleteButton from "@/components/admin/DeleteButton";
+import { printerHealth, type PrinterHealthState } from "@/lib/printerHealth";
 import type { Printer, PrinterInput, PrinterDepartment, PrinterCodepage, PrintJob } from "@/lib/posTypes";
 
 const DEPARTMENTS: PrinterDepartment[] = ["KITCHEN", "BAR", "CASHIER"];
@@ -94,7 +95,31 @@ function PrinterFields({ values, onChange }: { values: PrinterInput; onChange: (
   );
 }
 
-function TestPrintButton({ printerId }: { printerId: string }) {
+// The dot's colour follows the shared palette: sea = working, coral = needs intervention,
+// amber = worth a look, neutral = nothing known yet.
+const HEALTH_DOT: Record<PrinterHealthState, string> = {
+  online: "bg-sea",
+  offline: "bg-coral",
+  quiet: "bg-amber-400",
+  unknown: "bg-cream/30",
+};
+
+function PrinterHealthLine({ printer }: { printer: Printer }) {
+  // Rendered on the client only after mount: "quiet" depends on the current time, and a server
+  // render a few seconds earlier must not disagree with the browser's.
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => setNow(new Date()), []);
+  if (!now) return null;
+  const health = printerHealth(printer, now);
+  return (
+    <p className={`flex items-center gap-2 text-xs mt-1 ${health.state === "offline" ? "text-coral" : "text-cream/50"}`}>
+      <span className={`w-2 h-2 rounded-full shrink-0 ${HEALTH_DOT[health.state]}`} />
+      {health.label}
+    </p>
+  );
+}
+
+function TestPrintButton({ printerId, onTested }: { printerId: string; onTested: (job: PrintJob) => void }) {
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<PrintJob | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -112,6 +137,7 @@ function TestPrintButton({ printerId }: { printerId: string }) {
       return;
     }
     setResult(testResult.job);
+    onTested(testResult.job);
   }
 
   return (
@@ -196,6 +222,16 @@ export default function PrinterManager({ initialPrinters }: { initialPrinters: P
     router.refresh();
   }
 
+  // A test print is the freshest answer there is - fold its outcome into the row's status line
+  // straight away (the job's own server timestamp), rather than waiting for a reload.
+  function handleTested(id: string, job: PrintJob) {
+    setPrinters((prev) =>
+      prev.map((p) =>
+        p.id !== id ? p : job.status === "SENT" ? { ...p, lastSentAt: job.updatedAt } : { ...p, lastFailedAt: job.updatedAt }
+      )
+    );
+  }
+
   function handleDeleted(id: string) {
     setPrinters((prev) => prev.filter((p) => p.id !== id));
     router.refresh();
@@ -241,8 +277,9 @@ export default function PrinterManager({ initialPrinters }: { initialPrinters: P
                   {printer.host}:{printer.port} · {printer.codepage}
                   {!printer.isActive && " · Inactive"}
                 </p>
+                <PrinterHealthLine printer={printer} />
               </div>
-              <TestPrintButton printerId={printer.id} />
+              <TestPrintButton printerId={printer.id} onTested={(job) => handleTested(printer.id, job)} />
               <button
                 type="button"
                 onClick={() => startEdit(printer)}

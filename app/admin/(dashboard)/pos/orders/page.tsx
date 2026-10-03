@@ -50,7 +50,7 @@ export default async function OrderHistoryPage({
     <div>
       <div className="flex items-center justify-between gap-4 flex-wrap mb-8">
         <div>
-          <p className="eyebrow text-sea mb-2">POS</p>
+          <p className="eyebrow text-sea mb-2">Restaurant</p>
           <h1 className="font-display italic text-3xl">Order history</h1>
         </div>
         <Link href="/admin/pos" className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4">
