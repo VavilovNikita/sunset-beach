@@ -699,6 +699,10 @@ export type Booking = {
   // booking reached *us*, not a channel the guest booked through, so it is not a BookingChannel.
   externalReference: string | null;
   externalChannel: string | null;
+  // The reason staff gave for the current cancellation - set only while status is CANCELLED,
+  // cleared if the booking is reinstated. Null for a cancellation without one (SiteMinder, the
+  // expiry sweep) and for cancellations made before it was stored (those are only in the audit log).
+  cancellationReason: string | null;
   createdAt: string;
   updatedAt: string;
 };

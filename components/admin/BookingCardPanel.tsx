@@ -127,6 +127,9 @@ export default function BookingCardPanel({
               </p>
               <p className="text-sm text-cream/50">{booking.guestPhone || booking.guest?.phone || "No phone on file"}</p>
               {bookingOriginNote(booking) && <p className="text-xs text-cream/40">Came {bookingOriginNote(booking)}</p>}
+              {booking.status === "CANCELLED" && booking.cancellationReason && (
+                <p className="text-xs text-coral">Cancelled: {booking.cancellationReason}</p>
+              )}
               <p className="text-sm text-cream/50">
                 {formatPartySize(booking.adults, booking.children)}
                 {booking.purpose !== "STANDARD" && (

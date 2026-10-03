@@ -142,6 +142,12 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
           <p>
             <span className="text-cream/40">Booked on:</span> {formatTimestampDate(booking.createdAt)}
           </p>
+          {booking.status === "CANCELLED" && (
+            <p>
+              <span className="text-cream/40">Cancellation reason:</span>{" "}
+              {booking.cancellationReason ?? <span className="text-cream/40">not recorded</span>}
+            </p>
+          )}
           <div className="pt-2">
             <BookingGuestLinkSection booking={booking} />
           </div>
