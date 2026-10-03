@@ -46,11 +46,11 @@ export default async function AdminSpaPage({ searchParams }: { searchParams: { d
     <div>
       <div className="flex items-start justify-between gap-4 mb-2">
         <div>
-          <p className="eyebrow text-sea mb-2">Front desk</p>
+          <p className="eyebrow text-sea mb-2">Spa</p>
           <h1 className="font-display italic text-3xl">Spa</h1>
         </div>
-        {/* Sub-pages live here, on the hub's own header, rather than as separate sidebar entries
-            - same place "Table map" already lived, now joined by Treatments and Tables. */}
+        {/* The sidebar's Spa group lists these too; they stay on the hub's own header as well,
+            one tap away from the schedule they're used alongside. */}
         <div className="flex items-center gap-4 mt-1 flex-wrap justify-end">
           <Link href="/admin/spa/treatments" className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4">
             Treatments

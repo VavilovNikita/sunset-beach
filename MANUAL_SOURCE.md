@@ -63,19 +63,17 @@
 
 ### 1.4 Состав бокового меню админки по ролям
 
-Источник: `components/admin/AdminSidebar.tsx`. Порядок пунктов — как в коде.
+Источник: `lib/adminNav.ts` (`NAV_GROUPS`), отрисовка — `components/admin/AdminSidebar.tsx`. Порядок разделов и пунктов — как в коде. Разделы сворачиваются по клику на заголовок; при открытии страницы раздел с текущим пунктом раскрыт, остальные — как пользователь оставил их в прошлый раз (запоминается в браузере). Раздел, в котором для роли нет ни одного пункта, не показывается.
 
-**WAITER:**
-POS · Menu · Print queue
+| Раздел | Пункты (минимальная роль, если выше WAITER) |
+|---|---|
+| **Front desk** | Today, Calendar, Bookings, Guests, Property map, Housekeeping (CASHIER+) · Maintenance (все) · Night audit, In house, Rates & availability, Rooms (CASHIER+) · Guest emails (ADMIN) |
+| **Restaurant** | POS, Print queue (все) · Shifts (CASHIER+) · Menu (все) · Printers (MANAGER+) |
+| **Spa** | Appointments, Table map, Treatments (CASHIER+) · Tables (MANAGER+) |
+| **Reports** | Dashboard (CASHIER+) · Room production, Manager report, History (MANAGER+) |
+| **Staff** | Roster (MANAGER+) · My schedule (все) · Fingerprint terminals (MANAGER+) · Import schedule, Users (ADMIN) |
 
-**CASHIER:**
-POS · Menu · Print queue · Dashboard · Bookings · Calendar · Rooms · Pricing · Availability · Shifts
-
-**MANAGER:**
-POS · Menu · Print queue · Dashboard · Bookings · Calendar · Rooms · Pricing · Availability · Shifts · Printers · History
-
-**ADMIN:**
-POS · Menu · Print queue · Dashboard · Bookings · Calendar · Rooms · Pricing · Availability · Shifts · Printers · History · Users
+**WAITER** видит: Front desk (только Maintenance), Restaurant (POS, Print queue, Menu), Staff (только My schedule).
 
 Логотип-ссылка «The Sunset Beach» ведёт на `/admin` для CASHIER+ и на первый доступный пункт (`/admin/pos`) для WAITER — у WAITER пункта «Dashboard» в меню нет вовсе (для него это была бы пустая страница с редиректом).
 

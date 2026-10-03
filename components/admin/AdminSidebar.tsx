@@ -1,9 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { Role } from "@/lib/session";
-import { visibleNavGroups } from "@/lib/adminNav";
+import {
+  activeNavGroupTitle,
+  activeNavHref,
+  loadStoredOpenNavGroups,
+  saveStoredOpenNavGroups,
+  visibleNavGroups,
+} from "@/lib/adminNav";
 
 export default function AdminSidebar({ email, role }: { email: string; role: Role }) {
   const pathname = usePathname();
@@ -22,14 +29,27 @@ export default function AdminSidebar({ email, role }: { email: string; role: Rol
   // brand mark links a WAITER (who has no /admin landing of their own - see homeHref).
   const groups = visibleNavGroups(role);
   const allLinks = groups.flatMap((g) => g.links);
+  const activeHref = activeNavHref(allLinks, pathname);
+  const activeGroup = activeNavGroupTitle(groups, pathname);
 
-  // Nested routes (e.g. /admin/bookings/calendar under /admin/bookings) mean more than one
-  // item's href can prefix-match the current path — picking the single longest matching href
-  // keeps exactly one item highlighted instead of a parent and its child both lighting up.
-  const matching = allLinks.filter((l) =>
-    l.href === "/admin" ? pathname === "/admin" : pathname === l.href || pathname.startsWith(`${l.href}/`)
-  );
-  const activeHref = matching.sort((a, b) => b.href.length - a.href.length)[0]?.href;
+  // Collapsible groups: first paint (server and client alike - SSR has no localStorage) opens only
+  // the group holding the current page; whatever the viewer opened before is merged in on mount.
+  // Navigating into a collapsed group opens it, so the highlighted link is never hidden.
+  const [openGroups, setOpenGroups] = useState<string[]>(activeGroup ? [activeGroup] : []);
+  useEffect(() => {
+    const stored = loadStoredOpenNavGroups();
+    if (stored) setOpenGroups((prev) => Array.from(new Set([...stored, ...prev])));
+  }, []);
+  useEffect(() => {
+    if (activeGroup) setOpenGroups((prev) => (prev.includes(activeGroup) ? prev : [...prev, activeGroup]));
+  }, [activeGroup]);
+  function toggleGroup(title: string) {
+    setOpenGroups((prev) => {
+      const next = prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title];
+      saveStoredOpenNavGroups(next);
+      return next;
+    });
+  }
 
   const isCashierPlus = role !== "WAITER";
   // The brand mark is a "go home" link everywhere else in this app - for a WAITER, home isn't
@@ -44,28 +64,43 @@ export default function AdminSidebar({ email, role }: { email: string; role: Rol
           <span className="block eyebrow text-sea font-sans not-italic mt-0.5">Admin</span>
         </Link>
 
-        <nav className="flex flex-col gap-5">
-          {groups.map((group) => (
-            <div key={group.title}>
-              <p className="eyebrow text-cream/40 mb-1 px-3">{group.title}</p>
-              <div className="flex flex-row md:flex-col gap-1 flex-wrap">
-                {group.links.map((l) => {
-                  const active = l.href === activeHref;
-                  return (
-                    <Link
-                      key={l.href}
-                      href={l.href}
-                      className={`text-sm px-3 py-2 rounded-lg transition-colors ${
-                        active ? "bg-coral/15 text-coral" : "text-cream/70 hover:text-cream hover:bg-cream/5"
-                      }`}
-                    >
-                      {l.label}
-                    </Link>
-                  );
-                })}
+        <nav className="flex flex-col gap-3">
+          {groups.map((group) => {
+            const open = openGroups.includes(group.title);
+            const listId = `admin-nav-${group.title.toLowerCase().replace(/\W+/g, "-")}`;
+            return (
+              <div key={group.title}>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.title)}
+                  aria-expanded={open}
+                  aria-controls={listId}
+                  className={`w-full flex items-center justify-between eyebrow mb-1 px-3 py-1 rounded-lg transition-colors hover:text-cream ${
+                    group.title === activeGroup ? "text-cream/70" : "text-cream/40"
+                  }`}
+                >
+                  <span>{group.title}</span>
+                  <span aria-hidden className={`transition-transform ${open ? "rotate-90" : ""}`}>›</span>
+                </button>
+                <div id={listId} className={`${open ? "flex" : "hidden"} flex-row md:flex-col gap-1 flex-wrap`}>
+                  {group.links.map((l) => {
+                    const active = l.href === activeHref;
+                    return (
+                      <Link
+                        key={l.href}
+                        href={l.href}
+                        className={`text-sm px-3 py-2 rounded-lg transition-colors ${
+                          active ? "bg-coral/15 text-coral" : "text-cream/70 hover:text-cream hover:bg-cream/5"
+                        }`}
+                      >
+                        {l.label}
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
         <div className="mt-10 pt-6 border-t border-cream/10">

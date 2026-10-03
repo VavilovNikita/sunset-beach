@@ -13,7 +13,7 @@ export default async function LifecycleEmailSettingsPage() {
   return (
     <div className="max-w-2xl">
       <div className="mb-8">
-        <p className="eyebrow text-sea mb-2">Setup</p>
+        <p className="eyebrow text-sea mb-2">Front desk</p>
         <h1 className="font-display italic text-3xl">Guest emails</h1>
         <p className="text-sm text-cream/60 mt-3">
           Automated emails sent once a day at 10:00. They only go to guests who created an account on the website and

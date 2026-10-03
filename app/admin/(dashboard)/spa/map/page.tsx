@@ -18,7 +18,7 @@ export default async function AdminSpaMapPage() {
 
   return (
     <div>
-      <p className="eyebrow text-sea mb-2">Front desk</p>
+      <p className="eyebrow text-sea mb-2">Spa</p>
       <h1 className="font-display italic text-3xl mb-2">Spa table map</h1>
       <p className="text-xs text-cream/40 mb-6 max-w-2xl">
         Sea is free, dark is busy right now, dim is deactivated. Double-click a table (tap once on a touchscreen)

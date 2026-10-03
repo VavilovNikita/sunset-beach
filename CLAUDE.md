@@ -64,7 +64,7 @@ Any action that can fail shows its failure next to the control that triggered it
 
 Hide actions a role cannot perform — do not show a working form that fails on save. Guard the page itself too, not only the link: a hidden link is not access control.
 
-Landing after sign-in depends on role. Nav grouping and visibility live in `lib/adminNav.ts` — `NAV_GROUPS` data plus `isNavLinkVisible`/`visibleNavGroups`, both pure and tested in `adminNav.test.ts` (including "no group ever renders empty"); keep new links there rather than scattering role checks through JSX.
+Landing after sign-in depends on role. Nav grouping and visibility live in `lib/adminNav.ts` — `NAV_GROUPS` data plus `isNavLinkVisible`/`visibleNavGroups`, both pure and tested in `adminNav.test.ts` (including "no group ever renders empty"); keep new links there rather than scattering role checks through JSX. Five collapsible groups (Front desk, Restaurant, Spa, Reports, Staff) - put a new link in the group of the people who use it, not a catch-all "Setup". Which link is highlighted and which group is forced open are `activeNavHref`/`activeNavGroupTitle`, also tested there.
 
 **An audit log row's `actorRole` can be `null` — that means a system-initiated action (a scheduled sweep), not missing data.** The History page renders a `null` actorRole as "System" rather than blank or an error. See the backend's own CLAUDE.md, "Audit log", for what produces one.
 
