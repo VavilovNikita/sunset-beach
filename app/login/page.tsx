@@ -156,6 +156,11 @@ export default function LoginPage() {
               Create an account
             </Link>
           </p>
+          <p className="text-sm text-cream/50 text-center">
+            <Link href="/guest/reset-password" className="text-coral hover:underline">
+              Forgot your guest account password?
+            </Link>
+          </p>
         </form>
       </div>
     </div>
