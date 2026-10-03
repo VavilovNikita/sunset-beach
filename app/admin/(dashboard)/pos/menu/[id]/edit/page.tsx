@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { backendJson } from "@/lib/backendServer";
+import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
+import { menuCategoryTabs } from "@/lib/menuCategories";
 import { BackendError } from "@/lib/backend";
 import { requireRoleAtLeast } from "@/lib/rbac";
 import MenuItemForm from "@/components/admin/pos/MenuItemForm";
@@ -20,6 +21,9 @@ export default async function EditMenuItemPage({ params }: { params: { id: strin
   // isn't validated server-side otherwise. Same "not found" as a missing item, rather than
   // silently letting this form edit it without a duration field.
   if (item.department === "SPA") notFound();
+  // Suggestions only - see the new-item page.
+  const menu = await backendJsonOrDefault<MenuItem[]>("/menu", [], { auth: true });
+  const existingCategories = menuCategoryTabs(menu).map((t) => t.category);
 
   return (
     <div>
@@ -28,6 +32,7 @@ export default async function EditMenuItemPage({ params }: { params: { id: strin
       <MenuItemForm
         mode="edit"
         itemId={item.id}
+        existingCategories={existingCategories}
         initialValues={{
           name: item.name,
           description: item.description,

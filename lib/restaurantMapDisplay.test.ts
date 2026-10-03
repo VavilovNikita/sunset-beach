@@ -8,6 +8,7 @@ function table(overrides: Partial<RestaurantMapTable>): RestaurantMapTable {
     label: "1",
     zone: "RESTAURANT",
     capacity: 4,
+    shape: "ROUND",
     isActive: true,
     positionX: null,
     positionY: null,

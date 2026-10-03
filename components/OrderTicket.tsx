@@ -7,8 +7,26 @@ import { usePolling } from "@/lib/usePolling";
 import { cashTender } from "@/lib/cashTender";
 import { menuForOrder } from "@/lib/posMenu";
 import type { DraftOrderTarget } from "@/lib/posDraftOrder";
-import { PAYMENT_METHOD_LABELS, STATUS_LABELS, STATUS_STYLES, isTerminalStatus } from "@/lib/posOrders";
-import { fetchOrder, updateOrderItemQuantity, removeOrderItem, sendOrder, cancelOrder, closeOrder, printPrebill } from "@/lib/pos/ordersClient";
+import {
+  PAYMENT_METHOD_LABELS,
+  STATUS_LABELS,
+  STATUS_STYLES,
+  VOID_REASON_MAX,
+  isTerminalStatus,
+  orderNumberLabel,
+  orderRefLabel,
+  validateVoidReason,
+} from "@/lib/posOrders";
+import {
+  fetchOrder,
+  updateOrderItemQuantity,
+  removeOrderItem,
+  sendOrder,
+  cancelOrder,
+  closeOrder,
+  printPrebill,
+  voidOrderItem,
+} from "@/lib/pos/ordersClient";
 import { fetchCurrentShift } from "@/lib/pos/shiftsClient";
 import CashTenderFields from "@/components/CashTenderFields";
 import GuestOrderQrButton from "@/components/GuestOrderQrButton";
@@ -16,6 +34,7 @@ import OrderMenuPicker from "@/components/OrderMenuPicker";
 import RoomChargeSearch from "@/components/RoomChargeSearch";
 import PosAttributedConfirm from "@/components/pos/PosAttributedConfirm";
 import type { Role } from "@/lib/session";
+import { formatTimestamp } from "@/lib/formatDate";
 import type { Order, MenuItem, PaymentMethod, PrintAttemptResult, Zone } from "@/lib/posTypes";
 
 const ROLE_LABELS: Record<Role, string> = { WAITER: "Waiter", CASHIER: "Cashier", MANAGER: "Manager", ADMIN: "Admin" };
@@ -44,6 +63,10 @@ type TicketProps = Surface & {
   // Computed by the page from the session role (CASHIER+), not just used to hide the payment
   // section here - a WAITER must never see a payment button that only fails once clicked.
   canManagePayments: boolean;
+  // MANAGER+ (POST .../items/{itemId}/void): taking a line off a ticket the kitchen already has is
+  // how a shortfall would be hidden, so it isn't the waiter's or the cashier's call. Below that
+  // role the Void button isn't rendered at all.
+  canVoidSentItems: boolean;
 };
 
 // `initialOrder: null` is a draft (lib/posDraftOrder.ts): nothing exists in the database yet, the
@@ -111,7 +134,15 @@ function TicketLayout({
   );
 }
 
-function LiveOrderTicket({ initialOrder, menu, tableZone, canManagePayments, basePath, actor }: TicketProps & { initialOrder: Order }) {
+function LiveOrderTicket({
+  initialOrder,
+  menu,
+  tableZone,
+  canManagePayments,
+  canVoidSentItems,
+  basePath,
+  actor,
+}: TicketProps & { initialOrder: Order }) {
   const [order, setOrder] = useState(initialOrder);
   const [cashReceived, setCashReceived] = useState("");
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
@@ -131,6 +162,12 @@ function LiveOrderTicket({ initialOrder, menu, tableZone, canManagePayments, bas
   const [printingPrebill, setPrintingPrebill] = useState(false);
   const [prebillResult, setPrebillResult] = useState<PrintAttemptResult | null>(null);
   const [prebillError, setPrebillError] = useState<string | null>(null);
+  // The line whose void is being confirmed (one at a time), with its form state.
+  const [voiding, setVoiding] = useState<{ itemId: string; quantity: number; reason: string; reasonError: string | null } | null>(null);
+  const [voidBusy, setVoidBusy] = useState(false);
+  const [voidError, setVoidError] = useState<string | null>(null);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
 
   // OrderItem only carries menuItemId (no denormalized name), so names are joined from the menu.
   const menuById = useMemo(() => new Map(menu.map((m) => [m.id, m])), [menu]);
@@ -188,13 +225,34 @@ function LiveOrderTicket({ initialOrder, menu, tableZone, canManagePayments, bas
   }
 
   async function handleCancel() {
-    if (!window.confirm("Cancel this order? This can't be undone.")) return;
+    setCancelBusy(true);
     setError(null);
     const result = await cancelOrder(order.id);
+    setCancelBusy(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
+    setConfirmingCancel(false);
+    setOrder(result.data);
+  }
+
+  async function handleVoid() {
+    if (!voiding) return;
+    const reasonError = validateVoidReason(voiding.reason);
+    if (reasonError) {
+      setVoiding({ ...voiding, reasonError });
+      return;
+    }
+    setVoidBusy(true);
+    setVoidError(null);
+    const result = await voidOrderItem(order.id, voiding.itemId, { quantity: voiding.quantity, reason: voiding.reason.trim() });
+    setVoidBusy(false);
+    if (!result.ok) {
+      setVoidError(result.error);
+      return;
+    }
+    setVoiding(null);
     setOrder(result.data);
   }
 
@@ -242,6 +300,9 @@ function LiveOrderTicket({ initialOrder, menu, tableZone, canManagePayments, bas
     <>
       <div className="flex items-center gap-3 flex-wrap">
         <span className={`text-sm rounded-full px-3 py-1.5 ${STATUS_STYLES[order.status]}`}>{STATUS_LABELS[order.status]}</span>
+        <span className="text-sm text-cream/70">
+          Order {orderNumberLabel(order)} <span className="text-xs text-cream/40 font-mono">ref {orderRefLabel(order)}</span>
+        </span>
         {order.bookingId && basePath === "/admin/pos" && (
           <Link href={`/admin/bookings/${order.bookingId}`} className="text-xs text-sea hover:text-coral transition-colors">
             Linked booking →
@@ -253,6 +314,7 @@ function LiveOrderTicket({ initialOrder, menu, tableZone, canManagePayments, bas
       {order.status === "SENT" && (
         <p className="text-sm text-cream/50 bg-ink2 border border-cream/10 rounded-xl px-4 py-3">
           Already sent — sent lines can&rsquo;t be edited or removed, but you can still add more.
+          {canVoidSentItems ? " A manager can void a sent item with a reason." : " Ask a manager to void a sent item."}
         </p>
       )}
 
@@ -269,7 +331,7 @@ function LiveOrderTicket({ initialOrder, menu, tableZone, canManagePayments, bas
 
       {/* Suppressed while the payment confirm card is open - it surfaces `error` itself, right
           next to the retry button, instead of at the top of a ticket that may be scrolled past. */}
-      {error && !confirmingMethod && <p className="text-sm text-coral">{error}</p>}
+      {error && !confirmingMethod && !confirmingCancel && <p className="text-sm text-coral">{error}</p>}
 
       <div className="space-y-2.5">
         {order.items.map((item) => (
@@ -314,12 +376,112 @@ function LiveOrderTicket({ initialOrder, menu, tableZone, canManagePayments, bas
                 </button>
               </div>
             ) : (
-              <p className="text-xs text-cream/40 mt-2">{item.quantity}×</p>
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-xs text-cream/40">{item.quantity}×</p>
+                {canVoidSentItems && closable && item.sentAt && voiding?.itemId !== item.id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoidError(null);
+                      setVoiding({ itemId: item.id, quantity: item.quantity, reason: "", reasonError: null });
+                    }}
+                    className="text-sm text-cream/50 hover:text-coral active:text-coral transition-colors px-2 py-2"
+                  >
+                    Void
+                  </button>
+                )}
+              </div>
+            )}
+            {voiding?.itemId === item.id && (
+              <div className="mt-3">
+                <PosAttributedConfirm
+                  title={`Void — ${menuById.get(item.menuItemId)?.name ?? "item"}`}
+                  detail={`${voiding.quantity} × ฿${Number(item.unitPrice).toLocaleString("en-US")}`}
+                  actorEmail={actorLabel?.email}
+                  actorRole={actorLabel?.role}
+                  confirmLabel="Void item"
+                  cancelLabel="Keep item"
+                  busy={voidBusy}
+                  error={voidError}
+                  onConfirm={handleVoid}
+                  onCancel={() => {
+                    setVoiding(null);
+                    setVoidError(null);
+                  }}
+                >
+                  <p className="text-sm text-cream/60">
+                    Already sent to the kitchen/bar — a void ticket is printed there, and the item comes off the bill.
+                  </p>
+                  {item.quantity > 1 && (
+                    <div className="flex items-center gap-2">
+                      <span className="eyebrow text-cream/60 mr-1">How many</span>
+                      <button
+                        type="button"
+                        aria-label="Void one fewer"
+                        onClick={() => setVoiding({ ...voiding, quantity: Math.max(1, voiding.quantity - 1) })}
+                        disabled={voidBusy || voiding.quantity <= 1}
+                        className="w-11 h-11 rounded-full bg-ink text-cream text-lg font-medium hover:bg-cream/10 active:bg-cream/10 transition-colors disabled:opacity-50"
+                      >
+                        −
+                      </button>
+                      <span className="w-10 text-center text-cream">
+                        {voiding.quantity} of {item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Void one more"
+                        onClick={() => setVoiding({ ...voiding, quantity: Math.min(item.quantity, voiding.quantity + 1) })}
+                        disabled={voidBusy || voiding.quantity >= item.quantity}
+                        className="w-11 h-11 rounded-full bg-ink text-cream text-lg font-medium hover:bg-cream/10 active:bg-cream/10 transition-colors disabled:opacity-50"
+                      >
+                        +
+                      </button>
+                    </div>
+                  )}
+                  <div>
+                    <label className="eyebrow text-cream/60 block mb-1">
+                      Reason <span className="text-coral">*</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={voiding.reason}
+                      maxLength={VOID_REASON_MAX}
+                      autoFocus
+                      onChange={(e) => setVoiding({ ...voiding, reason: e.target.value, reasonError: null })}
+                      placeholder="e.g. guest sent it back, rung up by mistake"
+                      className={`w-full bg-ink border rounded-xl px-3 py-2 text-sm text-cream placeholder:text-cream/30 focus:outline-none focus:border-coral ${
+                        voiding.reasonError ? "border-coral" : "border-cream/20"
+                      }`}
+                    />
+                    {voiding.reasonError && <p className="text-xs text-coral mt-1">{voiding.reasonError}</p>}
+                  </div>
+                </PosAttributedConfirm>
+              </div>
             )}
           </div>
         ))}
         {order.items.length === 0 && <p className="text-cream/50 text-sm">No items yet.</p>}
       </div>
+
+      {order.voids.length > 0 && (
+        <div className="space-y-2">
+          <p className="eyebrow text-cream/50">Voided after sending</p>
+          {order.voids.map((v) => (
+            <div key={v.id} className="border border-dashed border-cream/15 rounded-2xl px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-cream/50 line-through">{menuById.get(v.menuItemId)?.name ?? "Unknown item"}</p>
+                <p className="text-cream/40 text-sm shrink-0 line-through">
+                  {v.quantity} × ฿{Number(v.unitPrice).toLocaleString("en-US")}
+                </p>
+              </div>
+              <p className="text-xs text-cream/50 mt-1">&ldquo;{v.reason}&rdquo;</p>
+              <p className="text-xs text-cream/40">
+                {v.voidedByEmail} · {formatTimestamp(v.voidedAt)}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 
@@ -462,13 +624,36 @@ function LiveOrderTicket({ initialOrder, menu, tableZone, canManagePayments, bas
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={handleCancel}
-        className="w-full text-sm text-cream/50 hover:text-coral active:text-coral transition-colors py-2"
-      >
-        Cancel order
-      </button>
+      {confirmingCancel ? (
+        <PosAttributedConfirm
+          title="Cancel order"
+          detail={`Order ${orderNumberLabel(order)}`}
+          actorEmail={actorLabel?.email}
+          actorRole={actorLabel?.role}
+          confirmLabel="Cancel order"
+          cancelLabel="Keep order"
+          busy={cancelBusy}
+          error={error}
+          onConfirm={handleCancel}
+          onCancel={() => {
+            setConfirmingCancel(false);
+            setError(null);
+          }}
+        >
+          <p className="text-sm text-cream/60">Nothing is charged and the table is freed. This can&rsquo;t be undone.</p>
+        </PosAttributedConfirm>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            setError(null);
+            setConfirmingCancel(true);
+          }}
+          className="w-full text-sm text-cream/50 hover:text-coral active:text-coral transition-colors py-2"
+        >
+          Cancel order
+        </button>
+      )}
     </>
   ) : null;
 

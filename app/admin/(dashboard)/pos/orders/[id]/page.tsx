@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import { requireSessionUser, hasRoleAtLeast } from "@/lib/rbac";
+import { orderNumberLabel, orderRefLabel, ticketTitle } from "@/lib/posOrders";
 import OrderTicket from "@/components/OrderTicket";
 import type { Order, MenuItem, Table } from "@/lib/posTypes";
 
@@ -14,6 +15,8 @@ export default async function OrderTicketPage({ params }: { params: { id: string
   // that only fails once clicked.
   const user = await requireSessionUser();
   const canManagePayments = hasRoleAtLeast(user.role, "CASHIER");
+  // POST .../items/{itemId}/void is MANAGER+ - same reasoning as canManagePayments above.
+  const canVoidSentItems = hasRoleAtLeast(user.role, "MANAGER");
 
   let order: Order;
   try {
@@ -43,9 +46,10 @@ export default async function OrderTicketPage({ params }: { params: { id: string
   return (
     <div>
       <p className="eyebrow text-sea mb-2">POS</p>
-      <h1 className="font-display italic text-3xl mb-8">
-        {table ? table.label : order.guestName ?? `Ticket #${order.id.slice(-6)}`}
-      </h1>
+      <h1 className="font-display italic text-3xl">{table ? table.label : ticketTitle(order)}</h1>
+      <p className="text-sm text-cream/50 mb-8">
+        Order {orderNumberLabel(order)} <span className="font-mono text-xs text-cream/40">ref {orderRefLabel(order)}</span>
+      </p>
 
       {/* actor={null}: the till has no "will be recorded as" step - see PosAttributedConfirm.tsx. */}
       <OrderTicket
@@ -53,6 +57,7 @@ export default async function OrderTicketPage({ params }: { params: { id: string
         menu={menu}
         tableZone={table?.zone ?? null}
         canManagePayments={canManagePayments}
+        canVoidSentItems={canVoidSentItems}
         basePath="/admin/pos"
         actor={null}
       />

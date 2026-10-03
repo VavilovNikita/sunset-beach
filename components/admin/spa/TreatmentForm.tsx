@@ -83,9 +83,10 @@ export default function TreatmentForm({
       </div>
 
       <div>
-        <label className="eyebrow text-cream/60 block mb-1">Description</label>
+        <label className="eyebrow text-cream/60 block mb-1">
+          Description <span className="normal-case tracking-normal text-cream/40">(optional)</span>
+        </label>
         <textarea
-          required
           rows={3}
           value={values.description}
           onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))}

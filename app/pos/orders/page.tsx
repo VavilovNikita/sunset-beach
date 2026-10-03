@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { requireRoleAtLeast } from "@/lib/rbac";
-import { STATUS_LABELS, STATUS_STYLES, PAYMENT_METHOD_LABELS } from "@/lib/posOrders";
+import { STATUS_LABELS, STATUS_STYLES, PAYMENT_METHOD_LABELS, orderNumberLabel, ticketTitle } from "@/lib/posOrders";
 import type { Order, Shift, Table } from "@/lib/posTypes";
 import { formatTimestamp } from "@/lib/formatDate";
 
@@ -54,10 +54,11 @@ export default async function PosOrderHistoryPage({ searchParams }: { searchPara
             >
               <div className="min-w-0">
                 <p className="text-cream truncate">
-                  {o.tableId ? (tablesById.get(o.tableId)?.label ?? "Deleted table") : (o.guestName ?? `Ticket #${o.id.slice(-6)}`)}
+                  {o.tableId ? (tablesById.get(o.tableId)?.label ?? "Deleted table") : ticketTitle(o)}{" "}
+                  <span className="text-cream/40 text-sm">{orderNumberLabel(o)}</span>
                 </p>
                 <p className="text-xs text-cream/40 mt-0.5">
-                  {o.paymentMethod ? PAYMENT_METHOD_LABELS[o.paymentMethod] : "—"} · {formatTimestamp(o.createdAt)}
+                  {o.paymentMethod ? PAYMENT_METHOD_LABELS[o.paymentMethod] : "—"} · {formatTimestamp(o.closedAt ?? o.createdAt)}
                 </p>
               </div>
               <div className="text-right shrink-0">

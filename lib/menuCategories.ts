@@ -18,3 +18,19 @@ export function resolveSelectedCategory(tabs: MenuCategoryTab[], requested: stri
   if (requested !== undefined && tabs.some((t) => t.category === requested)) return requested;
   return tabs[0]?.category ?? null;
 }
+
+// Mirrors the backend's MenuService#requireNoNearDuplicateCategory: trimmed, inner whitespace
+// collapsed, compared without letter case. "cocktails" next to an existing "Cocktails" would be a
+// second tab, so the form offers the existing spelling instead (the server refuses it anyway).
+export function normalizeCategory(category: string): string {
+  return category.trim().replace(/\s+/g, " ");
+}
+
+// The existing category this input would collide with, or null when it is that exact spelling,
+// a genuinely new name, or blank.
+export function nearDuplicateCategory(input: string, existing: string[]): string | null {
+  const normalized = normalizeCategory(input);
+  if (!normalized || existing.includes(normalized)) return null;
+  const key = normalized.toLowerCase();
+  return existing.find((c) => normalizeCategory(c).toLowerCase() === key) ?? null;
+}

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { saveTablePositions } from "@/lib/tablePositionsClient";
 import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
-import type { TablePositionInput } from "@/lib/posTypes";
+import { useSavedNotice } from "@/lib/useSavedNotice";
+import type { TablePositionInput, TableShape } from "@/lib/posTypes";
 
 // The table-placement floor plan shared by the spa map (SpaTableMapView) and the restaurant map
 // (RestaurantTableMapView) - background image, placed tiles, the "not on the map" tray, drag to
@@ -34,6 +35,17 @@ export type FloorPlanTable = {
   fill: FloorPlanFill;
   // Shown as the tile's tooltip after its label - "Busy", "Free — next 14:00", ...
   stateLabel: string;
+  // Drawn on the plan: the tile's outline follows the shape, and the seat count sits under the label.
+  shape: TableShape;
+  capacity: number;
+};
+
+// Tile outline per shape. Sized in px, not in % of the image: a tile must stay tappable however
+// far the plan is scaled down to fit a narrow screen.
+const SHAPE_CLASS: Record<TableShape, string> = {
+  ROUND: "rounded-full w-12 h-12",
+  SQUARE: "rounded-md w-12 h-12",
+  RECTANGLE: "rounded-md w-[4.5rem] h-11",
 };
 
 type PendingPosition = { positionX: number | null; positionY: number | null };
@@ -87,6 +99,9 @@ export default function TableFloorPlan({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // "Layout saved." after Save layout - the save bar itself disappears with the pending changes,
+  // so without this nothing on screen said whether the save went through.
+  const [savedNotice, showSavedNotice] = useSavedNotice();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageWrapperRef = useRef<HTMLDivElement>(null);
@@ -162,7 +177,9 @@ export default function TableFloorPlan({
       setSaveError(result.error);
       return;
     }
+    const count = items.length;
     setPending({});
+    showSavedNotice(`Layout saved — ${count} table${count === 1 ? "" : "s"} updated.`);
     onLayoutSaved();
   }
 
@@ -191,21 +208,31 @@ export default function TableFloorPlan({
         )}
         {/* Plainly says whether what's on screen is live or frozen - a paused board must never
             look the same as a live one. */}
-        <span className={`text-xs shrink-0 ${isEditing ? "text-amber-400" : "text-cream/40"}`}>
-          {isEditing ? "Paused — unsaved changes" : `Updates every ${pollIntervalMs / 1000}s`}
+        <span className="flex items-center gap-3 shrink-0">
+          {savedNotice && (
+            <span role="status" className="text-xs text-green-400">
+              {savedNotice}
+            </span>
+          )}
+          <span className={`text-xs ${isEditing ? "text-amber-400" : "text-cream/40"}`}>
+            {isEditing ? "Paused — unsaved changes" : `Updates every ${pollIntervalMs / 1000}s`}
+          </span>
         </span>
       </div>
 
       {!imageSrc ? (
-        <div className="mt-4 rounded-xl border border-dashed border-cream/20 p-10 text-center text-sm text-cream/50 min-w-[480px]">
+        <div className="mt-4 rounded-xl border border-dashed border-cream/20 p-10 text-center text-sm text-cream/50">
           {canManage ? "Upload a floor plan above to start placing tables." : "No floor plan has been uploaded yet."}
         </div>
       ) : (
         <div className="flex flex-col lg:flex-row gap-6 mt-4">
-          <div className="flex-1 min-w-0 overflow-x-auto pb-2">
-            <div ref={imageWrapperRef} className="relative inline-block select-none">
+          <div className="flex-1 min-w-0 pb-2">
+            {/* The plan scales to the column's width (never wider than the image itself). Tiles are
+                placed in % of the wrapper, so they stay on the same spot at any size; the drag
+                reads the wrapper's rect at pointerdown, so it works at any scale too. */}
+            <div ref={imageWrapperRef} className="relative block w-full max-w-[1200px] select-none">
               {/* eslint-disable-next-line @next/next/no-img-element -- authenticated, proxied image; next/image can't reach it */}
-              <img src={imageSrc} alt={imageAlt} className="block w-[960px] max-w-none rounded-xl border border-cream/10" draggable={false} />
+              <img src={imageSrc} alt={imageAlt} className="block w-full h-auto rounded-xl border border-cream/10" draggable={false} />
               {placedTables.map((table) => {
                 const pos = effectivePosition(table);
                 return (
@@ -257,7 +284,7 @@ export default function TableFloorPlan({
 
       {drag && draggedTable && (
         <div
-          className="fixed z-50 pointer-events-none rounded-full w-11 h-11 flex items-center justify-center text-xs font-medium border-2 bg-ink2 text-cream border-cream/50 shadow-lg"
+          className={`fixed z-50 pointer-events-none ${SHAPE_CLASS[draggedTable.shape]} flex items-center justify-center text-xs font-medium border-2 bg-ink2 text-cream border-cream/50 shadow-lg`}
           style={{ left: drag.x, top: drag.y, transform: "translate(-50%, -50%)" }}
         >
           {draggedTable.label}
@@ -308,7 +335,9 @@ function TableTile({
   tapHandlers: { onClick: () => void; onDoubleClick: () => void };
   style?: React.CSSProperties;
 }) {
-  const shape = tray ? "rounded-lg px-3 py-2 text-sm border flex items-center gap-2" : "rounded-full w-11 h-11 flex items-center justify-center text-xs font-medium border-2 shadow";
+  const shape = tray
+    ? "rounded-lg px-3 py-2 text-sm border flex items-center gap-2"
+    : `${SHAPE_CLASS[table.shape]} flex flex-col items-center justify-center leading-tight text-xs font-medium border-2 shadow`;
   return (
     <button
       type="button"
@@ -318,13 +347,14 @@ function TableTile({
       onPointerUp={onPointerUp}
       onClick={tapHandlers.onClick}
       onDoubleClick={tapHandlers.onDoubleClick}
-      title={`${table.label} — ${table.stateLabel}`}
+      title={`${table.label} · ${table.capacity} seat${table.capacity === 1 ? "" : "s"} — ${table.stateLabel}`}
       style={style}
       className={`${shape} transition-opacity ${FILL_CLASS[table.fill]} ${
         canManage ? "cursor-grab active:cursor-grabbing touch-none" : "cursor-pointer"
       } ${dragging ? "opacity-30" : ""}`}
     >
-      {table.label}
+      <span>{table.label}</span>
+      <span className={tray ? "text-xs opacity-60" : "text-[0.6rem] font-normal opacity-70"}>{table.capacity}p</span>
     </button>
   );
 }

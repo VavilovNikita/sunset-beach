@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
+import { orderNumberLabel, ticketTitle } from "@/lib/posOrders";
 import OrderTicket from "@/components/OrderTicket";
 import type { Order, MenuItem, Table } from "@/lib/posTypes";
 
@@ -23,13 +24,14 @@ export default async function PosOrderPage({ params }: { params: { id: string } 
     backendJsonOrDefault<Table[]>("/tables", [], { auth: true }),
   ]);
   const canManagePayments = !!user && hasRoleAtLeast(user.role, "CASHIER");
+  const canVoidSentItems = !!user && hasRoleAtLeast(user.role, "MANAGER");
   const table = order.tableId ? (tables.find((t) => t.id === order.tableId) ?? null) : null;
 
   return (
     <div>
       <div className="px-4 pt-4">
         <h1 className="font-display italic text-2xl">
-          {table ? table.label : (order.guestName ?? `Ticket #${order.id.slice(-6)}`)}
+          {table ? table.label : ticketTitle(order)} <span className="text-base not-italic text-cream/50">{orderNumberLabel(order)}</span>
         </h1>
       </div>
       <div className="p-4">
@@ -38,10 +40,11 @@ export default async function PosOrderPage({ params }: { params: { id: string } 
           menu={menu}
           tableZone={table?.zone ?? null}
           canManagePayments={canManagePayments}
+          canVoidSentItems={canVoidSentItems}
           basePath="/pos"
-          // The phone's "will be recorded as" check before money moves (PosAttributedConfirm.tsx).
-          // Only ever shown when canManagePayments is true, which already implies `user` is
-          // non-null - the fallbacks are unreachable in practice, just satisfying the type.
+          // The phone's "will be recorded as" check before money moves, a void or a cancellation
+          // (PosAttributedConfirm.tsx). The /pos layout requires a session, so `user` is non-null
+          // in practice - the fallbacks only satisfy the type.
           actor={{ email: user?.email ?? "", role: user?.role ?? "WAITER" }}
         />
       </div>

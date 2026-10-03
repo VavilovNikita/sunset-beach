@@ -26,6 +26,7 @@ export default function PosAttributedConfirm({
   actorEmail,
   actorRole,
   confirmLabel,
+  cancelLabel = "Cancel",
   onConfirm,
   onCancel,
   busy,
@@ -39,6 +40,9 @@ export default function PosAttributedConfirm({
   actorEmail?: string;
   actorRole?: string;
   confirmLabel: string;
+  // The back-out button. "Cancel" reads wrong next to an action that is itself a cancellation
+  // ("Cancel order" / "Cancel"), so those callers name it ("Keep order").
+  cancelLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
   busy: boolean;
@@ -78,7 +82,7 @@ export default function PosAttributedConfirm({
           disabled={busy}
           className="flex-1 rounded-xl border border-cream/25 hover:border-cream/50 active:border-cream/50 transition-colors py-3.5 text-sm font-medium disabled:opacity-60"
         >
-          Cancel
+          {cancelLabel}
         </button>
       </div>
     </div>

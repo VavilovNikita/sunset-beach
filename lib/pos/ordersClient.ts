@@ -4,7 +4,7 @@
 // see lib/pos/posFetch.ts's comment for why that matters on a restaurant floor.
 import { posRequest, posJsonInit, type PosResult } from "@/lib/pos/posFetch";
 import { draftOrderBody, type DraftOrderTarget } from "@/lib/posDraftOrder";
-import type { CloseOrderInput, Order, OrderItemInput, PrintAttemptResult, Table } from "@/lib/posTypes";
+import type { CloseOrderInput, Order, OrderItemInput, OrderItemVoidInput, PrintAttemptResult, Table } from "@/lib/posTypes";
 
 export async function fetchBoardData(): Promise<PosResult<{ tables: Table[]; orders: Order[] }>> {
   const [tablesRes, openRes, sentRes] = await Promise.all([
@@ -70,4 +70,10 @@ export function closeOrder(orderId: string, input: CloseOrderInput): Promise<Pos
 
 export function printPrebill(orderId: string): Promise<PosResult<PrintAttemptResult>> {
   return posRequest<PrintAttemptResult>(`/orders/${orderId}/print-prebill`, { method: "POST" }, "Could not print the pre-bill.");
+}
+
+// POST .../items/{itemId}/void - MANAGER+ only (the caller hides the button below that). Takes
+// `quantity` units off a line the kitchen/bar already has, with a required reason.
+export function voidOrderItem(orderId: string, itemId: string, input: OrderItemVoidInput): Promise<PosResult<Order>> {
+  return posRequest<Order>(`/orders/${orderId}/items/${itemId}/void`, posJsonInit("POST", input), "Could not void this item.");
 }

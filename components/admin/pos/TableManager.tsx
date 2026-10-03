@@ -6,11 +6,14 @@ import { ADMIN_API_URL } from "@/lib/backend";
 import { createTable, updateTable } from "@/lib/tableClient";
 import { ZONE_LABELS } from "@/lib/posOrders";
 import DeleteButton from "@/components/admin/DeleteButton";
-import type { Table, TableInput, Zone } from "@/lib/posTypes";
+import type { Table, TableInput, TableShape, Zone } from "@/lib/posTypes";
+
+const SHAPE_LABELS: Record<TableShape, string> = { ROUND: "Round", SQUARE: "Square", RECTANGLE: "Rectangle" };
+const SHAPES: TableShape[] = ["ROUND", "SQUARE", "RECTANGLE"];
 
 function TableFields({ values, onChange, zones }: { values: TableInput; onChange: (values: TableInput) => void; zones: Zone[] }) {
   return (
-    <div className="grid sm:grid-cols-4 gap-3 items-end">
+    <div className="grid sm:grid-cols-5 gap-3 items-end">
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Zone</label>
         {zones.length > 1 ? (
@@ -55,6 +58,20 @@ function TableFields({ values, onChange, zones }: { values: TableInput; onChange
           className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
         />
       </div>
+      <div>
+        <label className="eyebrow text-cream/60 block mb-1">Shape</label>
+        <select
+          value={values.shape ?? "ROUND"}
+          onChange={(e) => onChange({ ...values, shape: e.target.value as TableShape })}
+          className="w-full bg-ink2 border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
+        >
+          {SHAPES.map((s) => (
+            <option key={s} value={s}>
+              {SHAPE_LABELS[s]}
+            </option>
+          ))}
+        </select>
+      </div>
       <label className="flex items-center gap-2 text-sm text-cream/70 pb-2">
         <input
           type="checkbox"
@@ -87,7 +104,7 @@ export default function TableManager({
   standalone?: boolean;
 }) {
   const router = useRouter();
-  const emptyForm: TableInput = { zone: zones[0], label: "", capacity: 4, isActive: true };
+  const emptyForm: TableInput = { zone: zones[0], label: "", capacity: 4, shape: "ROUND", isActive: true };
   // Auto-expanded when the board has nothing to show — this section is the
   // way out of that empty state, not an optional extra behind a click. Always expanded in
   // standalone mode - see this prop's own comment above.
@@ -102,7 +119,7 @@ export default function TableManager({
 
   function startEdit(table: Table) {
     setEditingId(table.id);
-    setEditValues({ zone: table.zone, label: table.label, capacity: table.capacity, isActive: table.isActive });
+    setEditValues({ zone: table.zone, label: table.label, capacity: table.capacity, shape: table.shape, isActive: table.isActive });
     setError(null);
   }
 
@@ -199,7 +216,7 @@ export default function TableManager({
                       {table.label} <span className="text-cream/40 text-sm">· {ZONE_LABELS[table.zone]}</span>
                     </p>
                     <p className="text-sm text-cream/60">
-                      Seats {table.capacity}
+                      Seats {table.capacity} · {SHAPE_LABELS[table.shape]}
                       {!table.isActive && " · Inactive"}
                     </p>
                   </div>

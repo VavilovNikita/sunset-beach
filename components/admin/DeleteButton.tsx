@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { extractApiError } from "@/lib/apiError";
+import ConfirmDialog from "@/components/admin/ConfirmDialog";
 
 export default function DeleteButton({
   url,
@@ -27,9 +28,12 @@ export default function DeleteButton({
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The question is asked in the admin's own dialog (ConfirmDialog), not window.confirm(); a
+  // failure is shown in it, next to the button, and it stays open for a retry - except a 409,
+  // which closes it and shows the caller's way out under the Delete button.
+  const [confirming, setConfirming] = useState(false);
 
   async function handleDelete() {
-    if (!window.confirm(confirmText)) return;
     setDeleting(true);
     setError(null);
 
@@ -38,6 +42,7 @@ export default function DeleteButton({
 
     if (!res.ok) {
       if (res.status === 409 && conflictMessage) {
+        setConfirming(false);
         setError(conflictMessage);
         return;
       }
@@ -45,6 +50,7 @@ export default function DeleteButton({
       setError(extractApiError(data, "Could not delete."));
       return;
     }
+    setConfirming(false);
     onDeleted?.();
     router.refresh();
   }
@@ -53,13 +59,31 @@ export default function DeleteButton({
     <span>
       <button
         type="button"
-        onClick={handleDelete}
+        onClick={() => {
+          setError(null);
+          setConfirming(true);
+        }}
         disabled={deleting}
         className={className ?? "text-sm text-cream/50 hover:text-coral transition-colors disabled:opacity-60"}
       >
         {deleting ? "Deleting…" : "Delete"}
       </button>
-      {error && <span className="block text-xs text-coral mt-1">{error}</span>}
+      {error && !confirming && <span className="block text-xs text-coral mt-1">{error}</span>}
+      {confirming && (
+        <ConfirmDialog
+          eyebrow="Delete"
+          title={confirmText}
+          confirmLabel="Delete"
+          busyLabel="Deleting…"
+          busy={deleting}
+          error={error}
+          onConfirm={handleDelete}
+          onBack={() => {
+            setConfirming(false);
+            setError(null);
+          }}
+        />
+      )}
     </span>
   );
 }

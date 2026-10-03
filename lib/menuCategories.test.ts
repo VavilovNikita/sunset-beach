@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { menuCategoryTabs, resolveSelectedCategory } from "./menuCategories";
+import { menuCategoryTabs, nearDuplicateCategory, normalizeCategory, resolveSelectedCategory } from "./menuCategories";
 
 describe("menuCategoryTabs", () => {
   it("groups by category with counts, sorted by name", () => {
@@ -35,5 +35,25 @@ describe("resolveSelectedCategory", () => {
 
   it("is null when there are no categories at all", () => {
     expect(resolveSelectedCategory([], "Beer")).toBeNull();
+  });
+});
+
+describe("nearDuplicateCategory", () => {
+  const existing = ["Cocktails", "Mains", "Soft drinks"];
+
+  it("finds an existing category that differs only by case or spacing", () => {
+    expect(nearDuplicateCategory("cocktails", existing)).toBe("Cocktails");
+    expect(nearDuplicateCategory("  SOFT   drinks ", existing)).toBe("Soft drinks");
+  });
+
+  it("accepts the exact spelling, a spacing-only variant of it, a new name and blank", () => {
+    expect(nearDuplicateCategory("Cocktails", existing)).toBeNull();
+    expect(nearDuplicateCategory("  Soft   drinks ", existing)).toBeNull();
+    expect(nearDuplicateCategory("Desserts", existing)).toBeNull();
+    expect(nearDuplicateCategory("   ", existing)).toBeNull();
+  });
+
+  it("normalizes spacing the way the server stores it", () => {
+    expect(normalizeCategory("  Soft   drinks ")).toBe("Soft drinks");
   });
 });

@@ -6,7 +6,16 @@ import { useRouter } from "next/navigation";
 import { usePolling } from "@/lib/usePolling";
 import { fetchBoardData } from "@/lib/adminOrdersClient";
 import { draftOrderHref } from "@/lib/posDraftOrder";
-import { STATUS_LABELS, STATUS_STYLES, ZONE_LABELS } from "@/lib/posOrders";
+import {
+  STATUS_LABELS,
+  STATUS_STYLES,
+  ZONE_LABELS,
+  isLongOpen,
+  isSpaOrder,
+  longOpenLabel,
+  orderNumberLabel,
+  ticketTitle,
+} from "@/lib/posOrders";
 import type { Order, Table, Zone } from "@/lib/posTypes";
 
 // SPA is deliberately excluded - spa tables live on their own screen now (/admin/spa/tables),
@@ -14,6 +23,9 @@ import type { Order, Table, Zone } from "@/lib/posTypes";
 // excluding SPA here (not just from the initialTables prop) is what keeps a spa table from
 // reappearing on the next 5-second poll.
 const ZONES: Zone[] = ["RESTAURANT", "BAR", "POOL", "ROOM_SERVICE"];
+
+// An order still open a day after it was opened is flagged (amber - "attention, not urgent"): it is
+// almost always a forgotten table or a ticket nobody closed. lib/posOrders.ts#isLongOpen.
 
 export default function OrderBoard({
   initialTables,
@@ -70,6 +82,7 @@ export default function OrderBoard({
     else ordersByTableId.set(o.tableId, [o]);
   }
   const openTickets = orders.filter((o) => !o.tableId);
+  const now = new Date();
   // Rule: the board must never let an OPEN/SENT order disappear just because
   // its table was deactivated after the order was opened. So a table is
   // shown when it's active, OR when it's inactive but still has one of the
@@ -139,6 +152,7 @@ export default function OrderBoard({
                   {zoneTables.map((table) => {
                     const tableOrders = ordersByTableId.get(table.id) ?? [];
                     const busy = creatingTableId === table.id;
+                    const stale = tableOrders.find((o) => isLongOpen(o, now));
                     return (
                       <button
                         key={table.id}
@@ -148,8 +162,8 @@ export default function OrderBoard({
                         className={`aspect-square rounded-xl text-sm flex flex-col items-center justify-center gap-1 transition-colors ${
                           tableOrders.length > 0 ? "bg-coral/20 text-coral" : "bg-sea/10 text-cream/70 hover:bg-sea/20"
                         } ${!table.isActive ? "border border-dashed border-cream/30" : ""} ${
-                          busy ? "opacity-50" : ""
-                        }`}
+                          stale ? "ring-2 ring-amber-400" : ""
+                        } ${busy ? "opacity-50" : ""}`}
                       >
                         <span className="font-display text-lg">{table.label}</span>
                         {tableOrders.length === 1 && (
@@ -169,6 +183,11 @@ export default function OrderBoard({
                             flagged so staff know it's deactivated, not a
                             normal open table. */}
                         {!table.isActive && <span className="text-[0.6rem] text-cream/40">Inactive</span>}
+                        {stale && (
+                          <span className="text-[0.6rem] text-amber-400" suppressHydrationWarning>
+                            {longOpenLabel(stale.createdAt, now)}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -194,7 +213,8 @@ export default function OrderBoard({
                         href={`/admin/pos/orders/${o.id}`}
                         className="text-sm rounded-full border border-cream/25 hover:border-cream/50 transition-colors px-3 py-1.5"
                       >
-                        #{o.id.slice(-6)} · {STATUS_LABELS[o.status]}
+                        {orderNumberLabel(o)} · {STATUS_LABELS[o.status]}
+                        {isLongOpen(o, now) && <span className="text-amber-400"> · {longOpenLabel(o.createdAt, now)}</span>}
                       </Link>
                     ))}
                   </div>
@@ -242,11 +262,23 @@ export default function OrderBoard({
               <Link
                 key={order.id}
                 href={`/admin/pos/orders/${order.id}`}
-                className="flex items-center justify-between bg-ink2/40 border border-cream/10 rounded-xl p-4 hover:bg-cream/5 transition-colors"
+                className={`flex items-center justify-between gap-3 bg-ink2/40 border rounded-xl p-4 hover:bg-cream/5 transition-colors ${
+                  isLongOpen(order, now) ? "border-amber-400/60" : "border-cream/10"
+                }`}
               >
-                <span className="text-cream">{order.guestName ?? `Ticket #${order.id.slice(-6)}`}</span>
-                <span className={`text-xs rounded-full px-2.5 py-1 ${STATUS_STYLES[order.status]}`}>
-                  {order.status}
+                <span className="text-cream min-w-0">
+                  {ticketTitle(order)} <span className="text-cream/40 text-sm">{orderNumberLabel(order)}</span>
+                  {isLongOpen(order, now) && (
+                    <span className="block text-xs text-amber-400" suppressHydrationWarning>
+                      {longOpenLabel(order.createdAt, now)} — forgotten?
+                    </span>
+                  )}
+                </span>
+                <span className="flex items-center gap-2 shrink-0">
+                  {isSpaOrder(order, null) && (
+                    <span className="text-xs rounded-full px-2.5 py-1 border border-cream/25 text-cream/70">✿ Spa</span>
+                  )}
+                  <span className={`text-xs rounded-full px-2.5 py-1 ${STATUS_STYLES[order.status]}`}>{STATUS_LABELS[order.status]}</span>
                 </span>
               </Link>
             ))}

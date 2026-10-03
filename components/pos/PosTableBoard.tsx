@@ -5,7 +5,16 @@ import { useRouter } from "next/navigation";
 import { usePolling } from "@/lib/usePolling";
 import { fetchBoardData } from "@/lib/pos/ordersClient";
 import { draftOrderHref } from "@/lib/posDraftOrder";
-import { STATUS_LABELS, STATUS_STYLES, ZONE_LABELS } from "@/lib/posOrders";
+import {
+  STATUS_LABELS,
+  STATUS_STYLES,
+  ZONE_LABELS,
+  isLongOpen,
+  isSpaOrder,
+  longOpenLabel,
+  orderNumberLabel,
+  ticketTitle,
+} from "@/lib/posOrders";
 import type { Order, Table, Zone } from "@/lib/posTypes";
 
 // SPA is deliberately excluded - reception bills a treatment from the spa schedule's own billing
@@ -14,6 +23,9 @@ import type { Order, Table, Zone } from "@/lib/posTypes";
 // (fetchBoardData, below) refetches every table unfiltered, so excluding SPA here (not just from
 // the initialTables prop) is what keeps a spa table from reappearing on the next poll.
 const ZONES: Zone[] = ["RESTAURANT", "BAR", "POOL", "ROOM_SERVICE"];
+
+// An order still open a day after it was opened is flagged (amber - "attention, not urgent"): it is
+// almost always a forgotten table or a ticket nobody closed. lib/posOrders.ts#isLongOpen.
 
 // Same grouping/occupancy rules as the admin OrderBoard (a table can have more than one open
 // order, an inactive table with an order still open must stay visible) — that's about data
@@ -65,6 +77,7 @@ export default function PosTableBoard({
     else ordersByTableId.set(o.tableId, [o]);
   }
   const openTickets = orders.filter((o) => !o.tableId);
+  const now = new Date();
   const visibleTables = tables.filter((t) => t.isActive || ordersByTableId.has(t.id));
 
   async function handleTableClick(table: Table) {
@@ -127,6 +140,7 @@ export default function PosTableBoard({
                   {zoneTables.map((table) => {
                     const tableOrders = ordersByTableId.get(table.id) ?? [];
                     const busy = creatingTableId === table.id;
+                    const stale = tableOrders.find((o) => isLongOpen(o, now));
                     return (
                       <Fragment key={table.id}>
                         <button
@@ -135,7 +149,9 @@ export default function PosTableBoard({
                           onClick={() => handleTableClick(table)}
                           className={`min-h-[76px] rounded-2xl text-base flex flex-col items-center justify-center gap-1.5 transition-colors ${
                             tableOrders.length > 0 ? "bg-coral/20 text-coral" : "bg-sea/10 text-cream/80 active:bg-sea/20"
-                          } ${!table.isActive ? "border border-dashed border-cream/30" : ""} ${busy ? "opacity-50" : ""}`}
+                          } ${!table.isActive ? "border border-dashed border-cream/30" : ""} ${stale ? "ring-2 ring-amber-400" : ""} ${
+                            busy ? "opacity-50" : ""
+                          }`}
                         >
                           <span className="font-display text-2xl">{table.label}</span>
                           {tableOrders.length === 1 && (
@@ -149,6 +165,11 @@ export default function PosTableBoard({
                             </span>
                           )}
                           {!table.isActive && <span className="text-xs text-cream/40">Inactive</span>}
+                          {stale && (
+                            <span className="text-xs text-amber-400" suppressHydrationWarning>
+                              {longOpenLabel(stale.createdAt, now)}
+                            </span>
+                          )}
                         </button>
                         {/* Anchored to the tapped table, not rendered once below every zone: with
                             several zones a page-bottom picker could open off-screen, so the tap
@@ -171,7 +192,8 @@ export default function PosTableBoard({
                                   onClick={() => router.push(`/pos/orders/${o.id}`)}
                                   className="text-sm text-left rounded-xl border border-cream/25 active:border-cream/50 transition-colors px-4 py-3"
                                 >
-                                  #{o.id.slice(-6)} · {STATUS_LABELS[o.status]}
+                                  {orderNumberLabel(o)} · {STATUS_LABELS[o.status]}
+                                  {isLongOpen(o, now) && <span className="text-amber-400"> · {longOpenLabel(o.createdAt, now)}</span>}
                                 </button>
                               ))}
                             </div>
@@ -219,11 +241,23 @@ export default function PosTableBoard({
                 key={order.id}
                 type="button"
                 onClick={() => router.push(`/pos/orders/${order.id}`)}
-                className="w-full flex items-center justify-between bg-ink2 border border-cream/10 rounded-2xl p-4 active:bg-cream/5 transition-colors"
+                className={`w-full flex items-center justify-between gap-3 bg-ink2 border rounded-2xl p-4 active:bg-cream/5 transition-colors text-left ${
+                  isLongOpen(order, now) ? "border-amber-400/60" : "border-cream/10"
+                }`}
               >
-                <span className="text-cream text-base">{order.guestName ?? `Ticket #${order.id.slice(-6)}`}</span>
-                <span className={`text-xs rounded-full px-2.5 py-1 ${STATUS_STYLES[order.status]}`}>
-                  {STATUS_LABELS[order.status]}
+                <span className="text-cream text-base min-w-0">
+                  {ticketTitle(order)} <span className="text-cream/40 text-sm">{orderNumberLabel(order)}</span>
+                  {isLongOpen(order, now) && (
+                    <span className="block text-xs text-amber-400" suppressHydrationWarning>
+                      {longOpenLabel(order.createdAt, now)} — forgotten?
+                    </span>
+                  )}
+                </span>
+                <span className="flex items-center gap-2 shrink-0">
+                  {isSpaOrder(order, null) && (
+                    <span className="text-xs rounded-full px-2.5 py-1 border border-cream/25 text-cream/70">✿ Spa</span>
+                  )}
+                  <span className={`text-xs rounded-full px-2.5 py-1 ${STATUS_STYLES[order.status]}`}>{STATUS_LABELS[order.status]}</span>
                 </span>
               </button>
             ))}

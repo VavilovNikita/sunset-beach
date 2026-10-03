@@ -30,6 +30,7 @@ export default async function NewOrderTicketPage({ searchParams }: { searchParam
         menu={menu}
         tableZone={table?.zone ?? null}
         canManagePayments={canManagePayments}
+        canVoidSentItems={false}
         basePath="/admin/pos"
         actor={null}
       />

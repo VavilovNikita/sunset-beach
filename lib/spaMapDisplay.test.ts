@@ -7,6 +7,7 @@ function table(overrides: Partial<SpaMapTable>): SpaMapTable {
     tableId: "table-1",
     label: "1",
     capacity: 1,
+    shape: "ROUND",
     isActive: true,
     positionX: null,
     positionY: null,

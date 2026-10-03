@@ -85,6 +85,8 @@ export default function RestaurantTableMapView({ initialMap, canManage }: { init
     positionY: t.positionY,
     fill: resolveRestaurantTableFill(t),
     stateLabel: startingTableId === t.tableId ? "Starting an order…" : restaurantTableStateLabel(t),
+    shape: t.shape,
+    capacity: t.capacity,
   }));
 
   return (

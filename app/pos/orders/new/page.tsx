@@ -28,6 +28,7 @@ export default async function PosNewOrderPage({ searchParams }: { searchParams: 
           menu={menu}
           tableZone={table?.zone ?? null}
           canManagePayments={canManagePayments}
+          canVoidSentItems={false}
           basePath="/pos"
           actor={{ email: user?.email ?? "", role: user?.role ?? "WAITER" }}
         />

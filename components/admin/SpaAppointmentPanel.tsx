@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { addSpaAppointmentTreatment, removeSpaAppointmentTreatment, updateSpaAppointmentStatus } from "@/lib/spaClient";
 import { billSpaAppointment } from "@/lib/spaOrderClient";
+import { adminRequest } from "@/lib/adminFetch";
+import { orderNumberLabel } from "@/lib/posOrders";
 import { sumTreatmentPrices } from "@/lib/spaTreatmentPricing";
-import type { MenuItem, SpaAppointment, SpaAppointmentStatus } from "@/lib/posTypes";
+import type { MenuItem, Order, SpaAppointment, SpaAppointmentStatus } from "@/lib/posTypes";
 import { formatDate } from "@/lib/formatDate";
 
 // Side panel for one appointment clicked on the grid - same shell as BookingCardPanel.tsx (no
@@ -26,6 +28,12 @@ import { formatDate } from "@/lib/formatDate";
 // below is set the moment creation succeeds - not only on full success - so this panel switches
 // straight to the "Open order" link and can never re-fire handleBill into creating a second order
 // for the same appointment while waiting on the parent to refetch.
+//
+// A linked order that was later cancelled bills nothing (the backend's own missingTreatmentNames
+// treats it the same way), so it doesn't close the billing door: the panel reads the linked
+// order's status and, when it is CANCELLED, offers "Bill again" - a new order sent with
+// spaAppointmentId, which re-points the appointment's link at it (the explicit link always wins,
+// see OrderCreateInput.spaAppointmentId). The cancelled order stays reachable for reference.
 //
 // `current` holds the appointment as of the latest write this panel itself made (treatment add/
 // remove, billing) - same overlay reasoning as `billedOrderId`: the grid only reflects a write
@@ -51,6 +59,9 @@ export default function SpaAppointmentPanel({
   const [billing, setBilling] = useState(false);
   const [billedOrderId, setBilledOrderId] = useState<string | null>(null);
   const [billError, setBillError] = useState<string | null>(null);
+  // The linked order's status/number, read once the panel knows which order that is. null while
+  // loading or when it couldn't be read - the plain "Open order" link still works then.
+  const [linkedOrder, setLinkedOrder] = useState<Pick<Order, "id" | "status" | "number"> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [addTreatmentId, setAddTreatmentId] = useState(availableTreatments[0]?.id ?? "");
   const [addingTreatment, setAddingTreatment] = useState(false);
@@ -130,7 +141,21 @@ export default function SpaAppointmentPanel({
   const isBooked = current.status === "BOOKED";
   const isCompleted = current.status === "COMPLETED";
   const canBill = current.status === "BOOKED" || current.status === "COMPLETED";
-  const orderId = current.orderId ?? billedOrderId;
+  // A just-made bill wins over the appointment prop, which may still name an earlier (cancelled)
+  // order until the parent refetches.
+  const orderId = billedOrderId ?? current.orderId;
+  const linkedOrderCancelled = linkedOrder?.id === orderId && linkedOrder.status === "CANCELLED";
+
+  useEffect(() => {
+    if (!orderId) return;
+    let stale = false;
+    adminRequest<Order>(`/orders/${orderId}`, undefined, "Could not load the linked order.").then((result) => {
+      if (!stale && result.ok) setLinkedOrder({ id: result.data.id, status: result.data.status, number: result.data.number });
+    });
+    return () => {
+      stale = true;
+    };
+  }, [orderId]);
   // Growing is only offered while BOOKED (a COMPLETED appointment is a record of what happened,
   // not a plan still being negotiated - see the backend CLAUDE.md's Naming section); shrinking
   // (below) stays available through COMPLETED too, to correct an over-count, since it can never
@@ -228,13 +253,36 @@ export default function SpaAppointmentPanel({
             {addTreatmentError && <p className="text-sm text-coral">{addTreatmentError}</p>}
           </div>
 
-          {orderId ? (
+          {orderId && linkedOrderCancelled ? (
+            <div className="space-y-2">
+              <p className="text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2">
+                The linked order {orderNumberLabel(linkedOrder!)} was cancelled — nothing has been charged for this appointment.
+              </p>
+              {canBill && (
+                <button
+                  type="button"
+                  onClick={handleBill}
+                  disabled={billing}
+                  className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-4 py-2 text-sm font-medium disabled:opacity-50"
+                >
+                  {billing ? "Opening…" : "Bill again"}
+                </button>
+              )}
+              <Link
+                href={`/admin/pos/orders/${orderId}`}
+                className="block text-xs text-cream/50 hover:text-coral transition-colors underline underline-offset-4"
+              >
+                View the cancelled order
+              </Link>
+              {billError && <p className="text-sm text-coral">{billError}</p>}
+            </div>
+          ) : orderId ? (
             <div className="space-y-2">
               <Link
                 href={`/admin/pos/orders/${orderId}`}
                 className="inline-block text-sm text-sea hover:text-coral transition-colors underline underline-offset-4"
               >
-                Open order →
+                Open order{linkedOrder?.id === orderId ? ` ${orderNumberLabel(linkedOrder)}` : ""} →
               </Link>
               {billError && <p className="text-sm text-coral">{billError}</p>}
             </div>

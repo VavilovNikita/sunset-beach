@@ -74,6 +74,8 @@ export default function SpaTableMapView({ initialMap, canManage }: { initialMap:
     positionY: t.positionY,
     fill: resolveSpaTableFill(t),
     stateLabel: stateLabelFor(t),
+    shape: t.shape,
+    capacity: t.capacity,
   }));
   const selectedTable = tables.find((t) => t.tableId === selectedTableId) ?? null;
 

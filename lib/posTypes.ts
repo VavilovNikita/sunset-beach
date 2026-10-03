@@ -4,6 +4,9 @@
 // matters here: response fields (MenuItem.price, Order.total, etc.) are
 // strings; the matching *Input request bodies take plain numbers.
 export type Zone = "RESTAURANT" | "BAR" | "SPA" | "POOL" | "ROOM_SERVICE";
+
+// How a table is drawn on its floor plan (TableFloorPlan.tsx). Display only.
+export type TableShape = "ROUND" | "SQUARE" | "RECTANGLE";
 export type OrderStatus = "OPEN" | "SENT" | "PAID" | "CANCELLED";
 export type PaymentMethod = "CASH" | "CARD" | "ROOM_CHARGE" | "OTHER";
 
@@ -31,7 +34,8 @@ export type MenuItem = {
 
 export type MenuItemInput = {
   name: string;
-  description: string;
+  // Optional - the POS never shows it; omitted or blank is stored as "".
+  description?: string;
   category: string;
   department?: MenuDepartment;
   price: number;
@@ -109,6 +113,7 @@ export type Table = {
   zone: Zone;
   label: string;
   capacity: number;
+  shape: TableShape;
   isActive: boolean;
   // Normalized (0..1) position on a floor-plan image, set via PATCH /tables/positions - same
   // convention as RoomUnit.positionX/Y. Which plan follows from `zone`: SPA tables on the spa map,
@@ -121,6 +126,8 @@ export type TableInput = {
   zone: Zone;
   label: string;
   capacity: number;
+  // Full replacement: omitted means ROUND.
+  shape?: TableShape;
   isActive?: boolean;
 };
 
@@ -143,6 +150,7 @@ export type RestaurantMapTable = {
   label: string;
   zone: Zone;
   capacity: number;
+  shape: TableShape;
   isActive: boolean;
   positionX: number | null;
   positionY: number | null;
@@ -185,6 +193,7 @@ export type SpaMapTable = {
   tableId: string;
   label: string;
   capacity: number;
+  shape: TableShape;
   isActive: boolean;
   positionX: number | null;
   positionY: number | null;
@@ -211,6 +220,31 @@ export type OrderItem = {
   sentAt: string | null;
 };
 
+// A quantity taken off a line after it was sent (POST /orders/{id}/items/{itemId}/void, MANAGER+).
+// Never part of Order.items or Order.total - kept so the ticket shows what was voided, by whom, why.
+export type OrderItemVoid = {
+  id: string;
+  menuItemId: string;
+  quantity: number;
+  unitPrice: string;
+  note: string | null;
+  sentAt: string | null;
+  reason: string;
+  voidedByUserId: string;
+  voidedByEmail: string;
+  voidedAt: string;
+};
+
+export type OrderItemVoidInput = {
+  // Omitted voids the whole line.
+  quantity?: number;
+  reason: string;
+};
+
+// Which date GET /orders' from/to filter on: OPENED is Order.createdAt (the default), CLOSED is
+// Order.closedAt (paid or cancelled).
+export type OrderDateBasis = "OPENED" | "CLOSED";
+
 export type OrderItemInput = {
   menuItemId: string;
   quantity: number;
@@ -221,6 +255,15 @@ export type OrderItemInput = {
 // lighter-weight list shape, so a single Order type covers both.
 export type Order = {
   id: string;
+  // Human-readable receipt number - one ever-increasing sequence, printed on tickets and receipts.
+  // Shown next to the id, never instead of it (lib/posOrders.ts#orderNumberLabel).
+  number: number;
+  // When the order was paid or cancelled; null while OPEN/SENT.
+  closedAt: string | null;
+  // The spa appointment this order bills, or null - marks a spa ticket in the open-tickets lists.
+  spaAppointmentId: string | null;
+  // Voided-after-sending lines - never in items or total.
+  voids: OrderItemVoid[];
   tableId: string | null;
   bookingId: string | null;
   guestName: string | null;

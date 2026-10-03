@@ -112,6 +112,10 @@ The boards and shift screens are still separate - when changing behaviour in one
 
 **Opening a table creates nothing.** Both boards navigate to `.../orders/new?tableId=` (`lib/posDraftOrder.ts`), a draft that exists only in the URL; the first item creates the order with that line in one request. Which menu items a ticket offers is `lib/posMenu.ts#menuForOrder` (a restaurant/bar table never sees spa treatments; the item picker has no pre-selected default). Buttons that change state stay in place, disabled, after their action (Send → "Sent ✓", Start → "Started ✓") - a button that vanished let the next one slide under a double-click.
 
+**Confirmations are dialogs, not `window.confirm()`.** Inside an order ticket use `PosAttributedConfirm` (inline, with the phone's "will be recorded as" block; `cancelLabel` when the action is itself a cancel). Elsewhere in the admin use `components/admin/ConfirmDialog.tsx` (the modal `CancelBookingDialog` and `DeleteButton` are built on). Some front-desk screens still call `window.confirm()` - move them over when touched.
+
+Show an order by `orderNumberLabel` ("#1234", `lib/posOrders.ts`) with `orderRefLabel` (id prefix) beside it, never a slice of the id on its own. A sent line is voided (MANAGER+, reason required), not removed - see the backend CLAUDE.md, "Money".
+
 ## Spa
 
 Spa tables are ordinary POS `Table` rows (`zone: "SPA"`), and a spa appointment occupies the same `Table`/therapist model the restaurant floor uses — the data is shared. The *screens* are still deliberately separate: `OrderBoard`/`PosTableBoard` (the restaurant floor views) explicitly exclude SPA-zone tables, and the spa module gets its own schedule grid (`/admin/spa`, `SpaScheduleGrid.tsx`, built around treatment/therapist/time-slot booking rather than walk-up table service) and its own table/map screens (`/admin/spa/tables`, `/admin/spa/map`). Reception works a spa appointment by treatment and time, not by walking up to a table — that's the whole reason for the split; don't read it as the data being separate too.

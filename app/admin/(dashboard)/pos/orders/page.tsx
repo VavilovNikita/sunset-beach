@@ -2,7 +2,7 @@ import Link from "next/link";
 import { backendJson } from "@/lib/backendServer";
 import { requireRoleAtLeast } from "@/lib/rbac";
 import OrderHistoryTable from "@/components/admin/pos/OrderHistoryTable";
-import type { Order, Table } from "@/lib/posTypes";
+import type { Order, OrderDateBasis, Table } from "@/lib/posTypes";
 
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -11,7 +11,7 @@ function isoDate(d: Date) {
 export default async function OrderHistoryPage({
   searchParams,
 }: {
-  searchParams: { from?: string; to?: string; status?: string; tableId?: string; shiftId?: string };
+  searchParams: { from?: string; to?: string; dateBasis?: string; status?: string; tableId?: string; shiftId?: string };
 }) {
   // GET /orders itself has no role floor above "any authenticated staff" (the whole floor
   // already sees every table's orders), but this particular screen - unbounded lookback,
@@ -23,11 +23,20 @@ export default async function OrderHistoryPage({
   const today = new Date();
   const defaultFrom = new Date(today);
   defaultFrom.setDate(defaultFrom.getDate() - 7);
-  const from = searchParams.from || isoDate(defaultFrom);
-  const to = searchParams.to || isoDate(today);
   const { status, tableId, shiftId } = searchParams;
+  // Reached from a shift's own page (?shiftId= only): the shift already bounds the list, and a
+  // default week would hide the orders of a shift older than that.
+  const datesFromShift = Boolean(shiftId) && !searchParams.from && !searchParams.to;
+  const from = datesFromShift ? "" : searchParams.from || isoDate(defaultFrom);
+  const to = datesFromShift ? "" : searchParams.to || isoDate(today);
+  // By default the period means when an order was paid or cancelled: an order opened a month ago
+  // and paid today belongs in today's takings review. "Opened" stays available for finding an
+  // order by when the table sat down (and still-open orders, which have no close date).
+  const dateBasis: OrderDateBasis = searchParams.dateBasis === "OPENED" ? "OPENED" : "CLOSED";
 
-  const query = new URLSearchParams({ from, to });
+  const query = new URLSearchParams({ dateBasis });
+  if (from) query.set("from", from);
+  if (to) query.set("to", to);
   if (status) query.set("status", status);
   if (tableId) query.set("tableId", tableId);
   if (shiftId) query.set("shiftId", shiftId);
@@ -53,7 +62,7 @@ export default async function OrderHistoryPage({
         <p className="text-sm text-cream/60 mb-6 bg-ink2/40 border border-cream/10 rounded-xl px-4 py-3">
           Showing only orders paid during one shift.{" "}
           <Link
-            href={`/admin/pos/orders?from=${from}&to=${to}`}
+            href={`/admin/pos/orders?dateBasis=${dateBasis}`}
             className="text-sea hover:text-coral transition-colors underline underline-offset-4"
           >
             Clear that filter
@@ -63,6 +72,17 @@ export default async function OrderHistoryPage({
 
       <form method="get" className="flex flex-wrap items-end gap-4 mb-8 bg-ink2/40 border border-cream/10 rounded-xl p-4">
         {shiftId && <input type="hidden" name="shiftId" value={shiftId} />}
+        <div>
+          <label className="eyebrow text-cream/60 block mb-1">Dates are</label>
+          <select
+            name="dateBasis"
+            defaultValue={dateBasis}
+            className="bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="CLOSED">Paid / closed</option>
+            <option value="OPENED">Opened</option>
+          </select>
+        </div>
         <div>
           <label className="eyebrow text-cream/60 block mb-1">From</label>
           <input
@@ -117,6 +137,12 @@ export default async function OrderHistoryPage({
           Filter
         </button>
       </form>
+
+      {dateBasis === "CLOSED" && (status === "OPEN" || status === "SENT") && (
+        <p className="text-sm text-amber-400 mb-6">
+          Open and sent orders have no close date yet - switch &ldquo;Dates are&rdquo; to Opened to find them.
+        </p>
+      )}
 
       <OrderHistoryTable orders={orders} tables={tables} />
     </div>

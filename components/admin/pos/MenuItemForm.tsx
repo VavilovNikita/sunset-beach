@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createMenuItem, updateMenuItem } from "@/lib/menuItemClient";
 import { MENU_DEPARTMENT_LABELS } from "@/lib/posOrders";
+import { nearDuplicateCategory } from "@/lib/menuCategories";
 import type { MenuDepartment } from "@/lib/posTypes";
 
 // SPA is deliberately not offered here - treatments have their own management screen
@@ -25,10 +26,15 @@ export default function MenuItemForm({
   mode,
   itemId,
   initialValues,
+  existingCategories,
 }: {
   mode: "create" | "edit";
   itemId?: string;
   initialValues?: MenuItemFormValues;
+  // Every category already in use on the menu (all departments - the server compares against all
+  // of them). Offered as suggestions, and used to catch "cocktails" next to an existing
+  // "Cocktails" before the server refuses it.
+  existingCategories: string[];
 }) {
   const router = useRouter();
   const [values, setValues] = useState<MenuItemFormValues>(
@@ -36,9 +42,14 @@ export default function MenuItemForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const categoryMatch = nearDuplicateCategory(values.category, existingCategories);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (categoryMatch) {
+      setError(`A category "${categoryMatch}" already exists - use that one so the item lands on the same menu tab.`);
+      return;
+    }
     setSubmitting(true);
     setError(null);
 
@@ -77,9 +88,10 @@ export default function MenuItemForm({
       </div>
 
       <div>
-        <label className="eyebrow text-cream/60 block mb-1">Description</label>
+        <label className="eyebrow text-cream/60 block mb-1">
+          Description <span className="normal-case tracking-normal text-cream/40">(optional)</span>
+        </label>
         <textarea
-          required
           rows={3}
           value={values.description}
           onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))}
@@ -96,8 +108,31 @@ export default function MenuItemForm({
             value={values.category}
             onChange={(e) => setValues((v) => ({ ...v, category: e.target.value }))}
             placeholder="e.g. Mains, Drinks"
-            className="w-full bg-transparent border-b border-cream/25 py-2 text-cream placeholder:text-cream/40 focus:outline-none focus:border-coral"
+            list="menu-item-categories"
+            className={`w-full bg-transparent border-b py-2 text-cream placeholder:text-cream/40 focus:outline-none focus:border-coral ${
+              categoryMatch ? "border-amber-400" : "border-cream/25"
+            }`}
           />
+          <datalist id="menu-item-categories">
+            {existingCategories.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
+          {categoryMatch && (
+            <p className="text-xs text-amber-400 mt-1">
+              &ldquo;{categoryMatch}&rdquo; already exists.{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setValues((v) => ({ ...v, category: categoryMatch }));
+                  setError(null);
+                }}
+                className="underline underline-offset-4 hover:text-coral transition-colors"
+              >
+                Use &ldquo;{categoryMatch}&rdquo;
+              </button>
+            </p>
+          )}
           <p className="text-xs text-cream/40 mt-1">How this item is grouped on the menu display. Doesn&rsquo;t affect printing.</p>
         </div>
         <div>

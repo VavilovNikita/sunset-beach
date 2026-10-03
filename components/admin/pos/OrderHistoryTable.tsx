@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { STATUS_LABELS, STATUS_STYLES, PAYMENT_METHOD_LABELS } from "@/lib/posOrders";
+import { STATUS_LABELS, STATUS_STYLES, PAYMENT_METHOD_LABELS, orderNumberLabel, ticketTitle } from "@/lib/posOrders";
 import type { Order, Table } from "@/lib/posTypes";
 import { formatTimestamp } from "@/lib/formatDate";
 
@@ -51,7 +51,9 @@ export default function OrderHistoryTable({ orders, tables }: { orders: Order[];
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-cream/40 border-b border-cream/10">
+                <th className="py-2 pr-4 font-normal">Order</th>
                 <th className="py-2 pr-4 font-normal">Opened</th>
+                <th className="py-2 pr-4 font-normal">Paid / closed</th>
                 <th className="py-2 pr-4 font-normal">Table / Guest</th>
                 <th className="py-2 pr-4 font-normal">Staff</th>
                 <th className="py-2 pr-4 font-normal">Status</th>
@@ -67,11 +69,14 @@ export default function OrderHistoryTable({ orders, tables }: { orders: Order[];
                       href={`/admin/pos/orders/${o.id}`}
                       className="text-sea hover:text-coral transition-colors underline underline-offset-4"
                     >
-                      {formatTimestamp(o.createdAt)}
+                      {orderNumberLabel(o)}
                     </Link>
+                    {o.voids.length > 0 && <span className="ml-2 text-xs text-amber-400">{o.voids.length} void{o.voids.length === 1 ? "" : "s"}</span>}
                   </td>
+                  <td className="py-3 pr-4 whitespace-nowrap text-cream/70">{formatTimestamp(o.createdAt)}</td>
+                  <td className="py-3 pr-4 whitespace-nowrap text-cream/70">{o.closedAt ? formatTimestamp(o.closedAt) : "—"}</td>
                   <td className="py-3 pr-4 text-cream/70">
-                    {o.tableId ? (tablesById.get(o.tableId)?.label ?? "Deleted table") : (o.guestName ?? `Ticket #${o.id.slice(-6)}`)}
+                    {o.tableId ? (tablesById.get(o.tableId)?.label ?? "Deleted table") : ticketTitle(o)}
                   </td>
                   <td className="py-3 pr-4 text-cream/70">{o.openedByEmail}</td>
                   <td className="py-3 pr-4">

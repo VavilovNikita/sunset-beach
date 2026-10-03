@@ -34,7 +34,11 @@ function order(status: OrderStatus): Order {
     updatedAt: "2026-10-01T00:00:00Z",
     paymentMethod: null,
     guestAccessToken: null,
-  } as Order;
+    number: 42,
+    closedAt: null,
+    spaAppointmentId: null,
+    voids: [],
+  };
 }
 
 const SURFACES = [
@@ -42,10 +46,23 @@ const SURFACES = [
   { name: "phone", basePath: "/pos" as const, actor: { email: "cashier@example.com", role: "CASHIER" as const } },
 ];
 
-function render(surface: (typeof SURFACES)[number], o: Order | null, tableZone: Zone | null = "RESTAURANT") {
+function render(surface: (typeof SURFACES)[number], o: Order | null, tableZone: Zone | null = "RESTAURANT", canVoidSentItems = false) {
   return renderToStaticMarkup(
-    <OrderTicket initialOrder={o} menu={MENU} tableZone={tableZone} canManagePayments basePath={surface.basePath} actor={surface.actor} />
+    <OrderTicket
+      initialOrder={o}
+      menu={MENU}
+      tableZone={tableZone}
+      canManagePayments
+      canVoidSentItems={canVoidSentItems}
+      basePath={surface.basePath}
+      actor={surface.actor}
+    />
   );
+}
+
+function sentOrder(): Order {
+  const o = order("SENT");
+  return { ...o, items: o.items.map((i) => ({ ...i, sentAt: "2026-10-01T00:05:00Z" })) };
 }
 
 describe.each(SURFACES)("OrderTicket on the $name", (surface) => {
@@ -90,5 +107,41 @@ describe.each(SURFACES)("OrderTicket on the $name", (surface) => {
     expect(html).not.toContain('aria-label="One more"');
     expect(html).not.toContain('placeholder="Search menu…"');
     expect(html).toContain("Paid via Cash");
+  });
+
+  it("shows the receipt number next to the id reference", () => {
+    const html = render(surface, order("OPEN"));
+    expect(html).toContain("#42");
+    expect(html).toContain("ref O1");
+  });
+
+  it("offers Void on a sent line only to a manager", () => {
+    expect(render(surface, sentOrder(), "RESTAURANT", true)).toContain(">Void</button>");
+    expect(render(surface, sentOrder(), "RESTAURANT", false)).not.toContain(">Void</button>");
+    // An unsent line is edited with the stepper, never voided.
+    expect(render(surface, order("OPEN"), "RESTAURANT", true)).not.toContain(">Void</button>");
+  });
+
+  it("lists voided items with the reason, outside the bill", () => {
+    const html = render(surface, {
+      ...sentOrder(),
+      voids: [
+        {
+          id: "v1",
+          menuItemId: "m2",
+          quantity: 1,
+          unitPrice: "100.00",
+          note: null,
+          sentAt: "2026-10-01T00:05:00Z",
+          reason: "Guest sent it back",
+          voidedByUserId: "u9",
+          voidedByEmail: "manager@example.com",
+          voidedAt: "2026-10-01T01:00:00Z",
+        },
+      ],
+    });
+    expect(html).toContain("Voided after sending");
+    expect(html).toContain("Guest sent it back");
+    expect(html).toContain("manager@example.com");
   });
 });
