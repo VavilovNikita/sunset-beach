@@ -131,6 +131,9 @@ export default function BookingCalendarGrid({
     };
     for (const b of data.bookings) {
       if (b.roomUnitId) mark(b.roomUnitId, dateOnlyUTC(b.checkIn), dateOnlyUTC(b.checkOut));
+      // A guest still checked in past checkOut holds the room through tonight (the backend's
+      // OverstayRule) - those nights aren't free to drag a new stay across either.
+      if (b.roomUnitId && b.overstayUntil) mark(b.roomUnitId, dateOnlyUTC(b.checkOut), dateOnlyUTC(b.overstayUntil));
     }
     for (const segments of blocksByUnit.values()) {
       for (const seg of segments) mark(seg.roomUnitId, seg.fromDate, addDaysUTC(seg.toDate, 1));
@@ -807,6 +810,43 @@ export default function BookingCalendarGrid({
               />
             );
           })}
+
+          {/* Overstay: a guest still checked in after checkOut, drawn as a hatched coral tail
+              after their agreed bar - never as a longer bar, since checkOut is still the agreed
+              date and dragging the bar must keep meaning "change the agreed stay". Coral because
+              it needs intervention (check out, or extend the stay). Same pointer-events rule as
+              the blocks above: transparent to any drag in progress. */}
+          {bookings
+            .filter((b) => b.overstayUntil)
+            .map((b) => {
+              const { startCol, colSpan } = columnSpan(dateOnlyUTC(b.checkOut), dateOnlyUTC(b.overstayUntil!), gridFrom, dayCount);
+              if (colSpan <= 0) return null;
+              const tapHandlers = bindTapOrDoubleClick(() => setSelectedBookingId(b.bookingId));
+              return (
+                <div
+                  key={`overstay-${b.segmentId}`}
+                  className="absolute rounded-md flex items-center overflow-hidden cursor-pointer text-cream"
+                  onPointerDown={notePointerType}
+                  onClick={tapHandlers.onClick}
+                  onDoubleClick={tapHandlers.onDoubleClick}
+                  title={`${b.guestName} · past check-out (${b.checkOut}) and still checked in`}
+                  style={{
+                    left: startCol * dayWidth + 2,
+                    width: colSpan * dayWidth - 4,
+                    top: 3,
+                    height: ROW_HEIGHT - 6,
+                    backgroundImage:
+                      "repeating-linear-gradient(-45deg, rgba(226,97,47,0.55), rgba(226,97,47,0.55) 6px, rgba(226,97,47,0.2) 6px, rgba(226,97,47,0.2) 12px)",
+                    border: "1px solid rgba(226,97,47,0.9)",
+                    pointerEvents: dragState ? "none" : "auto",
+                  }}
+                >
+                  {colSpan * dayWidth - 4 >= LABEL_MIN_WIDTH_PX && (
+                    <span className="truncate px-2 text-xs pointer-events-none">{b.guestName} · overdue</span>
+                  )}
+                </div>
+              );
+            })}
 
           {lanes.map(({ booking, lane }) => {
               const eff = withEffective.find((w) => w.booking.segmentId === booking.segmentId)!;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chipAppearanceFor, classifyRosterDrop, isValidSwapTarget, resolveShiftCodesForArea, type RosterDragSource, type RosterDropTarget } from "./rosterGrid";
+import { chipAppearanceFor, classifyRosterDrop, isValidSwapTarget, previousMonthRange, resolveShiftCodesForArea, rosterDisplayGroups, type RosterDragSource, type RosterDropTarget } from "./rosterGrid";
 import type { ShiftCode, ShiftCodeKind } from "./types";
 
 const source: RosterDragSource = { entryId: "e1", employeeUserId: "emp-1", date: "2026-09-10" };
@@ -175,5 +175,43 @@ describe("isValidSwapTarget", () => {
 
   it("false for the dragged entry's own cell", () => {
     expect(isValidSwapTarget(source, target({ entry: { id: "e1", locked: false } }))).toBe(false);
+  });
+});
+
+describe("rosterDisplayGroups", () => {
+  const groups = [
+    { area: "KITCHEN" as const, employees: [{ id: "k1" }, { id: "k2" }] },
+    { area: "RESTAURANT" as const, employees: [{ id: "s1" }] },
+    { area: "FRONT_OFFICE" as const, employees: [] },
+  ];
+
+  it("keeps a department whose every employee has no shifts, with an explicit hidden count, instead of dropping it", () => {
+    const result = rosterDisplayGroups(groups, new Set(["k1"]), false);
+    expect(result).toEqual([
+      { area: "KITCHEN", employees: [{ id: "k1" }], hiddenEmployeeCount: 1 },
+      { area: "RESTAURANT", employees: [], hiddenEmployeeCount: 1 },
+    ]);
+  });
+
+  it("shows everyone when asked to", () => {
+    const result = rosterDisplayGroups(groups, new Set(), true);
+    expect(result.map((g) => [g.area, g.employees.length, g.hiddenEmployeeCount])).toEqual([
+      ["KITCHEN", 2, 0],
+      ["RESTAURANT", 1, 0],
+    ]);
+  });
+});
+
+describe("previousMonthRange", () => {
+  it("is the whole month before", () => {
+    expect(previousMonthRange(2026, 10)).toEqual({ from: "2026-09-01", to: "2026-09-30" });
+  });
+
+  it("wraps into December of the previous year", () => {
+    expect(previousMonthRange(2027, 1)).toEqual({ from: "2026-12-01", to: "2026-12-31" });
+  });
+
+  it("knows a leap February", () => {
+    expect(previousMonthRange(2028, 3)).toEqual({ from: "2028-02-01", to: "2028-02-29" });
   });
 });

@@ -1,6 +1,7 @@
 import { backendJson } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import { isStale } from "@/lib/attendanceDeviceHealth";
+import { hotelDateKey } from "@/lib/hotelDate";
 import type { AttendanceDevice, MaintenanceTask, RosterCoverageWarning, RosterMonth, TodayShiftStatus } from "@/lib/types";
 
 // Dashboard blocks beyond the money figures in adminStats.ts - each one reuses an endpoint an
@@ -62,11 +63,8 @@ export function summarizeMaintenance(tasks: MaintenanceTask[]): MaintenanceSumma
   };
 }
 
-// The hotel's own calendar date (Asia/Bangkok), not the Next server's ambient zone or UTC -
-// coverage warnings are keyed by the roster's local date.
-export function hotelDateKey(now: Date): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(now);
-}
+// Coverage warnings are keyed by the roster's local date - see lib/hotelDate.ts.
+export { hotelDateKey };
 
 export async function getDashboardOps() {
   const now = new Date();

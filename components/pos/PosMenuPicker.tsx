@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { addOrderItem } from "@/lib/pos/ordersClient";
+import { addOrderItem, createOrderWithItem } from "@/lib/pos/ordersClient";
+import type { DraftOrderTarget } from "@/lib/posDraftOrder";
 import type { MenuItem, Order } from "@/lib/posTypes";
 
 // Replaces the admin's <select>-per-add pattern (AddOrderItemForm.tsx) with categories as large
@@ -17,19 +18,21 @@ import type { MenuItem, Order } from "@/lib/posTypes";
 // never a small overlay in the add area's corner: a corner overlay sat inside the card's own tap
 // area, so a slightly-off tap aimed at the note silently added the item with no note instead.
 //
-// SPA-department items are never excluded from this picker (a treatment that can't be added to
-// a ticket can't be billed, and the spa auto-link is built on an order containing one - see
-// OrderService#autoLinkSpaAppointmentByTable/ByBooking) - they're grouped instead, under their
-// own pinned "Spa" tab, regardless of whatever free-text `category` they were given. Everything
-// else still groups by category exactly as before.
+// Which items appear at all is decided by the order's table before they get here
+// (lib/posMenu.ts#menuForOrder): a restaurant/bar table never sees a treatment, a spa table sees
+// only treatments. Where both can appear (a table-less ticket), treatments are grouped under their
+// own pinned "Spa" tab, regardless of whatever free-text `category` they were given.
 const SPA_TAB = "__spa__";
 
 export default function PosMenuPicker({
   orderId,
+  draft,
   menu,
   onAdded,
 }: {
-  orderId: string;
+  // null while the ticket is a draft - the first tap creates the order with that item.
+  orderId: string | null;
+  draft?: DraftOrderTarget;
   menu: MenuItem[];
   onAdded: (order: Order) => void;
 }) {
@@ -53,7 +56,10 @@ export default function PosMenuPicker({
   async function handleTap(item: MenuItem, note?: string) {
     setError(null);
     setAddingId(item.id);
-    const result = await addOrderItem(orderId, { menuItemId: item.id, quantity: 1, note: note || undefined });
+    const line = { menuItemId: item.id, quantity: 1, note: note || undefined };
+    const result = orderId
+      ? await addOrderItem(orderId, line)
+      : await createOrderWithItem(draft ?? { tableId: null, guestName: null }, line);
     setAddingId(null);
     if (!result.ok) {
       setError(result.error);

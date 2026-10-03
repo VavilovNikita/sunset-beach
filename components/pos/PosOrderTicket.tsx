@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { usePolling } from "@/lib/usePolling";
+import { cashTender } from "@/lib/cashTender";
+import { menuForOrder } from "@/lib/posMenu";
+import type { DraftOrderTarget } from "@/lib/posDraftOrder";
+import CashTenderFields from "@/components/CashTenderFields";
 import { PAYMENT_METHOD_LABELS, STATUS_LABELS, STATUS_STYLES, isTerminalStatus } from "@/lib/posOrders";
 import { fetchOrder, updateOrderItemQuantity, removeOrderItem, sendOrder, cancelOrder, closeOrder, printPrebill } from "@/lib/pos/ordersClient";
 import { fetchCurrentShift } from "@/lib/pos/shiftsClient";
@@ -11,26 +16,55 @@ import PosRoomChargeSearch from "@/components/pos/PosRoomChargeSearch";
 import PosAttributedConfirm from "@/components/pos/PosAttributedConfirm";
 import GuestOrderQrButton from "@/components/GuestOrderQrButton";
 import type { Role } from "@/lib/session";
-import type { Order, MenuItem, PaymentMethod, PrintAttemptResult } from "@/lib/posTypes";
+import type { Order, MenuItem, PaymentMethod, PrintAttemptResult, Zone } from "@/lib/posTypes";
 
 const ROLE_LABELS: Record<Role, string> = { WAITER: "Waiter", CASHIER: "Cashier", MANAGER: "Manager", ADMIN: "Admin" };
 
-export default function PosOrderTicket({
-  initialOrder,
-  menu,
-  canManagePayments,
-  actorEmail,
-  actorRole,
-}: {
-  initialOrder: Order;
+type TicketProps = {
   menu: MenuItem[];
+  // The zone of the order's table (null = no table) - see lib/posMenu.ts#menuForOrder.
+  tableZone: Zone | null;
   canManagePayments: boolean;
   // Whoever is currently logged in - shown back at the moment cash/card payment is confirmed
   // (see PosAttributedConfirm) so a swapped identity is caught before it's recorded, not after.
   actorEmail: string;
   actorRole: Role;
-}) {
+};
+
+// `initialOrder: null` is a draft ticket (lib/posDraftOrder.ts) - same as the admin ticket: the
+// order is created by the first tap on a menu item, never by opening the table.
+export default function PosOrderTicket({
+  initialOrder,
+  draft,
+  ...props
+}: TicketProps & { initialOrder: Order | null; draft?: DraftOrderTarget }) {
+  const router = useRouter();
+  const [created, setCreated] = useState<Order | null>(initialOrder);
+  if (!created) {
+    return (
+      <div className="p-4 space-y-6">
+        <p className="text-cream/50 text-sm">No items yet — the order starts when you add the first one.</p>
+        <div>
+          <p className="eyebrow text-cream/50 mb-3">Add items</p>
+          <PosMenuPicker
+            orderId={null}
+            draft={draft}
+            menu={menuForOrder(props.menu, props.tableZone)}
+            onAdded={(order) => {
+              setCreated(order);
+              router.replace(`/pos/orders/${order.id}`);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+  return <LivePosOrderTicket initialOrder={created} {...props} />;
+}
+
+function LivePosOrderTicket({ initialOrder, menu, tableZone, canManagePayments, actorEmail, actorRole }: TicketProps & { initialOrder: Order }) {
   const [order, setOrder] = useState(initialOrder);
+  const [cashReceived, setCashReceived] = useState("");
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [confirmingMethod, setConfirmingMethod] = useState<"CASH" | "CARD" | null>(null);
@@ -119,15 +153,17 @@ export default function PosOrderTicket({
   }
 
   async function handleClose(method: "CASH" | "CARD") {
+    if (method === "CASH" && !cash.ok) return;
     setClosingMethod(method);
     setError(null);
-    const result = await closeOrder(order.id, { method });
+    const result = await closeOrder(order.id, method === "CASH" && cash.ok ? { method, amountTendered: cash.tendered } : { method });
     setClosingMethod(null);
     if (!result.ok) {
       setError(result.error);
       return;
     }
     setConfirmingMethod(null);
+    setCashReceived("");
     setOrder(result.data);
     setLastPayment({ method, amount: Number(result.data.total) });
   }
@@ -135,6 +171,7 @@ export default function PosOrderTicket({
   // Same rule as the admin ticket, unchanged: a dispatched order can still take a re-order
   // (canAddItems), but an existing line that may already be in the kitchen can't be walked back
   // (canEditItems is OPEN-only).
+  const cash = cashTender(order.total, cashReceived);
   const canAddItems = order.status === "OPEN" || order.status === "SENT";
   const canEditItems = order.status === "OPEN";
   const closable = order.status === "OPEN" || order.status === "SENT";
@@ -226,18 +263,20 @@ export default function PosOrderTicket({
       {canAddItems && (
         <div>
           <p className="eyebrow text-cream/50 mb-3">Add items</p>
-          <PosMenuPicker orderId={order.id} menu={menu} onAdded={setOrder} />
+          <PosMenuPicker orderId={order.id} menu={menuForOrder(menu, tableZone)} onAdded={setOrder} />
         </div>
       )}
 
-      {canEditItems && (
+      {/* Stays in place, disabled, once sent - see the admin ticket: removing it slid the next
+          button into the spot that had just been tapped. */}
+      {closable && (
         <button
           type="button"
           onClick={handleSend}
-          disabled={sending || order.items.length === 0}
+          disabled={!canEditItems || sending || order.items.length === 0}
           className="w-full rounded-xl bg-coral active:bg-coraldeep transition-colors py-3.5 text-base font-medium disabled:opacity-60"
         >
-          {sending ? "Sending…" : "Send to kitchen"}
+          {sending ? "Sending…" : canEditItems ? "Send to kitchen" : "Sent ✓"}
         </button>
       )}
 
@@ -301,18 +340,29 @@ export default function PosOrderTicket({
               confirmLabel="Confirm payment"
               busy={closingMethod !== null}
               error={error}
+              confirmDisabled={confirmingMethod === "CASH" && !cash.ok}
               onConfirm={() => handleClose(confirmingMethod)}
               onCancel={() => {
                 setConfirmingMethod(null);
+                setCashReceived("");
                 setError(null);
               }}
-            />
+            >
+              {confirmingMethod === "CASH" && (
+                <CashTenderFields
+                  total={order.total}
+                  value={cashReceived}
+                  onChange={setCashReceived}
+                  inputClassName="w-full bg-ink border border-cream/20 rounded-xl px-4 py-3 text-cream text-lg focus:outline-none focus:border-coral"
+                />
+              )}
+            </PosAttributedConfirm>
           ) : !showRoomCharge ? (
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => setConfirmingMethod("CASH")}
-                disabled={hasOpenShift !== true}
+                disabled={hasOpenShift !== true || order.items.length === 0}
                 className="rounded-xl border border-cream/25 active:border-cream/50 transition-colors py-3.5 text-sm font-medium disabled:opacity-60"
               >
                 Cash
@@ -320,7 +370,7 @@ export default function PosOrderTicket({
               <button
                 type="button"
                 onClick={() => setConfirmingMethod("CARD")}
-                disabled={hasOpenShift !== true}
+                disabled={hasOpenShift !== true || order.items.length === 0}
                 className="rounded-xl border border-cream/25 active:border-cream/50 transition-colors py-3.5 text-sm font-medium disabled:opacity-60"
               >
                 Card
@@ -328,7 +378,7 @@ export default function PosOrderTicket({
               <button
                 type="button"
                 onClick={() => setShowRoomCharge(true)}
-                disabled={hasOpenShift !== true}
+                disabled={hasOpenShift !== true || order.items.length === 0}
                 className="rounded-xl border border-cream/25 active:border-cream/50 transition-colors py-3.5 text-sm font-medium disabled:opacity-60"
               >
                 Room

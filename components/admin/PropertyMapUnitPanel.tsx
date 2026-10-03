@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { checkInBooking, checkOutBooking } from "@/lib/bookingOccupancyClient";
+import { overdueLabel } from "@/lib/overstay";
 import { updateRoomUnitHousekeeping } from "@/lib/roomUnitHousekeepingClient";
 import type { PropertyMapUnit } from "@/lib/types";
 
@@ -135,6 +136,12 @@ export default function PropertyMapUnitPanel({
               <p>
                 <span className="text-cream/40">{isExpectedToday ? "Arriving:" : "Departing:"}</span> {booking.checkOut}
               </p>
+              {overdueLabel(booking.overdueDays) && (
+                <p className="text-coral">
+                  {overdueLabel(booking.overdueDays)} — still checked in. Check the guest out, or extend the stay from the
+                  booking.
+                </p>
+              )}
               {owed > 0 && (
                 <p className="text-coral">
                   ฿{owed.toLocaleString("en-US")} owed{isCheckedIn ? " — collect before checkout" : ""}

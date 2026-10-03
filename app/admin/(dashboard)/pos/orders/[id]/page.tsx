@@ -47,7 +47,7 @@ export default async function OrderTicketPage({ params }: { params: { id: string
         {table ? table.label : order.guestName ?? `Ticket #${order.id.slice(-6)}`}
       </h1>
 
-      <OrderTicket initialOrder={order} menu={menu} canManagePayments={canManagePayments} />
+      <OrderTicket initialOrder={order} menu={menu} tableZone={table?.zone ?? null} canManagePayments={canManagePayments} />
     </div>
   );
 }

@@ -7,6 +7,8 @@ import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { extractApiError } from "@/lib/apiError";
 import type {
+  RosterCopyInput,
+  RosterCopyResult,
   AttendanceDaySummary,
   AttendancePunch,
   AttendancePunchCreateInput,
@@ -124,6 +126,13 @@ export async function getMyRoster(year: number, month: number): Promise<Result<R
 
 export async function generateRosterMonth(year: number, month: number): Promise<Result<RosterMonth>> {
   const result = await adminRequest<RosterMonth>(`/roster/generate?year=${year}&month=${month}`, adminJsonInit("POST"), "Could not generate this month.");
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, data: result.data };
+}
+
+// MANAGER+. Fills the month by weekday from an earlier stretch of roster - see POST /roster/copy.
+export async function copyRosterMonth(input: RosterCopyInput): Promise<Result<RosterCopyResult>> {
+  const result = await adminRequest<RosterCopyResult>("/roster/copy", adminJsonInit("POST", input), "Could not copy the roster.");
   if (!result.ok) return { ok: false, error: result.error };
   return { ok: true, data: result.data };
 }

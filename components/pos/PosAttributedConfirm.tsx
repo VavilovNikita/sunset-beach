@@ -30,6 +30,8 @@ export default function PosAttributedConfirm({
   onCancel,
   busy,
   error,
+  confirmDisabled = false,
+  children,
 }: {
   title: string;
   detail?: string;
@@ -40,11 +42,15 @@ export default function PosAttributedConfirm({
   onCancel: () => void;
   busy: boolean;
   error?: string | null;
+  // Extra input the action needs before it can be confirmed (the cash close's amount received).
+  confirmDisabled?: boolean;
+  children?: React.ReactNode;
 }) {
   return (
     <div className="bg-ink2 border border-coral/50 rounded-2xl p-4 space-y-3">
       <p className="eyebrow text-cream/60">{title}</p>
       {detail && <p className="font-display italic text-2xl text-coral">{detail}</p>}
+      {children}
 
       <div className="bg-ink border border-coral/30 rounded-xl px-4 py-3">
         <p className="eyebrow text-coral/80 mb-1">Will be recorded as</p>
@@ -58,7 +64,7 @@ export default function PosAttributedConfirm({
         <button
           type="button"
           onClick={onConfirm}
-          disabled={busy}
+          disabled={busy || confirmDisabled}
           className="flex-1 rounded-xl bg-coral active:bg-coraldeep transition-colors py-3.5 text-sm font-medium disabled:opacity-60"
         >
           {busy ? "…" : confirmLabel}

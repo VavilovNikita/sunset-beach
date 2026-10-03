@@ -252,6 +252,9 @@ export type OrderCreateInput = {
   // treatment's charge gets linked (see that field). An id that doesn't resolve to a real
   // appointment is silently ignored; order creation is never blocked by this.
   spaAppointmentId?: string;
+  // Lines added in the same transaction - the POS sends the first line here, so a table's order
+  // only comes into existence with something on it (see lib/posDraftOrder.ts).
+  items?: OrderItemInput[];
 };
 
 // No `amount` — the server always charges order.total itself; partial
@@ -260,6 +263,9 @@ export type OrderCreateInput = {
 export type CloseOrderInput = {
   method: PaymentMethod;
   bookingId?: string;
+  // CASH only: what the guest handed over, from the cash dialog. Checked (>= total) and recorded
+  // in the audit log by the server, never charged - the payment is always order.total.
+  amountTendered?: string;
 };
 
 export type Shift = {

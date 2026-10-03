@@ -2,26 +2,64 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { usePolling } from "@/lib/usePolling";
 import { PAYMENT_METHOD_LABELS, STATUS_LABELS, STATUS_STYLES, isTerminalStatus } from "@/lib/posOrders";
 import AddOrderItemForm from "@/components/admin/pos/AddOrderItemForm";
 import RoomChargeLink from "@/components/admin/pos/RoomChargeLink";
 import GuestOrderQrButton from "@/components/GuestOrderQrButton";
-import type { Order, MenuItem, PaymentMethod, PrintAttemptResult } from "@/lib/posTypes";
+import CashTenderFields from "@/components/CashTenderFields";
+import { cashTender } from "@/lib/cashTender";
+import { menuForOrder } from "@/lib/posMenu";
+import type { DraftOrderTarget } from "@/lib/posDraftOrder";
+import type { Order, MenuItem, PaymentMethod, PrintAttemptResult, Zone } from "@/lib/posTypes";
 
-export default function OrderTicket({
-  initialOrder,
-  menu,
-  canManagePayments,
-}: {
-  initialOrder: Order;
+type TicketProps = {
   menu: MenuItem[];
+  // The zone of the order's table, or null for a table-less ticket - decides which menu items can
+  // be rung up at all (lib/posMenu.ts#menuForOrder).
+  tableZone: Zone | null;
   // Computed by the page from the session role (CASHIER+), not just used to hide the payment
   // section here - see that page's own comment for why the check has to live there too.
   canManagePayments: boolean;
-}) {
+};
+
+// `initialOrder: null` is a draft (lib/posDraftOrder.ts): nothing exists in the database yet, the
+// table stays free, and the first Add creates the order with that line in one request. Leaving
+// the screen before that leaves nothing behind.
+export default function OrderTicket({
+  initialOrder,
+  draft,
+  ...props
+}: TicketProps & { initialOrder: Order | null; draft?: DraftOrderTarget }) {
+  const router = useRouter();
+  const [created, setCreated] = useState<Order | null>(initialOrder);
+  if (!created) {
+    return (
+      <div className="grid lg:grid-cols-[1fr_320px] gap-8">
+        <div>
+          <p className="text-cream/50 text-sm mb-8">No items yet — the order starts when you add the first one.</p>
+          <AddOrderItemForm
+            orderId={null}
+            draft={draft}
+            menu={menuForOrder(props.menu, props.tableZone)}
+            onAdded={(order) => {
+              setCreated(order);
+              router.replace(`/admin/pos/orders/${order.id}`);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+  return <LiveOrderTicket initialOrder={created} {...props} />;
+}
+
+function LiveOrderTicket({ initialOrder, menu, tableZone, canManagePayments }: TicketProps & { initialOrder: Order }) {
   const [order, setOrder] = useState(initialOrder);
+  const [cashDialogOpen, setCashDialogOpen] = useState(false);
+  const [cashReceived, setCashReceived] = useState("");
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [closing, setClosing] = useState<PaymentMethod | null>(null);
@@ -130,18 +168,26 @@ export default function OrderTicket({
   // is on shift at it, not passed around, so there's no comparable moment where the wrong name
   // could be about to get attributed. Not an oversight - if that assumption stops holding in
   // practice, add the same confirm step here.
-  async function handleClose(method: "CASH" | "CARD") {
+  async function handleClose(method: "CASH" | "CARD", amountTendered?: string) {
     setClosing(method);
     setError(null);
-    const result = await adminRequest<Order>(`/orders/${order.id}/close`, adminJsonInit("POST", { method }), "Could not close order.");
+    const result = await adminRequest<Order>(
+      `/orders/${order.id}/close`,
+      adminJsonInit("POST", amountTendered ? { method, amountTendered } : { method }),
+      "Could not close order."
+    );
     setClosing(null);
     if (!result.ok) {
       setError(result.error);
       return;
     }
+    setCashDialogOpen(false);
+    setCashReceived("");
     setOrder(result.data);
     setLastPayment({ method, amount: Number(result.data.total) });
   }
+
+  const cash = cashTender(order.total, cashReceived);
 
   // Adding items is allowed for OPEN and SENT (a dispatched order can still
   // take a re-order); editing/removing an existing line is OPEN-only — once
@@ -206,7 +252,7 @@ export default function OrderTicket({
           {order.items.length === 0 && <p className="text-cream/50 text-sm">No items yet.</p>}
         </div>
 
-        {canAddItems && <AddOrderItemForm orderId={order.id} menuById={menuById} onAdded={setOrder} />}
+        {canAddItems && <AddOrderItemForm orderId={order.id} menu={menuForOrder(menu, tableZone)} onAdded={setOrder} />}
       </div>
 
       <div className="space-y-6">
@@ -270,14 +316,17 @@ export default function OrderTicket({
           />
         )}
 
-        {canEditItems && (
+        {/* Rendered for as long as the order is open, disabled once sent - never removed. When it
+            disappeared after sending, the Cash button slid up into exactly the spot just clicked,
+            so a double-click on Send closed the order. */}
+        {closable && (
           <button
             type="button"
             onClick={handleSend}
-            disabled={sending || order.items.length === 0}
+            disabled={!canEditItems || sending || order.items.length === 0}
             className="w-full rounded-full bg-coral hover:bg-coraldeep transition-colors py-2.5 text-sm font-medium disabled:opacity-60"
           >
-            {sending ? "Sending…" : "Send order"}
+            {sending ? "Sending…" : canEditItems ? "Send order" : "Sent ✓"}
           </button>
         )}
 
@@ -296,18 +345,22 @@ export default function OrderTicket({
               </p>
             ) : !showRoomCharge ? (
               <>
+                {/* Opens the amount-received dialog below; this click itself closes nothing. */}
                 <button
                   type="button"
-                  onClick={() => handleClose("CASH")}
-                  disabled={closing !== null || hasOpenShift !== true}
+                  onClick={() => {
+                    setError(null);
+                    setCashDialogOpen(true);
+                  }}
+                  disabled={closing !== null || hasOpenShift !== true || order.items.length === 0}
                   className="w-full rounded-full border border-cream/25 hover:border-cream/50 transition-colors py-2.5 text-sm font-medium disabled:opacity-60"
                 >
-                  {closing === "CASH" ? "Closing…" : "Cash"}
+                  Cash
                 </button>
                 <button
                   type="button"
                   onClick={() => handleClose("CARD")}
-                  disabled={closing !== null || hasOpenShift !== true}
+                  disabled={closing !== null || hasOpenShift !== true || order.items.length === 0}
                   className="w-full rounded-full border border-cream/25 hover:border-cream/50 transition-colors py-2.5 text-sm font-medium disabled:opacity-60"
                 >
                   {closing === "CARD" ? "Closing…" : "Card"}
@@ -315,7 +368,7 @@ export default function OrderTicket({
                 <button
                   type="button"
                   onClick={() => setShowRoomCharge(true)}
-                  disabled={closing !== null || hasOpenShift !== true}
+                  disabled={closing !== null || hasOpenShift !== true || order.items.length === 0}
                   className="w-full rounded-full border border-cream/25 hover:border-cream/50 transition-colors py-2.5 text-sm font-medium disabled:opacity-60"
                 >
                   Charge to room
@@ -332,6 +385,46 @@ export default function OrderTicket({
                 }}
               />
             )}
+          </div>
+        )}
+
+        {cashDialogOpen && (
+          <div
+            className="fixed inset-0 z-50 bg-ink/80 flex items-center justify-center p-4"
+            onClick={() => closing === null && setCashDialogOpen(false)}
+          >
+            <div className="bg-ink2 border border-cream/15 rounded-xl p-6 max-w-sm w-full space-y-4" onClick={(e) => e.stopPropagation()}>
+              <p className="eyebrow text-sea">Cash payment</p>
+              <p>
+                <span className="text-cream/50 text-sm">Total </span>
+                <span className="font-display italic text-2xl text-coral">฿{Number(order.total).toLocaleString("en-US")}</span>
+              </p>
+              <CashTenderFields
+                total={order.total}
+                value={cashReceived}
+                onChange={setCashReceived}
+                inputClassName="w-full bg-ink border border-cream/20 rounded-lg px-3 py-2 text-lg"
+              />
+              {error && <p className="text-sm text-coral">{error}</p>}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => cash.ok && handleClose("CASH", cash.tendered)}
+                  disabled={!cash.ok || closing !== null}
+                  className="flex-1 rounded-full bg-coral hover:bg-coraldeep transition-colors py-2.5 text-sm font-medium disabled:opacity-60"
+                >
+                  {closing === "CASH" ? "Closing…" : "Close order"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCashDialogOpen(false)}
+                  disabled={closing !== null}
+                  className="flex-1 rounded-full border border-cream/25 hover:border-cream/50 transition-colors py-2.5 text-sm font-medium disabled:opacity-60"
+                >
+                  Back
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

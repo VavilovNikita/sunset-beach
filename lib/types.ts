@@ -238,6 +238,9 @@ export type PropertyMapCurrentBooking = {
   checkOut: string; // YYYY-MM-DD
   occupancyStatus: OccupancyStatus;
   outstandingBalance: string; // decimal(10,2) as a string — same PAID-aware figure the checkout warning uses
+  // Days past checkOut for a guest still CHECKED_IN (0 otherwise) - server-computed by the
+  // backend's OverstayRule, the same figure the night audit's missed departures show.
+  overdueDays?: number;
 };
 
 // A RoomUnitBlock covering today - independent of PropertyMapUnit.isActive. isActive=false means
@@ -546,6 +549,9 @@ export type InHouseRow = {
   marketSegment: MarketSegment;
   arrival: string;
   departure: string;
+  // Days past checkOut for a guest still CHECKED_IN (0 otherwise) - server-computed by the
+  // backend's OverstayRule, the same figure the night audit's missed departures show.
+  overdueDays?: number;
 };
 
 export type InHouseTotal = {
@@ -716,6 +722,9 @@ export type CheckOutResult = {
 export type TodayBoardEntry = {
   booking: Booking;
   outstandingBalance: string;
+  // Days past checkOut for a guest still CHECKED_IN (0 otherwise) - server-computed by the
+  // backend's OverstayRule, the same figure the night audit's missed departures show.
+  overdueDays?: number;
 };
 
 // Response of GET /bookings/today — the front desk's daily working set. A booking appears in
@@ -810,6 +819,11 @@ export type CalendarBooking = {
   status: BookingStatus;
   totalPrice: string;
   segmentCount: number;
+  // Only on the last segment of a guest still CHECKED_IN past checkOut: the exclusive end of the
+  // nights they're actually occupying beyond the agreed stay (tomorrow, so tonight is covered).
+  // Never an agreed or priced date - checkOut above stays what was agreed. See the backend's
+  // OverstayRule.
+  overstayUntil?: string | null;
 };
 
 export type BookingCalendarResponse = {
@@ -1189,6 +1203,23 @@ export type RosterCoverageWarning = {
   date: string;
   workingCount: number;
   minimumWorking: number;
+};
+
+// POST /roster/copy - leave both source dates out to copy the whole previous month.
+export type RosterCopyInput = {
+  year: number;
+  month: number;
+  sourceFrom?: string;
+  sourceTo?: string;
+};
+
+export type RosterCopyResult = {
+  month: RosterMonth;
+  sourceFrom: string;
+  sourceTo: string; // the last source date actually used - the range cut to whole weeks
+  created: number;
+  skippedExisting: number;
+  skippedNoCurrentCode: number;
 };
 
 export type RosterMonth = {

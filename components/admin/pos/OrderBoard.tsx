@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePolling } from "@/lib/usePolling";
-import { fetchBoardData, createTableOrder, createTicketOrder } from "@/lib/adminOrdersClient";
+import { fetchBoardData } from "@/lib/adminOrdersClient";
+import { draftOrderHref } from "@/lib/posDraftOrder";
 import { STATUS_LABELS, STATUS_STYLES, ZONE_LABELS } from "@/lib/posOrders";
 import type { Order, Table, Zone } from "@/lib/posTypes";
 
@@ -86,28 +87,19 @@ export default function OrderBoard({
       router.push(`/admin/pos/orders/${existing[0].id}`);
       return;
     }
+    // No order is created here: the ticket opens as a draft and the order comes into existence
+    // with its first item (lib/posDraftOrder.ts), so opening a free table and backing out leaves
+    // the table free and nothing in the order history.
     setError(null);
     setCreatingTableId(table.id);
-    const result = await createTableOrder(table.id);
-    setCreatingTableId(null);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    router.push(`/admin/pos/orders/${result.order.id}`);
+    router.push(draftOrderHref("/admin/pos/orders", { tableId: table.id }));
   }
 
   async function handleNewTicket(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setCreatingTicket(true);
-    const result = await createTicketOrder(newTicketName);
-    setCreatingTicket(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    router.push(`/admin/pos/orders/${result.order.id}`);
+    router.push(draftOrderHref("/admin/pos/orders", { guestName: newTicketName }));
   }
 
   return (

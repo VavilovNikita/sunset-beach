@@ -35,6 +35,7 @@ export default async function PosOrderPage({ params }: { params: { id: string } 
       <PosOrderTicket
         initialOrder={order}
         menu={menu}
+        tableZone={table?.zone ?? null}
         canManagePayments={canManagePayments}
         // Only ever rendered when canManagePayments is true, which already implies `user` is
         // non-null - the fallbacks below are unreachable in practice, just satisfying the type.

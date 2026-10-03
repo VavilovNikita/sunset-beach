@@ -38,6 +38,8 @@ Do not add a date library. Local-time parsing shifts date-only values by a day i
 
 **Never display an amount computed on the client.** Prices, totals and balances come from the server, including previews: an operation that changes a price shows the server's recalculated figure before the user confirms.
 
+**The one client-computed figure is cash change** (`lib/cashTender.ts`): received minus the server's `Order.total`, shown in the cash dialog before closing. It's about the notes in the cashier's hand, not a price - the close sends only the typed amount (`amountTendered`), and the server re-checks it and charges exactly the total. Don't extend this exception to anything that is a price, total or balance.
+
 Gate on amounts, not counts. A count of past charges never returns to zero, so a badge keyed on it stays lit forever — this exact bug appeared in three places.
 
 ## Requests and failures
@@ -57,6 +59,8 @@ Any action that can fail shows its failure next to the control that triggered it
 ## Roles
 
 `hasRoleAtLeast` and the `requireRoleAtLeast` guards. Hierarchy: `ADMIN > MANAGER > CASHIER > WAITER`.
+
+**Who is in the house is the backend's call (`OverstayRule`).** A guest still checked in past `checkOut` arrives flagged (`overdueDays`, `CalendarBooking.overstayUntil`); `lib/overstay.ts` only words it. Don't re-derive presence from dates on a screen.
 
 Hide actions a role cannot perform — do not show a working form that fails on save. Guard the page itself too, not only the link: a hidden link is not access control.
 
@@ -101,6 +105,8 @@ Components are not covered by tests. Restructuring them is verified in the brows
 `/admin/pos` (desktop, supervised machine) and `/pos` (phone, passed between staff) are separate component trees on purpose. Differences that exist deliberately are commented at the call sites: identity confirmation before money actions and idle logout exist only on the phone, because that device changes hands.
 
 When changing behaviour in one, check whether the other needs it too — they have drifted before.
+
+**Opening a table creates nothing.** Both boards navigate to `.../orders/new?tableId=` (`lib/posDraftOrder.ts`), a draft that exists only in the URL; the first item creates the order with that line in one request. Which menu items a ticket offers is `lib/posMenu.ts#menuForOrder` (a restaurant/bar table never sees spa treatments; the item picker has no pre-selected default). Buttons that change state stay in place, disabled, after their action (Send → "Sent ✓", Start → "Started ✓") - a button that vanished let the next one slide under a double-click.
 
 ## Spa
 

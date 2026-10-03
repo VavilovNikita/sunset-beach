@@ -9,7 +9,7 @@ import type { NightAudit, NightAuditBooking } from "@/lib/types";
 // The front desk's once-a-day review: who should have arrived or left and didn't, the day's room
 // figures, and a "Close day" receipt. GET /night-audit and POST /night-audit/close are CASHIER+ -
 // routine daily work, not a MANAGER+ report. Nothing here acts on a booking; each row links to the
-// booking, where check-in, check-out and no-show already live.
+// booking, where check-in, check-out and no-show live (BookingOccupancyPanel).
 //
 // With no ?date= the server picks today (hotel-local), so this page never has to work out "today"
 // itself; the date picker below just navigates to ?date=.
@@ -76,7 +76,7 @@ export default async function NightAuditPage({ searchParams }: { searchParams: {
       <BookingList
         title="Missed departures"
         empty="No checked-in guest is past their check-out."
-        hint="Still checked in, with a check-out on or before this date."
+        hint="Still checked in, with a check-out on or before this date - the room stays held for them until they're checked out. Check the guest out from the booking, or extend the stay there if they're still here."
         bookings={audit.missedDepartures}
         dueDate={(b) => b.checkOut}
         reviewedDate={audit.date}

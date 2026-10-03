@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { checkInBooking, checkOutBooking, markBookingNoShow } from "@/lib/bookingOccupancyClient";
 import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
+import { overdueLabel } from "@/lib/overstay";
 import type { TodayBoard, TodayBoardEntry } from "@/lib/types";
 
 // The front desk's daily working set - see openapi.yaml's TodayBoard description for exactly
@@ -36,6 +37,8 @@ export default function TodayBoardView({ initialBoard }: { initialBoard: TodayBo
         onDone={refresh}
         empty="No arrivals today."
       />
+      {/* Includes guests who should have left on an earlier day and were never checked out -
+          they're still due out (the backend's OverstayRule), flagged per row below. */}
       <Section
         title="Departing today"
         entries={initialBoard.departingToday}
@@ -87,6 +90,7 @@ function TodayRow({ entry, action, onDone }: { entry: TodayBoardEntry; action: "
   const needsRoom = booking.roomUnitId === null;
   const roomDirty = booking.roomUnit?.housekeepingStatus === "DIRTY";
   const owed = Number(outstandingBalance) > 0;
+  const overdue = overdueLabel(entry.overdueDays);
 
   async function handleCheckIn() {
     setBusy(true);
@@ -151,6 +155,11 @@ function TodayRow({ entry, action, onDone }: { entry: TodayBoardEntry; action: "
           </span>
         </div>
         <div className="flex items-center gap-3 flex-wrap mt-1 text-xs">
+          {overdue && (
+            <span className="text-coral">
+              {overdue} — was due out {booking.checkOut}. Check out, or extend the stay from the booking.
+            </span>
+          )}
           {needsRoom && <span className="text-amber-400">No room assigned</span>}
           {roomDirty && <span className="text-sand">Room not clean</span>}
           {owed && <span className="text-coral">฿{Number(outstandingBalance).toLocaleString("en-US")} owed</span>}

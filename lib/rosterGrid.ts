@@ -202,3 +202,36 @@ export function classifyRosterDrop(source: RosterDragSource, target: RosterDropT
   if (sameDate) return { kind: "reassign", entryId: source.entryId, employeeUserId: target.employeeUserId };
   return { kind: "cancel" }; // diagonal drop - no single operation expresses "both change at once"
 }
+
+// Which department groups the roster grid renders, and which of their people. By default an
+// employee with no entry anywhere in the month doesn't get a row (see RosterGrid's showEmptyRows).
+// A department whose *every* employee is hidden that way used to vanish from the grid entirely,
+// so a month nobody had filled in yet looked like a broken, empty table with no explanation. It
+// now stays, with `employees` empty and `hiddenEmployeeCount` saying why - the grid renders that
+// as an explicit "no shifts assigned" row. Only a department with no employees at all is dropped.
+export type RosterDisplayGroup<E> = { area: StaffArea | null; employees: E[]; hiddenEmployeeCount: number };
+
+export function rosterDisplayGroups<E extends { id: string }>(
+  groups: { area: StaffArea | null; employees: E[] }[],
+  employeeIdsWithEntries: Set<string>,
+  showEmptyRows: boolean
+): RosterDisplayGroup<E>[] {
+  return groups
+    .filter((g) => g.employees.length > 0)
+    .map((g) => {
+      const withEntries = g.employees.filter((e) => employeeIdsWithEntries.has(e.id));
+      return showEmptyRows
+        ? { area: g.area, employees: g.employees, hiddenEmployeeCount: 0 }
+        : { area: g.area, employees: withEntries, hiddenEmployeeCount: g.employees.length - withEntries.length };
+    });
+}
+
+// The default source for "Copy previous month": the whole month before (year, month), as the
+// backend's own default (POST /roster/copy) - pre-filled so the manager can narrow it.
+export function previousMonthRange(year: number, month: number): { from: string; to: string } {
+  const prevYear = month === 1 ? year - 1 : year;
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const lastDay = new Date(Date.UTC(prevYear, prevMonth, 0)).getUTCDate();
+  const mm = String(prevMonth).padStart(2, "0");
+  return { from: `${prevYear}-${mm}-01`, to: `${prevYear}-${mm}-${String(lastDay).padStart(2, "0")}` };
+}

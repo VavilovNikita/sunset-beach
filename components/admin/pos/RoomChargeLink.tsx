@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
-import { toDateKey } from "@/lib/bookings";
+import { hotelDateKey } from "@/lib/hotelDate";
 import { isChargeableBookingStatus } from "@/lib/pos/roomCharge";
 import type { Order } from "@/lib/posTypes";
 import type { Booking } from "@/lib/types";
@@ -12,7 +12,10 @@ import type { Booking } from "@/lib/types";
 // `activeOn` param. from=to=today is a genuine overlap test on the backend
 // (BookingService.buildSpecification: `checkOut > from AND checkIn <= to`),
 // so a guest who checked in before today and is still staying is correctly
-// included, not just same-day arrivals - confirmed, not just assumed.
+// included, not just same-day arrivals - confirmed, not just assumed. A guest still checked in
+// past their checkOut is included too: the backend widens the same filter by its OverstayRule,
+// so an overdue guest can still be charged. "Today" is the hotel's date (Asia/Bangkok) - the UTC
+// date this used before was yesterday until 07:00.
 // Status eligibility (CONFIRMED/PAID only) is filtered client-side - see
 // isChargeableBookingStatus for why.
 export default function RoomChargeLink({
@@ -32,7 +35,7 @@ export default function RoomChargeLink({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const today = toDateKey(new Date());
+    const today = hotelDateKey(new Date());
     let cancelled = false;
     adminRequest<Booking[]>(`/bookings?from=${today}&to=${today}`, undefined, "Could not load bookings.").then((result) => {
       if (cancelled) return;

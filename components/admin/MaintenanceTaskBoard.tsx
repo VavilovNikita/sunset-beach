@@ -211,6 +211,7 @@ function TaskCard({
   const [blockForm, setBlockForm] = useState(false);
 
   async function handleStatusChange(status: MaintenanceTaskStatus) {
+    if (status === "DONE" && !window.confirm(`Mark "${task.description}" in ${unitLabel} as done?`)) return;
     setBusy(true);
     setError(null);
     const result = await updateMaintenanceTaskStatus(task.id, status);
@@ -222,12 +223,14 @@ function TaskCard({
     onChanged();
   }
 
-  const nextActions: { label: string; status: MaintenanceTaskStatus }[] = [];
-  if (canProgress && task.status === "OPEN") {
-    nextActions.push({ label: "Start", status: "IN_PROGRESS" });
-    nextActions.push({ label: "Mark done", status: "DONE" });
-  } else if (canProgress && task.status === "IN_PROGRESS") {
-    nextActions.push({ label: "Mark done", status: "DONE" });
+  // Start stays in its place once the task is in progress (disabled, "Started"), rather than
+  // disappearing: when it vanished, Mark done slid into the spot just tapped and a double tap
+  // closed the task unseen. Mark done also asks first.
+  const nextActions: { label: string; status: MaintenanceTaskStatus; disabled: boolean }[] = [];
+  if (canProgress && (task.status === "OPEN" || task.status === "IN_PROGRESS")) {
+    const started = task.status === "IN_PROGRESS";
+    nextActions.push({ label: started ? "Started ✓" : "Start", status: "IN_PROGRESS", disabled: started });
+    nextActions.push({ label: "Mark done", status: "DONE", disabled: false });
   }
 
   return (
@@ -282,7 +285,7 @@ function TaskCard({
                 <button
                   key={a.status}
                   type="button"
-                  disabled={busy}
+                  disabled={busy || a.disabled}
                   onClick={() => handleStatusChange(a.status)}
                   className="rounded-xl border border-cream/25 hover:border-cream/50 transition-colors px-4 py-3 text-sm font-medium disabled:opacity-50"
                 >

@@ -3,7 +3,8 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePolling } from "@/lib/usePolling";
-import { fetchBoardData, createTableOrder, createTicketOrder } from "@/lib/pos/ordersClient";
+import { fetchBoardData } from "@/lib/pos/ordersClient";
+import { draftOrderHref } from "@/lib/posDraftOrder";
 import { STATUS_LABELS, STATUS_STYLES, ZONE_LABELS } from "@/lib/posOrders";
 import type { Order, Table, Zone } from "@/lib/posTypes";
 
@@ -76,28 +77,17 @@ export default function PosTableBoard({
       router.push(`/pos/orders/${existing[0].id}`);
       return;
     }
+    // No order is created here - see the admin floor board (OrderBoard.tsx) and lib/posDraftOrder.ts.
     setError(null);
     setCreatingTableId(table.id);
-    const result = await createTableOrder(table.id);
-    setCreatingTableId(null);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    router.push(`/pos/orders/${result.data.id}`);
+    router.push(draftOrderHref("/pos/orders", { tableId: table.id }));
   }
 
   async function handleNewTicket(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setCreatingTicket(true);
-    const result = await createTicketOrder(newTicketName);
-    setCreatingTicket(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    router.push(`/pos/orders/${result.data.id}`);
+    router.push(draftOrderHref("/pos/orders", { guestName: newTicketName }));
   }
 
   return (

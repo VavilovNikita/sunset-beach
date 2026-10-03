@@ -3,6 +3,7 @@ import { backendJson } from "@/lib/backendServer";
 import { requireRoleAtLeast } from "@/lib/rbac";
 import { parseNightAuditDateParam } from "@/lib/nightAudit";
 import { MARKET_SEGMENT_LABELS } from "@/lib/reports";
+import { overdueLabel } from "@/lib/overstay";
 import type { InHouseReport } from "@/lib/types";
 
 // Who is in which room tonight (the legacy Z180). GET /reports/in-house is CASHIER+ - the front
@@ -23,8 +24,9 @@ export default async function InHousePage({ searchParams }: { searchParams: { da
         <p className="eyebrow text-sea mb-2">Front desk</p>
         <h1 className="font-display italic text-3xl">In house</h1>
         <p className="text-sm text-cream/60 mt-3">
-          Every room occupied on this night by a guest who has checked in. Guests still expected to arrive aren&apos;t
-          listed - see the night audit for those.
+          Every room occupied on this night by a guest who has checked in - including a guest past their departure date who
+          hasn&apos;t been checked out yet, flagged as overdue. Guests still expected to arrive aren&apos;t listed - see the
+          night audit for those.
         </p>
       </div>
 
@@ -84,7 +86,10 @@ export default async function InHousePage({ searchParams }: { searchParams: { da
                     {row.marketSegment}
                   </td>
                   <td className={`${td} whitespace-nowrap`}>{row.arrival}</td>
-                  <td className={`${td} whitespace-nowrap`}>{row.departure}</td>
+                  <td className={`${td} whitespace-nowrap`}>
+                    {row.departure}
+                    {overdueLabel(row.overdueDays) && <span className="block text-xs text-coral">{overdueLabel(row.overdueDays)}</span>}
+                  </td>
                   <td className={`${td} text-xs text-cream/50 font-mono`}>{row.bookingId.slice(0, 8)}</td>
                 </tr>
               ))}

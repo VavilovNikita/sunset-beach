@@ -158,3 +158,28 @@ describe("resolveUnitDisplay — maintenance-alert: room silently back on sale w
     expect(result.badges).toEqual([]);
   });
 });
+
+describe("resolveUnitDisplay — overdue guest", () => {
+  it("a guest still checked in past their checkOut stays occupied and is flagged overdue, ahead of debt", () => {
+    const u = unit({
+      currentBooking: {
+        bookingId: "b1",
+        guestName: "Petrov",
+        checkOut: "2026-08-07",
+        occupancyStatus: "CHECKED_IN",
+        outstandingBalance: "900.00",
+        overdueDays: 26,
+      },
+    });
+    const result = resolveUnitDisplay(u, TODAY);
+    expect(result.fill).toBe("occupied");
+    expect(result.badges).toEqual(["overdue", "debt"]);
+  });
+
+  it("no overdue badge when the server says 0 days", () => {
+    const u = unit({
+      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", outstandingBalance: "0.00", overdueDays: 0 },
+    });
+    expect(resolveUnitDisplay(u, TODAY).badges).toEqual([]);
+  });
+});

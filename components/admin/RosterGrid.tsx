@@ -8,6 +8,7 @@ import {
   chipAppearanceFor,
   classifyRosterDrop,
   isValidSwapTarget,
+  rosterDisplayGroups,
   STAFF_AREAS,
   STAFF_AREA_LABELS,
   type RosterDragSource,
@@ -117,9 +118,10 @@ export default function RosterGrid({
     (sum, g) => sum + g.employees.filter((e) => !employeeIdsWithEntries.has(e.id)).length,
     0
   );
-  const groups = allGroups
-    .map((g) => ({ ...g, employees: showEmptyRows ? g.employees : g.employees.filter((e) => employeeIdsWithEntries.has(e.id)) }))
-    .filter((g) => g.employees.length > 0);
+  // A department nobody is rostered in this month stays on screen with an explicit message
+  // instead of silently disappearing - see rosterDisplayGroups.
+  const groups = rosterDisplayGroups(allGroups, employeeIdsWithEntries, showEmptyRows);
+  const monthIsEmpty = data.entries.length === 0;
 
   // Bulk-fixes staffArea for accounts an import created without one (see User.staffArea's own
   // description) - ADMIN only, since that field lives under /users/**, deliberately outside the
@@ -424,6 +426,14 @@ export default function RosterGrid({
         <p className="print:hidden text-sm text-coral bg-coral/10 border border-coral/30 rounded-xl px-4 py-3 mb-4">{actionError}</p>
       )}
 
+      {monthIsEmpty && (
+        <p className="print:hidden text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-xl px-4 py-3 mb-4">
+          Nothing is rostered for this month yet. Use &ldquo;Copy previous month&rdquo; above to start from what was worked
+          before, &ldquo;Generate from patterns&rdquo; if employees have patterns, or show employees with no shifts below to
+          fill cells by hand.
+        </p>
+      )}
+
       <label className="print:hidden flex items-center gap-2 text-xs text-cream/50 mb-3">
         <input
           type="checkbox"
@@ -518,6 +528,23 @@ export default function RosterGrid({
                         </button>
                         {bulkError && <span className="text-coral">{bulkError}</span>}
                       </div>
+                    </td>
+                  </tr>
+                )}
+                {group.employees.length === 0 && group.hiddenEmployeeCount > 0 && (
+                  <tr key={`${group.area ?? "none"}-empty`}>
+                    <td colSpan={dates.length + 1} className="px-3 py-3 text-sm text-cream/50">
+                      <span className="sticky left-0 inline-block">
+                        No shifts assigned to anyone in {group.area ? STAFF_AREA_LABELS[group.area] : "this group"} this month (
+                        {group.hiddenEmployeeCount} {group.hiddenEmployeeCount === 1 ? "employee" : "employees"} hidden).{" "}
+                        <button
+                          type="button"
+                          onClick={() => setShowEmptyRows(true)}
+                          className="print:hidden text-sea hover:text-coral transition-colors underline underline-offset-4"
+                        >
+                          Show them
+                        </button>
+                      </span>
                     </td>
                   </tr>
                 )}

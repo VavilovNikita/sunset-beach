@@ -3,6 +3,7 @@
 // call here goes through posRequest so a dropped connection surfaces the same way everywhere —
 // see lib/pos/posFetch.ts's comment for why that matters on a restaurant floor.
 import { posRequest, posJsonInit, type PosResult } from "@/lib/pos/posFetch";
+import { draftOrderBody, type DraftOrderTarget } from "@/lib/posDraftOrder";
 import type { CloseOrderInput, Order, OrderItemInput, PrintAttemptResult, Table } from "@/lib/posTypes";
 
 export async function fetchBoardData(): Promise<PosResult<{ tables: Table[]; orders: Order[] }>> {
@@ -21,12 +22,10 @@ export function fetchOrder(orderId: string): Promise<PosResult<Order>> {
   return posRequest<Order>(`/orders/${orderId}`, undefined, "Could not load this order.");
 }
 
-export function createTableOrder(tableId: string): Promise<PosResult<Order>> {
-  return posRequest<Order>("/orders", posJsonInit("POST", { tableId }), "Could not start an order for this table.");
-}
-
-export function createTicketOrder(guestName?: string): Promise<PosResult<Order>> {
-  return posRequest<Order>("/orders", posJsonInit("POST", { guestName: guestName || undefined }), "Could not create a new ticket.");
+// The first item on a draft ticket (lib/posDraftOrder.ts): creates the order and the line in one
+// request, so an order never exists without something on it.
+export function createOrderWithItem(draft: DraftOrderTarget, item: OrderItemInput): Promise<PosResult<Order>> {
+  return posRequest<Order>("/orders", posJsonInit("POST", draftOrderBody(draft, item)), "Could not start this order.");
 }
 
 // The backend accepts a batch (see OrderCreateInput in openapi.yaml) — sending a single-element

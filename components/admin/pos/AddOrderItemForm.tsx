@@ -2,26 +2,33 @@
 
 import { useState } from "react";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
+import { draftOrderBody, type DraftOrderTarget } from "@/lib/posDraftOrder";
 import type { MenuItem, Order } from "@/lib/posTypes";
 
 export default function AddOrderItemForm({
   orderId,
-  menuById,
+  draft,
+  menu,
   onAdded,
 }: {
-  orderId: string;
-  menuById: Map<string, MenuItem>;
+  // null while the ticket is still a draft (lib/posDraftOrder.ts): the first Add creates the
+  // order together with this line, in one request.
+  orderId: string | null;
+  draft?: DraftOrderTarget;
+  // Already narrowed to what this order's table may carry (lib/posMenu.ts#menuForOrder) - a
+  // restaurant or bar table never lists a spa treatment at all.
+  menu: MenuItem[];
   onAdded: (order: Order) => void;
 }) {
-  const availableMenu = Array.from(menuById.values()).filter((m) => m.isAvailable);
-  // SPA-department items are never excluded from this list (a treatment that can't be added to
-  // a ticket can't be billed) - they're grouped into their own <optgroup> instead, same "group,
-  // don't remove" treatment PosMenuPicker.tsx gives them on the cashier PWA, just expressed as a
-  // native select group here since this form is a plain <select>, not a tabbed picker.
+  const availableMenu = menu;
+  // On a table-less ticket both sides can appear; treatments are then grouped apart in their own
+  // <optgroup>, same "group, don't mix" treatment PosMenuPicker.tsx gives them.
   const spaMenu = availableMenu.filter((m) => m.department === "SPA");
   const nonSpaMenu = availableMenu.filter((m) => m.department !== "SPA");
   const categories = Array.from(new Set(nonSpaMenu.map((m) => m.category))).sort();
-  const [menuItemId, setMenuItemId] = useState(availableMenu[0]?.id ?? "");
+  // Deliberately no default: whatever happened to sort first (once a spa treatment) used to be
+  // pre-selected, so an Add pressed straight away rang it up. Choosing is the waiter's action.
+  const [menuItemId, setMenuItemId] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -33,11 +40,17 @@ export default function AddOrderItemForm({
     setSubmitting(true);
     setError(null);
 
-    const result = await adminRequest<Order>(
-      `/orders/${orderId}/items`,
-      adminJsonInit("POST", [{ menuItemId, quantity, note: note || null }]),
-      "Could not add item."
-    );
+    const result = orderId
+      ? await adminRequest<Order>(
+          `/orders/${orderId}/items`,
+          adminJsonInit("POST", [{ menuItemId, quantity, note: note || null }]),
+          "Could not add item."
+        )
+      : await adminRequest<Order>(
+          "/orders",
+          adminJsonInit("POST", draftOrderBody(draft ?? { tableId: null, guestName: null }, { menuItemId, quantity, note })),
+          "Could not start this order."
+        );
 
     setSubmitting(false);
 
@@ -47,6 +60,7 @@ export default function AddOrderItemForm({
     }
 
     onAdded(result.data);
+    setMenuItemId("");
     setQuantity(1);
     setNote("");
   }
@@ -64,6 +78,9 @@ export default function AddOrderItemForm({
           onChange={(e) => setMenuItemId(e.target.value)}
           className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
         >
+          <option value="" disabled>
+            Choose an item…
+          </option>
           {categories.map((c) => (
             <optgroup key={c} label={c}>
               {nonSpaMenu

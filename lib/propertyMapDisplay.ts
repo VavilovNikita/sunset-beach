@@ -16,18 +16,20 @@
 //                    "sea = available" convention from the booking calendar).
 //
 // 2. Badges (stack on top of the fill, independent facts). Priority when only one fits on a
-//    small tile: maintenance-alert > debt > dirty > today's arrival/departure timing > "also
+//    small tile: maintenance-alert > overdue > debt > dirty > today's arrival/departure timing > "also
 //    blocked" flag on an occupied room. maintenance-alert ranks first, above even money: it means
 //    a task is still open AND its linked block has already lapsed, so this room is silently back
 //    on sale while genuinely broken - a guest-facing failure in progress, not a billing nuance.
-//    Then debt (same caution as the folio-payment fix), then the operational blocker (can't turn
+//    overdue (a guest still checked in after their checkOut date - the backend's OverstayRule)
+//    comes next: the room is held by someone nobody has dealt with, and the desk needs to either
+//    check them out or extend the stay. Then debt (same caution as the folio-payment fix), then the operational blocker (can't turn
 //    the room over), then pure timing information, then the rare overlap case last. The tile only
 //    ever shows the top of this list; a click always shows everything.
 import type { PropertyMapUnit } from "@/lib/types";
 
 export type UnitFill = "inactive" | "occupied" | "blocked" | "vacant";
 
-export type UnitBadge = "maintenance-alert" | "debt" | "dirty" | "departing-today" | "arriving-today" | "blocked-while-occupied";
+export type UnitBadge = "maintenance-alert" | "overdue" | "debt" | "dirty" | "departing-today" | "arriving-today" | "blocked-while-occupied";
 
 export type UnitDisplay = {
   fill: UnitFill;
@@ -52,6 +54,9 @@ export function resolveUnitDisplay(unit: PropertyMapUnit, today: string): UnitDi
   const badges: UnitBadge[] = [];
   if (unit.openMaintenanceTask !== null && unit.openMaintenanceTask.blockExpired) {
     badges.push("maintenance-alert");
+  }
+  if (isOccupied && unit.currentBooking !== null && (unit.currentBooking.overdueDays ?? 0) > 0) {
+    badges.push("overdue");
   }
   if (isOccupied && unit.currentBooking !== null && Number(unit.currentBooking.outstandingBalance) > 0) {
     badges.push("debt");

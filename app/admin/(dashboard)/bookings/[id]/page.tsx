@@ -4,6 +4,7 @@ import { backendJson } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import BookingStatusForm from "@/components/admin/BookingStatusForm";
+import BookingOccupancyPanel from "@/components/admin/BookingOccupancyPanel";
 import BookingScheduleForm from "@/components/admin/BookingScheduleForm";
 import FolioPaymentPanel from "@/components/admin/FolioPaymentPanel";
 import BookingGuestLinkSection from "@/components/admin/BookingGuestLinkSection";
@@ -105,6 +106,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
         </div>
 
         <div className="space-y-6">
+          <BookingOccupancyPanel booking={booking} />
           <BookingScheduleForm
             booking={booking}
             units={assignableUnits}

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createTableOrder } from "@/lib/adminOrdersClient";
+import { draftOrderHref } from "@/lib/posDraftOrder";
 import { getRestaurantMap, uploadRestaurantMapImage } from "@/lib/restaurantMapClient";
 import {
   resolveRestaurantTableAction,
@@ -68,14 +68,11 @@ export default function RestaurantTableMapView({ initialMap, canManage }: { init
     } else if (action.kind === "pick") {
       setPickerTable(table);
     } else if (action.kind === "start") {
+      // No order is created here: the ticket opens as a draft and the order comes into existence
+      // with its first item (lib/posDraftOrder.ts), so opening a free table and backing out leaves
+      // the table free and nothing in the order history.
       setStartingTableId(tableId);
-      const result = await createTableOrder(tableId);
-      setStartingTableId(null);
-      if (!result.ok) {
-        setActionError(result.error);
-        return;
-      }
-      router.push(`/admin/pos/orders/${result.order.id}`);
+      router.push(draftOrderHref("/admin/pos/orders", { tableId }));
     } else {
       setActionError(`${table.label} is deactivated — a new order can't be started on it.`);
     }
