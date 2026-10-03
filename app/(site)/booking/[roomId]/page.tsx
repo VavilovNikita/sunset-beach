@@ -31,7 +31,7 @@ export default async function BookRoomPage({
     throw e;
   }
 
-  const [{ available, totalPrice }, account] = await Promise.all([
+  const [initialQuote, account] = await Promise.all([
     getRoomQuote(room.id, checkIn, checkOut),
     getGuestSessionAccount(),
   ]);
@@ -56,7 +56,7 @@ export default async function BookRoomPage({
         roomId={room.id}
         initialCheckIn={checkIn}
         initialCheckOut={checkOut}
-        initialQuote={{ available, totalPrice }}
+        initialQuote={initialQuote}
         guestAccount={guestAccount}
       />
     </section>

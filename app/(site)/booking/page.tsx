@@ -5,6 +5,7 @@ import { backendJson } from "@/lib/backendServer";
 import { resolveImageUrl } from "@/lib/backend";
 import { toDateKey, addDaysUTC } from "@/lib/bookings";
 import { getRoomQuote } from "@/lib/publicQuote";
+import { formatQuoteTotal } from "@/lib/quote";
 import type { Room } from "@/lib/types";
 
 export const metadata = { title: "Check availability — The Sunset Beach Resort & Spa" };
@@ -31,14 +32,14 @@ export default async function BookingSearchPage({
 
   const rooms = validRange ? await backendJson<Room[]>("/public/rooms") : [];
 
+  // One server quote per room - the same figure POST /bookings would store, never a sum of
+  // nightly prices. Every room gets the same 400 for dates the backend rejects (e.g. a stay over
+  // 90 nights, or "2026-02-31"), so a validation message is shown once, above the list.
   const results = validRange
-    ? await Promise.all(
-        rooms.map(async (room) => {
-          const { available, totalPrice } = await getRoomQuote(room.id, checkIn, checkOut);
-          return { room, available, totalPrice };
-        })
-      )
+    ? await Promise.all(rooms.map(async (room) => ({ room, result: await getRoomQuote(room.id, checkIn, checkOut) })))
     : [];
+  const rejected = results.find(({ result }) => !result.ok && result.status !== null && result.status < 500)?.result;
+  const rangeError = rejected && !rejected.ok ? rejected.message : null;
 
   return (
     <>
@@ -52,14 +53,16 @@ export default async function BookingSearchPage({
       <section className="mx-auto max-w-6xl px-6 py-16">
         {!validRange ? (
           <p className="text-center text-coral">Check-out must be after check-in. Please adjust your dates above.</p>
+        ) : rangeError ? (
+          <p className="text-center text-coral">{rangeError}</p>
         ) : (
           <>
             <p className="text-center text-cream/60 text-sm mb-10">
               {checkIn} → {checkOut}
             </p>
             <div className="grid md:grid-cols-2 gap-10">
-              {results.map(({ room, available, totalPrice }) => (
-                <article key={room.id} className={!available ? "opacity-50" : ""}>
+              {results.map(({ room, result }) => (
+                <article key={room.id} className={result.ok && !result.quote.available ? "opacity-50" : ""}>
                   <ArtBlock
                     src={resolveImageUrl(room.images[0])}
                     alt={room.name}
@@ -70,9 +73,11 @@ export default async function BookingSearchPage({
                   <p className="mt-2 text-sm text-cream/70 leading-relaxed">{room.description}</p>
                   <p className="mt-2 text-sm text-cream/60">Up to {room.capacity} guests</p>
 
-                  {available ? (
+                  {!result.ok ? (
+                    <p className="mt-3 text-sm text-cream/50">{result.message}</p>
+                  ) : result.quote.available ? (
                     <>
-                      <p className="mt-3 font-display text-lg text-coral">฿{totalPrice?.toLocaleString("en-US")} total</p>
+                      <p className="mt-3 font-display text-lg text-coral">{formatQuoteTotal(result.quote)} total</p>
                       <Link
                         href={`/booking/${room.id}?checkIn=${checkIn}&checkOut=${checkOut}`}
                         className="mt-4 inline-block rounded-full bg-coral hover:bg-coraldeep transition-colors text-cream text-sm px-5 py-2"
