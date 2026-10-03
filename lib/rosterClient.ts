@@ -34,6 +34,7 @@ import type {
   ShiftCodeCreateInput,
   ShiftCodeDisplayColorUpdateInput,
   ShiftCodeKind,
+  ShiftCodeVersionInput,
   StaffArea,
   StaffAreaCoverageRule,
   StaffAreaCoverageRuleInput,
@@ -54,6 +55,16 @@ export async function listShiftCodes(staffArea?: StaffArea): Promise<Result<Shif
 
 export async function createShiftCode(input: ShiftCodeCreateInput): Promise<Result<ShiftCode>> {
   const result = await adminRequest<ShiftCode>("/shift-codes", adminJsonInit("POST", input), "Could not save this shift code.");
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, data: result.data };
+}
+
+// Edits an existing code: the backend saves a new version effective today (the edited row is
+// retired, never changed), and moves roster entries from today on - plus employee patterns - to
+// it. Earlier days keep the old version. Returns the new current version, whose id differs from
+// `id` except for a second edit the same day (which amends today's version).
+export async function createShiftCodeVersion(id: string, input: ShiftCodeVersionInput): Promise<Result<ShiftCode>> {
+  const result = await adminRequest<ShiftCode>(`/shift-codes/${id}/versions`, adminJsonInit("POST", input), "Could not save this shift code.");
   if (!result.ok) return { ok: false, error: result.error };
   return { ok: true, data: result.data };
 }

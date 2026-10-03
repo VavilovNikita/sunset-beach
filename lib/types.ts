@@ -1093,6 +1093,20 @@ export type ShiftCodeCreateInput = {
   effectiveFrom: string;
 };
 
+// Body of POST /shift-codes/{id}/versions - the edit action. staffArea and code stay the edited
+// code's own and effectiveFrom is always today (backend's clock), so neither is sent. Every field
+// is sent: an omitted time or colour means "none", not "keep the old one".
+export type ShiftCodeVersionInput = {
+  kind: ShiftCodeKind;
+  startTime1: string | null;
+  endTime1: string | null;
+  startTime2: string | null;
+  endTime2: string | null;
+  countsAsWorked: boolean;
+  isPaid: boolean;
+  displayColor: string | null;
+};
+
 // Body of PATCH /shift-codes/{id}/kind - see ShiftCode.kind's own comment for why this is the one
 // in-place mutation on an otherwise-versioned row.
 export type ShiftCodeKindUpdateInput = {

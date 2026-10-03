@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createShiftCode, updateShiftCodeDisplayColor, updateShiftCodeKind } from "@/lib/rosterClient";
+import { createShiftCode, createShiftCodeVersion, updateShiftCodeDisplayColor, updateShiftCodeKind } from "@/lib/rosterClient";
 import { STAFF_AREA_LABELS } from "@/lib/rosterGrid";
-import type { ShiftCode, ShiftCodeCreateInput, ShiftCodeKind, StaffArea } from "@/lib/types";
+import type { ShiftCode, ShiftCodeCreateInput, ShiftCodeKind, ShiftCodeVersionInput, StaffArea } from "@/lib/types";
 
 // Neutral starting point for the picker on a code with no displayColor and no suggestedColor -
 // never saved on its own; the admin still has to press Save. Matches this screen's own ink2 tone.
@@ -162,9 +162,148 @@ function DisplayColorRow({ code, onSaved }: { code: ShiftCode; onSaved: (updated
   );
 }
 
-// Shift codes are versioned, never edited (see ShiftCode's own description) - this manager only
-// ever creates a new row. Creating one with the same (staffArea, code) as an active row silently
-// retires that row on the backend; there is no separate "edit" action to offer here.
+// Edits an existing code's terms - the code text and area stay. Saved as a new version effective
+// today, never an in-place change (see createShiftCodeVersion): entries from today on follow the
+// new terms, earlier days keep the old ones.
+function EditVersionForm({ code, onSaved, onCancel }: { code: ShiftCode; onSaved: (updated: ShiftCode) => void; onCancel: () => void }) {
+  const [form, setForm] = useState({
+    kind: (code.kind ?? code.suggestedKind ?? "") as ShiftCodeKind | "",
+    startTime1: code.startTime1 ?? "",
+    endTime1: code.endTime1 ?? "",
+    startTime2: code.startTime2 ?? "",
+    endTime2: code.endTime2 ?? "",
+    countsAsWorked: code.countsAsWorked,
+    isPaid: code.isPaid,
+    hasColor: code.displayColor != null,
+    displayColor: code.displayColor ?? NEUTRAL_COLOR_DEFAULT,
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (form.startTime2 && !form.startTime1) {
+      setError("A second interval needs a first one.");
+      return;
+    }
+    if (!form.kind) {
+      setError("Choose what kind of shift this is.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    const input: ShiftCodeVersionInput = {
+      kind: form.kind,
+      startTime1: form.startTime1 || null,
+      endTime1: form.endTime1 || null,
+      startTime2: form.startTime2 || null,
+      endTime2: form.endTime2 || null,
+      countsAsWorked: form.countsAsWorked,
+      isPaid: form.isPaid,
+      displayColor: form.hasColor ? form.displayColor : null,
+    };
+    const result = await createShiftCodeVersion(code.id, input);
+    setSaving(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    onSaved(result.data);
+  }
+
+  const timeInput = (key: "startTime1" | "endTime1" | "startTime2" | "endTime2", label: string) => (
+    <div>
+      <label className="eyebrow text-cream/60 block mb-1">{label}</label>
+      <input
+        type="time"
+        value={form[key]}
+        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+        className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
+      />
+    </div>
+  );
+
+  return (
+    <form onSubmit={handleSave} className="space-y-3 mt-2">
+      <p className="text-xs text-cream/40">
+        Saved as a new version from today. Days from today on (including ones already planned) use the new terms; earlier days keep the old
+        ones.
+      </p>
+      <div className="grid sm:grid-cols-4 gap-3 items-end">
+        <div>
+          <label className="eyebrow text-cream/60 block mb-1">Kind</label>
+          <select
+            required
+            value={form.kind}
+            onChange={(e) => setForm({ ...form, kind: e.target.value as ShiftCodeKind })}
+            className="w-full bg-ink2 border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
+          >
+            <option value="">Which kind is this?</option>
+            {SHIFT_CODE_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {SHIFT_CODE_KIND_LABELS[k]}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-4 gap-3 items-end">
+        {timeInput("startTime1", "Start 1")}
+        {timeInput("endTime1", "End 1")}
+        {timeInput("startTime2", "Start 2 (split shift)")}
+        {timeInput("endTime2", "End 2")}
+      </div>
+      <div className="flex flex-wrap items-center gap-6">
+        <label className="flex items-center gap-2 text-sm text-cream/70">
+          <input
+            type="checkbox"
+            checked={form.countsAsWorked}
+            onChange={(e) => setForm({ ...form, countsAsWorked: e.target.checked })}
+            className="accent-coral"
+          />
+          Counts as worked
+        </label>
+        <label className="flex items-center gap-2 text-sm text-cream/70">
+          <input type="checkbox" checked={form.isPaid} onChange={(e) => setForm({ ...form, isPaid: e.target.checked })} className="accent-coral" />
+          Paid
+        </label>
+        <label className="flex items-center gap-2 text-sm text-cream/70">
+          <input type="checkbox" checked={form.hasColor} onChange={(e) => setForm({ ...form, hasColor: e.target.checked })} className="accent-coral" />
+          Colour
+        </label>
+        {form.hasColor && (
+          <input
+            type="color"
+            value={form.displayColor}
+            onChange={(e) => setForm({ ...form, displayColor: e.target.value })}
+            className="h-6 w-8 rounded border border-cream/20 bg-transparent p-0 cursor-pointer"
+            aria-label={`Colour for code ${code.code}`}
+          />
+        )}
+      </div>
+      {form.kind === "ABSENCE" && form.countsAsWorked && (
+        <p className="text-xs text-amber-400">An absence can&apos;t count as worked - pick another kind (e.g. Open schedule) or untick Counts as worked.</p>
+      )}
+      <div className="flex gap-3">
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium disabled:opacity-60"
+        >
+          {saving ? "Saving…" : "Save new version"}
+        </button>
+        <button type="button" onClick={onCancel} className="text-sm text-cream/50 hover:text-cream transition-colors">
+          Cancel
+        </button>
+      </div>
+      {error && <p className="text-sm text-coral">{error}</p>}
+    </form>
+  );
+}
+
+// Codes are versioned, never changed in place (see ShiftCode's own description). "New shift code"
+// creates a row - with the same (staffArea, code) as an active one it retires that one on the
+// backend; "Edit" on a row saves a new version of that code effective today (EditVersionForm).
 export default function ShiftCodeManager({ initialCodes }: { initialCodes: ShiftCode[] }) {
   const router = useRouter();
   const [codes, setCodes] = useState(initialCodes);
@@ -173,6 +312,7 @@ export default function ShiftCodeManager({ initialCodes }: { initialCodes: Shift
   const [form, setForm] = useState<FormState>(emptyForm());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const visible = filterArea ? codes.filter((c) => c.staffArea === filterArea) : codes;
   // This list is the raw, unresolved "every code as stored" view (see GET /shift-codes's own
@@ -223,6 +363,14 @@ export default function ShiftCodeManager({ initialCodes }: { initialCodes: Shift
   // which rows exist, only one row's own field.
   function handleKindConfirmed(updated: ShiftCode) {
     setCodes((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+    router.refresh();
+  }
+
+  // The edited row is retired and the returned version replaces it (a different id, except for a
+  // second edit the same day, which amends today's version).
+  function handleVersionSaved(editedId: string, updated: ShiftCode) {
+    setCodes((prev) => [...prev.filter((c) => c.id !== editedId && c.id !== updated.id), updated]);
+    setEditingId(null);
     router.refresh();
   }
 
@@ -421,10 +569,23 @@ export default function ShiftCodeManager({ initialCodes }: { initialCodes: Shift
                         </>
                       )}
                     </p>
-                    {!c.kind && <KindConfirmRow code={c} onConfirmed={handleKindConfirmed} />}
-                    <DisplayColorRow code={c} onSaved={handleDisplayColorSaved} />
+                    {editingId === c.id ? (
+                      <EditVersionForm code={c} onSaved={(updated) => handleVersionSaved(c.id, updated)} onCancel={() => setEditingId(null)} />
+                    ) : (
+                      <>
+                        {!c.kind && <KindConfirmRow code={c} onConfirmed={handleKindConfirmed} />}
+                        <DisplayColorRow code={c} onSaved={handleDisplayColorSaved} />
+                      </>
+                    )}
                   </div>
-                  <p className="text-xs text-cream/40">from {c.effectiveFrom}</p>
+                  <div className="flex flex-col items-end gap-1 self-start">
+                    <p className="text-xs text-cream/40">from {c.effectiveFrom}</p>
+                    {c.active && editingId !== c.id && (
+                      <button type="button" onClick={() => setEditingId(c.id)} className="text-xs text-sea hover:text-coral transition-colors">
+                        Edit
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
