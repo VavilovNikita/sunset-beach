@@ -2,13 +2,13 @@ import { notFound } from "next/navigation";
 import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import { requireSessionUser, hasRoleAtLeast } from "@/lib/rbac";
-import OrderTicket from "@/components/admin/pos/OrderTicket";
+import OrderTicket from "@/components/OrderTicket";
 import type { Order, MenuItem, Table } from "@/lib/posTypes";
 
 export default async function OrderTicketPage({ params }: { params: { id: string } }) {
   // GET /orders/{id} itself is WAITER+ (no ownership boundary - the whole floor sees every
   // table), but POST /orders/{id}/close is CASHIER+ on the backend - computed here, at the page,
-  // and passed down as a real prop, the same way the /pos ticket already does it. The component
+  // and passed down as a real prop, the same way the /pos page does it. The component
   // hiding its own payment buttons isn't enough on its own: a WAITER who reaches this page
   // (nothing above blocks them - see AdminDashboardLayout) must never see a Cash/Card/Room button
   // that only fails once clicked.
@@ -31,7 +31,7 @@ export default async function OrderTicketPage({ params }: { params: { id: string
   //
   // Neither fetch is load-bearing for the order itself — OrderTicket already
   // falls back to "Unknown item" for an item missing from `menu` and
-  // AddOrderItemForm already handles an empty menu, while a missing `table`
+  // its menu picker already handles an empty menu, while a missing `table`
   // just falls through to the guestName/Ticket# header below. A transient
   // failure on either shouldn't turn an otherwise-fine order into a 500.
   const [menu, tables] = await Promise.all([
@@ -47,7 +47,15 @@ export default async function OrderTicketPage({ params }: { params: { id: string
         {table ? table.label : order.guestName ?? `Ticket #${order.id.slice(-6)}`}
       </h1>
 
-      <OrderTicket initialOrder={order} menu={menu} tableZone={table?.zone ?? null} canManagePayments={canManagePayments} />
+      {/* actor={null}: the till has no "will be recorded as" step - see PosAttributedConfirm.tsx. */}
+      <OrderTicket
+        initialOrder={order}
+        menu={menu}
+        tableZone={table?.zone ?? null}
+        canManagePayments={canManagePayments}
+        basePath="/admin/pos"
+        actor={null}
+      />
     </div>
   );
 }

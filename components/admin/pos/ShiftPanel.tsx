@@ -106,8 +106,8 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
   }
 
   // Deliberately no "will be recorded as" confirm step before this money-affecting submit -
-  // see components/admin/pos/OrderTicket.tsx's handleClose comment (this screen is reached from
-  // the same till-bound context, not a handed-around phone).
+  // see PosAttributedConfirm.tsx (this screen is reached from the same till-bound context as the
+  // desktop order ticket, not a handed-around phone).
   async function handleClose(e: React.FormEvent) {
     e.preventDefault();
     if (!shift) return;

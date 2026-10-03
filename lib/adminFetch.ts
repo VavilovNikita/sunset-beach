@@ -1,7 +1,7 @@
 // Shared request helper for admin Client Components that write data — mirrors
 // lib/pos/posFetch.ts's posRequest exactly (same result shape, same "No connection" wording),
-// kept as its own file rather than imported from lib/pos/ so the two surfaces stay decoupled
-// (lib/pos/* is /pos-specific by convention; nothing there is imported outside it today).
+// kept as its own file rather than imported from lib/pos/. The one exception is the order ticket
+// (components/OrderTicket.tsx), shared by both surfaces, which uses lib/pos/ordersClient.ts.
 //
 // Before this existed, every admin write (components/admin/pos/*, components/admin/
 // BookingCardPanel.tsx, lib/bookingScheduleClient.ts and friends) called fetch() directly and

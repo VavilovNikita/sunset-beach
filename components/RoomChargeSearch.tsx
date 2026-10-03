@@ -8,21 +8,21 @@ import type { Booking } from "@/lib/types";
 
 const DEBOUNCE_MS = 300;
 
-// Search-as-you-type instead of the admin's long <select> of every currently-staying booking
-// (RoomChargeLink.tsx) - a phone can't reasonably scroll that list. Debounced so a fast typist
-// doesn't fire a request per keystroke.
-export default function PosRoomChargeSearch({
+// "Charge to room" on the order ticket (OrderTicket.tsx), on both POS surfaces: search-as-you-type
+// over currently-staying bookings. It replaced the desktop's long <select> of every staying
+// booking - a phone can't reasonably scroll that list, and a till gains nothing from it either.
+// Debounced so a fast typist doesn't fire a request per keystroke.
+export default function RoomChargeSearch({
   orderId,
-  actorEmail,
-  actorRole,
+  actor,
   onClose,
   onSettled,
 }: {
   orderId: string;
   // Whoever is currently logged in - shown once a booking is picked, right where Confirm is
-  // tapped, so a swapped identity is caught before the charge is recorded, not after.
-  actorEmail: string;
-  actorRole: string;
+  // tapped, so a swapped identity is caught before the charge is recorded, not after. null on the
+  // desktop till, which has no such step (see PosAttributedConfirm.tsx for why).
+  actor: { email: string; role: string } | null;
   onClose: () => void;
   onSettled: (order: Order) => void;
 }) {
@@ -94,7 +94,7 @@ export default function PosRoomChargeSearch({
               type="button"
               onClick={() => setSelectedId(b.id)}
               className={`w-full text-left rounded-xl border px-4 py-3 transition-colors ${
-                selectedId === b.id ? "border-coral bg-coral/10" : "border-cream/15 active:bg-cream/5"
+                selectedId === b.id ? "border-coral bg-coral/10" : "border-cream/15 hover:bg-cream/5 active:bg-cream/5"
               }`}
             >
               <p className="text-cream text-sm">{b.guestName}</p>
@@ -104,11 +104,11 @@ export default function PosRoomChargeSearch({
         </div>
       )}
 
-      {selectedId && (
+      {selectedId && actor && (
         <div className="bg-ink border border-coral/30 rounded-xl px-4 py-3">
           <p className="eyebrow text-coral/80 mb-1">Will be recorded as</p>
-          <p className="text-cream text-base font-medium break-words">{actorEmail}</p>
-          <p className="text-xs text-cream/50">{actorRole}</p>
+          <p className="text-cream text-base font-medium break-words">{actor.email}</p>
+          <p className="text-xs text-cream/50">{actor.role}</p>
         </div>
       )}
 
@@ -119,14 +119,14 @@ export default function PosRoomChargeSearch({
           type="button"
           onClick={handleConfirm}
           disabled={!selectedId || submitting}
-          className="flex-1 rounded-xl bg-coral active:bg-coraldeep transition-colors py-3 text-sm font-medium disabled:opacity-60"
+          className="flex-1 rounded-xl bg-coral hover:bg-coraldeep active:bg-coraldeep transition-colors py-3 text-sm font-medium disabled:opacity-60"
         >
           {submitting ? "Charging…" : "Confirm"}
         </button>
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 rounded-xl border border-cream/25 active:border-cream/50 transition-colors py-3 text-sm font-medium"
+          className="flex-1 rounded-xl border border-cream/25 hover:border-cream/50 active:border-cream/50 transition-colors py-3 text-sm font-medium"
         >
           Back
         </button>

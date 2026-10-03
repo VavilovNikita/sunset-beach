@@ -1,5 +1,5 @@
 // The admin Menu screen's per-category tabs (~130 items in one list was unusable). Same grouping
-// PosMenuPicker already shows staff on the floor - one tab per distinct free-text `category`,
+// OrderMenuPicker already shows staff on the floor - one tab per distinct free-text `category`,
 // sorted - kept here as a pure function so the "which tab is selected" fallback is testable.
 
 export type MenuCategoryTab = { category: string; count: number };

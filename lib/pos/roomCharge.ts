@@ -7,10 +7,9 @@ import type { Booking } from "@/lib/types";
 // amount actually due, independent of this status. NEW is an unconfirmed inquiry, not a guest
 // who has arrived. CANCELLED obviously isn't staying either.
 //
-// Shared by RoomChargeLink.tsx (admin dropdown) and bookingSearchClient.ts (mobile name search)
-// so the two can't drift apart. Applied client-side after a date-range-only fetch because the
-// backend's GET /bookings `status` filter only accepts a single value - see either caller for
-// why an unfiltered-by-status fetch plus this filter, rather than three separate requests.
+// Applied by bookingSearchClient.ts (the room-charge search on both POS surfaces) client-side,
+// after a date-range-only fetch, because the backend's GET /bookings `status` filter only accepts
+// a single value - an unfiltered-by-status fetch plus this filter, rather than separate requests.
 const CHARGEABLE_STATUSES: ReadonlyArray<Booking["status"]> = ["CONFIRMED", "PAID"];
 
 export function isChargeableBookingStatus(status: Booking["status"]): boolean {

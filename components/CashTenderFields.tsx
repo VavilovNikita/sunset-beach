@@ -3,7 +3,7 @@
 import { cashTender } from "@/lib/cashTender";
 
 // "Received from guest" + the change to hand back, shown before a CASH close is confirmed - on the
-// desktop till (components/admin/pos/OrderTicket.tsx) and the phone (PosOrderTicket.tsx) alike.
+// desktop till and the phone alike (components/OrderTicket.tsx, shared by both).
 // The total is the server's Order.total; see lib/cashTender.ts for why the change is the one
 // figure worked out here and what the server does with the typed amount.
 export default function CashTenderFields({

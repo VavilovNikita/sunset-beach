@@ -16,10 +16,10 @@ export default async function AdminMenuPage({ searchParams }: { searchParams: { 
   // SPA-department items live on their own screen now (/admin/spa/treatments) - a treatment was
   // never really a restaurant menu item, and duplicating it here would just be a second, stale-
   // prone place to find the same row. The item itself, and its ability to be added to a ticket,
-  // are unaffected - see PosMenuPicker's own "Spa" grouping and AddOrderItemForm's own "Spa"
+  // are unaffected - see OrderMenuPicker's own "Spa" grouping
   // optgroup, neither of which filters SPA items out.
   const nonSpaItems = allItems.filter((item) => item.department !== "SPA");
-  // One category at a time, as tabs - the same grouping PosMenuPicker gives staff on the floor.
+  // One category at a time, as tabs - the same grouping OrderMenuPicker gives staff on the floor.
   // A link per tab (not client state), so the selection survives a reload or a back from Edit.
   const tabs = menuCategoryTabs(nonSpaItems);
   const selectedCategory = resolveSelectedCategory(tabs, searchParams.category);

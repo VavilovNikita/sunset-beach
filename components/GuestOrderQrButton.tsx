@@ -3,14 +3,9 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 
-// Shared by both POS surfaces (components/admin/pos/OrderTicket.tsx and
-// components/pos/PosOrderTicket.tsx) despite "the two POS surfaces are separate component trees
-// on purpose" (see this app's own CLAUDE.md) - that rule is about screens carrying surface-
-// specific business logic (identity confirmation, idle logout), not about a small, stateless
-// widget with none of its own. This one holds no fetch/auth logic at all: given an orderId and
-// the order's own guestAccessToken, it renders a button, a QR code, and a print button - nothing
-// here differs between a desktop till and a waiter's phone, so duplicating it would only be two
-// copies of the same code to keep in sync.
+// Rendered by the order ticket (components/OrderTicket.tsx), which both POS surfaces share. It
+// holds no fetch/auth logic at all: given an orderId and the order's own guestAccessToken, it
+// renders a button, a QR code, and a print button.
 //
 // The QR encodes {site origin}/order/{orderId}?t={guestAccessToken} - the same guest ordering
 // page and token this app's own /order/[orderId] route reads (see GuestOrderClient.tsx). Printed

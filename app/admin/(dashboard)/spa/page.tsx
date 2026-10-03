@@ -29,7 +29,7 @@ export default async function AdminSpaPage({ searchParams }: { searchParams: { d
   const date = parseDateParam(searchParams.date);
   // Bookings whose stay covers `date` inclusive of the departure day (CORRECTION 1 - the guest
   // is still in the hotel that morning): GET /bookings?from&to is `checkOut > from AND checkIn
-  // <= to` (see RoomChargeLink's own comment on this endpoint), so from = date-1, to = date
+  // <= to` (see lib/pos/bookingSearchClient.ts's own comment on this endpoint), so from = date-1, to = date
   // widens it to checkOut >= date AND checkIn <= date - exactly the inclusive range the backend
   // itself uses to decide whether to warn.
   const dayBefore = toDateKey(addDaysUTC(dateOnlyUTC(date), -1));

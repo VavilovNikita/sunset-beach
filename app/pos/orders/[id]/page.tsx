@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
-import PosOrderTicket from "@/components/pos/PosOrderTicket";
+import OrderTicket from "@/components/OrderTicket";
 import type { Order, MenuItem, Table } from "@/lib/posTypes";
 
 export default async function PosOrderPage({ params }: { params: { id: string } }) {
@@ -32,16 +32,19 @@ export default async function PosOrderPage({ params }: { params: { id: string } 
           {table ? table.label : (order.guestName ?? `Ticket #${order.id.slice(-6)}`)}
         </h1>
       </div>
-      <PosOrderTicket
-        initialOrder={order}
-        menu={menu}
-        tableZone={table?.zone ?? null}
-        canManagePayments={canManagePayments}
-        // Only ever rendered when canManagePayments is true, which already implies `user` is
-        // non-null - the fallbacks below are unreachable in practice, just satisfying the type.
-        actorEmail={user?.email ?? ""}
-        actorRole={user?.role ?? "WAITER"}
-      />
+      <div className="p-4">
+        <OrderTicket
+          initialOrder={order}
+          menu={menu}
+          tableZone={table?.zone ?? null}
+          canManagePayments={canManagePayments}
+          basePath="/pos"
+          // The phone's "will be recorded as" check before money moves (PosAttributedConfirm.tsx).
+          // Only ever shown when canManagePayments is true, which already implies `user` is
+          // non-null - the fallbacks are unreachable in practice, just satisfying the type.
+          actor={{ email: user?.email ?? "", role: user?.role ?? "WAITER" }}
+        />
+      </div>
     </div>
   );
 }

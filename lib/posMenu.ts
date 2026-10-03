@@ -1,7 +1,7 @@
 import type { MenuItem, Zone } from "@/lib/posTypes";
 
 // Which menu items an order may be rung up with, decided by the zone of the table it's on - the
-// one rule both POS ticket screens (AddOrderItemForm on /admin, PosMenuPicker on /pos) apply.
+// one rule the POS ticket (OrderTicket.tsx, shared by /admin/pos and /pos) applies.
 // A restaurant/bar/pool table only ever sees Kitchen/Bar items: a spa treatment listed next to
 // the drinks was one wrong tap (or one untouched default) away from landing on a dinner bill. A
 // SPA table sees only treatments. An order with no table at all (a named walk-up ticket, the spa

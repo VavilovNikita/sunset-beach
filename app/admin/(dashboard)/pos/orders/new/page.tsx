@@ -1,7 +1,7 @@
 import { backendJsonOrDefault } from "@/lib/backendServer";
 import { requireSessionUser, hasRoleAtLeast } from "@/lib/rbac";
 import { parseDraftTarget } from "@/lib/posDraftOrder";
-import OrderTicket from "@/components/admin/pos/OrderTicket";
+import OrderTicket from "@/components/OrderTicket";
 import type { MenuItem, Table } from "@/lib/posTypes";
 
 // A ticket that doesn't exist yet (lib/posDraftOrder.ts): opened from a free table or "New
@@ -24,7 +24,15 @@ export default async function NewOrderTicketPage({ searchParams }: { searchParam
       <p className="eyebrow text-sea mb-2">POS</p>
       <h1 className="font-display italic text-3xl mb-8">{table ? table.label : draft.guestName ?? "New ticket"}</h1>
 
-      <OrderTicket initialOrder={null} draft={draft} menu={menu} tableZone={table?.zone ?? null} canManagePayments={canManagePayments} />
+      <OrderTicket
+        initialOrder={null}
+        draft={draft}
+        menu={menu}
+        tableZone={table?.zone ?? null}
+        canManagePayments={canManagePayments}
+        basePath="/admin/pos"
+        actor={null}
+      />
     </div>
   );
 }

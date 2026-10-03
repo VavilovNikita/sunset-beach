@@ -1,8 +1,8 @@
-// Booking lookup for "charge to room" — same /bookings?from&to filter the admin's
-// RoomChargeLink.tsx already uses (a genuine overlap test, see BookingService.java's
+// Booking lookup for "charge to room" (RoomChargeSearch.tsx, on both POS surfaces) — the
+// /bookings?from&to filter (a genuine overlap test, see BookingService.java's
 // buildSpecification: `checkOut > from AND checkIn <= to`, so a guest who checked in yesterday
 // and is still staying is correctly included by from=to=today, not just same-day arrivals).
-// Adds `guestName` (case-insensitive substring, backend query param) so a phone can search by
+// Adds `guestName` (case-insensitive substring, backend query param) so staff can search by
 // typing instead of scrolling every currently-staying booking. Includes a guest still checked in
 // past checkOut (the backend's OverstayRule widens this filter). "Today" is the hotel's date.
 // Status eligibility (CONFIRMED/PAID only) is filtered client-side - see isChargeableBookingStatus.

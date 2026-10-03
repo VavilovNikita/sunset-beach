@@ -102,9 +102,11 @@ Components are not covered by tests. Restructuring them is verified in the brows
 
 ## Two POS surfaces
 
-`/admin/pos` (desktop, supervised machine) and `/pos` (phone, passed between staff) are separate component trees on purpose. Differences that exist deliberately are commented at the call sites: identity confirmation before money actions and idle logout exist only on the phone, because that device changes hands.
+`/admin/pos` (desktop, supervised machine) and `/pos` (phone, passed between staff) are separate route trees with their own boards, layouts and shift screens. Identity confirmation before money actions and idle logout exist only on the phone, because that device changes hands.
 
-When changing behaviour in one, check whether the other needs it too — they have drifted before.
+**The order ticket is one component for both** (`components/OrderTicket.tsx`, with `OrderMenuPicker` and `RoomChargeSearch`). It used to be two that had drifted apart - the desktop had no search, no category tabs and no +/-, and every fix was made twice. Screen width decides only the arrangement (one column on a phone; from `xl` the menu in its own column beside the ticket); what genuinely differs per surface is passed in as props, never branched on by width: `basePath` (which section's URLs it links to) and `actor` (the phone's "will be recorded as" check; `null` on the till, where Card and Charge to room close directly and Cash only asks for the amount received). Don't fork it again for a surface-specific tweak - add a prop. `components/OrderTicket.test.tsx` renders it for both surfaces.
+
+The boards and shift screens are still separate - when changing behaviour in one, check whether the other needs it too.
 
 **Opening a table creates nothing.** Both boards navigate to `.../orders/new?tableId=` (`lib/posDraftOrder.ts`), a draft that exists only in the URL; the first item creates the order with that line in one request. Which menu items a ticket offers is `lib/posMenu.ts#menuForOrder` (a restaurant/bar table never sees spa treatments; the item picker has no pre-selected default). Buttons that change state stay in place, disabled, after their action (Send → "Sent ✓", Start → "Started ✓") - a button that vanished let the next one slide under a double-click.
 
