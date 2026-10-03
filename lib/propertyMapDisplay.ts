@@ -10,7 +10,7 @@
 //                    a block was scheduled before this guest checked out) because a real person
 //                    in the room matters more moment-to-moment than a maintenance schedule; the
 //                    block still surfaces as a badge so staff aren't blindsided at checkout.
-//      - blocked   : a RoomUnitBlock covers today (temporary - reuses AvailabilityManager's own
+//      - blocked   : a RoomUnitBlock covers today (temporary - reuses RoomUnitBlocksPanel's own
 //                    "coral = blocked" legend).
 //      - vacant    : the one state that must pop - "ready to sell right now" (reuses the existing
 //                    "sea = available" convention from the booking calendar).
@@ -44,7 +44,7 @@ export function resolveUnitDisplay(unit: PropertyMapUnit, today: string): UnitDi
   if (!unit.isActive) {
     // Permanently out of service - gone from the picture entirely. A block/debt/dirty flag on a
     // room that isn't part of current operations would read as "still relevant" when it isn't;
-    // none of that surfaces here (it's still visible in RoomUnitManager/AvailabilityManager,
+    // none of that surfaces here (it's still visible in RoomUnitManager/RoomUnitBlocksPanel,
     // just not on this glanceable screen).
     return { fill: "inactive", badges: [] };
   }

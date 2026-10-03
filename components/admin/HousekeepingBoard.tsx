@@ -6,7 +6,7 @@ import { updateRoomUnitHousekeeping } from "@/lib/roomUnitHousekeepingClient";
 import type { Room, RoomUnit } from "@/lib/types";
 
 // Every physical room's cleaning state, grouped by room type - independent of RoomUnitManager
-// (label/isActive, MANAGER+) and of AvailabilityManager's RoomUnitBlock editor (a unit pulled
+// (label/isActive, MANAGER+) and of RoomUnitBlocksPanel's RoomUnitBlock editor (a unit pulled
 // off sale for a written reason, not a cleaning state) - see HousekeepingStatus's own
 // description for why these stay three separate concerns rather than one combined "room admin"
 // screen. CASHIER+ can change status here; inactive units are still shown (a deactivated room

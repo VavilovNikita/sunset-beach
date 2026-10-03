@@ -129,7 +129,7 @@ export type RoomUnitInput = {
 // Replaces the old per-type `blockedCount` withdrawal. `reason` is
 // required by the backend; migrated rows carry reasons that start with
 // "Auto-migrated from legacy block count" and need staff review — see
-// components/admin/AvailabilityManager.tsx's AUTO_MIGRATED_PREFIX. No PATCH
+// lib/ratesGrid.ts's AUTO_MIGRATED_PREFIX. No PATCH
 // exists for this resource (per openapi.yaml) — changing a block's range or
 // reason means DELETE the old one and POST a new one.
 export type RoomUnitBlock = {
@@ -144,7 +144,7 @@ export type RoomUnitBlock = {
 };
 
 // The maintenance task this block exists to cover, if any — a block can also be raised directly
-// (AvailabilityManager.tsx), with no task behind it, which is the null case.
+// (RoomUnitBlocksPanel.tsx), with no task behind it, which is the null case.
 export type RoomUnitBlockMaintenanceTask = {
   taskId: string;
   description: string;
@@ -245,7 +245,7 @@ export type PropertyMapCurrentBooking = {
 
 // A RoomUnitBlock covering today - independent of PropertyMapUnit.isActive. isActive=false means
 // permanently deactivated (RoomUnitManager); activeBlock means temporarily pulled off sale today
-// for a reason (AvailabilityManager) and will return on its own once toDate passes. Both fields
+// for a reason (RoomUnitBlocksPanel) and will return on its own once toDate passes. Both fields
 // are always present and must not be collapsed into one "unavailable" flag - see
 // lib/propertyMapDisplay.ts for the display rule that keeps them visually distinct.
 export type PropertyMapActiveBlock = {
@@ -755,8 +755,17 @@ export type AvailabilityUnitDay = {
   bookingId: string | null;
   blockReason: string | null;
 };
+// availableCount is the server's remainder (unitCount - blockedCount - bookedCount), the same
+// InventoryMath figure GET /bookings/calendar's dailyAvailable carries - never re-derive it from
+// units[]: an unassigned booking counts in bookedCount but marks no unit booked, so counting
+// isAvailable units overstates what's left (the old Availability screen did exactly that and
+// disagreed with the calendar). Not clamped: negative means oversold.
 export type AvailabilityDay = {
   date: string;
+  unitCount: number;
+  blockedCount: number;
+  bookedCount: number;
+  availableCount: number;
   units: AvailabilityUnitDay[];
 };
 export type AvailabilityResponse = { days: AvailabilityDay[] };

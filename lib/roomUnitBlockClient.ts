@@ -1,6 +1,6 @@
 // Shared client-side calls for GET/POST/DELETE /room-units/{id}/blocks. Mirrors
 // lib/roomUnitHousekeepingClient.ts's exact pattern (same ok/error result shape, same
-// adminRequest use) — replaces the raw fetch() calls AvailabilityManager.tsx used to make
+// adminRequest use) — replaces the raw fetch() calls the old AvailabilityManager.tsx (now RoomUnitBlocksPanel.tsx) made
 // directly, which meant a backend failure there wasn't surfaced the way the rest of the app
 // surfaces one.
 import { adminRequest } from "@/lib/adminFetch";

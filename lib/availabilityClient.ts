@@ -1,5 +1,5 @@
 // Shared client-side call for GET /availability/{roomId} - the room-type-scoped, per-unit
-// month view AvailabilityManager.tsx renders. Routed through adminRequest rather than a bare
+// month view behind the Rates & availability grid (RatesAvailabilityGrid.tsx). Routed through adminRequest rather than a bare
 // fetch specifically so a failure here surfaces as an actual error, not silence: the raw fetch
 // this replaced had no res.ok check and no catch, so a real backend error (or a dropped
 // connection) fell through to `data.days ?? []` and rendered as an empty, all-quiet calendar -

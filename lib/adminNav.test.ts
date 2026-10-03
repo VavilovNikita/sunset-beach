@@ -29,7 +29,7 @@ describe("visibleNavGroups", () => {
     const byTitle = Object.fromEntries(groups.map((g) => [g.title, g.links.map((l) => l.label)]));
     expect(byTitle["Front desk"]).toEqual(["Today", "Calendar", "Bookings", "Guests", "Property map", "Housekeeping", "Spa", "Night audit", "In house"]);
     expect(byTitle["Restaurant"]).toEqual(["POS", "Print queue", "Shifts", "Menu"]);
-    expect(byTitle["Setup"]).toEqual(["Rooms", "Pricing", "Availability"]); // no Printers - MANAGER+
+    expect(byTitle["Setup"]).toEqual(["Rooms", "Rates & availability"]); // no Printers - MANAGER+
     expect(byTitle["Reports"]).toEqual(["Dashboard"]); // no History - MANAGER+
     expect(byTitle["Staff"]).toEqual(["My schedule"]); // no Roster - MANAGER+, no Users - ADMIN
   });
@@ -40,7 +40,7 @@ describe("visibleNavGroups", () => {
     expect(groups.map((g) => g.title)).toEqual(["Front desk", "Restaurant", "Setup", "Maintenance", "Reports", "Staff"]);
 
     const byTitle = Object.fromEntries(groups.map((g) => [g.title, g.links.map((l) => l.label)]));
-    expect(byTitle["Setup"]).toEqual(["Rooms", "Pricing", "Availability", "Printers"]); // no Guest emails - ADMIN only
+    expect(byTitle["Setup"]).toEqual(["Rooms", "Rates & availability", "Printers"]); // no Guest emails - ADMIN only
     expect(byTitle["Reports"]).toEqual(["Dashboard", "Room production", "Manager report", "History"]);
     expect(byTitle["Staff"]).toEqual(["Roster", "My schedule", "Devices"]); // no Import schedule/Users - ADMIN only
   });

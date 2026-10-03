@@ -1,26 +1,9 @@
-import { backendJson } from "@/lib/backendServer";
-import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
-import PricingManager from "@/components/admin/PricingManager";
-import type { Room } from "@/lib/types";
+import { redirect } from "next/navigation";
 
-export default async function AdminPricingPage() {
-  // GET /pricing/{roomId} and GET /rooms are both CASHIER+ — a CASHIER
-  // quoting a walk-in needs to see this page; setting an override
-  // (PATCH /pricing/{roomId}) stays MANAGER+, gated inside PricingManager.
-  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
-  const canManage = hasRoleAtLeast(user.role, "MANAGER");
-  const rooms = await backendJson<Room[]>("/rooms", { auth: true });
-
-  return (
-    <div>
-      <p className="eyebrow text-sea mb-2">Rates</p>
-      <h1 className="font-display italic text-3xl mb-8">Pricing</h1>
-
-      {rooms.length === 0 ? (
-        <p className="text-cream/50 text-sm">Add a room first.</p>
-      ) : (
-        <PricingManager rooms={rooms.map((r) => ({ id: r.id, name: r.name }))} canManage={canManage} />
-      )}
-    </div>
-  );
+// Pricing and Availability were merged into one room type x date table at /admin/rates. This route
+// stays so staff bookmarks and the manual's old links still land somewhere - on the Rates tab.
+export default function AdminPricingPage({ searchParams }: { searchParams: { month?: string } }) {
+  const params = new URLSearchParams({ view: "rates" });
+  if (searchParams.month) params.set("month", searchParams.month);
+  redirect(`/admin/rates?${params.toString()}`);
 }

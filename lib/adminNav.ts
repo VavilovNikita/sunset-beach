@@ -66,16 +66,17 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: "Setup",
-    // Configuring the property/inventory, not day-to-day guest work - Availability lives here
-    // rather than Front desk because its actual job is managing RoomUnitBlocks and monthly
-    // inventory, not something reception does per guest. Printers is the one MANAGER+ exception
-    // (registering/editing physical hardware); Rooms/Pricing/Availability are CASHIER+. Guest
+    // Configuring the property/inventory, not day-to-day guest work - Rates & availability (the
+    // merged Pricing + Availability month table; /admin/pricing and /admin/availability redirect to
+    // it) lives here rather than Front desk because its actual job is setting prices and managing
+    // RoomUnitBlocks, not something reception does per guest - their per-booking view is Calendar.
+    // Printers is the one MANAGER+ exception (registering/editing physical hardware); Rooms and
+    // Rates & availability are CASHIER+. Guest
     // emails is ADMIN-only - GET/PUT /settings/lifecycle-emails has no lower-privilege read, since
     // it decides what automated email reaches every eligible guest.
     links: [
       { href: "/admin/rooms", label: "Rooms", minRole: "CASHIER" },
-      { href: "/admin/pricing", label: "Pricing", minRole: "CASHIER" },
-      { href: "/admin/availability", label: "Availability", minRole: "CASHIER" },
+      { href: "/admin/rates", label: "Rates & availability", minRole: "CASHIER" },
       { href: "/admin/pos/printers", label: "Printers", minRole: "MANAGER" },
       { href: "/admin/settings/lifecycle-emails", label: "Guest emails", minRole: "ADMIN" },
     ],

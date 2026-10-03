@@ -29,8 +29,8 @@
 | `/admin/rooms` | h1 **«Rooms»** (eyebrow «Inventory») | CASHIER+ («Rooms») | CASHIER+; изменения — MANAGER+ | список типов номеров, переход к редактированию/удалению (MANAGER+) |
 | `/admin/rooms/new` | h1 **«New room»** | не в меню (кнопка «New room» на списке) | MANAGER+ | создать тип номера |
 | `/admin/rooms/[id]/edit` | h1 = название типа номера | не в меню | MANAGER+ | изменить тип номера, фото, физические номера (комнаты) этого типа |
-| `/admin/pricing` | h1 **«Pricing»** (eyebrow «Rates») | CASHIER+ («Pricing») | CASHIER+; правка — MANAGER+ | календарь цен по типу номера, задать цену на диапазон дат (MANAGER+) |
-| `/admin/availability` | h1 **«Availability»** (eyebrow «Calendar») | CASHIER+ («Availability») | CASHIER+; правка блоков — MANAGER+ | обзор занятости по типу/по конкретному номеру, ручные блокировки номеров (MANAGER+) |
+| `/admin/rates` | h1 **«Rates & availability»** (eyebrow «Rates») | CASHIER+ («Rates & availability») | CASHIER+; правка цен и блоков — MANAGER+ | одна таблица «тип номера × день месяца»: цена и остаток номеров в каждой ячейке; вкладки **Rates** (правка цены прямо в ячейке, цена на диапазон дат) и **Availability** (по-номерная разбивка дня, ручные блокировки) |
+| `/admin/pricing`, `/admin/availability` | — | не в меню | — | старые адреса, перенаправляют на `/admin/rates` (вкладка Rates / Availability соответственно) |
 | `/admin/users` | h1 **«Users»** (eyebrow «Staff») | только ADMIN («Users») | только ADMIN | список сотрудников, роль, активен/нет, сброс пароля |
 | `/admin/users/new` | h1 **«New user»** | не в меню (кнопка на списке) | только ADMIN | создать учётную запись |
 | `/admin/account` | h1 = email пользователя (eyebrow «Account») | ссылка внизу меню (email) | любой авторизованный | сменить свой пароль |
@@ -239,9 +239,11 @@ POS · Menu · Print queue · Dashboard · Bookings · Calendar · Rooms · Pric
 
 **Rooms** (физические номера типа, `RoomUnitManager`) — поля **«Label»**, чекбокс **«Active»**; строка карточки — «{Label}» / «Active» или «Inactive»; пустое состояние — «No rooms set up yet — add one below.»; кнопка **«New room»**, в форме — **«Create room»**.
 
-**Pricing** (`/admin/pricing`) — заголовок **«Pricing»**, eyebrow **«Rates»**; подпись под календарём: «Coral = manually set price. Otherwise showing the room's base price.»; форма **«Set a price range»**: **«From»**, **«To»**, **«Price / night (฿)»**, кнопка **«Apply to range»**; для не-MANAGER: «Setting prices requires a manager account.»
+**Rates & availability** (`/admin/rates`; старые `/admin/pricing` и `/admin/availability` перенаправляют сюда) — заголовок **«Rates & availability»**, eyebrow **«Rates»**. Сверху: **«← Prev»** / месяц / **«Next →»**, ссылка **«This month»** (если открыт другой месяц), вкладки **«Rates»** и **«Availability»**, фильтр **«Room type»** (по умолчанию **«All room types»**), ссылка **«Bookings by room → Calendar»**. Таблица: строки — типы номеров (под названием — «Base ฿…»), столбцы — дни месяца; в каждой ячейке и цена, и остаток.
 
-**Availability** (`/admin/availability`) — заголовок **«Availability»**, eyebrow **«Calendar»**; выбор **«Room type»**; подпись: «Each day shows free/total rooms of this type. Click a day to see which specific rooms are free, booked, or blocked, and to manage a room's blocks. A review mark means at least one block that day was auto-migrated from the old system and hasn't been checked yet.»; статус юнита: **Booked** / **Blocked** / **Free**; ссылка **«view booking»**. Детальный вид одного номера: заголовок «Room {label}», подпись «Sea = free, coral = blocked, dark = booked.»; форма **«Add block»**: **«From»**, **«To»**, **«Reason»**, кнопка **«Add block»**; список блоков, пометка автоперенесённых: «⚠ Needs review — {reason}»; для не-MANAGER: «Only managers can view or edit the block list. Blocked days for this room still show on the calendar above.»
+Вкладка **Rates**: крупно цена ночи (коралловая — заданная вручную), мелко «{n} left». MANAGER+ кликает по цене — в ячейке появляется поле, Enter сохраняет, Esc отменяет; ошибка показывается под ячейкой с кнопкой «Cancel». Подпись: «Coral = manually set price. Otherwise showing the room's base price. The small number is rooms of that type still free that night. Click a price to change that night; Enter saves, Esc cancels.» Под таблицей форма **«Set a price range»**: **«Room type»**, **«From»**, **«To»**, **«Price / night (฿)»**, кнопка **«Apply to range»**, после сохранения — «Saved {n} nights for {type}.»; для не-MANAGER: «Setting prices requires a manager account.»
+
+Вкладка **Availability**: крупно «свободно/всего», мелко цена; коралловая плашка — продано больше, чем номеров (овербукинг); пометка **«review»** — в этот день есть автоперенесённый блок. Клик по дню — под таблицей разбивка «{тип} · {дата}», строка «{n} of {m} free · {b} booked · {x} blocked» (с припиской «(includes bookings with no room assigned yet)», если есть брони без номера), карточки номеров: **Booked** / **Blocked** / **Free**, ссылка **«view booking»**, кнопка **«Manage»**. Без выбранного дня: «Click a day in the table to see room-by-room status.» Детальный вид одного номера (Manage): **«← Back to overview»**, заголовок «Room {label}», подпись «Sea = free, coral = blocked, dark = booked.»; форма **«Add block»**: **«From»**, **«To»**, **«Reason»**, кнопка **«Add block»**; список блоков, пометка автоперенесённых: «⚠ Needs review — {reason}»; для не-MANAGER: «Only managers can view or edit the block list. Blocked days for this room still show on the calendar above.»
 
 ### 2.12 POS-доска, столы, тикеты (админка и мобильный)
 
@@ -636,7 +638,7 @@ POS · Menu · Print queue · Dashboard · Bookings · Calendar · Rooms · Pric
 | [`13-menu-manage.png`](docs/manual-screenshots/13-menu-manage.png) | `/admin/pos/menu` — управление меню | |
 | [`14-tables-manage.png`](docs/manual-screenshots/14-tables-manage.png) | `/admin/pos` → «Manage tables» — управление столами | блок управления столами развёрнут |
 | [`15-rooms-manage.png`](docs/manual-screenshots/15-rooms-manage.png) | `/admin/rooms` — управление номерами | |
-| [`16-pricing.png`](docs/manual-screenshots/16-pricing.png) | `/admin/pricing` — управление ценами | |
+| [`16-pricing.png`](docs/manual-screenshots/16-pricing.png) | `/admin/pricing` — управление ценами | устарел: экран заменён на `/admin/rates`, нужен новый снимок |
 | [`17-printers.png`](docs/manual-screenshots/17-printers.png) | `/admin/pos/printers` — управление принтерами | |
 | [`18-users.png`](docs/manual-screenshots/18-users.png) | `/admin/users` — список сотрудников | |
 | [`19-history.png`](docs/manual-screenshots/19-history.png) | `/admin/history` — журнал действий | |

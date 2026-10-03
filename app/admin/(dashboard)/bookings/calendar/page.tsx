@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { backendJson } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
@@ -83,6 +84,13 @@ export default async function AdminBookingCalendarPage({
       <p className="text-xs text-cream/40 mb-4">
         Drag across free nights on a room's row to create a booking. Drag a booking's edge to change dates, or drag the
         whole bar to move it. Click a booking to open its details, change its status, or relocate it to another room.
+        {/* The number on each room type's header row is rooms left that night - the same server figure the Rates &
+            availability table shows, so the two can't disagree (AvailabilityCalendarAgreementTests, sunset repo). */}{" "}
+        Prices by night and room blocks are on{" "}
+        <Link href="/admin/rates" className="underline hover:text-cream">
+          Rates &amp; availability
+        </Link>
+        .
       </p>
 
       {rangeTooLarge ? (
