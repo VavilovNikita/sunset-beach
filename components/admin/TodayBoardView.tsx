@@ -7,6 +7,7 @@ import { checkInBooking, checkOutBooking, markBookingNoShow } from "@/lib/bookin
 import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
 import { overdueLabel } from "@/lib/overstay";
 import type { TodayBoard, TodayBoardEntry } from "@/lib/types";
+import { formatDate } from "@/lib/formatDate";
 
 // The front desk's daily working set - see openapi.yaml's TodayBoard description for exactly
 // which booking lands in which of the three lists. Data comes down as server-rendered props
@@ -157,7 +158,7 @@ function TodayRow({ entry, action, onDone }: { entry: TodayBoardEntry; action: "
         <div className="flex items-center gap-3 flex-wrap mt-1 text-xs">
           {overdue && (
             <span className="text-coral">
-              {overdue} — was due out {booking.checkOut}. Check out, or extend the stay from the booking.
+              {overdue} — was due out {formatDate(booking.checkOut)}. Check out, or extend the stay from the booking.
             </span>
           )}
           {needsRoom && <span className="text-amber-400">No room assigned</span>}

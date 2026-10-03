@@ -20,6 +20,7 @@ import {
   type RatesView,
 } from "@/lib/ratesGrid";
 import type { AvailabilityDay, PricingResponse } from "@/lib/types";
+import { formatDate } from "@/lib/formatDate";
 
 type Room = { id: string; name: string };
 
@@ -473,7 +474,7 @@ function DayBreakdown({
   return (
     <div className="max-w-xl">
       <h2 className="font-display italic text-lg mb-1">
-        {roomName} · {date}
+        {roomName} · {formatDate(date)}
       </h2>
       {day && (
         <p className="text-xs text-cream/50 mb-4">

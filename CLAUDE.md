@@ -34,6 +34,8 @@ Types in `lib/types.ts` and `lib/posTypes.ts` mirror the backend's `openapi.yaml
 
 Do not add a date library. Local-time parsing shifts date-only values by a day in this timezone, which is exactly what the helpers exist to prevent.
 
+**Show every date through `lib/formatDate.ts`** - "3 Oct 2026" for a stay date, "3 Oct 2026, 14:05" for a timestamp. The admin used to mix `2026-10-05`, `03.10.2026` (a bare `toLocaleString()` in a Russian browser) and `Oct 3, 2026`, and printed audit/order times as raw UTC. Timestamps are shown in Asia/Bangkok whatever offset they arrive with; never slice an ISO string for display or append "UTC". The browser's own `<input type="date">` is the one thing it can't reach.
+
 ## Money
 
 **Never display an amount computed on the client.** Prices, totals and balances come from the server, including previews: an operation that changes a price shows the server's recalculated figure before the user confirms.

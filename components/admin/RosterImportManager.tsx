@@ -17,6 +17,7 @@ import type {
   RosterImportResult,
   ShiftCode,
 } from "@/lib/types";
+import { formatDate } from "@/lib/formatDate";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
@@ -456,7 +457,7 @@ export default function RosterImportManager({ initialEmployees }: { initialEmplo
               <ul className="space-y-1 text-sm text-cream/70">
                 {preview.collisions.map((c, i) => (
                   <li key={i}>
-                    {c.employeeName} on {c.date}: keeps &ldquo;{c.existingShiftCodeDescription}&rdquo;, not &ldquo;{c.newShiftCodeDescription}&rdquo;
+                    {c.employeeName} on {formatDate(c.date)}: keeps &ldquo;{c.existingShiftCodeDescription}&rdquo;, not &ldquo;{c.newShiftCodeDescription}&rdquo;
                   </li>
                 ))}
               </ul>

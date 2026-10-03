@@ -9,6 +9,9 @@ import BookingScheduleForm from "@/components/admin/BookingScheduleForm";
 import FolioPaymentPanel from "@/components/admin/FolioPaymentPanel";
 import BookingGuestLinkSection from "@/components/admin/BookingGuestLinkSection";
 import { BOOKING_PURPOSE_LABELS, formatPartySize } from "@/lib/bookingPurpose";
+import { BOOKING_CHANNEL_LABELS, bookingOriginNote } from "@/lib/bookingChannel";
+import { roomStops } from "@/lib/bookingRooms";
+import { formatDateRange, formatTimestamp, formatTimestampDate } from "@/lib/formatDate";
 import type { AuditLogPage, Booking, RoomUnit } from "@/lib/types";
 import type { BookingPosOrder, Folio, FolioPayment } from "@/lib/posTypes";
 
@@ -79,14 +82,53 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
 
       <div className="grid md:grid-cols-2 gap-8">
         <div className="space-y-2 text-sm">
+          {/* From the segments, not booking.room: that's only the *last* segment's type (where the
+              guest ends up), which made a relocated stay read as if it had all been in that room -
+              see lib/bookingRooms.ts. */}
+          {booking.segments.length > 1 ? (
+            <div>
+              <span className="text-cream/40">Rooms:</span>
+              <ul className="mt-1 space-y-0.5">
+                {booking.segments.map((segment) => (
+                  <li key={segment.id}>
+                    {segment.room.name}
+                    {segment.roomUnit ? ` — ${segment.roomUnit.label}` : " (no room assigned)"}
+                    <span className="text-cream/40"> · {formatDateRange(segment.checkIn, segment.checkOut)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p>
+              <span className="text-cream/40">Room:</span> {roomStops(booking.segments)[0]?.roomTypeName ?? booking.room.name}
+              {booking.roomUnit ? ` — ${booking.roomUnit.label}` : ""}
+            </p>
+          )}
           <p>
-            <span className="text-cream/40">Room:</span> {booking.room.name}
+            <span className="text-cream/40">Dates:</span> {formatDateRange(booking.checkIn, booking.checkOut)}
           </p>
           <p>
-            <span className="text-cream/40">Email:</span> {booking.guestEmail}
+            <span className="text-cream/40">Email:</span>{" "}
+            {booking.guestEmail ? (
+              booking.guestEmail
+            ) : booking.guest?.email ? (
+              // The booking's own snapshot is empty (a walk-in typed in without one) but its linked
+              // guest card has an address - that's where guest emails now go (the backend's
+              // EmailService#guestEmailFor), so show it, marked as coming from the card.
+              <>
+                {booking.guest.email} <span className="text-cream/40">(from guest card)</span>
+              </>
+            ) : (
+              <span className="text-cream/40">none</span>
+            )}
           </p>
           <p>
-            <span className="text-cream/40">Phone:</span> {booking.guestPhone}
+            <span className="text-cream/40">Phone:</span>{" "}
+            {booking.guestPhone || booking.guest?.phone || <span className="text-cream/40">none</span>}
+          </p>
+          <p>
+            <span className="text-cream/40">Channel:</span> {BOOKING_CHANNEL_LABELS[booking.channel]}
+            {bookingOriginNote(booking) && <span className="text-cream/40"> · {bookingOriginNote(booking)}</span>}
           </p>
           <p>
             <span className="text-cream/40">Guests:</span> {formatPartySize(booking.adults, booking.children)}
@@ -98,7 +140,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             <span className="text-cream/40">Total:</span> ฿{Number(booking.totalPrice).toLocaleString("en-US")}
           </p>
           <p>
-            <span className="text-cream/40">Booked on:</span> {booking.createdAt.slice(0, 10)}
+            <span className="text-cream/40">Booked on:</span> {formatTimestampDate(booking.createdAt)}
           </p>
           <div className="pt-2">
             <BookingGuestLinkSection booking={booking} />
@@ -115,6 +157,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
           />
           <BookingStatusForm
             bookingId={booking.id}
+            guestName={booking.guestName}
             currentStatus={booking.status}
             currentPaymentNote={booking.paymentNote}
             currentChannel={booking.channel}
@@ -177,7 +220,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
                   <p className="text-cream/70 truncate">
                     {po.items.map((i) => `${i.quantity}× ${i.name}`).join(", ")}
                   </p>
-                  <p className="text-xs text-cream/40">{po.paidAt.slice(0, 10)}</p>
+                  <p className="text-xs text-cream/40">{formatTimestamp(po.paidAt)}</p>
                 </div>
                 <span className="text-cream shrink-0">฿{Number(po.amount).toLocaleString("en-US")}</span>
               </Link>
@@ -197,12 +240,10 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
                 <div key={entry.id} className="bg-ink2/40 border border-cream/10 rounded-xl p-4 text-sm">
                   <div className="flex items-center justify-between gap-4 flex-wrap">
                     <span className="text-cream/70">{entry.summary}</span>
-                    <span className="text-xs text-cream/40 shrink-0">
-                      {entry.createdAt.slice(0, 19).replace("T", " ")} UTC
-                    </span>
+                    <span className="text-xs text-cream/40 shrink-0">{formatTimestamp(entry.createdAt)}</span>
                   </div>
                   <p className="text-xs text-cream/40 mt-2">
-                    {entry.actorEmail} ({entry.actorRole})
+                    {entry.actorRole === null ? "System" : `${entry.actorEmail} (${entry.actorRole})`}
                   </p>
                 </div>
               ))}

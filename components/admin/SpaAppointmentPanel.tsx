@@ -7,6 +7,7 @@ import { addSpaAppointmentTreatment, removeSpaAppointmentTreatment, updateSpaApp
 import { billSpaAppointment } from "@/lib/spaOrderClient";
 import { sumTreatmentPrices } from "@/lib/spaTreatmentPricing";
 import type { MenuItem, SpaAppointment, SpaAppointmentStatus } from "@/lib/posTypes";
+import { formatDate } from "@/lib/formatDate";
 
 // Side panel for one appointment clicked on the grid - same shell as BookingCardPanel.tsx (no
 // dimming backdrop, so the grid stays visible while working this appointment; click-outside
@@ -162,7 +163,7 @@ export default function SpaAppointmentPanel({
               <span className="text-cream/40">Table:</span> {current.tableLabel}
             </p>
             <p>
-              <span className="text-cream/40">Time:</span> {current.date} · {current.startTime} ({current.durationMinutes} min)
+              <span className="text-cream/40">Time:</span> {formatDate(current.date)} · {current.startTime} ({current.durationMinutes} min)
             </p>
             <p>
               <span className="text-cream/40">Therapist:</span> {current.therapistName}

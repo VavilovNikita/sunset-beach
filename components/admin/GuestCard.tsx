@@ -8,6 +8,8 @@ import { formatDateOfBirth, formatTagsInput, isRepeatGuest, parseTagsInput } fro
 import { LIFECYCLE_EMAIL_LABELS, formatSentAt } from "@/lib/lifecycleEmails";
 import VipBadge from "@/components/admin/VipBadge";
 import type { GuestDetail } from "@/lib/types";
+import { roomTypeSummary } from "@/lib/bookingRooms";
+import { formatDateRange } from "@/lib/formatDate";
 
 // The guest card: contact details plus this guest's entire stay history (every booking with
 // this guestId, any status - cancelled included, see GuestDetail's own description). Each
@@ -85,7 +87,7 @@ export default function GuestCard({ guest }: { guest: GuestDetail }) {
               >
                 <div className="min-w-0">
                   <p className="text-cream truncate">
-                    {b.room.name} — {b.checkIn} → {b.checkOut}
+                    {roomTypeSummary(b)} — {formatDateRange(b.checkIn, b.checkOut)}
                   </p>
                   <p className="text-xs text-cream/40">{b.status}</p>
                 </div>

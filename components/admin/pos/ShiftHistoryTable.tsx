@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { ShiftListItem } from "@/lib/posTypes";
+import { formatTimestamp } from "@/lib/formatDate";
 
 // The staff filter is client-side, not a second round trip with `staffId` set - GET /shifts
 // already returns every shift in the chosen date range (staff count × working days is a small
@@ -71,7 +72,7 @@ export default function ShiftHistoryTable({ shifts }: { shifts: ShiftListItem[] 
                         href={`/admin/pos/shifts/${s.id}`}
                         className="text-sea hover:text-coral transition-colors underline underline-offset-4"
                       >
-                        {s.openedAt.slice(0, 16).replace("T", " ")}
+                        {formatTimestamp(s.openedAt)}
                       </Link>
                     </td>
                     <td className="py-3 pr-4 text-cream/70">{s.openedByEmail}</td>

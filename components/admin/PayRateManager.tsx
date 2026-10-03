@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createEmployeePayRate, listEmployeePayRates } from "@/lib/rosterClient";
 import type { EmployeePayRate, RosterEmployee } from "@/lib/types";
+import { formatDate } from "@/lib/formatDate";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -71,7 +72,7 @@ export default function PayRateManager({ employees }: { employees: RosterEmploye
           {rates.map((r) => (
             <div key={r.id} className="flex items-center gap-4 bg-ink2/40 border border-cream/10 rounded-xl p-3">
               <p className="flex-1 font-display text-lg tabular-nums">฿{r.dailyRate}/day</p>
-              <p className="text-sm text-cream/60">from {r.effectiveFrom}</p>
+              <p className="text-sm text-cream/60">from {formatDate(r.effectiveFrom)}</p>
               <p className="text-xs text-cream/40">set by {r.createdByEmail}</p>
             </div>
           ))}

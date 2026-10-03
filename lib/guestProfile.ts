@@ -1,4 +1,4 @@
-import { parseDateKey } from "@/lib/bookings";
+import { formatDate } from "@/lib/formatDate";
 import type { Booking } from "@/lib/types";
 
 // Turns the guest form's comma-separated tags field into the array PATCH/POST /guests expects.
@@ -23,10 +23,10 @@ export function formatTagsInput(tags: string[]): string {
   return tags.join(", ");
 }
 
-// A date-only "YYYY-MM-DD" key shown as e.g. "Apr 12, 1987". Parsed and formatted in UTC so it
-// never shifts by a day in this timezone - see CLAUDE.md, "Dates".
+// A date-only "YYYY-MM-DD" key shown as e.g. "12 Apr 1987" - the admin's one date format
+// (lib/formatDate.ts), which never shifts the day.
 export function formatDateOfBirth(key: string): string {
-  return parseDateKey(key).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+  return formatDate(key);
 }
 
 // "Repeat guest" = more than one stay that wasn't cancelled. Derived from the card's own stay

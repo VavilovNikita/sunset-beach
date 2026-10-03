@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getAttendanceSummary, recordAttendancePunch } from "@/lib/rosterClient";
 import type { AttendanceDaySummary, PunchDirection, RosterEmployee } from "@/lib/types";
+import { formatDate } from "@/lib/formatDate";
 
 const NOW = new Date();
 
@@ -130,7 +131,7 @@ export default function AttendancePanel({ employees }: { employees: RosterEmploy
             <tbody>
               {summaries.map((day) => (
                 <tr key={day.date} className="border-t border-cream/10">
-                  <td className="py-2 pr-4 tabular-nums">{day.date}</td>
+                  <td className="py-2 pr-4 tabular-nums whitespace-nowrap">{formatDate(day.date)}</td>
                   <td className="py-2 pr-4 text-cream/70">
                     {day.shiftCode ? (day.plannedIntervals.length ? day.plannedIntervals.map((i) => `${i.startTime}–${i.endTime}`).join(", ") : "OP") : "Day off"}
                   </td>

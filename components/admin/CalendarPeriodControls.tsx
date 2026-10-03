@@ -4,15 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addDaysUTC, addMonthsUTC, daysBetweenUTC, parseDateKey, startOfMonthUTC, toDateKey } from "@/lib/bookings";
 import { MAX_CALENDAR_RANGE_DAYS, saveStoredPeriod } from "@/lib/calendarRange";
+import { formatDateRange } from "@/lib/formatDate";
+import { hotelDateKey } from "@/lib/hotelDate";
 
 function formatRangeLabel(from: Date, to: Date) {
   const lastVisibleDay = addDaysUTC(to, -1); // `to` itself is exclusive, same convention as a stay
-  const sameMonth = from.getUTCFullYear() === lastVisibleDay.getUTCFullYear() && from.getUTCMonth() === lastVisibleDay.getUTCMonth();
-  const fmtFull = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-  const fmtShort = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
   const days = daysBetweenUTC(from, to);
-  const range = sameMonth ? `${fmtShort(from)} – ${lastVisibleDay.getUTCDate()}, ${from.getUTCFullYear()}` : `${fmtFull(from)} – ${fmtFull(lastVisibleDay)}`;
-  return `${range} (${days} day${days === 1 ? "" : "s"})`;
+  return `${formatDateRange(toDateKey(from), toDateKey(lastVisibleDay))} (${days} day${days === 1 ? "" : "s"})`;
 }
 
 function validateRange(from: Date, to: Date): string | null {
@@ -83,9 +81,9 @@ export default function CalendarPeriodControls({ from, to }: { from: string; to:
     const currentFrom = parseDateKey(from);
     const currentTo = parseDateKey(to);
     const span = daysBetweenUTC(currentFrom, currentTo);
-    const today = new Date();
-    const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-    navigateTo(todayUTC, addDaysUTC(todayUTC, span));
+    // The hotel's date, not UTC's - UTC is still yesterday here until 07:00.
+    const today = parseDateKey(hotelDateKey(new Date()));
+    navigateTo(today, addDaysUTC(today, span));
   }
 
   function handleQuickPick(months: number) {

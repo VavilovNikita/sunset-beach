@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { dateOnlyUTC, toDateKey } from "@/lib/bookings";
 import { BookingScheduleEditor, RoomUnitAssignmentEditor } from "@/components/admin/BookingScheduleEditor";
 import type { Booking, RoomUnit } from "@/lib/types";
+import { formatDateRange } from "@/lib/formatDate";
 
 // The booking calendar grid's drag/resize/move interactions are pointer-only - this form is the
 // keyboard-and-screen-reader-reachable way to do the exact same thing, on the booking detail
@@ -64,7 +65,7 @@ export default function BookingScheduleForm({
             <div className="space-y-1.5">
               {segments.map((segment) => (
                 <p key={segment.id} className="text-cream">
-                  {segment.checkIn} → {segment.checkOut} —{" "}
+                  {formatDateRange(segment.checkIn, segment.checkOut)} —{" "}
                   <span className="font-display italic">{segment.roomUnit?.label ?? "unassigned"}</span>
                 </p>
               ))}

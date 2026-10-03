@@ -11,6 +11,7 @@ import SpaAppointmentCreateModal from "@/components/admin/SpaAppointmentCreateMo
 import SpaAppointmentPanel from "@/components/admin/SpaAppointmentPanel";
 import type { MenuItem, SpaAppointment, SpaSchedule, SpaTherapist } from "@/lib/posTypes";
 import type { Booking } from "@/lib/types";
+import { formatDate } from "@/lib/formatDate";
 
 const ROW_HEIGHT = 44;
 const LABEL_WIDTH = 160;
@@ -325,7 +326,7 @@ export default function SpaScheduleGrid({
         >
           ← Prev day
         </button>
-        <span className="text-sm text-cream/70 font-medium">{date}</span>
+        <span className="text-sm text-cream/70 font-medium">{formatDate(date)}</span>
         <button
           type="button"
           onClick={() => goToDate(toDateKey(addDaysUTC(dateOnlyUTC(date), 1)))}

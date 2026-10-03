@@ -12,6 +12,7 @@ import ResetPasswordButton from "@/components/admin/ResetPasswordButton";
 import GrantCredentialsButton from "@/components/admin/GrantCredentialsButton";
 import { STAFF_AREAS, STAFF_AREA_LABELS } from "@/lib/rosterGrid";
 import type { StaffArea, User } from "@/lib/types";
+import { formatTimestampDate } from "@/lib/formatDate";
 
 // Hidden by default, shown via the toggle below - deactivated is now the exception, not most of
 // this list. Filters on `u.active` alone: a no-login account (email null) is still an active
@@ -91,7 +92,7 @@ export default function UsersList({ users, sessionUserId }: { users: User[]; ses
                           )}
                         </p>
                         <p className="text-xs text-cream/40">
-                          {u.email ?? "No login"} · Joined {u.createdAt.slice(0, 10)}
+                          {u.email ?? "No login"} · Joined {formatTimestampDate(u.createdAt)}
                         </p>
                       </div>
                       <span className="text-xs text-cream/40">{u.role}</span>

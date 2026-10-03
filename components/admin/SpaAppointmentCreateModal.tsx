@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createSpaAppointment } from "@/lib/spaClient";
 import type { MenuItem, SpaTherapist } from "@/lib/posTypes";
 import type { Booking } from "@/lib/types";
+import { formatDate, formatDateRange } from "@/lib/formatDate";
 
 // Opened from a click on a free grid cell (components/admin/SpaScheduleGrid.tsx) - date/tableId/
 // startTime arrive pre-filled and fixed; only the booking/therapist/treatment are picked here.
@@ -67,7 +68,7 @@ export default function SpaAppointmentCreateModal({
       <div className="bg-ink2 border border-cream/15 rounded-xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
         <p className="eyebrow text-sea mb-1">Book a treatment</p>
         <p className="text-cream/60 text-sm mb-4">
-          {tableLabel} · {date} · {startTime}
+          {tableLabel} · {formatDate(date)} · {startTime}
         </p>
 
         {done ? (
@@ -95,7 +96,7 @@ export default function SpaAppointmentCreateModal({
                 >
                   {bookings.map((b) => (
                     <option key={b.id} value={b.id}>
-                      {b.guestName} — {b.room.name} ({b.checkIn} to {b.checkOut})
+                      {b.guestName} — {b.room.name} ({formatDateRange(b.checkIn, b.checkOut)})
                     </option>
                   ))}
                 </select>

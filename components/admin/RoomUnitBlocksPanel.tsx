@@ -6,6 +6,7 @@ import PriceCalendar, { type CalendarCell } from "@/components/admin/PriceCalend
 import { createRoomUnitBlock, deleteRoomUnitBlock, listRoomUnitBlocks } from "@/lib/roomUnitBlockClient";
 import { isAutoMigrated, weekdayOf } from "@/lib/ratesGrid";
 import type { AvailabilityDay, AvailabilityUnitDay, RoomUnitBlock, RoomUnitBlockResult } from "@/lib/types";
+import { formatDate, formatDateRange } from "@/lib/formatDate";
 
 const MONTH_FORMAT = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 
@@ -228,7 +229,7 @@ export default function RoomUnitBlocksPanel({
                     >
                       <p className="text-sm text-cream/80">{b.guestName}</p>
                       <p className="text-xs text-cream/50 mt-0.5">
-                        {b.checkIn} → {b.checkOut} · {b.status}
+                        {formatDateRange(b.checkIn, b.checkOut)} · {b.status}
                       </p>
                     </Link>
                   ))}
@@ -250,7 +251,7 @@ export default function RoomUnitBlocksPanel({
                     >
                       <p className="text-sm text-cream/80">{b.guestName}</p>
                       <p className="text-xs text-cream/50 mt-0.5">
-                        {b.checkIn} → {b.checkOut} · {b.status}
+                        {formatDateRange(b.checkIn, b.checkOut)} · {b.status}
                       </p>
                     </Link>
                   ))}
@@ -283,7 +284,7 @@ export default function RoomUnitBlocksPanel({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm text-cream/80">
-                          {b.fromDate} → {b.toDate}
+                          {formatDate(b.fromDate)} → {formatDate(b.toDate)}
                         </p>
                         <button
                           type="button"

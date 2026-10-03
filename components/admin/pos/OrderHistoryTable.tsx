@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { STATUS_LABELS, STATUS_STYLES, PAYMENT_METHOD_LABELS } from "@/lib/posOrders";
 import type { Order, Table } from "@/lib/posTypes";
+import { formatTimestamp } from "@/lib/formatDate";
 
 // Staff filter is client-side, narrowing rows already fetched for the chosen period/status/table -
 // same reasoning as ShiftHistoryTable: GET /users is ADMIN-only, so the dropdown's options come
@@ -66,7 +67,7 @@ export default function OrderHistoryTable({ orders, tables }: { orders: Order[];
                       href={`/admin/pos/orders/${o.id}`}
                       className="text-sea hover:text-coral transition-colors underline underline-offset-4"
                     >
-                      {o.createdAt.slice(0, 16).replace("T", " ")}
+                      {formatTimestamp(o.createdAt)}
                     </Link>
                   </td>
                   <td className="py-3 pr-4 text-cream/70">

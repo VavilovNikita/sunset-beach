@@ -13,6 +13,8 @@ export default function BookingPurposePartyFields({
   childCount,
   onChildCountChange,
   inputClassName,
+  adultsError,
+  childrenError,
 }: {
   purpose: BookingPurpose;
   onPurposeChange: (purpose: BookingPurpose) => void;
@@ -21,6 +23,10 @@ export default function BookingPurposePartyFields({
   childCount: string;
   onChildCountChange: (childCount: string) => void;
   inputClassName: string;
+  // Field-level messages from the parent form's own validation (forms are noValidate - see
+  // lib/staffBookingForm.ts for why the browser's bubble is never used).
+  adultsError?: string;
+  childrenError?: string;
 }) {
   return (
     <>
@@ -36,16 +42,19 @@ export default function BookingPurposePartyFields({
       </div>
       <div className="flex gap-3">
         <div className="flex-1">
-          <label className="eyebrow text-cream/60 block mb-1">Adults</label>
+          <label className="eyebrow text-cream/60 block mb-1">
+            Adults <span className="text-coral">*</span>
+          </label>
           <input
             type="number"
             min={1}
             step={1}
             value={adults}
             onChange={(e) => onAdultsChange(e.target.value)}
-            required
+            aria-invalid={adultsError ? true : undefined}
             className={inputClassName}
           />
+          {adultsError && <p className="text-xs text-coral mt-1">{adultsError}</p>}
         </div>
         <div className="flex-1">
           <label className="eyebrow text-cream/60 block mb-1">Children</label>
@@ -55,8 +64,10 @@ export default function BookingPurposePartyFields({
             step={1}
             value={childCount}
             onChange={(e) => onChildCountChange(e.target.value)}
+            aria-invalid={childrenError ? true : undefined}
             className={inputClassName}
           />
+          {childrenError && <p className="text-xs text-coral mt-1">{childrenError}</p>}
         </div>
       </div>
     </>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createShiftCode, createShiftCodeVersion, updateShiftCodeDisplayColor, updateShiftCodeKind } from "@/lib/rosterClient";
 import { STAFF_AREA_LABELS } from "@/lib/rosterGrid";
 import type { ShiftCode, ShiftCodeCreateInput, ShiftCodeKind, ShiftCodeVersionInput, StaffArea } from "@/lib/types";
+import { formatDate } from "@/lib/formatDate";
 
 // Neutral starting point for the picker on a code with no displayColor and no suggestedColor -
 // never saved on its own; the admin still has to press Save. Matches this screen's own ink2 tone.
@@ -579,7 +580,7 @@ export default function ShiftCodeManager({ initialCodes }: { initialCodes: Shift
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-1 self-start">
-                    <p className="text-xs text-cream/40">from {c.effectiveFrom}</p>
+                    <p className="text-xs text-cream/40">from {formatDate(c.effectiveFrom)}</p>
                     {c.active && editingId !== c.id && (
                       <button type="button" onClick={() => setEditingId(c.id)} className="text-xs text-sea hover:text-coral transition-colors">
                         Edit

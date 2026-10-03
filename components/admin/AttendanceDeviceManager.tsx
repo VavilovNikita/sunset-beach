@@ -8,6 +8,7 @@ import { usePolling } from "@/lib/usePolling";
 import { isStale } from "@/lib/attendanceDeviceHealth";
 import DeleteButton from "@/components/admin/DeleteButton";
 import type { AttendanceDevice, AttendanceDeviceInput } from "@/lib/types";
+import { formatTimestamp } from "@/lib/formatDate";
 
 const EMPTY_FORM: AttendanceDeviceInput = { name: "", serial: "", address: "", port: 4370, timezone: "Asia/Bangkok", active: true };
 
@@ -16,7 +17,7 @@ function LastSeenLabel({ lastSeenAt }: { lastSeenAt: string | null }) {
     return <span className="text-amber-400">Never reached</span>;
   }
   const stale = isStale(lastSeenAt);
-  return <span className={stale ? "text-coral" : "text-cream/60"}>Last heard from {new Date(lastSeenAt).toLocaleString()}</span>;
+  return <span className={stale ? "text-coral" : "text-cream/60"}>Last heard from {formatTimestamp(lastSeenAt)}</span>;
 }
 
 // Mirrors the backend's app.attendance.device-poll-interval-ms default (AttendanceDevicePollService).

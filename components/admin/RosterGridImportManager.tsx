@@ -15,6 +15,7 @@ import type {
   ShiftCodeKind,
   StaffArea,
 } from "@/lib/types";
+import { formatDate, formatTimestamp } from "@/lib/formatDate";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
@@ -203,7 +204,7 @@ function DiffRowLine({ row, excluded, onToggleExclude }: { row: RosterGridImport
   return (
     <li className="flex items-center justify-between gap-3 py-1.5 border-b border-cream/10 text-sm">
       <span className="text-cream/80">
-        {row.employeeName} <span className="text-cream/40">on {row.date}</span>
+        {row.employeeName} <span className="text-cream/40">on {formatDate(row.date)}</span>
       </span>
       <span className="flex items-center gap-2 text-xs">
         {row.changeType === "CHANGE" && (
@@ -419,7 +420,7 @@ export default function RosterGridImportManager({ initialEmployees }: { initialE
       {preview && (
         <div className="space-y-6">
           <div className="bg-ink2/40 border border-cream/10 rounded-xl p-4 text-sm text-cream/70">
-            Exported {new Date(preview.exportedAt).toLocaleString()} · {preview.addCount} to add, {preview.changeCount} to change,{" "}
+            Exported {formatTimestamp(preview.exportedAt)} · {preview.addCount} to add, {preview.changeCount} to change,{" "}
             {preview.removeCount} to remove, {preview.unchangedCount} unchanged
             {preview.staleCount > 0 && ` · ${preview.staleCount} flagged stale since export`}
             {preview.lockedConflictCount > 0 && ` · ${preview.lockedConflictCount} locked (will be skipped)`}

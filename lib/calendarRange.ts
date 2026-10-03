@@ -5,6 +5,8 @@
 // never touch the other, and neither should be able to silently overwrite the other's last-saved
 // value.
 
+import { addDaysUTC, addMonthsUTC, daysBetweenUTC, parseDateKey, toDateKey } from "@/lib/bookings";
+
 // Mirrors BookingCalendarService.MAX_CALENDAR_RANGE_DAYS / DateRangeUtil.MAX_RANGE_DAYS on the
 // backend (sunset repo). Not fetched from the API - there's no endpoint that exposes it - so this
 // is duplicated by hand; if the backend constant ever changes, update this one too. Used to
@@ -21,6 +23,20 @@ export const MAX_DAY_WIDTH_PX = 120;
 export const DEFAULT_DAY_WIDTH_PX = 88;
 
 export type StoredPeriod = { from: string; to: string };
+
+// Where the calendar opens when nothing in the URL says otherwise: on today (the hotel's date -
+// pass hotelDateKey(new Date()), lib/hotelDate.ts), never on the 1st of the month, so reception
+// doesn't have to press Today on every visit. Keeps the width the user last chose (a stored
+// period's length) and otherwise shows a month ahead. Pure, tested in calendarRange.test.ts.
+export function periodFromToday(todayKey: string, stored: StoredPeriod | null): StoredPeriod {
+  const from = parseDateKey(todayKey);
+  let to = addMonthsUTC(from, 1);
+  if (stored) {
+    const span = daysBetweenUTC(parseDateKey(stored.from), parseDateKey(stored.to));
+    if (span >= 1 && span <= MAX_CALENDAR_RANGE_DAYS) to = addDaysUTC(from, span);
+  }
+  return { from: toDateKey(from), to: toDateKey(to) };
+}
 
 const PERIOD_STORAGE_KEY = "sunset-beach:admin:calendar:range";
 const DENSITY_STORAGE_KEY = "sunset-beach:admin:calendar:density";

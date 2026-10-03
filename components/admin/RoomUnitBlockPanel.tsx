@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { deleteRoomUnitBlock } from "@/lib/roomUnitBlockClient";
 import type { RoomUnitBlock } from "@/lib/types";
+import { formatDate, formatTimestamp } from "@/lib/formatDate";
 
 // Side panel opened by double-clicking (or, on touch, single-tapping) a block segment on the
 // booking calendar grid - same shell as BookingCardPanel.tsx/PropertyMapUnitPanel.tsx (no dimming
@@ -89,10 +90,10 @@ function BlockCard({
     <div className="bg-ink border border-cream/10 rounded-xl p-4 space-y-2 text-sm">
       <p className="text-cream">{block.reason}</p>
       <p className="text-cream/50">
-        {block.fromDate} → {block.toDate}
+        {formatDate(block.fromDate)} → {formatDate(block.toDate)}
       </p>
       <p className="text-xs text-cream/40">
-        Created {block.createdAt.slice(0, 19).replace("T", " ")} UTC
+        Created {formatTimestamp(block.createdAt)}
         {block.createdByEmail ? ` by ${block.createdByEmail}` : " — creator not tracked"}
       </p>
 

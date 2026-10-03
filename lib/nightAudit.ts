@@ -1,4 +1,5 @@
 import { daysBetweenUTC, parseDateKey } from "@/lib/bookings";
+import { formatTimestamp } from "@/lib/formatDate";
 
 // Display helpers for the night-audit page. Pure, so they're tested in nightAudit.test.ts.
 
@@ -23,18 +24,7 @@ export function describeOverdue(dueDate: string, reviewedDate: string): string {
   return days === 1 ? "1 day overdue" : `${days} days overdue`;
 }
 
-// closedAt is a UTC date-time. Formatted explicitly in Asia/Bangkok, never the browser's zone,
-// so every viewer sees the same hotel-local time.
+// closedAt is a UTC date-time, shown in hotel-local time (lib/formatDate.ts).
 export function formatClosedAt(closedAt: string): string {
-  const date = new Date(closedAt);
-  if (Number.isNaN(date.getTime())) return closedAt;
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Bangkok",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(date);
+  return formatTimestamp(closedAt);
 }

@@ -4,12 +4,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
-import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS } from "@/lib/bookingChannel";
+import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS, bookingOriginNote } from "@/lib/bookingChannel";
+import { formatDateRange, formatTimestamp } from "@/lib/formatDate";
 import { BOOKING_PURPOSE_LABELS, formatPartySize, parsePartySize } from "@/lib/bookingPurpose";
 import BookingPurposePartyFields from "@/components/admin/BookingPurposePartyFields";
 import { quoteBookingRelocation, applyBookingRelocation, undoBookingRelocation } from "@/lib/bookingRelocationClient";
 import { quoteBookingReprice, applyBookingReprice } from "@/lib/bookingRepriceClient";
 import RoomChargeDebtBadge from "@/components/admin/RoomChargeDebtBadge";
+import CancelBookingDialog from "@/components/admin/CancelBookingDialog";
+import { needsCancellationConfirm } from "@/lib/bookingStatusChange";
+import { useSavedNotice } from "@/lib/useSavedNotice";
 import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
 import { BookingScheduleEditor, RoomUnitAssignmentEditor } from "@/components/admin/BookingScheduleEditor";
 import type { Booking, BookingChannel, BookingScheduleQuote, Room, RoomUnit, AuditLogEntry } from "@/lib/types";
@@ -117,8 +121,12 @@ export default function BookingCardPanel({
           <div className="p-5 space-y-6">
             <div>
               <h2 className="font-display italic text-2xl mb-1">{booking.guestName}</h2>
-              <p className="text-sm text-cream/50">{booking.guestEmail || "No email on file"}</p>
-              <p className="text-sm text-cream/50">{booking.guestPhone || "No phone on file"}</p>
+              <p className="text-sm text-cream/50">
+                {booking.guestEmail ||
+                  (booking.guest?.email ? `${booking.guest.email} (from guest card)` : "No email on file")}
+              </p>
+              <p className="text-sm text-cream/50">{booking.guestPhone || booking.guest?.phone || "No phone on file"}</p>
+              {bookingOriginNote(booking) && <p className="text-xs text-cream/40">Came {bookingOriginNote(booking)}</p>}
               <p className="text-sm text-cream/50">
                 {formatPartySize(booking.adults, booking.children)}
                 {booking.purpose !== "STANDARD" && (
@@ -177,7 +185,7 @@ export default function BookingCardPanel({
                     <div key={po.orderId} className="bg-ink border border-cream/10 rounded-xl p-3 text-sm">
                       <p className="text-cream/70 truncate">{po.items.map((i) => `${i.quantity}× ${i.name}`).join(", ")}</p>
                       <div className="flex items-center justify-between text-xs text-cream/40 mt-1">
-                        <span>{po.paidAt.slice(0, 10)}</span>
+                        <span>{formatTimestamp(po.paidAt)}</span>
                         <span className="text-cream">฿{Number(po.amount).toLocaleString("en-US")}</span>
                       </div>
                     </div>
@@ -197,7 +205,7 @@ export default function BookingCardPanel({
                       <div key={entry.id} className="bg-ink border border-cream/10 rounded-xl p-3 text-xs">
                         <p className="text-cream/70">{entry.summary}</p>
                         <p className="text-cream/40 mt-1">
-                          {entry.createdAt.slice(0, 19).replace("T", " ")} UTC · {entry.actorEmail}
+                          {formatTimestamp(entry.createdAt)} · {entry.actorRole === null ? "System" : entry.actorEmail}
                         </p>
                       </div>
                     ))}
@@ -221,6 +229,8 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
   const [children, setChildren] = useState(String(booking.children));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [notice, showNotice, clearNotice] = useSavedNotice();
 
   useEffect(() => {
     setStatus(booking.status);
@@ -231,15 +241,28 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
     setChildren(String(booking.children));
   }, [booking.status, booking.paymentNote, booking.channel, booking.purpose, booking.adults, booking.children]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const party = parsePartySize(adults, children);
     if ("error" in party) {
       setError(party.error);
       return;
     }
+    setError(null);
+    // Same rule as BookingStatusForm - see lib/bookingStatusChange.ts.
+    if (needsCancellationConfirm(booking.status, status)) {
+      setConfirmingCancel(true);
+      return;
+    }
+    save(null);
+  }
+
+  async function save(cancellationReason: string | null) {
+    const party = parsePartySize(adults, children);
+    if ("error" in party) return;
     setSaving(true);
     setError(null);
+    clearNotice();
     const result = await adminRequest(
       `/bookings/${booking.id}`,
       adminJsonInit("PATCH", {
@@ -249,12 +272,14 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
         purpose,
         adults: party.adults,
         children: party.children,
+        ...(cancellationReason ? { cancellationReason } : {}),
       }),
       "Could not update booking."
     );
     setSaving(false);
     if (!result.ok) {
       setError(result.error);
+      if (cancellationReason) return;
       // See BookingStatusForm.tsx's identical note - the select already jumped to the chosen
       // value on change, so a failed save has to jump it back, or the form looks like it saved.
       setStatus(booking.status);
@@ -265,11 +290,13 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
       setChildren(String(booking.children));
       return;
     }
+    setConfirmingCancel(false);
+    showNotice(cancellationReason ? "Booking cancelled." : "Saved.");
     onSaved();
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 bg-ink border border-cream/10 rounded-xl p-4">
+    <form onSubmit={handleSubmit} noValidate className="space-y-3 bg-ink border border-cream/10 rounded-xl p-4">
       <div>
         <div className="flex items-center justify-between mb-1">
           <label className="eyebrow text-cream/60">Status</label>
@@ -326,14 +353,34 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
           className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm placeholder:text-cream/30"
         />
       </div>
-      {error && <p className="text-xs text-coral">{error}</p>}
-      <button
-        type="submit"
-        disabled={saving}
-        className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium disabled:opacity-60"
-      >
-        {saving ? "Saving…" : "Save"}
-      </button>
+      {error && !confirmingCancel && <p className="text-xs text-coral">{error}</p>}
+      <div className="flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium disabled:opacity-60"
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+        {notice && (
+          <span role="status" className="text-xs text-cream/70">
+            ✓ {notice}
+          </span>
+        )}
+      </div>
+      {confirmingCancel && (
+        <CancelBookingDialog
+          guestName={booking.guestName}
+          wasPaid={booking.status === "PAID"}
+          saving={saving}
+          error={error}
+          onConfirm={(reason) => save(reason)}
+          onBack={() => {
+            setConfirmingCancel(false);
+            setError(null);
+          }}
+        />
+      )}
     </form>
   );
 }
@@ -376,7 +423,7 @@ function SegmentsSection({
               <span className="text-cream/60">฿{Number(segment.totalPrice).toLocaleString("en-US")}</span>
             </div>
             <p className="text-xs text-cream/40 mt-1">
-              {segment.checkIn} → {segment.checkOut}
+              {formatDateRange(segment.checkIn, segment.checkOut)}
             </p>
             <div className="flex items-center flex-wrap gap-3 mt-1">
               {i > 0 && <UndoRelocationButton bookingId={booking.id} splitDate={segment.checkIn} onSaved={onSaved} />}

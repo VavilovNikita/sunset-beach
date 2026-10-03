@@ -8,6 +8,7 @@ import {
   updateMaintenanceTaskStatus,
 } from "@/lib/maintenanceTaskClient";
 import type { MaintenanceTask, MaintenanceTaskBlockResult, MaintenanceTaskStatus, RoomUnit } from "@/lib/types";
+import { formatDateRange, formatTimestamp } from "@/lib/formatDate";
 
 const STATUS_LABEL: Record<MaintenanceTaskStatus, string> = { OPEN: "Open", IN_PROGRESS: "In progress", DONE: "Done" };
 const STATUS_CLASS: Record<MaintenanceTaskStatus, string> = {
@@ -262,8 +263,8 @@ function TaskCard({
           )}
 
           <p className="text-xs text-cream/40">
-            Reported by {task.reportedByEmail} · {task.createdAt.slice(0, 10)}
-            {task.closedAt && ` · Closed ${task.closedAt.slice(0, 10)}`}
+            Reported by {task.reportedByEmail} · {formatTimestamp(task.createdAt)}
+            {task.closedAt && ` · Closed ${formatTimestamp(task.closedAt)}`}
           </p>
 
           {error && <p className="text-sm text-coral">{error}</p>}
@@ -273,7 +274,7 @@ function TaskCard({
               <p className="text-sm text-amber-400">{blockResult.blockResult.warning}</p>
               {[...blockResult.blockResult.affectedBookings, ...blockResult.blockResult.affectedUnassignedBookings].map((b) => (
                 <p key={b.bookingId} className="text-xs text-cream/60">
-                  {b.guestName} · {b.checkIn} → {b.checkOut}
+                  {b.guestName} · {formatDateRange(b.checkIn, b.checkOut)}
                 </p>
               ))}
             </div>

@@ -24,6 +24,7 @@ import {
   updateUserStaffArea,
 } from "@/lib/rosterClient";
 import type { RosterCoverageWarning, RosterEmployee, RosterEntry, RosterMonth, ShiftCode, StaffArea } from "@/lib/types";
+import { formatDate } from "@/lib/formatDate";
 
 const WEEKDAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -689,7 +690,7 @@ export default function RosterGrid({
       {selectedEntry && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/60 p-4" onClick={() => setSelectedEntry(null)}>
           <div className="bg-ink2 border border-cream/10 rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-            <p className="eyebrow text-sea mb-1">{selectedEntry.date}</p>
+            <p className="eyebrow text-sea mb-1">{formatDate(selectedEntry.date)}</p>
             <h2 className="font-display italic text-2xl mb-2">{selectedEntry.employeeName}</h2>
             <p className="text-cream/70 text-sm mb-1">
               Shift: {selectedEntry.shiftCode.code}
@@ -728,7 +729,7 @@ export default function RosterGrid({
       {createTarget && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/60 p-4" onClick={() => setCreateTarget(null)}>
           <div className="bg-ink2 border border-cream/10 rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-            <p className="eyebrow text-sea mb-1">{createTarget.date}</p>
+            <p className="eyebrow text-sea mb-1">{formatDate(createTarget.date)}</p>
             <h2 className="font-display italic text-2xl mb-4">{createTarget.employeeName}</h2>
             <p className="eyebrow text-cream/60 mb-2">Assign a shift code</p>
             <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
@@ -760,9 +761,9 @@ export default function RosterGrid({
             <p className="text-sm text-cream/60 mb-4">
               {moveConfirm.shiftCode}
               <br />
-              {moveConfirm.fromDate}
+              {formatDate(moveConfirm.fromDate)}
               <span className="text-cream/40"> → </span>
-              {moveConfirm.toDate}
+              {formatDate(moveConfirm.toDate)}
             </p>
 
             {moveConfirm.status === "error" && <p className="text-sm text-coral mb-3">{moveConfirm.error}</p>}
@@ -800,7 +801,7 @@ export default function RosterGrid({
                 <span className="text-cream/40"> loses </span>
                 {reassignConfirm.shiftCode}
                 <span className="text-cream/40"> · </span>
-                {reassignConfirm.date}
+                {formatDate(reassignConfirm.date)}
               </p>
               <p className="text-cream">
                 {reassignConfirm.toEmployeeName}

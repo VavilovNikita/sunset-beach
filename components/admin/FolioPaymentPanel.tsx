@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { recordFolioPayment } from "@/lib/folioPaymentClient";
 import type { FolioPayment, FolioPaymentMethod } from "@/lib/posTypes";
+import { formatTimestamp } from "@/lib/formatDate";
 
 const METHODS: FolioPaymentMethod[] = ["CASH", "CARD", "OTHER"];
 
@@ -50,7 +51,7 @@ export default function FolioPaymentPanel({
           {payments.map((p) => (
             <div key={p.id} className="flex items-center justify-between text-xs text-cream/50">
               <span>
-                {p.method} · {p.createdAt.slice(0, 10)}
+                {p.method} · {formatTimestamp(p.createdAt)}
               </span>
               <span>฿{Number(p.amount).toLocaleString("en-US")}</span>
             </div>

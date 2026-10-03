@@ -4,6 +4,7 @@ import { useState } from "react";
 import { closeNightAudit } from "@/lib/nightAuditClient";
 import { formatClosedAt } from "@/lib/nightAudit";
 import type { NightAuditClosure } from "@/lib/types";
+import { formatDate } from "@/lib/formatDate";
 
 // "Close day" for the date on screen only - there is deliberately no close-any-date action.
 // Closing records that someone reviewed the day; it blocks and locks nothing, and it doesn't need
@@ -44,7 +45,7 @@ export default function NightAuditCloseForm({ date, initialClosure }: { date: st
     <form onSubmit={handleSubmit} className="bg-ink2/40 border border-cream/10 rounded-xl p-5 space-y-3">
       <p className="eyebrow text-cream/50">Close day</p>
       <p className="text-xs text-cream/40">
-        Records that you reviewed {date}. It doesn&apos;t change or lock anything, and unresolved items above can still be
+        Records that you reviewed {formatDate(date)}. It doesn&apos;t change or lock anything, and unresolved items above can still be
         handled afterwards.
       </p>
       <textarea

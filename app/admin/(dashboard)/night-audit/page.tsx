@@ -5,6 +5,7 @@ import { describeOverdue, parseNightAuditDateParam } from "@/lib/nightAudit";
 import StatCard from "@/components/admin/StatCard";
 import NightAuditCloseForm from "@/components/admin/NightAuditCloseForm";
 import type { NightAudit, NightAuditBooking } from "@/lib/types";
+import { formatDateRange } from "@/lib/formatDate";
 
 // The front desk's once-a-day review: who should have arrived or left and didn't, the day's room
 // figures, and a "Close day" receipt. GET /night-audit and POST /night-audit/close are CASHIER+ -
@@ -120,7 +121,7 @@ function BookingList({
                 </Link>
                 <p className="text-xs text-cream/50">
                   {b.roomName}
-                  {b.roomUnitLabel ? ` · ${b.roomUnitLabel}` : " · no room assigned"} · {b.checkIn} → {b.checkOut}
+                  {b.roomUnitLabel ? ` · ${b.roomUnitLabel}` : " · no room assigned"} · {formatDateRange(b.checkIn, b.checkOut)}
                 </p>
               </div>
               <span className="text-xs text-amber-400">{describeOverdue(dueDate(b), reviewedDate)}</span>

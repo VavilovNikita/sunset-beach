@@ -2,16 +2,19 @@ import Link from "next/link";
 import { backendJson } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
-import { daysBetweenUTC, parseDateKey, startOfMonthUTC, toDateKey, addMonthsUTC } from "@/lib/bookings";
-import { MAX_CALENDAR_RANGE_DAYS } from "@/lib/calendarRange";
+import { daysBetweenUTC, parseDateKey, toDateKey } from "@/lib/bookings";
+import { MAX_CALENDAR_RANGE_DAYS, periodFromToday } from "@/lib/calendarRange";
+import { hotelDateKey } from "@/lib/hotelDate";
 import BookingCalendarGrid from "@/components/admin/BookingCalendarGrid";
 import CalendarPeriodPersistence from "@/components/admin/CalendarPeriodPersistence";
 import CalendarPeriodControls from "@/components/admin/CalendarPeriodControls";
 import type { BookingCalendarResponse } from "@/lib/types";
 
+// Opens on today (the hotel's date), a month wide. CalendarPeriodPersistence then keeps the
+// width the user last chose, still starting today.
 function defaultPeriod() {
-  const from = startOfMonthUTC(new Date());
-  return { from, to: addMonthsUTC(from, 1) };
+  const { from, to } = periodFromToday(hotelDateKey(new Date()), null);
+  return { from: parseDateKey(from), to: parseDateKey(to) };
 }
 
 // Both `from` and `to` have to be present and well-formed together, or the whole pair is

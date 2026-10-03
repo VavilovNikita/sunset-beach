@@ -29,7 +29,7 @@ describe("describeOverdue", () => {
 describe("formatClosedAt", () => {
   it("shows hotel-local time, not UTC", () => {
     // 18:30 UTC on the 27th is 01:30 on the 28th in Bangkok.
-    expect(formatClosedAt("2026-09-27T18:30:00Z")).toBe("28 Sept 2026, 01:30");
+    expect(formatClosedAt("2026-09-27T18:30:00Z")).toBe("28 Sep 2026, 01:30");
   });
 
   it("returns the raw value for something unparseable", () => {

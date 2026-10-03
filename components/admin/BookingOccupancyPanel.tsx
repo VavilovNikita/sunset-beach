@@ -6,6 +6,7 @@ import { checkInBooking, checkOutBooking, markBookingNoShow } from "@/lib/bookin
 import { hotelDateKey } from "@/lib/hotelDate";
 import { overdueDaysFor, overdueLabel } from "@/lib/overstay";
 import type { Booking } from "@/lib/types";
+import { formatDate } from "@/lib/formatDate";
 
 const OCCUPANCY_LABELS: Record<Booking["occupancyStatus"], string> = {
   EXPECTED: "Expected",
@@ -62,7 +63,7 @@ export default function BookingOccupancyPanel({ booking }: { booking: Booking })
   }
 
   function handleCheckOut() {
-    if (overdue && !window.confirm(`Check ${booking.guestName} out now? They were due out on ${booking.checkOut}.`)) return;
+    if (overdue && !window.confirm(`Check ${booking.guestName} out now? They were due out on ${formatDate(booking.checkOut)}.`)) return;
     return run(async () => {
       const result = await checkOutBooking(booking.id);
       if (!result.ok) return result;
@@ -85,12 +86,12 @@ export default function BookingOccupancyPanel({ booking }: { booking: Booking })
 
       {overdue && (
         <p className="text-sm text-coral">
-          {overdue} — was due out on {booking.checkOut} and is still checked in, so the room is held for them tonight.
+          {overdue} — was due out on {formatDate(booking.checkOut)} and is still checked in, so the room is held for them tonight.
           Check them out if they&rsquo;ve left, or extend the stay below if they&rsquo;re still here.
         </p>
       )}
       {occupancy === "EXPECTED" && arrivalDue && !cancelled && booking.checkIn < today && (
-        <p className="text-sm text-amber-400">Was due to arrive on {booking.checkIn}. Check them in, or mark a no-show.</p>
+        <p className="text-sm text-amber-400">Was due to arrive on {formatDate(booking.checkIn)}. Check them in, or mark a no-show.</p>
       )}
 
       {(canCheckIn || canMarkNoShow || canCheckOut) && (

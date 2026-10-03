@@ -3,6 +3,7 @@ import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { requireRoleAtLeast } from "@/lib/rbac";
 import { STATUS_LABELS, STATUS_STYLES, PAYMENT_METHOD_LABELS } from "@/lib/posOrders";
 import type { Order, Shift, Table } from "@/lib/posTypes";
+import { formatTimestamp } from "@/lib/formatDate";
 
 // Mobile deliberately doesn't offer the admin's full period/status/table/staff filter form (see
 // /admin/pos/orders) - a cashier in the zал reaches for this to look something up from *their own*
@@ -56,7 +57,7 @@ export default async function PosOrderHistoryPage({ searchParams }: { searchPara
                   {o.tableId ? (tablesById.get(o.tableId)?.label ?? "Deleted table") : (o.guestName ?? `Ticket #${o.id.slice(-6)}`)}
                 </p>
                 <p className="text-xs text-cream/40 mt-0.5">
-                  {o.paymentMethod ? PAYMENT_METHOD_LABELS[o.paymentMethod] : "—"} · {o.createdAt.slice(0, 16).replace("T", " ")}
+                  {o.paymentMethod ? PAYMENT_METHOD_LABELS[o.paymentMethod] : "—"} · {formatTimestamp(o.createdAt)}
                 </p>
               </div>
               <div className="text-right shrink-0">

@@ -43,6 +43,8 @@ function booking(overrides: Partial<Booking>): Booking {
     checkedInAt: null,
     checkedOutAt: null,
     segments: [],
+    externalReference: null,
+    externalChannel: null,
     createdAt: "2026-06-15T09:00:00.000Z",
     updatedAt: "2026-06-15T09:00:00.000Z",
     ...overrides,

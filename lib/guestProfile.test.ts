@@ -22,8 +22,8 @@ describe("parseTagsInput", () => {
 
 describe("formatDateOfBirth", () => {
   it("formats a date-only key without shifting the day", () => {
-    expect(formatDateOfBirth("1987-04-12")).toBe("Apr 12, 1987");
-    expect(formatDateOfBirth("2000-01-01")).toBe("Jan 1, 2000");
+    expect(formatDateOfBirth("1987-04-12")).toBe("12 Apr 1987");
+    expect(formatDateOfBirth("2000-01-01")).toBe("1 Jan 2000");
   });
 });
 

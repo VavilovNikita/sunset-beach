@@ -6,6 +6,7 @@ import { checkInBooking, checkOutBooking } from "@/lib/bookingOccupancyClient";
 import { overdueLabel } from "@/lib/overstay";
 import { updateRoomUnitHousekeeping } from "@/lib/roomUnitHousekeepingClient";
 import type { PropertyMapUnit } from "@/lib/types";
+import { formatDate } from "@/lib/formatDate";
 
 // Side panel for a single room clicked on the property map - same shell as BookingCardPanel.tsx
 // (no dimming backdrop, so the plan stays visible while working this room; click-outside closes).
@@ -104,7 +105,7 @@ export default function PropertyMapUnitPanel({
               <p className="text-coral font-medium">Blocked today</p>
               <p className="text-cream/60 mt-1">{unit.activeBlock.reason}</p>
               <p className="text-cream/40 text-xs mt-1">
-                {unit.activeBlock.fromDate} – {unit.activeBlock.toDate}
+                {formatDate(unit.activeBlock.fromDate)} – {formatDate(unit.activeBlock.toDate)}
               </p>
             </div>
           )}
@@ -134,7 +135,7 @@ export default function PropertyMapUnitPanel({
                 <span className="text-cream/40">Guest:</span> {booking.guestName}
               </p>
               <p>
-                <span className="text-cream/40">{isExpectedToday ? "Arriving:" : "Departing:"}</span> {booking.checkOut}
+                <span className="text-cream/40">{isExpectedToday ? "Arriving:" : "Departing:"}</span> {formatDate(booking.checkOut)}
               </p>
               {overdueLabel(booking.overdueDays) && (
                 <p className="text-coral">

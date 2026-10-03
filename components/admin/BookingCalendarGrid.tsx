@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addDaysUTC, dateOnlyUTC, toDateKey } from "@/lib/bookings";
+import { addDaysUTC, dateOnlyUTC, parseDateKey, toDateKey } from "@/lib/bookings";
+import { hotelDateKey } from "@/lib/hotelDate";
 import {
   buildDayColumns,
   columnSpan,
@@ -22,6 +23,7 @@ import BookingCreateFromGridModal from "@/components/admin/BookingCreateFromGrid
 import BookingCardPanel from "@/components/admin/BookingCardPanel";
 import RoomUnitBlockPanel from "@/components/admin/RoomUnitBlockPanel";
 import type { BookingCalendarResponse, BookingScheduleQuote, CalendarBooking, HousekeepingStatus, RoomUnit } from "@/lib/types";
+import { formatDate, formatDateRange } from "@/lib/formatDate";
 
 const ROW_HEIGHT = 40;
 const LABEL_WIDTH = 208;
@@ -92,7 +94,8 @@ export default function BookingCalendarGrid({
   const days = useMemo(() => buildDayColumns(data.from, data.to), [data.from, data.to]);
   const gridFrom = days[0];
   const dayCount = days.length;
-  const today = useMemo(() => dateOnlyUTC(new Date()), []);
+  // The hotel's date (Asia/Bangkok), not UTC's - same as the Today button and the period default.
+  const today = useMemo(() => parseDateKey(hotelDateKey(new Date())), []);
   const todayKey = toDateKey(today);
 
   // "<unit label> (<room type>)" for a given roomUnitId, used by the
@@ -829,7 +832,7 @@ export default function BookingCalendarGrid({
                   onPointerDown={notePointerType}
                   onClick={tapHandlers.onClick}
                   onDoubleClick={tapHandlers.onDoubleClick}
-                  title={`${b.guestName} · past check-out (${b.checkOut}) and still checked in`}
+                  title={`${b.guestName} · past check-out (${formatDate(b.checkOut)}) and still checked in`}
                   style={{
                     left: startCol * dayWidth + 2,
                     width: colSpan * dayWidth - 4,
@@ -1047,7 +1050,7 @@ export default function BookingCalendarGrid({
             <p className="eyebrow text-sea mb-1">Confirm change</p>
             <p className="text-cream mb-1">{scheduleConfirm.guestName}</p>
             <p className="text-sm text-cream/60 mb-4">
-              {scheduleConfirm.checkIn} → {scheduleConfirm.checkOut}
+              {formatDateRange(scheduleConfirm.checkIn, scheduleConfirm.checkOut)}
               {" · "}
               {scheduleConfirm.roomUnitId === null
                 ? "unassigned"

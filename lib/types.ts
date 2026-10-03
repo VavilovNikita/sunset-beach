@@ -693,8 +693,25 @@ export type Booking = {
   // segment and these values equal that segment's own fields exactly.
   // Ordered by checkIn ascending, never empty.
   segments: BookingSegment[];
+  // Set only on a booking imported from SiteMinder (null for everything else): SiteMinder's own
+  // reference, and the channel name exactly as SiteMinder showed it - what `channel` was mapped
+  // from, and the only record of which OTA an OTHER booking came through. SiteMinder is how the
+  // booking reached *us*, not a channel the guest booked through, so it is not a BookingChannel.
+  externalReference: string | null;
+  externalChannel: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+// Response of GET /bookings/search - the admin Bookings list, searched, sorted and paged by the
+// server (GET /bookings stays a bare array for POS/spa/calendar lookups).
+export type BookingSortField = "GUEST_NAME" | "ROOM" | "CHECK_IN" | "CHECK_OUT" | "TOTAL_PRICE" | "STATUS" | "CREATED_AT";
+export type SortDirection = "ASC" | "DESC";
+export type BookingPage = {
+  items: Booking[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
 };
 
 // NO_SHOW is a label, not an action: POST /bookings/{id}/no-show changes nothing about the
@@ -936,6 +953,18 @@ export type StaffBookingCreateInput = {
   adults: number;
   // Omitted means 0.
   children?: number;
+  // A Guest card picked in the form - links exactly that card instead of find-or-create by
+  // guestEmail. 404 if it no longer exists.
+  guestId?: string | null;
+};
+
+// Body of POST /bookings/staff/quote - the price/availability preview the create form shows
+// before saving. Answered with a BookingScheduleQuote (server-computed, never a client sum).
+export type StaffBookingQuoteInput = {
+  roomId: string;
+  checkIn: string;
+  checkOut: string;
+  roomUnitId?: string | null;
 };
 
 // --- Audit log (GET /audit-log) ---

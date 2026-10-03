@@ -5,14 +5,18 @@ import { useRouter } from "next/navigation";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS } from "@/lib/bookingChannel";
 import { parsePartySize } from "@/lib/bookingPurpose";
+import { needsCancellationConfirm } from "@/lib/bookingStatusChange";
+import { useSavedNotice } from "@/lib/useSavedNotice";
 import type { Folio } from "@/lib/posTypes";
-import type { BookingChannel, BookingPurpose } from "@/lib/types";
+import type { BookingChannel, BookingPurpose, BookingStatus } from "@/lib/types";
 import BookingPurposePartyFields from "@/components/admin/BookingPurposePartyFields";
+import CancelBookingDialog from "@/components/admin/CancelBookingDialog";
 
 const STATUSES = ["NEW", "CONFIRMED", "PAID", "CANCELLED"] as const;
 
 export default function BookingStatusForm({
   bookingId,
+  guestName,
   currentStatus,
   currentPaymentNote,
   currentChannel,
@@ -22,7 +26,8 @@ export default function BookingStatusForm({
   folio,
 }: {
   bookingId: string;
-  currentStatus: string;
+  guestName: string;
+  currentStatus: BookingStatus;
   currentPaymentNote: string | null;
   currentChannel: BookingChannel;
   currentPurpose: BookingPurpose;
@@ -34,7 +39,7 @@ export default function BookingStatusForm({
   folio: Folio | null;
 }) {
   const router = useRouter();
-  const [status, setStatus] = useState(currentStatus);
+  const [status, setStatus] = useState<BookingStatus>(currentStatus);
   const [paymentNote, setPaymentNote] = useState(currentPaymentNote ?? "");
   const [channel, setChannel] = useState<BookingChannel>(currentChannel);
   const [purpose, setPurpose] = useState<BookingPurpose>(currentPurpose);
@@ -42,16 +47,31 @@ export default function BookingStatusForm({
   const [children, setChildren] = useState(String(currentChildren));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [notice, showNotice, clearNotice] = useSavedNotice();
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const party = parsePartySize(adults, children);
     if ("error" in party) {
       setError(party.error);
       return;
     }
+    setError(null);
+    // Moving into CANCELLED asks first, with a reason - see lib/bookingStatusChange.ts.
+    if (needsCancellationConfirm(currentStatus, status)) {
+      setConfirmingCancel(true);
+      return;
+    }
+    save(null);
+  }
+
+  async function save(cancellationReason: string | null) {
+    const party = parsePartySize(adults, children);
+    if ("error" in party) return;
     setSaving(true);
     setError(null);
+    clearNotice();
 
     const result = await adminRequest(
       `/bookings/${bookingId}`,
@@ -62,6 +82,7 @@ export default function BookingStatusForm({
         purpose,
         adults: party.adults,
         children: party.children,
+        ...(cancellationReason ? { cancellationReason } : {}),
       }),
       "Could not update booking."
     );
@@ -70,6 +91,8 @@ export default function BookingStatusForm({
 
     if (!result.ok) {
       setError(result.error);
+      // A failed cancel keeps its dialog open, with the error, so the reason isn't lost.
+      if (cancellationReason) return;
       // A dropped connection (or a rejected write) must not leave the form looking like it
       // saved - the select already jumped to the chosen value on change, so on failure it has
       // to jump back to what's actually persisted, or the empty state (no error banner visible
@@ -82,16 +105,18 @@ export default function BookingStatusForm({
       setChildren(String(currentChildren));
       return;
     }
+    setConfirmingCancel(false);
+    showNotice(cancellationReason ? "Booking cancelled." : "Saved.");
     router.refresh();
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-w-md bg-ink2/40 border border-cream/10 rounded-xl p-5">
+    <form onSubmit={handleSubmit} noValidate className="space-y-4 max-w-md bg-ink2/40 border border-cream/10 rounded-xl p-5">
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Status</label>
         <select
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
+          onChange={(e) => setStatus(e.target.value as BookingStatus)}
           className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
         >
           {STATUSES.map((s) => (
@@ -147,15 +172,36 @@ export default function BookingStatusForm({
         />
       </div>
 
-      {error && <p className="text-sm text-coral">{error}</p>}
+      {error && !confirmingCancel && <p className="text-sm text-coral">{error}</p>}
 
-      <button
-        type="submit"
-        disabled={saving}
-        className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-6 py-2.5 text-sm font-medium disabled:opacity-60"
-      >
-        {saving ? "Saving…" : "Save"}
-      </button>
+      <div className="flex items-center gap-4">
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-6 py-2.5 text-sm font-medium disabled:opacity-60"
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+        {notice && (
+          <span role="status" className="text-sm text-cream/70">
+            ✓ {notice}
+          </span>
+        )}
+      </div>
+
+      {confirmingCancel && (
+        <CancelBookingDialog
+          guestName={guestName}
+          wasPaid={currentStatus === "PAID"}
+          saving={saving}
+          error={error}
+          onConfirm={(reason) => save(reason)}
+          onBack={() => {
+            setConfirmingCancel(false);
+            setError(null);
+          }}
+        />
+      )}
     </form>
   );
 }

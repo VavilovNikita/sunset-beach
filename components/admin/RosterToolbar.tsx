@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { copyRosterMonth, exportRosterActualsXlsx, exportRosterGridXlsx, generateRosterMonth } from "@/lib/rosterClient";
 import { previousMonthRange } from "@/lib/rosterGrid";
+import { formatDate } from "@/lib/formatDate";
 
 // Generate seeds a month from every employee's pattern (never overwrites an existing entry - see
 // POST /roster/generate's own description), so it's safe to press again after adding a pattern
@@ -41,7 +42,7 @@ export default function RosterToolbar({ year, month, isAdmin }: { year: number; 
     }
     const r = result.data;
     setCopyResult(
-      `Copied ${r.created} shift${r.created === 1 ? "" : "s"} from ${r.sourceFrom} – ${r.sourceTo}` +
+      `Copied ${r.created} shift${r.created === 1 ? "" : "s"} from ${formatDate(r.sourceFrom)} – ${formatDate(r.sourceTo)}` +
         (r.skippedExisting > 0 ? `; ${r.skippedExisting} already-filled cell${r.skippedExisting === 1 ? "" : "s"} left as they were` : "") +
         (r.skippedNoCurrentCode > 0 ? `; ${r.skippedNoCurrentCode} skipped (shift code not in force on that date)` : "") +
         "."

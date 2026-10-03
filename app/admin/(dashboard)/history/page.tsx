@@ -4,6 +4,7 @@ import { backendJson } from "@/lib/backendServer";
 import { extractApiError } from "@/lib/apiError";
 import { requireRoleAtLeast } from "@/lib/rbac";
 import { AUDIT_ENTITY_TYPES, type AuditAction, type AuditLogPage } from "@/lib/types";
+import { formatTimestamp } from "@/lib/formatDate";
 
 const ACTIONS: AuditAction[] = [
   "BOOKING_CREATED",
@@ -198,7 +199,7 @@ export default async function AdminHistoryPage({
           <div key={entry.id} className="bg-ink2/40 border border-cream/10 rounded-xl p-4 text-sm">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <span className="text-cream font-medium">{describeAction(entry.action)}</span>
-              <span className="text-xs text-cream/40">{entry.createdAt.slice(0, 19).replace("T", " ")} UTC</span>
+              <span className="text-xs text-cream/40">{formatTimestamp(entry.createdAt)}</span>
             </div>
             <p className="text-cream/70 mt-1">{entry.summary}</p>
             <p className="text-xs text-cream/40 mt-2">
