@@ -35,6 +35,9 @@ export default async function AdminPosPage() {
           <h1 className="font-display italic text-3xl">Tables &amp; tickets</h1>
         </div>
         <div className="flex items-center gap-4">
+          <Link href="/admin/pos/map" className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4">
+            Floor map →
+          </Link>
           {/* PAID/CANCELLED orders vanish from this live board on purpose (see OrderBoard's
               status=OPEN/SENT fetch) - this is the only way back to one after the fact. */}
           {canManageTables && (

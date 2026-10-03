@@ -4,9 +4,10 @@ import { ADMIN_API_URL } from "@/lib/backend";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
 import { MENU_DEPARTMENT_LABELS } from "@/lib/posOrders";
 import DeleteButton from "@/components/admin/DeleteButton";
+import { menuCategoryTabs, resolveSelectedCategory } from "@/lib/menuCategories";
 import type { MenuItem } from "@/lib/posTypes";
 
-export default async function AdminMenuPage() {
+export default async function AdminMenuPage({ searchParams }: { searchParams: { category?: string } }) {
   const [user, allItems] = await Promise.all([
     getSessionUser(),
     backendJson<MenuItem[]>("/menu", { auth: true }),
@@ -17,7 +18,12 @@ export default async function AdminMenuPage() {
   // prone place to find the same row. The item itself, and its ability to be added to a ticket,
   // are unaffected - see PosMenuPicker's own "Spa" grouping and AddOrderItemForm's own "Spa"
   // optgroup, neither of which filters SPA items out.
-  const items = allItems.filter((item) => item.department !== "SPA");
+  const nonSpaItems = allItems.filter((item) => item.department !== "SPA");
+  // One category at a time, as tabs - the same grouping PosMenuPicker gives staff on the floor.
+  // A link per tab (not client state), so the selection survives a reload or a back from Edit.
+  const tabs = menuCategoryTabs(nonSpaItems);
+  const selectedCategory = resolveSelectedCategory(tabs, searchParams.category);
+  const items = nonSpaItems.filter((item) => item.category === selectedCategory);
 
   return (
     <div>
@@ -36,6 +42,22 @@ export default async function AdminMenuPage() {
         )}
       </div>
 
+      {tabs.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {tabs.map((tab) => (
+            <Link
+              key={tab.category}
+              href={`/admin/pos/menu?category=${encodeURIComponent(tab.category)}`}
+              className={`text-sm rounded-full px-4 py-2 font-medium transition-colors ${
+                tab.category === selectedCategory ? "bg-coral text-ink" : "bg-ink2 text-cream/60 hover:text-cream"
+              }`}
+            >
+              {tab.category} <span className="opacity-60">{tab.count}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
       {/* Department was backfilled to KITCHEN on every existing row when this
           column was added — drinks still need reassigning to BAR by hand, so
           it's shown here as its own badge (not folded into the category
@@ -49,7 +71,7 @@ export default async function AdminMenuPage() {
             <div className="flex-1 min-w-0">
               <p className="font-display text-lg truncate">{item.name}</p>
               <p className="text-sm text-cream/60">
-                {item.category} · ฿{Number(item.price).toLocaleString("en-US")}
+                ฿{Number(item.price).toLocaleString("en-US")}
                 {!item.isAvailable && " · Unavailable"}
               </p>
             </div>

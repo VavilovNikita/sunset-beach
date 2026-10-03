@@ -962,7 +962,39 @@ export type AuditAction =
 // SCREAMING_SNAKE_CASE, not PascalCase entity names - see openapi.yaml's AuditEntityType schema
 // description: Spring's default query-param enum binding uses the Java constant name, so this
 // has to match that, not read nicely as a class name.
-export type AuditEntityType = "BOOKING" | "ROOM" | "ORDER" | "SHIFT" | "USER" | "ROOM_UNIT" | "ATTENDANCE_DEVICE" | "MENU_ITEM" | "NIGHT_AUDIT";
+// Mirrors openapi.yaml's AuditEntityType in full - the History page's filter dropdown is built from
+// AUDIT_ENTITY_TYPES below, and a type missing here is a record nobody can look up by id there.
+export const AUDIT_ENTITY_TYPES = [
+  "BOOKING",
+  "ROOM",
+  "ORDER",
+  "SHIFT",
+  "USER",
+  "ROOM_UNIT",
+  "PROPERTY_MAP",
+  "PRINT_JOB",
+  "MAINTENANCE_TASK",
+  "TABLE",
+  "SPA_APPOINTMENT",
+  "GUEST",
+  "SPA_MAP",
+  "SHIFT_CODE",
+  "ROSTER_ENTRY",
+  "STAFF_AREA_COVERAGE_RULE",
+  "ATTENDANCE_PUNCH",
+  "EMPLOYEE_PAY_RATE",
+  "ATTENDANCE_DEVICE",
+  "MENU_ITEM",
+  "PAYMENT",
+  "SETTINGS",
+  "NIGHT_AUDIT",
+  "LEDGER_ENTRY",
+  "LEDGER_ACCOUNT",
+  "SITEMINDER_ROOM_TYPE_MAPPING",
+  "RESTAURANT_MAP",
+] as const;
+
+export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
 
 export type AuditLogEntry = {
   id: string;
@@ -1470,6 +1502,9 @@ export type TodayShiftStatus = {
   shiftCode: ShiftCode;
   state: TodayShiftState;
   referenceTime: string | null;
+  // True when there's no RosterEntry behind this row: the employee punched today without being
+  // rostered, and `shiftCode` is the server's display-only "OP" fallback, not a planned shift.
+  unscheduled: boolean;
 };
 
 // GET /attendance/server-time - a diagnostic snapshot of what the backend's own injected Clock

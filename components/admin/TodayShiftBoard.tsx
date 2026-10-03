@@ -135,6 +135,9 @@ export default function TodayShiftBoard({ initialStatuses }: { initialStatuses: 
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-cream truncate">{status.employeeName}</p>
                   {status.staffArea && <p className="text-xs text-cream/40">{STAFF_AREA_LABELS[status.staffArea]}</p>}
+                  {status.unscheduled && (
+                    <p className="text-xs text-amber-400">Clocked in without a roster entry — shown as OP</p>
+                  )}
                 </div>
                 <span
                   className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs shrink-0 ${

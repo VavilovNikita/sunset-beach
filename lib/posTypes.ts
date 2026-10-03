@@ -110,9 +110,9 @@ export type Table = {
   label: string;
   capacity: number;
   isActive: boolean;
-  // Normalized (0..1) position on the spa's own floor-plan image, set via PATCH
-  // /tables/positions - same convention as RoomUnit.positionX/Y (a different floor plan, a
-  // different entity). Both null = not placed yet.
+  // Normalized (0..1) position on a floor-plan image, set via PATCH /tables/positions - same
+  // convention as RoomUnit.positionX/Y. Which plan follows from `zone`: SPA tables on the spa map,
+  // every other zone on the restaurant map. Both null = not placed yet.
   positionX: number | null;
   positionY: number | null;
 };
@@ -135,6 +135,26 @@ export type TablePositionInput = {
 // lib/types.ts's PropertyMap in shape/purpose, but carries no table list of its own: SPA-zone
 // tables (placed via PATCH /tables/positions). imageUpdatedAt exists only so the frontend can
 // cache-bust GET /spa-map/image with a ?v= param, same convention as PropertyMap.imageUpdatedAt.
+// GET /restaurant-map - the restaurant's floor plan (see RestaurantMap in openapi.yaml). Every
+// non-SPA table, placed or not, active or not, with the ids of its OPEN/SENT orders - the same
+// set the POS board treats as "occupied" (more than one is possible).
+export type RestaurantMapTable = {
+  tableId: string;
+  label: string;
+  zone: Zone;
+  capacity: number;
+  isActive: boolean;
+  positionX: number | null;
+  positionY: number | null;
+  openOrderIds: string[];
+};
+
+export type RestaurantMap = {
+  imagePath: string | null;
+  imageUpdatedAt: string | null;
+  tables: RestaurantMapTable[];
+};
+
 export type SpaMap = {
   imagePath: string | null;
   imageUpdatedAt: string | null;

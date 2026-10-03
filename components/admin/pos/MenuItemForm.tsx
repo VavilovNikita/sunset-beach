@@ -57,7 +57,8 @@ export default function MenuItemForm({
     if (mode === "create") {
       router.push(`/admin/pos/menu/${result.item.id}/edit`);
     } else {
-      router.push("/admin/pos/menu");
+      // Back to the tab this item now lives under, not the first category in the list.
+      router.push(`/admin/pos/menu?category=${encodeURIComponent(values.category)}`);
     }
     router.refresh();
   }

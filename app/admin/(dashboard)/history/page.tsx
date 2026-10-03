@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { BackendError } from "@/lib/backend";
 import { backendJson } from "@/lib/backendServer";
+import { extractApiError } from "@/lib/apiError";
 import { requireRoleAtLeast } from "@/lib/rbac";
-import type { AuditAction, AuditEntityType, AuditLogPage } from "@/lib/types";
+import { AUDIT_ENTITY_TYPES, type AuditAction, type AuditLogPage } from "@/lib/types";
 
 const ACTIONS: AuditAction[] = [
   "BOOKING_CREATED",
@@ -36,7 +38,7 @@ const ACTIONS: AuditAction[] = [
   "NIGHT_AUDIT_CLOSED",
 ];
 
-const ENTITY_TYPES: AuditEntityType[] = ["BOOKING", "ROOM", "ORDER", "SHIFT", "USER", "ROOM_UNIT", "ATTENDANCE_DEVICE", "MENU_ITEM", "NIGHT_AUDIT"];
+const ENTITY_TYPES = AUDIT_ENTITY_TYPES;
 
 const PAGE_SIZE = 50;
 
@@ -71,7 +73,20 @@ export default async function AdminHistoryPage({
   query.set("page", String(page));
   query.set("pageSize", String(PAGE_SIZE));
 
-  const result = await backendJson<AuditLogPage>(`/audit-log?${query.toString()}`, { auth: true });
+  // A filter the backend rejects (an Entity ID with no Entity type, a "from" after "to") comes back
+  // as a 400 - shown next to the form instead of thrown, which used to take the whole page down
+  // as a 500 and left no way to see what was wrong with the filter.
+  let result: AuditLogPage = { items: [], page, pageSize: PAGE_SIZE, totalCount: 0 };
+  let filterError: string | null = null;
+  try {
+    result = await backendJson<AuditLogPage>(`/audit-log?${query.toString()}`, { auth: true });
+  } catch (e) {
+    if (e instanceof BackendError && e.status === 400) {
+      filterError = extractApiError(e.body, e.message);
+    } else {
+      throw e;
+    }
+  }
 
   const filterQuery = new URLSearchParams(query);
   filterQuery.delete("page");
@@ -173,8 +188,12 @@ export default async function AdminHistoryPage({
         </button>
       </form>
 
+      {filterError && (
+        <p className="text-sm text-coral bg-coral/10 border border-coral/30 rounded-xl px-4 py-3 mb-8">{filterError}</p>
+      )}
+
       <div className="space-y-2">
-        {result.items.length === 0 && <p className="text-sm text-cream/40">No matching entries.</p>}
+        {!filterError && result.items.length === 0 && <p className="text-sm text-cream/40">No matching entries.</p>}
         {result.items.map((entry) => (
           <div key={entry.id} className="bg-ink2/40 border border-cream/10 rounded-xl p-4 text-sm">
             <div className="flex items-center justify-between gap-4 flex-wrap">
