@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { backendFetch } from "@/lib/backendServer";
+import { forwardedIpHeaders } from "@/lib/clientIp";
 import { QUOTE_FALLBACK_ERROR, quotePath, toQuoteResult, type QuoteResult } from "@/lib/quote";
 
 // Server-side GET /public/rooms/{id}/quote for the booking pages' first render. The backend rate
@@ -15,12 +16,7 @@ export async function getRoomQuote(roomId: string, checkIn: string, checkOut: st
   }
 }
 
-// X-Real-IP is set (overwritten, never appended to) by the host nginx in front of this app - see
-// nginx/conf.d/app.conf - so unlike the X-Forwarded-For nginx builds with
-// $proxy_add_x_forwarded_for, a visitor can't choose its value. Sent on to sunset as
-// X-Forwarded-For, which is what its ClientIpResolver reads. Absent (local dev, no nginx), nothing
-// is forwarded and sunset falls back to the connection's own address, as before.
+// See lib/clientIp.ts for where the address comes from and why only X-Real-IP is trusted.
 export async function clientIpHeaders(): Promise<Record<string, string>> {
-  const ip = (await headers()).get("x-real-ip");
-  return ip ? { "X-Forwarded-For": ip } : {};
+  return forwardedIpHeaders(await headers());
 }

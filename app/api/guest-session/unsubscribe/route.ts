@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { BACKEND_URL } from "@/lib/backend";
+import { forwardedIpHeaders } from "@/lib/clientIp";
 
 // Forwards the unsubscribe link's token to GET /guest-auth/unsubscribe - no session needed (a
 // guest clicking a link in an email must not have to sign in first), and no cookie is set or
@@ -9,7 +10,7 @@ export async function GET(req: Request) {
 
   let backendRes: Response;
   try {
-    backendRes = await fetch(`${BACKEND_URL}/guest-auth/unsubscribe?${new URLSearchParams({ token })}`, { cache: "no-store" });
+    backendRes = await fetch(`${BACKEND_URL}/guest-auth/unsubscribe?${new URLSearchParams({ token })}`, { cache: "no-store", headers: forwardedIpHeaders(req.headers) });
   } catch {
     return NextResponse.json({ error: "We couldn't reach our server. Please try again in a moment." }, { status: 502 });
   }

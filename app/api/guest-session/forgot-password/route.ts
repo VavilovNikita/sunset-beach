@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { BACKEND_URL } from "@/lib/backend";
+import { forwardedIpHeaders } from "@/lib/clientIp";
 
 // POST /guest-auth/forgot-password always answers with the same generic message (it never says
 // whether the email has an account) - passed through as-is.
@@ -8,7 +9,7 @@ export async function POST(req: Request) {
 
   const backendRes = await fetch(`${BACKEND_URL}/guest-auth/forgot-password`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...forwardedIpHeaders(req.headers) },
     body,
     cache: "no-store",
   });

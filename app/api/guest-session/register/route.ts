@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { BACKEND_URL } from "@/lib/backend";
+import { forwardedIpHeaders } from "@/lib/clientIp";
 
 // POST /guest-auth/register never returns a token (the account isn't usable until verified — see
 // that operation's own description) - this route just relays the always-generic message and the
@@ -9,7 +10,7 @@ export async function POST(req: Request) {
 
   const backendRes = await fetch(`${BACKEND_URL}/guest-auth/register`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...forwardedIpHeaders(req.headers) },
     body,
     cache: "no-store",
   });

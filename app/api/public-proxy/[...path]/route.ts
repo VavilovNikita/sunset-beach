@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { BACKEND_URL } from "@/lib/backend";
+import { forwardedIpHeaders } from "@/lib/clientIp";
 
 // Same-origin stand-in for sunset, used by *unauthenticated* Client Components (the guest
 // booking form and its live price/availability re-quote) that used to fetch PUBLIC_BACKEND_URL
@@ -58,14 +59,8 @@ async function proxy(req: Request, path: string[]) {
   const incomingUrl = new URL(req.url);
   const target = `${BACKEND_URL}/${path.join("/")}${incomingUrl.search}`;
 
-  // sunset rate limits the public quote and booking endpoints per caller address. Without this
-  // every visitor would reach it from this server's own address and share one bucket - one busy
-  // hour of guests could use up everyone's booking attempts. X-Real-IP is set (overwritten, never
-  // appended to) by the host nginx - see nginx/conf.d/app.conf - so a visitor can't choose it,
-  // unlike the X-Forwarded-For nginx appends to. Absent (local dev), nothing is forwarded.
-  const headers: Record<string, string> = {};
-  const clientIp = req.headers.get("x-real-ip");
-  if (clientIp) headers["X-Forwarded-For"] = clientIp;
+  // sunset rate limits the public quote and booking endpoints per visitor - see lib/clientIp.ts.
+  const headers: Record<string, string> = forwardedIpHeaders(req.headers);
 
   const init: RequestInit = { method: req.method, cache: "no-store", headers };
   if (req.method === "POST") {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { BACKEND_URL } from "@/lib/backend";
+import { forwardedIpHeaders } from "@/lib/clientIp";
 import { GUEST_SESSION_COOKIE_NAME, guestSessionCookieOptions } from "@/lib/guestSession";
 
 export async function POST(req: Request) {
@@ -7,7 +8,7 @@ export async function POST(req: Request) {
 
   const backendRes = await fetch(`${BACKEND_URL}/guest-auth/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...forwardedIpHeaders(req.headers) },
     body,
     cache: "no-store",
   });

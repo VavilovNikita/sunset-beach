@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { BACKEND_URL } from "@/lib/backend";
+import { forwardedIpHeaders } from "@/lib/clientIp";
 
 export async function POST(req: Request) {
   const body = await req.text();
 
   const backendRes = await fetch(`${BACKEND_URL}/guest-auth/resend-verification`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...forwardedIpHeaders(req.headers) },
     body,
     cache: "no-store",
   });
