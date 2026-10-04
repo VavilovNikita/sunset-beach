@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePolling } from "@/lib/usePolling";
 import { fetchCurrentShift, fetchShift, openShift, closeShift } from "@/lib/pos/shiftsClient";
-import { reconcileCash, shiftOpeningFacts } from "@/lib/shiftReconciliation";
+import { isLongOpenShift, reconcileCash, shiftOpeningFacts } from "@/lib/shiftReconciliation";
+import { longOpenLabel } from "@/lib/posOrders";
 import PosAttributedConfirm from "@/components/pos/PosAttributedConfirm";
 import type { Role } from "@/lib/session";
 import type { ShiftSummary } from "@/lib/posTypes";
@@ -37,6 +38,11 @@ function OpeningFacts({ shift }: { shift: ShiftSummary }) {
         <dt className="text-cream/50 shrink-0">Opening cash float</dt>
         <dd className="text-cream">{facts.openingFloat}</dd>
       </div>
+      {isLongOpenShift(shift, new Date()) && (
+        <p className="text-amber-400 pt-1">
+          {longOpenLabel(shift.openedAt, new Date()).replace("Open", "Shift open")} — longer than a day. Count the drawer and close it.
+        </p>
+      )}
     </dl>
   );
 }

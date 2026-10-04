@@ -46,7 +46,7 @@ export default async function EditRoomPage({ params }: { params: { id: string } 
       </div>
 
       <div className="mt-10 pt-10 border-t border-cream/10">
-        <p className="eyebrow text-cream/50 mb-3">Rooms</p>
+        <p className="eyebrow text-cream/50 mb-3">Physical rooms of this type</p>
         <RoomUnitManager roomId={room.id} initialUnits={units} />
       </div>
     </div>

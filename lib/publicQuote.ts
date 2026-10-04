@@ -1,32 +1,26 @@
+import { headers } from "next/headers";
 import { backendFetch } from "@/lib/backendServer";
-import { getNightsAndMonths, mergeQuote, type RoomQuote } from "@/lib/quote";
-import type { PricingResponse, PublicAvailabilityResponse } from "@/lib/types";
+import { QUOTE_FALLBACK_ERROR, quotePath, toQuoteResult, type QuoteResult } from "@/lib/quote";
 
-// The public Java API only exposes pricing/availability per calendar month
-// (GET /public/rooms/{id}/pricing|availability?month=YYYY-MM), not per
-// arbitrary date range, so a stay that spans a month boundary needs one
-// fetch per distinct month, merged locally — mirrors what the old
-// isRangeAvailable/computeTotalPrice did against Prisma directly.
-export async function getRoomQuote(roomId: string, checkIn: string, checkOut: string): Promise<RoomQuote> {
-  const { nights, months } = getNightsAndMonths(checkIn, checkOut);
-  if (months.length === 0) return { available: false, totalPrice: null };
+// Server-side GET /public/rooms/{id}/quote for the booking pages' first render. The backend rate
+// limits this endpoint per caller address, so the visitor's address is passed on (see
+// clientIpHeaders) - otherwise every visitor's page views would land in one shared bucket keyed
+// on this Next.js server's own address. Never throws; see QuoteResult.
+export async function getRoomQuote(roomId: string, checkIn: string, checkOut: string): Promise<QuoteResult> {
+  try {
+    const res = await backendFetch(quotePath(roomId, checkIn, checkOut), { headers: await clientIpHeaders() });
+    return await toQuoteResult(res);
+  } catch {
+    return { ok: false, status: null, message: QUOTE_FALLBACK_ERROR };
+  }
+}
 
-  const [pricingByMonth, availabilityByMonth] = await Promise.all([
-    Promise.all(
-      months.map((month) =>
-        backendFetch(`/public/rooms/${roomId}/pricing?month=${month}`).then(
-          (res) => res.json() as Promise<PricingResponse>
-        )
-      )
-    ),
-    Promise.all(
-      months.map((month) =>
-        backendFetch(`/public/rooms/${roomId}/availability?month=${month}`).then(
-          (res) => res.json() as Promise<PublicAvailabilityResponse>
-        )
-      )
-    ),
-  ]);
-
-  return mergeQuote(nights, pricingByMonth, availabilityByMonth);
+// X-Real-IP is set (overwritten, never appended to) by the host nginx in front of this app - see
+// nginx/conf.d/app.conf - so unlike the X-Forwarded-For nginx builds with
+// $proxy_add_x_forwarded_for, a visitor can't choose its value. Sent on to sunset as
+// X-Forwarded-For, which is what its ClientIpResolver reads. Absent (local dev, no nginx), nothing
+// is forwarded and sunset falls back to the connection's own address, as before.
+export async function clientIpHeaders(): Promise<Record<string, string>> {
+  const ip = (await headers()).get("x-real-ip");
+  return ip ? { "X-Forwarded-For": ip } : {};
 }

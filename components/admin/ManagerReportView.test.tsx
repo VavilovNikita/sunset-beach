@@ -54,10 +54,10 @@ describe("ManagerReportView", () => {
   });
 
   it("shows tonight and last year side by side, with the server's figures", () => {
-    expect(html).toContain("2033-11-10");
-    expect(html).toContain("2032-11-10");
-    expect(html).toContain("2033-11-11");
-    expect(html).toContain("2032-11-11");
+    expect(html).toContain("10 Nov 2033");
+    expect(html).toContain("10 Nov 2032");
+    expect(html).toContain("11 Nov 2033");
+    expect(html).toContain("11 Nov 2032");
     expect(html).toContain("36.36%");
     expect(html).toContain("฿2,500");
     expect(html).toContain("฿800");
@@ -79,10 +79,16 @@ describe("ManagerReportView", () => {
     }
   });
 
-  it("flags the occupancy denominator and the updatedAt-based counts specifically", () => {
-    expect(html).toContain("out-of-order rooms are taken out of the denominator here");
-    expect(html).toContain("Treat both as exact only for today.");
-    expect(html).toContain("Group vs. F.I.T. occupied rooms");
-    expect(html).toContain("Day-Use rooms");
+  it("flags the occupancy denominator and the approximate cancellation counts specifically", () => {
+    expect(html).toContain("out-of-order rooms don&#x27;t count against it");
+    expect(html).toContain("Only today&#x27;s figures are exact.");
+    expect(html).toContain("Group vs. individual (F.I.T.) rooms");
+    expect(html).toContain("Day-use rooms");
+  });
+
+  it("shows nothing meant for a developer: no field names, API paths or report codes", () => {
+    for (const technical of ["GET /", "totalRooms", "updatedAt", "occupancyPercent", "Z370", "CANCELLED", "NO_SHOW"]) {
+      expect(html).not.toContain(technical);
+    }
   });
 });

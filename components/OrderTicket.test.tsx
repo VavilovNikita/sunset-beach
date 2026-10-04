@@ -42,8 +42,8 @@ function order(status: OrderStatus): Order {
 }
 
 const SURFACES = [
-  { name: "desktop till", basePath: "/admin/pos" as const, actor: null },
-  { name: "phone", basePath: "/pos" as const, actor: { email: "cashier@example.com", role: "CASHIER" as const } },
+  { name: "desktop till", basePath: "/admin/pos" as const, actor: null, back: { href: "/admin/pos", label: "← Back to tables" } },
+  { name: "phone", basePath: "/pos" as const, actor: { email: "cashier@example.com", role: "CASHIER" as const }, back: { href: "/pos", label: "← Back to tables" } },
 ];
 
 function render(surface: (typeof SURFACES)[number], o: Order | null, tableZone: Zone | null = "RESTAURANT", canVoidSentItems = false) {
@@ -56,6 +56,7 @@ function render(surface: (typeof SURFACES)[number], o: Order | null, tableZone: 
       canVoidSentItems={canVoidSentItems}
       basePath={surface.basePath}
       actor={surface.actor}
+      back={surface.back}
     />
   );
 }
@@ -107,6 +108,28 @@ describe.each(SURFACES)("OrderTicket on the $name", (surface) => {
     expect(html).not.toContain('aria-label="One more"');
     expect(html).not.toContain('placeholder="Search menu…"');
     expect(html).toContain("Paid via Cash");
+  });
+
+  it("leaves a paid order with a way back and a receipt reprint, not a dead end", () => {
+    const html = render(surface, { ...order("PAID"), paymentMethod: "CASH" });
+    expect(html).toContain(`href="${surface.back.href}"`);
+    expect(html).toContain("← Back to tables");
+    expect(html).toContain(">Reprint receipt</button>");
+  });
+
+  it("offers no receipt to reprint on a cancelled order, only the way back", () => {
+    const html = render(surface, order("CANCELLED"));
+    expect(html).toContain("← Back to tables");
+    expect(html).not.toContain("Reprint receipt");
+  });
+
+  it("labels Send by where the lines actually go", () => {
+    const bar: Order = { ...order("OPEN"), items: [{ ...order("OPEN").items[0], menuItemId: "m2" }] };
+    expect(render(surface, bar)).toContain(">Send to bar</button>");
+    const spa: Order = { ...order("OPEN"), tableId: null, items: [{ ...order("OPEN").items[0], menuItemId: "m3" }] };
+    const spaHtml = render(surface, spa, null);
+    expect(spaHtml).not.toContain("Send to kitchen");
+    expect(spaHtml).toContain("Spa treatments don&#x27;t print a ticket.");
   });
 
   it("shows the receipt number next to the id reference", () => {

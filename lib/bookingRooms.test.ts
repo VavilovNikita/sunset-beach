@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { roomStops, roomTypeSummary, roomUnitSummary } from "@/lib/bookingRooms";
+import { currentRoomUnitLabel, roomStops, roomTypeSummary, roomUnitSummary } from "@/lib/bookingRooms";
 import type { BookingSegment, Room, RoomUnit } from "@/lib/types";
 
 const deluxe = { id: "r-deluxe", name: "Deluxe Suite" } as Room;
@@ -65,5 +65,21 @@ describe("roomUnitSummary", () => {
         segments: [segment(deluxe, "201", "2026-08-02", "2026-08-06"), segment(standard, null, "2026-08-06", "2026-08-08")],
       })
     ).toBe("201 → unassigned");
+  });
+});
+
+describe("currentRoomUnitLabel", () => {
+  it("is the room of the segment covering that night", () => {
+    expect(currentRoomUnitLabel(test1, "2026-08-03")).toBe("201");
+    expect(currentRoomUnitLabel(test1, "2026-08-06")).toBe("202");
+    expect(currentRoomUnitLabel(test1, "2026-08-07")).toBe("102");
+  });
+
+  it("stays the last room for a guest past checkOut", () => {
+    expect(currentRoomUnitLabel(test1, "2026-08-10")).toBe("102");
+  });
+
+  it("is null when that segment has no room assigned", () => {
+    expect(currentRoomUnitLabel({ roomUnit: null, segments: [segment(deluxe, null, "2026-08-02", "2026-08-06")] }, "2026-08-03")).toBeNull();
   });
 });

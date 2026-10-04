@@ -464,8 +464,9 @@ export type TopProductionReport = {
 };
 
 // GET /reports/market-segment (MANAGER+). COM = COMPLIMENTARY, HFO = HOUSE_USE, otherwise by
-// channel: OTA (Booking.com/Airbnb/Agoda/Expedia/Other), WLK (walk-in), DIR (direct/phone).
-export type MarketSegment = "COM" | "DIR" | "HFO" | "OTA" | "WLK";
+// channel: OTA (Booking.com/Airbnb/Agoda/Expedia, and Other on a SiteMinder import), OTH (Other
+// entered by staff - channel not recorded), WLK (walk-in), DIR (direct/phone).
+export type MarketSegment = "COM" | "DIR" | "HFO" | "OTA" | "OTH" | "WLK";
 
 // guests is adults + children over the distinct bookings with a night in the range — a head
 // count of parties, not guest-nights. segment is null on the total row.
@@ -480,7 +481,8 @@ export type MarketSegmentRow = {
   averageRate: string | null;
 };
 
-// Always all five segments, in the order COM, DIR, HFO, OTA, WLK.
+// Always all six segments, in the order COM, DIR, HFO, OTA, OTH, WLK - the legacy Z360 sheet's
+// five plus OTH, so staff-entered "Other" bookings are no longer counted as online agents.
 export type MarketSegmentReport = {
   from: string;
   to: string;
@@ -699,6 +701,10 @@ export type Booking = {
   // booking reached *us*, not a channel the guest booked through, so it is not a BookingChannel.
   externalReference: string | null;
   externalChannel: string | null;
+  // The reason staff gave for the current cancellation - set only while status is CANCELLED,
+  // cleared if the booking is reinstated. Null for a cancellation without one (SiteMinder, the
+  // expiry sweep) and for cancellations made before it was stored (those are only in the audit log).
+  cancellationReason: string | null;
   createdAt: string;
   updatedAt: string;
 };

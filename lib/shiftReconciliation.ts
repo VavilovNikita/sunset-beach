@@ -38,3 +38,16 @@ export function shiftOpeningFacts(shift: Pick<ShiftSummary, "openedByEmail" | "o
     openingFloat: shift.openingCashFloat != null ? `฿${Number(shift.openingCashFloat).toLocaleString("en-US")}` : "Not entered",
   };
 }
+
+// A cash shift is one session at the till - opened with a float, closed by counting the drawer at
+// the end of the day. Still open after a day means nobody counted it (a shift open since 2 Sep was
+// found by accident), so every shift screen and both POS boards flag it. Same 24h as a forgotten
+// order (lib/posOrders.ts#LONG_OPEN_HOURS).
+export const LONG_OPEN_SHIFT_HOURS = 24;
+
+export function isLongOpenShift(shift: { status: "OPEN" | "CLOSED"; openedAt: string }, now: Date): boolean {
+  if (shift.status !== "OPEN") return false;
+  const openedAt = new Date(shift.openedAt).getTime();
+  if (Number.isNaN(openedAt)) return false;
+  return now.getTime() - openedAt >= LONG_OPEN_SHIFT_HOURS * 3600_000;
+}

@@ -1,6 +1,7 @@
 import { backendJsonOrDefault } from "@/lib/backendServer";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
 import { parseDraftTarget } from "@/lib/posDraftOrder";
+import { orderBackLink } from "@/lib/posOrderBack";
 import OrderTicket from "@/components/OrderTicket";
 import type { MenuItem, Table } from "@/lib/posTypes";
 
@@ -30,6 +31,7 @@ export default async function PosNewOrderPage({ searchParams }: { searchParams: 
           canManagePayments={canManagePayments}
           canVoidSentItems={false}
           basePath="/pos"
+          back={orderBackLink("/pos", { spaAppointmentId: null, createdAt: new Date().toISOString() }, table?.zone ?? null)}
           actor={{ email: user?.email ?? "", role: user?.role ?? "WAITER" }}
         />
       </div>

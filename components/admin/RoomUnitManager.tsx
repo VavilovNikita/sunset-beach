@@ -167,7 +167,7 @@ export default function RoomUnitManager({
       <div className="mt-4">
         {creating ? (
           <form onSubmit={handleCreate} className="bg-ink2/40 border border-cream/10 rounded-xl p-4 space-y-3">
-            <p className="eyebrow text-cream/60">New room</p>
+            <p className="eyebrow text-cream/60">New physical room</p>
             <UnitFields values={newValues} onChange={setNewValues} />
             <div className="flex gap-3">
               <button
@@ -175,7 +175,7 @@ export default function RoomUnitManager({
                 disabled={submitting}
                 className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium disabled:opacity-60"
               >
-                {submitting ? "Creating…" : "Create room"}
+                {submitting ? "Adding…" : "Add room"}
               </button>
               <button
                 type="button"
@@ -196,7 +196,7 @@ export default function RoomUnitManager({
             onClick={() => setCreating(true)}
             className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2.5 text-sm font-medium"
           >
-            New room
+            Add physical room
           </button>
         )}
       </div>

@@ -60,6 +60,41 @@ const BADGE_LABEL: Record<UnitBadge, string> = {
   "blocked-while-occupied": "Also blocked today",
 };
 
+const FILL_LEGEND: { fill: UnitFill; label: string }[] = [
+  { fill: "vacant", label: "Vacant - ready to sell" },
+  { fill: "occupied", label: "Guest checked in" },
+  { fill: "blocked", label: "Blocked (out of order)" },
+  { fill: "inactive", label: "Out of service" },
+];
+
+// One entry per dot colour, not per badge - several badges share a colour on purpose (see
+// BADGE_DOT_CLASS), and the panel opened by clicking a room names the exact reason.
+const DOT_LEGEND: { badge: UnitBadge; label: string }[] = [
+  { badge: "overdue", label: "Needs attention: overdue guest, broken room back on sale, or blocked while occupied" },
+  { badge: "debt", label: "Owes money" },
+  { badge: "dirty", label: "Not cleaned" },
+  { badge: "arriving-today", label: "Arriving or leaving today" },
+];
+
+function PropertyMapLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-cream/70 mt-4" aria-label="Map legend">
+      {FILL_LEGEND.map(({ fill, label }) => (
+        <span key={fill} className="flex items-center gap-2">
+          <span className={`inline-block w-4 h-4 rounded border ${FILL_CLASS[fill]}`} />
+          {label}
+        </span>
+      ))}
+      {DOT_LEGEND.map(({ badge, label }) => (
+        <span key={badge} className="flex items-center gap-2">
+          <span className={`inline-block w-2.5 h-2.5 rounded-full ${BADGE_DOT_CLASS[badge]}`} />
+          {label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export default function PropertyMapView({ initialMap, canManage }: { initialMap: PropertyMap; canManage: boolean }) {
   const router = useRouter();
   const today = toDateKey(new Date());
@@ -176,6 +211,8 @@ export default function PropertyMapView({ initialMap, canManage }: { initialMap:
       {canManage && (
         <PropertyMapUploadForm hasImage={Boolean(initialMap.imagePath)} uploading={uploading} error={uploadError} onUpload={handleUpload} />
       )}
+
+      <PropertyMapLegend />
 
       <div className="flex flex-col lg:flex-row gap-6 mt-4">
         <div className="flex-1 min-w-0 overflow-x-auto pb-2">

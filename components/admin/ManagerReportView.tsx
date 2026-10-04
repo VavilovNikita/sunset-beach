@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/formatDate";
 import { MANAGER_REPORT_LEFT_OUT, MANAGER_REPORT_SECTIONS } from "@/lib/managerReport";
 import type { ManagerReport } from "@/lib/types";
 
@@ -16,10 +17,10 @@ export default function ManagerReportView({ report }: { report: ManagerReport })
                 <tr className="border-b border-cream/10">
                   <th className={th}>{section.key === "tomorrow" ? "Night of" : ""}</th>
                   <th className={`${th} text-right`}>
-                    {section.key === "tomorrow" ? report.today.tomorrow.date : report.date}
+                    {formatDate(section.key === "tomorrow" ? report.today.tomorrow.date : report.date)}
                   </th>
                   <th className={`${th} text-right`}>
-                    {section.key === "tomorrow" ? report.lastYear.tomorrow.date : report.lastYearDate}
+                    {formatDate(section.key === "tomorrow" ? report.lastYear.tomorrow.date : report.lastYearDate)}
                   </th>
                 </tr>
               </thead>
@@ -44,7 +45,7 @@ export default function ManagerReportView({ report }: { report: ManagerReport })
 
       <section className="mb-8" data-section="left-out">
         <h2 className="font-display italic text-xl mb-1">Not in this report</h2>
-        <p className="text-xs text-cream/40 mb-2">Left out of the legacy Z370 layout, deliberately:</p>
+        <p className="text-xs text-cream/40 mb-2">This report deliberately leaves out:</p>
         <ul className="text-xs text-cream/40 space-y-1 list-disc pl-5">
           {MANAGER_REPORT_LEFT_OUT.map((line) => (
             <li key={line}>{line}</li>

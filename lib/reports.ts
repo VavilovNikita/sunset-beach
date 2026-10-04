@@ -72,5 +72,6 @@ export const MARKET_SEGMENT_LABELS: Record<MarketSegment, string> = {
   DIR: "Direct",
   HFO: "House use",
   OTA: "Online travel agents",
+  OTH: "Other / not recorded",
   WLK: "Walk-in",
 };

@@ -27,7 +27,7 @@
 | `/admin/bookings/[id]` | h1 = имя гостя (динамически) | не в меню, переход из списка/календаря | CASHIER+ | детали брони, счёт (folio), изменение статуса/заметки об оплате, изменение дат/номера, переселение, история действий (MANAGER+) |
 | `/admin/bookings/calendar` | h1 **«Calendar»** (eyebrow «Reservations») | CASHIER+ («Calendar») | CASHIER+ | календарная сетка броней, создание/перенос/изменение длительности мышью, панель брони |
 | `/admin/rooms` | h1 **«Rooms»** (eyebrow «Inventory») | CASHIER+ («Rooms») | CASHIER+; изменения — MANAGER+ | список типов номеров, переход к редактированию/удалению (MANAGER+) |
-| `/admin/rooms/new` | h1 **«New room»** | не в меню (кнопка «New room» на списке) | MANAGER+ | создать тип номера |
+| `/admin/rooms/new` | h1 **«New room type»** | не в меню (кнопка «New room type» на списке) | MANAGER+ | создать тип номера |
 | `/admin/rooms/[id]/edit` | h1 = название типа номера | не в меню | MANAGER+ | изменить тип номера, фото, физические номера (комнаты) этого типа |
 | `/admin/rates` | h1 **«Rates & availability»** (eyebrow «Rates») | CASHIER+ («Rates & availability») | CASHIER+; правка цен и блоков — MANAGER+ | одна таблица «тип номера × день месяца»: цена и остаток номеров в каждой ячейке; вкладки **Rates** (правка цены прямо в ячейке, цена на диапазон дат) и **Availability** (по-номерная разбивка дня, ручные блокировки) |
 | `/admin/pricing`, `/admin/availability` | — | не в меню | — | старые адреса, перенаправляют на `/admin/rates` (вкладка Rates / Availability соответственно) |
@@ -187,7 +187,7 @@
 
 **Список (`/admin/bookings`)** — заголовки таблицы: **Guest**, **Room**, **Assigned**, **Check-in**, **Check-out**, **Total**, **Status**, **Booked**. Пустая строка при отсутствии присвоенного номера — бейдж **«Unassigned»**. Пустое состояние: «No bookings match these filters.» Фильтры формы: **From**, **To**, **Status** (опция **All**, далее статусы как в 2.1), кнопка **Filter**, кнопка **Export CSV** (только MANAGER+).
 
-**Страница брони (`/admin/bookings/[id]`)** — подписи: «Room:», «Email:», «Phone:», «Total:», «Booked on:». Блок дат/номера: eyebrow **«Dates & room»**, кнопка **«Change»**, если не назначен — **«Not assigned yet»**, подсказка при отсутствии прав: «Changing dates/room requires a cashier account or above.» В режиме правки: поля **Check-in**, **Check-out**, **Room** (опция «Not assigned»), подсказка для не-MANAGER: «Only managers can list rooms to switch to a different one - dates can still change, and this assignment can still be cleared.» Кнопки: **«Preview price»** (в процессе — «Pricing…»), после предпросмотра — **«Confirm»** (в процессе — «Applying…») и **«Back»**, либо **«Cancel»**.
+**Страница брони (`/admin/bookings/[id]`)** — подписи: «Room:», «Email:», «Phone:», «Total:», «Booked on:»; у отменённой брони ещё «Cancellation reason:» — причина, указанная при отмене (или «not recorded», если её не указали или бронь отменена до появления этого поля); в боковой карточке календаря — строка «Cancelled: {причина}». Блок дат/номера: eyebrow **«Dates & room»**, кнопка **«Change»**, если не назначен — **«Not assigned yet»**, подсказка при отсутствии прав: «Changing dates/room requires a cashier account or above.» В режиме правки: поля **Check-in**, **Check-out**, **Room** (опция «Not assigned»), подсказка для не-MANAGER: «Only managers can list rooms to switch to a different one - dates can still change, and this assignment can still be cleared.» Кнопки: **«Preview price»** (в процессе — «Pricing…»), после предпросмотра — **«Confirm»** (в процессе — «Applying…») и **«Back»**, либо **«Cancel»**.
 
 Блок статуса/заметки (`BookingStatusForm`): eyebrow **«Status»**, список статусов (2.1), предупреждение при статусе PAID и наличии начислений на номер: «This booking has {N} POS room charge{s} totaling ฿{X}. Total due including the room is ฿{Y} — make sure that's what was collected, not just the room total.» Поле **«Payment note»**, подсказка-placeholder: «e.g. terminal receipt #4471 — never enter the guest's card number». Кнопка **«Save»** (в процессе — «Saving…»).
 
@@ -229,13 +229,13 @@
 
 ### 2.11 Rooms / Pricing / Availability
 
-**Rooms** (`/admin/rooms`) — заголовок **«Rooms»**, eyebrow **«Inventory»**, кнопка **«New room»**; строка карточки: «{capacity} guests · {N} active {room|rooms} · ฿{X}/night base»; пустое состояние — «No rooms yet.»
+**Rooms** (`/admin/rooms`) — заголовок **«Rooms»**, eyebrow **«Inventory»**, кнопка **«New room type»**; строка карточки: «{capacity} guests · {N} active {room|rooms} · ฿{X}/night base»; пустое состояние — «No rooms yet.»
 
-**New/Edit room** — поля **«Name»**, **«Description»**, **«Capacity (guests per room)»**, **«Base price / night (฿)»**; в режиме правки подпись: «{N} active room{s} of this type. This count is computed from the rooms below — add, rename, or deactivate them there rather than editing a number here.» Кнопка **«Create room»** / **«Save changes»**.
+**New/Edit room** — поля **«Name»**, **«Description»**, **«Capacity (guests per room)»**, **«Base price / night (฿)»**; в режиме правки подпись: «{N} active room{s} of this type. This count is computed from the rooms below — add, rename, or deactivate them there rather than editing a number here.» Кнопка **«Create room type»** / **«Save changes»**.
 
 **Photos** (`RoomImageUploader`) — подпись **«Photos»**, кнопка загрузки, пустое состояние — «No photos yet.», кнопка на фото при наведении — **«Remove»**.
 
-**Rooms** (физические номера типа, `RoomUnitManager`) — поля **«Label»**, чекбокс **«Active»**; строка карточки — «{Label}» / «Active» или «Inactive»; пустое состояние — «No rooms set up yet — add one below.»; кнопка **«New room»**, в форме — **«Create room»**.
+**Physical rooms of this type** (физические номера типа, `RoomUnitManager`) — поля **«Label»**, чекбокс **«Active»**; строка карточки — «{Label}» / «Active» или «Inactive»; пустое состояние — «No rooms set up yet — add one below.»; кнопка **«Add physical room»**, в форме (eyebrow **«New physical room»**) — **«Add room»**.
 
 **Rates & availability** (`/admin/rates`; старые `/admin/pricing` и `/admin/availability` перенаправляют сюда) — заголовок **«Rates & availability»**, eyebrow **«Rates»**. Сверху: **«← Prev»** / месяц / **«Next →»**, ссылка **«This month»** (если открыт другой месяц), вкладки **«Rates»** и **«Availability»**, фильтр **«Room type»** (по умолчанию **«All room types»**), ссылка **«Bookings by room → Calendar»**. Таблица: строки — типы номеров (под названием — «Base ฿…»), столбцы — дни месяца; в каждой ячейке и цена, и остаток.
 

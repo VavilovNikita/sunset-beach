@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { dateOnlyUTC, toDateKey } from "@/lib/bookings";
+import { hotelDateKey } from "@/lib/hotelDate";
 import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
 import {
   chipAppearanceFor,
@@ -101,7 +101,8 @@ export default function RosterGrid({
 }) {
   const router = useRouter();
   const dates = datesOfMonth(year, month);
-  const todayKey = toDateKey(dateOnlyUTC(new Date()));
+  // The hotel's date, same as the booking calendar - not the browser's or UTC's.
+  const todayKey = hotelDateKey(new Date());
   const entriesByKey = new Map(data.entries.map((e) => [`${e.employeeUserId}|${e.date}`, e]));
 
   // An employee with zero entries anywhere in the visible month doesn't earn a row by default -

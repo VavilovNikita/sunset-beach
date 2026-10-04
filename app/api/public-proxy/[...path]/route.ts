@@ -19,7 +19,8 @@ import { BACKEND_URL } from "@/lib/backend";
 // protection straight back to the internet. Both method AND path are checked — a POST to an
 // otherwise-GET-only path (or vice versa) is rejected, not just an unlisted path.
 const ALLOWED: { method: string; matches: (path: string[]) => boolean }[] = [
-  // GET /public/rooms, /public/rooms/{id}, /public/rooms/{id}/pricing, /public/rooms/{id}/availability
+  // GET /public/rooms, /public/rooms/{id}, /public/rooms/{id}/pricing, /public/rooms/{id}/availability,
+  // /public/rooms/{id}/quote (the server-computed price of a stay - RoomBookingPanel's live total)
   { method: "GET", matches: (p) => p.length === 2 && p[0] === "public" && p[1] === "rooms" },
   { method: "GET", matches: (p) => p.length === 3 && p[0] === "public" && p[1] === "rooms" && p[2] !== "" },
   {
@@ -29,7 +30,7 @@ const ALLOWED: { method: string; matches: (path: string[]) => boolean }[] = [
       p[0] === "public" &&
       p[1] === "rooms" &&
       p[2] !== "" &&
-      (p[3] === "pricing" || p[3] === "availability"),
+      (p[3] === "pricing" || p[3] === "availability" || p[3] === "quote"),
   },
   // POST /bookings — the public guest-inquiry flow (BookingCreateInput), not /bookings/staff.
   { method: "POST", matches: (p) => p.length === 1 && p[0] === "bookings" },
@@ -57,9 +58,18 @@ async function proxy(req: Request, path: string[]) {
   const incomingUrl = new URL(req.url);
   const target = `${BACKEND_URL}/${path.join("/")}${incomingUrl.search}`;
 
-  const init: RequestInit = { method: req.method, cache: "no-store" };
+  // sunset rate limits the public quote and booking endpoints per caller address. Without this
+  // every visitor would reach it from this server's own address and share one bucket - one busy
+  // hour of guests could use up everyone's booking attempts. X-Real-IP is set (overwritten, never
+  // appended to) by the host nginx - see nginx/conf.d/app.conf - so a visitor can't choose it,
+  // unlike the X-Forwarded-For nginx appends to. Absent (local dev), nothing is forwarded.
+  const headers: Record<string, string> = {};
+  const clientIp = req.headers.get("x-real-ip");
+  if (clientIp) headers["X-Forwarded-For"] = clientIp;
+
+  const init: RequestInit = { method: req.method, cache: "no-store", headers };
   if (req.method === "POST") {
-    init.headers = { "Content-Type": "application/json" };
+    headers["Content-Type"] = "application/json";
     init.body = await req.text();
   }
 

@@ -6,9 +6,9 @@ import type { ManagerReportDay } from "@/lib/types";
 // and ManagerReportView.test.tsx can check every section is there without a browser. Every number is the
 // server's; this only picks and formats.
 //
-// Captions are the endpoint's own openapi.yaml wording (GET /reports/manager, and the schemas'
-// field descriptions), markdown stripped - kept verbatim so the page and the API doc can't drift
-// into saying two different things about the same limitation. Change them there first.
+// Captions say the endpoint's documented limitations (openapi.yaml, GET /reports/manager) in words
+// a manager reads - no field names, API paths or legacy report codes. If a limitation changes
+// there, change the sentence here too.
 
 export type ManagerReportRow = {
   label: string;
@@ -26,9 +26,9 @@ const count = (n: number) => String(n);
 const decimalOrDash = (value: string | null) => (value === null ? "—" : value);
 
 export const MANAGER_REPORT_LEFT_OUT = [
-  "F&B and miscellaneous revenue lines (there is no revenue-code taxonomy to group POS sales into those lines yet - revenue here is room revenue only);",
-  "Group vs. F.I.T. occupied rooms (no concept links several bookings into a group);",
-  "and Day-Use rooms (no day-use / no-overnight concept exists).",
+  "Restaurant, bar, spa and other revenue - revenue here is room revenue only;",
+  "Group vs. individual (F.I.T.) rooms - bookings can't be linked into a group yet;",
+  "Day-use rooms - there are no day-use stays yet.",
 ];
 
 export const MANAGER_REPORT_SECTIONS: ManagerReportSection[] = [
@@ -48,8 +48,8 @@ export const MANAGER_REPORT_SECTIONS: ManagerReportSection[] = [
       { label: "Revenue per available room", value: (d) => formatBahtOrDash(d.rooms.averageRevenuePerAvailableRoom) },
     ],
     captions: [
-      "totalRooms - physical units active today (the same known simplification as GET /reports/occupancy: today's inventory, not a historical count, also for lastYear).",
-      "occupancyPercent = occupied / availableForSale × 100 - out-of-order rooms are taken out of the denominator here, unlike GET /reports/occupancy, which does not subtract blocks.",
+      "Total rooms is the rooms in service today - last year's column uses today's room count too, not the count back then.",
+      "Occupancy is occupied rooms out of rooms available for sale, so out-of-order rooms don't count against it. The occupancy report counts them, so its figure can be lower.",
     ],
   },
   {
@@ -66,7 +66,7 @@ export const MANAGER_REPORT_SECTIONS: ManagerReportSection[] = [
       { label: "House use guests", value: (d) => count(d.guests.houseUseGuests) },
     ],
     captions: [
-      "Over the guests in house that night, exactly the rows GET /reports/in-house?date= returns (checked-in guests only, so it can be lower than occupied, which also counts rooms whose guests have not arrived yet).",
+      "Counts only guests who have checked in, the same people the In-house list shows for that night - so it can be lower than occupied rooms, which also include guests who haven't arrived yet.",
     ],
   },
   {
@@ -80,7 +80,7 @@ export const MANAGER_REPORT_SECTIONS: ManagerReportSection[] = [
       { label: "Walk-in rooms", value: (d) => count(d.accounts.walkInRooms) },
     ],
     captions: [
-      "cancellations / noShows are approximations: no booking records when it was cancelled or marked no-show, so they count bookings that are CANCELLED / NO_SHOW now and whose updatedAt falls on date (hotel-local). Any later edit to the booking moves its updatedAt - a cancelled booking edited the next day stops counting for the day it was cancelled - and a booking cancelled and later reinstated no longer counts at all. Treat both as exact only for today.",
+      "Cancellations and no-shows are approximate: they count bookings that are cancelled or no-show now and were last changed on this date. A cancelled booking edited again the next day moves to that day, and a reinstated one drops out. Only today's figures are exact.",
     ],
   },
   {
@@ -91,8 +91,8 @@ export const MANAGER_REPORT_SECTIONS: ManagerReportSection[] = [
       { label: "Revenue per in-house guest", value: (d) => formatBahtOrDash(d.revenue.averageRevenuePerInHouseGuest) },
     ],
     captions: [
-      "Room revenue only - see the operation for what is left out.",
-      "averageRevenuePerInHouseGuest = roomRevenue / in-house guests - unlike averageRatePerGuest, the numerator includes rooms sold but not yet checked into.",
+      "Room revenue only - restaurant, bar and spa sales are not included (see below).",
+      "Revenue per in-house guest divides all room revenue, including rooms whose guests haven't checked in yet, by the checked-in guests - so it can be higher than average rate per guest.",
     ],
   },
   {

@@ -1,13 +1,15 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import BookingGuestForm from "@/components/BookingGuestForm";
 import { getRoomQuoteClient } from "@/lib/publicQuoteClient";
 import { addDaysUTC, parseDateKey, toDateKey } from "@/lib/bookings";
-import type { RoomQuote } from "@/lib/quote";
+import { formatQuoteTotal, type QuoteResult } from "@/lib/quote";
 import type { BookingGuestPrefill } from "@/lib/bookingGuestForm";
+
+const QUOTE_DEBOUNCE_MS = 500;
 
 export default function RoomBookingPanel({
   roomId,
@@ -19,7 +21,7 @@ export default function RoomBookingPanel({
   roomId: string;
   initialCheckIn: string;
   initialCheckOut: string;
-  initialQuote: RoomQuote;
+  initialQuote: QuoteResult;
   guestAccount?: BookingGuestPrefill | null;
 }) {
   const router = useRouter();
@@ -28,37 +30,48 @@ export default function RoomBookingPanel({
   // clobbering its result — the response for a fetch that's no longer the
   // most recent date selection is discarded.
   const latestRequestId = useRef(0);
+  // The quote endpoint is rate limited per address (sunset's PublicQuoteRateLimiter), and a
+  // native date input fires a change for every intermediate value while a year is typed digit by
+  // digit - so a date change only asks the server once the range has settled for QUOTE_DEBOUNCE_MS.
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [checkIn, setCheckIn] = useState(initialCheckIn);
   const [checkOut, setCheckOut] = useState(initialCheckOut);
-  const [quote, setQuote] = useState<RoomQuote>(initialQuote);
+  const [result, setResult] = useState<QuoteResult>(initialQuote);
   const [loading, setLoading] = useState(false);
-  const [fetchError, setFetchError] = useState(false);
   const checkInId = useId();
   const checkOutId = useId();
 
+  useEffect(() => () => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+  }, []);
+
   function fetchQuote(nextCheckIn: string, nextCheckOut: string) {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = null;
     const requestId = ++latestRequestId.current;
     setLoading(true);
-    setFetchError(false);
-    getRoomQuoteClient(roomId, nextCheckIn, nextCheckOut)
-      .then((result) => {
-        if (latestRequestId.current !== requestId) return;
-        setQuote(result);
-        setLoading(false);
-      })
-      .catch(() => {
-        if (latestRequestId.current !== requestId) return;
-        setFetchError(true);
-        setLoading(false);
-      });
+    getRoomQuoteClient(roomId, nextCheckIn, nextCheckOut).then((next) => {
+      if (latestRequestId.current !== requestId) return;
+      setResult(next);
+      setLoading(false);
+    });
+  }
+
+  function scheduleQuote(nextCheckIn: string, nextCheckOut: string) {
+    // Invalidate any request already in flight for the old range, and show "Updating…" (which
+    // also disables the booking form) straight away rather than the old range's total.
+    latestRequestId.current++;
+    setLoading(true);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => fetchQuote(nextCheckIn, nextCheckOut), QUOTE_DEBOUNCE_MS);
   }
 
   function commitDates(nextCheckIn: string, nextCheckOut: string) {
     setCheckIn(nextCheckIn);
     setCheckOut(nextCheckOut);
     router.replace(`${pathname}?checkIn=${nextCheckIn}&checkOut=${nextCheckOut}`);
-    fetchQuote(nextCheckIn, nextCheckOut);
+    scheduleQuote(nextCheckIn, nextCheckOut);
   }
 
   function handleCheckInChange(value: string) {
@@ -99,27 +112,28 @@ export default function RoomBookingPanel({
         <div>
           <p className="eyebrow text-cream/40 text-center">Total</p>
           <p className="mt-1 text-coral font-display text-lg text-center">
-            {loading
-              ? "Updating…"
-              : quote.totalPrice !== null
-                ? `฿${quote.totalPrice.toLocaleString("en-US")}`
-                : "—"}
+            {loading ? "Updating…" : result.ok ? formatQuoteTotal(result.quote) : "—"}
           </p>
         </div>
       </div>
 
-      {fetchError ? (
+      {/* While a new quote is pending the previous outcome stays on screen (the booking form
+          disabled, not unmounted, so what the guest already typed survives a date change). */}
+      {!result.ok ? (
         <p className="text-center text-coral">
-          Couldn&rsquo;t check pricing and availability for those dates.{" "}
-          <button
-            type="button"
-            onClick={() => fetchQuote(checkIn, checkOut)}
-            className="underline underline-offset-4"
-          >
-            Try again
-          </button>
+          {result.message}{" "}
+          {/* A 400 means these dates themselves were rejected - asking again won't change that. */}
+          {!loading && result.status !== 400 && (
+            <button
+              type="button"
+              onClick={() => fetchQuote(checkIn, checkOut)}
+              className="underline underline-offset-4"
+            >
+              Try again
+            </button>
+          )}
         </p>
-      ) : quote.available ? (
+      ) : result.quote.available ? (
         <BookingGuestForm
           roomId={roomId}
           checkIn={checkIn}
@@ -129,7 +143,7 @@ export default function RoomBookingPanel({
         />
       ) : (
         <p className="text-center text-coral">
-          Sorry, this room is no longer available for those dates.{" "}
+          {result.quote.reason ?? "Sorry, this room is no longer available for those dates."}{" "}
           <Link href={`/booking?checkIn=${checkIn}&checkOut=${checkOut}`} className="underline underline-offset-4">
             See other rooms
           </Link>

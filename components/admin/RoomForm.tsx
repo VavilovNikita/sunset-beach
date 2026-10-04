@@ -130,7 +130,7 @@ export default function RoomForm({
         disabled={submitting}
         className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-6 py-2.5 text-sm font-medium disabled:opacity-60"
       >
-        {submitting ? "Saving…" : mode === "create" ? "Create room" : "Save changes"}
+        {submitting ? "Saving…" : mode === "create" ? "Create room type" : "Save changes"}
       </button>
     </form>
   );

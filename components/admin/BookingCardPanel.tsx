@@ -18,6 +18,7 @@ import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
 import { BookingScheduleEditor, RoomUnitAssignmentEditor } from "@/components/admin/BookingScheduleEditor";
 import type { Booking, BookingChannel, BookingScheduleQuote, Room, RoomUnit, AuditLogEntry } from "@/lib/types";
 import type { BookingPosOrder, Folio } from "@/lib/posTypes";
+import { describeAuditActor, humanizeAuditSummary } from "@/lib/auditDisplay";
 
 const STATUSES = ["NEW", "CONFIRMED", "PAID", "CANCELLED"] as const;
 
@@ -127,6 +128,9 @@ export default function BookingCardPanel({
               </p>
               <p className="text-sm text-cream/50">{booking.guestPhone || booking.guest?.phone || "No phone on file"}</p>
               {bookingOriginNote(booking) && <p className="text-xs text-cream/40">Came {bookingOriginNote(booking)}</p>}
+              {booking.status === "CANCELLED" && booking.cancellationReason && (
+                <p className="text-xs text-coral">Cancelled: {booking.cancellationReason}</p>
+              )}
               <p className="text-sm text-cream/50">
                 {formatPartySize(booking.adults, booking.children)}
                 {booking.purpose !== "STANDARD" && (
@@ -203,9 +207,9 @@ export default function BookingCardPanel({
                   <div className="space-y-2">
                     {auditLog.map((entry) => (
                       <div key={entry.id} className="bg-ink border border-cream/10 rounded-xl p-3 text-xs">
-                        <p className="text-cream/70">{entry.summary}</p>
+                        <p className="text-cream/70">{humanizeAuditSummary(entry.summary)}</p>
                         <p className="text-cream/40 mt-1">
-                          {formatTimestamp(entry.createdAt)} · {entry.actorRole === null ? "System" : entry.actorEmail}
+                          {formatTimestamp(entry.createdAt)} · {describeAuditActor(entry.actorEmail, entry.actorRole)}
                         </p>
                       </div>
                     ))}
