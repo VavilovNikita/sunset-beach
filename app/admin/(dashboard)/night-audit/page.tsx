@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { backendJson } from "@/lib/backendServer";
 import { requireRoleAtLeast } from "@/lib/rbac";
-import { describeOverdue, parseNightAuditDateParam } from "@/lib/nightAudit";
+import { describeOverdue, describeUnpaidNights, parseNightAuditDateParam } from "@/lib/nightAudit";
 import StatCard from "@/components/admin/StatCard";
 import NightAuditCloseForm from "@/components/admin/NightAuditCloseForm";
 import type { NightAudit, NightAuditBooking } from "@/lib/types";
@@ -77,7 +77,7 @@ export default async function NightAuditPage({ searchParams }: { searchParams: {
       <BookingList
         title="Missed departures"
         empty="No checked-in guest is past their check-out."
-        hint="Still checked in, with a check-out on or before this date - the room stays held for them until they're checked out. Check the guest out from the booking, or extend the stay there if they're still here."
+        hint="Still checked in, with a check-out on or before this date - the room stays held for them until they're checked out. Check the guest out from the booking, or extend the stay there if they're still here. “Staying unpaid” counts the nights past check-out with nothing agreed or charged - agree a rate with the guest and extend the stay, which prices them."
         bookings={audit.missedDepartures}
         dueDate={(b) => b.checkOut}
         reviewedDate={audit.date}
@@ -124,7 +124,17 @@ function BookingList({
                   {b.roomUnitLabel ? ` · ${b.roomUnitLabel}` : " · no room assigned"} · {formatDateRange(b.checkIn, b.checkOut)}
                 </p>
               </div>
-              <span className="text-xs text-amber-400">{describeOverdue(dueDate(b), reviewedDate)}</span>
+              <div className="flex flex-wrap items-center gap-2">
+                {describeUnpaidNights(b.unpaidOverstayNights) && (
+                  <span
+                    className="rounded-full px-2.5 py-1 text-xs bg-amber-400/15 text-amber-400 whitespace-nowrap"
+                    title={`Nights from check-out through ${reviewedDate} with no agreed price - nothing has been charged for them`}
+                  >
+                    {describeUnpaidNights(b.unpaidOverstayNights)}
+                  </span>
+                )}
+                <span className="text-xs text-amber-400">{describeOverdue(dueDate(b), reviewedDate)}</span>
+              </div>
             </li>
           ))}
         </ul>

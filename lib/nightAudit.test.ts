@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeOverdue, formatClosedAt, parseNightAuditDateParam } from "@/lib/nightAudit";
+import { describeOverdue, describeUnpaidNights, formatClosedAt, parseNightAuditDateParam } from "@/lib/nightAudit";
 
 describe("parseNightAuditDateParam", () => {
   it("keeps a valid date", () => {
@@ -23,6 +23,17 @@ describe("describeOverdue", () => {
 
   it("crosses a month boundary correctly", () => {
     expect(describeOverdue("2026-08-31", "2026-09-02")).toBe("2 days overdue");
+  });
+});
+
+describe("describeUnpaidNights", () => {
+  it("says nothing when no night is unpaid", () => {
+    expect(describeUnpaidNights(0)).toBeNull();
+  });
+
+  it("counts the nights the server reports", () => {
+    expect(describeUnpaidNights(1)).toBe("Staying unpaid · 1 night");
+    expect(describeUnpaidNights(28)).toBe("Staying unpaid · 28 nights");
   });
 });
 

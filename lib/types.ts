@@ -511,6 +511,10 @@ export type NightAuditBooking = {
   checkOut: string;
   status: BookingStatus;
   occupancyStatus: OccupancyStatus;
+  // Nights stayed past checkOut with nothing agreed or charged, from checkOut through the reviewed
+  // date - the backend's OverstayRule, the same nights the room reports count at zero revenue.
+  // Always 0 on missedArrivals, and 0 for a guest due out today. A warning only.
+  unpaidOverstayNights: number;
 };
 
 // A receipt that someone reviewed a date - it locks and blocks nothing. closedByName is the
