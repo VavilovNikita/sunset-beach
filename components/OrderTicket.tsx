@@ -25,8 +25,10 @@ import {
   cancelOrder,
   closeOrder,
   printPrebill,
+  printReceipt,
   voidOrderItem,
 } from "@/lib/pos/ordersClient";
+import { sendButtonLabel } from "@/lib/posSendLabel";
 import { fetchCurrentShift } from "@/lib/pos/shiftsClient";
 import CashTenderFields from "@/components/CashTenderFields";
 import GuestOrderQrButton from "@/components/GuestOrderQrButton";
@@ -48,11 +50,14 @@ const ROLE_LABELS: Record<Role, string> = { WAITER: "Waiter", CASHIER: "Cashier"
 //   - `actor`: the phone's "will be recorded as" identity check before money moves (see
 //     PosAttributedConfirm.tsx for why only the phone has it). null on the till - there Card and
 //     Charge to room close directly, and Cash only asks for the amount received.
+//   - `back`: where "back" goes once the order is paid or cancelled - the floor board the ticket
+//     came from, or the spa schedule for a spa ticket (lib/posOrderBack.ts).
 // Screen width decides only the arrangement: one column on a phone (lines, menu, actions), and
 // from `xl` up the menu on the left with the ticket and its actions in a column on the right.
 type Surface = {
   basePath: "/admin/pos" | "/pos";
   actor: { email: string; role: Role } | null;
+  back: { href: string; label: string };
 };
 
 type TicketProps = Surface & {
@@ -108,17 +113,27 @@ function TicketLayout({
   ticket,
   menu,
   actions,
+  bar,
 }: {
   withMenu: boolean;
   ticket: React.ReactNode;
   menu?: React.ReactNode;
   actions?: React.ReactNode;
+  // Below xl only: pinned to the bottom of the screen so the total and Send stay in reach while
+  // scrolling a long menu on a phone. From xl the actions column is already beside the menu.
+  bar?: React.ReactNode;
 }) {
+  const pinned = bar ? (
+    <div className="xl:hidden sticky bottom-0 z-30 -mx-4 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-ink/95 backdrop-blur border-t border-cream/10">
+      {bar}
+    </div>
+  ) : null;
   if (!withMenu) {
     return (
       <div className="max-w-xl space-y-6">
         {ticket}
         {actions}
+        {pinned}
       </div>
     );
   }
@@ -130,6 +145,7 @@ function TicketLayout({
         {menu}
       </section>
       {actions && <section className="space-y-6 xl:col-start-2 xl:row-start-2">{actions}</section>}
+      {pinned}
     </div>
   );
 }
@@ -142,6 +158,7 @@ function LiveOrderTicket({
   canVoidSentItems,
   basePath,
   actor,
+  back,
 }: TicketProps & { initialOrder: Order }) {
   const [order, setOrder] = useState(initialOrder);
   const [cashReceived, setCashReceived] = useState("");
@@ -162,6 +179,9 @@ function LiveOrderTicket({
   const [printingPrebill, setPrintingPrebill] = useState(false);
   const [prebillResult, setPrebillResult] = useState<PrintAttemptResult | null>(null);
   const [prebillError, setPrebillError] = useState<string | null>(null);
+  const [reprinting, setReprinting] = useState(false);
+  const [reprintResult, setReprintResult] = useState<PrintAttemptResult | null>(null);
+  const [reprintError, setReprintError] = useState<string | null>(null);
   // The line whose void is being confirmed (one at a time), with its form state.
   const [voiding, setVoiding] = useState<{ itemId: string; quantity: number; reason: string; reasonError: string | null } | null>(null);
   const [voidBusy, setVoidBusy] = useState(false);
@@ -271,6 +291,19 @@ function LiveOrderTicket({
     setPrebillResult(result.data);
   }
 
+  async function handleReprintReceipt() {
+    setReprinting(true);
+    setReprintResult(null);
+    setReprintError(null);
+    const result = await printReceipt(order.id);
+    setReprinting(false);
+    if (!result.ok) {
+      setReprintError(result.error);
+      return;
+    }
+    setReprintResult(result.data);
+  }
+
   async function handleClose(method: "CASH" | "CARD") {
     if (method === "CASH" && !cash.ok) return;
     setClosingMethod(method);
@@ -295,6 +328,22 @@ function LiveOrderTicket({
   const canEditItems = order.status === "OPEN";
   const closable = order.status === "OPEN" || order.status === "SENT";
   const payDisabled = closingMethod !== null || hasOpenShift !== true || order.items.length === 0;
+  const send = sendButtonLabel(
+    order.items.filter((i) => i.sentAt === null).map((i) => menuById.get(i.menuItemId)?.department ?? "KITCHEN"),
+  );
+  // Rendered for as long as the order is open, disabled once sent - never removed. When it
+  // disappeared after sending, the next button slid up into exactly the spot just clicked, so a
+  // double-click on Send closed the order.
+  const sendButton = (
+    <button
+      type="button"
+      onClick={handleSend}
+      disabled={!canEditItems || sending || order.items.length === 0}
+      className="w-full rounded-xl bg-coral hover:bg-coraldeep active:bg-coraldeep transition-colors py-3.5 text-base font-medium disabled:opacity-60"
+    >
+      {sending ? "Sending…" : canEditItems ? send.label : "Sent ✓"}
+    </button>
+  );
 
   const ticket = (
     <>
@@ -487,17 +536,11 @@ function LiveOrderTicket({
 
   const actions = closable ? (
     <>
-      {/* Rendered for as long as the order is open, disabled once sent - never removed. When it
-          disappeared after sending, the next button slid up into exactly the spot just clicked,
-          so a double-click on Send closed the order. */}
-      <button
-        type="button"
-        onClick={handleSend}
-        disabled={!canEditItems || sending || order.items.length === 0}
-        className="w-full rounded-xl bg-coral hover:bg-coraldeep active:bg-coraldeep transition-colors py-3.5 text-base font-medium disabled:opacity-60"
-      >
-        {sending ? "Sending…" : canEditItems ? "Send to kitchen" : "Sent ✓"}
-      </button>
+      {/* Below xl this button lives in the pinned bar instead (see `bar` below) - one Send, never two. */}
+      <div className="hidden xl:block space-y-2">
+        {sendButton}
+        {canEditItems && send.note && <p className="text-xs text-cream/40">{send.note}</p>}
+      </div>
 
       <div>
         <button
@@ -655,7 +698,43 @@ function LiveOrderTicket({
         </button>
       )}
     </>
-  ) : null;
+  ) : (
+    // Paid or cancelled: nothing left to do to the order itself, but the screen must not end in a
+    // dead end - a way back to the floor, and (paid, cashier+) a copy of the receipt.
+    <>
+      {order.status === "PAID" && canManagePayments && (
+        <div>
+          <button
+            type="button"
+            onClick={handleReprintReceipt}
+            disabled={reprinting}
+            className="w-full rounded-xl border border-cream/25 hover:border-cream/50 active:border-cream/50 transition-colors py-3 text-sm font-medium disabled:opacity-60"
+          >
+            {reprinting ? "Printing…" : "Reprint receipt"}
+          </button>
+          {reprintError && <p className="mt-2 text-sm text-coral">{reprintError}</p>}
+          {reprintResult && (
+            <p className={`mt-2 text-sm ${reprintResult.job?.status === "SENT" ? "text-cream/50" : "text-coral"}`}>
+              {!reprintResult.attempted
+                ? "No active cashier printer configured — nothing printed."
+                : reprintResult.job?.status === "SENT"
+                  ? "Receipt copy printed."
+                  : reprintResult.job?.status === "PENDING"
+                    ? "Printer didn't respond — retrying automatically."
+                    : // Receipts are hidden from a cashier's print queue (GET /print-jobs), so point at who can see it.
+                      `Print failed${reprintResult.job?.lastError ? `: ${reprintResult.job.lastError}` : ""} — a manager can retry it from the print queue.`}
+            </p>
+          )}
+        </div>
+      )}
+      <Link
+        href={back.href}
+        className="block w-full text-center rounded-xl bg-coral hover:bg-coraldeep active:bg-coraldeep transition-colors py-3.5 text-base font-medium"
+      >
+        {back.label}
+      </Link>
+    </>
+  );
 
   return (
     <TicketLayout
@@ -663,6 +742,20 @@ function LiveOrderTicket({
       ticket={ticket}
       menu={<OrderMenuPicker orderId={order.id} menu={menuForOrder(menu, tableZone)} onAdded={setOrder} />}
       actions={actions}
+      bar={
+        closable ? (
+          <div className="flex items-center gap-3">
+            <div className="shrink-0">
+              <p className="eyebrow text-cream/50">Total</p>
+              <p className="font-display italic text-2xl text-coral leading-tight">฿{Number(order.total).toLocaleString("en-US")}</p>
+            </div>
+            <div className="flex-1 min-w-0">
+              {sendButton}
+              {canEditItems && send.note && <p className="mt-1 text-xs text-cream/40 text-center">{send.note}</p>}
+            </div>
+          </div>
+        ) : null
+      }
     />
   );
 }

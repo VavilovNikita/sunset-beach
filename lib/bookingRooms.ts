@@ -41,3 +41,14 @@ export function roomUnitSummary(booking: Pick<Booking, "segments" | "roomUnit">)
   if (labels.every((l) => l === "unassigned")) return null;
   return labels.filter((l, i) => i === 0 || l !== labels[i - 1]).join(" → ");
 }
+
+// The physical room the guest is in on `today` (YYYY-MM-DD, hotel date) - the segment covering
+// that night, or the last one when no segment does (a guest past checkOut is still in their last
+// room - the backend's OverstayRule). null when that segment has no room assigned. What tells two
+// guests in the same room type apart, e.g. in the POS "Charge to room" picker.
+export function currentRoomUnitLabel(booking: Pick<Booking, "segments" | "roomUnit">, today: string): string | null {
+  if (booking.segments.length === 0) return booking.roomUnit?.label ?? null;
+  const covering = booking.segments.find((s) => s.checkIn <= today && today < s.checkOut);
+  const segment = covering ?? booking.segments[booking.segments.length - 1];
+  return segment.roomUnit?.label ?? null;
+}

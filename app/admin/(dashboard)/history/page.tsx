@@ -5,6 +5,7 @@ import { extractApiError } from "@/lib/apiError";
 import { requireRoleAtLeast } from "@/lib/rbac";
 import { AUDIT_ENTITY_TYPES, type AuditAction, type AuditLogPage } from "@/lib/types";
 import { formatTimestamp } from "@/lib/formatDate";
+import { describeAuditActor, describeAuditEntity, describeEnumValue, humanizeAuditSummary } from "@/lib/auditDisplay";
 
 const ACTIONS: AuditAction[] = [
   "BOOKING_CREATED",
@@ -45,11 +46,6 @@ const PAGE_SIZE = 50;
 
 // "BOOKING_STATUS_CHANGED" -> "Booking status changed", "ROOM_UNIT" -> "Room unit" - readable
 // without a hand-maintained label table that would drift from the actual enum values over time.
-function describeEnumValue(value: string): string {
-  const lower = value.replace(/_/g, " ").toLowerCase();
-  return lower.charAt(0).toUpperCase() + lower.slice(1);
-}
-
 function describeAction(action: AuditAction): string {
   return describeEnumValue(action);
 }
@@ -201,13 +197,13 @@ export default async function AdminHistoryPage({
               <span className="text-cream font-medium">{describeAction(entry.action)}</span>
               <span className="text-xs text-cream/40">{formatTimestamp(entry.createdAt)}</span>
             </div>
-            <p className="text-cream/70 mt-1">{entry.summary}</p>
+            <p className="text-cream/70 mt-1">{humanizeAuditSummary(entry.summary)}</p>
             <p className="text-xs text-cream/40 mt-2">
-              {entry.actorEmail} ({entry.actorRole ?? "System"})
+              {describeAuditActor(entry.actorEmail, entry.actorRole)}
               {entry.entityId && (
                 <>
                   {" · "}
-                  {describeEnumValue(entry.entityType)} {entry.entityId}
+                  <span title={entry.entityId}>{describeAuditEntity(entry.entityType, entry.entityId)}</span>
                 </>
               )}
             </p>

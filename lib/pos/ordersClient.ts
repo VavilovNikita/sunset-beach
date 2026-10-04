@@ -72,6 +72,12 @@ export function printPrebill(orderId: string): Promise<PosResult<PrintAttemptRes
   return posRequest<PrintAttemptResult>(`/orders/${orderId}/print-prebill`, { method: "POST" }, "Could not print the pre-bill.");
 }
 
+// POST /orders/{id}/print-receipt - CASHIER+, PAID orders only: a copy of the guest receipt,
+// regenerated from the order and its payment and marked COPY. Same result shape as the pre-bill.
+export function printReceipt(orderId: string): Promise<PosResult<PrintAttemptResult>> {
+  return posRequest<PrintAttemptResult>(`/orders/${orderId}/print-receipt`, { method: "POST" }, "Could not reprint the receipt.");
+}
+
 // POST .../items/{itemId}/void - MANAGER+ only (the caller hides the button below that). Takes
 // `quantity` units off a line the kitchen/bar already has, with a required reason.
 export function voidOrderItem(orderId: string, itemId: string, input: OrderItemVoidInput): Promise<PosResult<Order>> {

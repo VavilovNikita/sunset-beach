@@ -51,6 +51,15 @@ export default function AdminSidebar({ email, role }: { email: string; role: Rol
     });
   }
 
+  // Phone width: the whole sidebar used to stack above the page (brand, five group headers, the
+  // open group's links, the account block) - more than half the screen before any content. Below
+  // md it's one bar with the current page and a Menu button; navigating closes it again.
+  const [mobileOpen, setMobileOpen] = useState(false);
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+  const activeLabel = allLinks.find((l) => l.href === activeHref)?.label ?? null;
+
   const isCashierPlus = role !== "WAITER";
   // The brand mark is a "go home" link everywhere else in this app - for a WAITER, home isn't
   // /admin (Dashboard is CASHIER+ for exactly this reason), it's the first item they actually have.
@@ -58,12 +67,25 @@ export default function AdminSidebar({ email, role }: { email: string; role: Rol
 
   return (
     <aside className="print:hidden w-full md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-cream/10 md:min-h-screen bg-ink2/40">
-      <div className="p-6">
-        <Link href={homeHref} className="font-display italic text-lg text-cream block mb-8">
-          The Sunset Beach
-          <span className="block eyebrow text-sea font-sans not-italic mt-0.5">Admin</span>
-        </Link>
+      <div className="px-4 py-3 md:p-6">
+        <div className="flex items-center justify-between gap-3 md:block md:mb-8">
+          <Link href={homeHref} className="font-display italic text-lg text-cream block">
+            The Sunset Beach
+            <span className="hidden md:block eyebrow text-sea font-sans not-italic mt-0.5">Admin</span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => setMobileOpen((v) => !v)}
+            aria-expanded={mobileOpen}
+            aria-controls="admin-nav-menu"
+            className="md:hidden flex items-center gap-2 min-w-0 rounded-full border border-cream/20 px-4 py-2 text-sm text-cream/80"
+          >
+            {activeLabel && !mobileOpen && <span className="truncate text-cream/60">{activeLabel}</span>}
+            <span className="shrink-0">{mobileOpen ? "Close ✕" : "Menu ☰"}</span>
+          </button>
+        </div>
 
+        <div id="admin-nav-menu" className={`${mobileOpen ? "block" : "hidden"} md:block mt-4 md:mt-0`}>
         <nav className="flex flex-col gap-3">
           {groups.map((group) => {
             const open = openGroups.includes(group.title);
@@ -114,6 +136,7 @@ export default function AdminSidebar({ email, role }: { email: string; role: Rol
           >
             Sign out
           </button>
+        </div>
         </div>
       </div>
     </aside>

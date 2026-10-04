@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { ShiftListItem } from "@/lib/posTypes";
 import { formatTimestamp } from "@/lib/formatDate";
+import { longOpenLabel } from "@/lib/posOrders";
+import { isLongOpenShift } from "@/lib/shiftReconciliation";
 
 // The staff filter is client-side, not a second round trip with `staffId` set - GET /shifts
 // already returns every shift in the chosen date range (staff count × working days is a small
@@ -13,6 +15,7 @@ import { formatTimestamp } from "@/lib/formatDate";
 // fetch that list anyway.
 export default function ShiftHistoryTable({ shifts }: { shifts: ShiftListItem[] }) {
   const [staffFilter, setStaffFilter] = useState("");
+  const now = new Date();
 
   const staffOptions = useMemo(() => {
     const byId = new Map<string, string>();
@@ -76,7 +79,10 @@ export default function ShiftHistoryTable({ shifts }: { shifts: ShiftListItem[] 
                       </Link>
                     </td>
                     <td className="py-3 pr-4 text-cream/70">{s.openedByEmail}</td>
-                    <td className="py-3 pr-4 text-cream/70">{s.status}</td>
+                    <td className="py-3 pr-4 text-cream/70 whitespace-nowrap">
+                      {s.status === "OPEN" ? "Open" : "Closed"}
+                      {isLongOpenShift(s, now) && <span className="text-amber-400"> · {longOpenLabel(s.openedAt, now)}</span>}
+                    </td>
                     <td className="py-3 pr-4 text-right text-cream/70">฿{Number(s.totals.cash).toLocaleString("en-US")}</td>
                     <td className="py-3 pr-4 text-right text-cream/70">฿{Number(s.totals.card).toLocaleString("en-US")}</td>
                     <td className="py-3 pr-4 text-right text-cream/70">

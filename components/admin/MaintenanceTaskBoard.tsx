@@ -54,21 +54,25 @@ export default function MaintenanceTaskBoard({
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <button
-          type="button"
-          onClick={() => setFiling((v) => !v)}
-          className="w-full rounded-xl bg-coral hover:bg-coraldeep transition-colors px-5 py-4 text-base font-medium"
-        >
-          {filing ? "Cancel" : "+ Report a problem"}
-        </button>
-        {filing && (
+        {/* The big button only opens the form; the form carries its own Cancel next to its
+            submit, so "Report a problem" never turns into a large coral Cancel in the same spot. */}
+        {filing ? (
           <FileTaskForm
             roomUnits={sortedUnits}
+            onCancel={() => setFiling(false)}
             onFiled={() => {
               setFiling(false);
               router.refresh();
             }}
           />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setFiling(true)}
+            className="w-full rounded-xl bg-coral hover:bg-coraldeep transition-colors px-5 py-4 text-base font-medium"
+          >
+            + Report a problem
+          </button>
         )}
       </div>
 
@@ -106,8 +110,10 @@ export default function MaintenanceTaskBoard({
   );
 }
 
-function FileTaskForm({ roomUnits, onFiled }: { roomUnits: RoomUnit[]; onFiled: () => void }) {
-  const [roomUnitId, setRoomUnitId] = useState(roomUnits[0]?.id ?? "");
+function FileTaskForm({ roomUnits, onFiled, onCancel }: { roomUnits: RoomUnit[]; onFiled: () => void; onCancel: () => void }) {
+  // No pre-selected room: defaulting to the first one (101) filed problems against 101 whenever
+  // nobody remembered to change it.
+  const [roomUnitId, setRoomUnitId] = useState("");
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
@@ -134,14 +140,19 @@ function FileTaskForm({ roomUnits, onFiled }: { roomUnits: RoomUnit[]; onFiled: 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-3 space-y-4 bg-ink2/40 border border-cream/10 rounded-xl p-5">
+    <form onSubmit={handleSubmit} className="space-y-4 bg-ink2/40 border border-cream/10 rounded-xl p-5">
+      <h2 className="font-display italic text-xl">Report a problem</h2>
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Room</label>
         <select
           value={roomUnitId}
           onChange={(e) => setRoomUnitId(e.target.value)}
+          required
           className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-3 text-base"
         >
+          <option value="" disabled>
+            Choose a room…
+          </option>
           {roomUnits.map((u) => (
             <option key={u.id} value={u.id}>
               {u.label}
@@ -178,13 +189,23 @@ function FileTaskForm({ roomUnits, onFiled }: { roomUnits: RoomUnit[]; onFiled: 
 
       {error && <p className="text-sm text-coral">{error}</p>}
 
-      <button
-        type="submit"
-        disabled={saving || !roomUnitId || !description.trim()}
-        className="w-full rounded-xl bg-coral hover:bg-coraldeep transition-colors py-4 text-base font-medium disabled:opacity-60"
-      >
-        {saving ? "Filing…" : "File task"}
-      </button>
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={saving}
+          className="flex-1 rounded-xl border border-cream/25 hover:border-cream/50 transition-colors py-4 text-base text-cream/80 disabled:opacity-60"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={saving || !roomUnitId || !description.trim()}
+          className="flex-[2] rounded-xl bg-coral hover:bg-coraldeep transition-colors py-4 text-base font-medium disabled:opacity-60"
+        >
+          {saving ? "Filing…" : "File task"}
+        </button>
+      </div>
     </form>
   );
 }

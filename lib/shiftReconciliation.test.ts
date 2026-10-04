@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reconcileCash, shiftOpeningFacts } from "./shiftReconciliation";
+import { isLongOpenShift, reconcileCash, shiftOpeningFacts } from "./shiftReconciliation";
 import type { ShiftSummary } from "./posTypes";
 
 function shift(overrides: Partial<ShiftSummary>): ShiftSummary {
@@ -84,5 +84,22 @@ describe("shiftOpeningFacts", () => {
   // screen says it was never entered.
   it("says the float was not entered rather than showing ฿0", () => {
     expect(shiftOpeningFacts(shift({ openingCashFloat: null })).openingFloat).toBe("Not entered");
+  });
+});
+
+describe("isLongOpenShift", () => {
+  const now = new Date("2026-10-03T12:00:00Z");
+
+  it("flags an open shift after a full day", () => {
+    expect(isLongOpenShift({ status: "OPEN", openedAt: "2026-09-02T01:00:00Z" }, now)).toBe(true);
+    expect(isLongOpenShift({ status: "OPEN", openedAt: "2026-10-02T12:00:00Z" }, now)).toBe(true);
+  });
+
+  it("leaves a shift open less than a day alone", () => {
+    expect(isLongOpenShift({ status: "OPEN", openedAt: "2026-10-02T12:00:01Z" }, now)).toBe(false);
+  });
+
+  it("never flags a closed shift, however old", () => {
+    expect(isLongOpenShift({ status: "CLOSED", openedAt: "2026-09-02T01:00:00Z" }, now)).toBe(false);
   });
 });

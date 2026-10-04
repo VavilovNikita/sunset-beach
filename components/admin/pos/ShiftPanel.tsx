@@ -6,7 +6,8 @@ import { ADMIN_API_URL } from "@/lib/backend";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { usePolling } from "@/lib/usePolling";
 import StatCard from "@/components/admin/StatCard";
-import { reconcileCash, shiftOpeningFacts } from "@/lib/shiftReconciliation";
+import { isLongOpenShift, reconcileCash, shiftOpeningFacts } from "@/lib/shiftReconciliation";
+import { longOpenLabel } from "@/lib/posOrders";
 import type { ShiftSummary } from "@/lib/posTypes";
 
 // Who opened this drawer, when, and with how much - the float is what the close is reconciled
@@ -27,6 +28,11 @@ function OpeningFacts({ shift }: { shift: ShiftSummary }) {
         <dt className="eyebrow text-cream/50">Opening cash float</dt>
         <dd className="text-cream">{facts.openingFloat}</dd>
       </div>
+      {isLongOpenShift(shift, new Date()) && (
+        <p className="sm:col-span-3 text-amber-400">
+          {longOpenLabel(shift.openedAt, new Date()).replace("Open", "Shift open")} — longer than a day. Count the drawer and close it.
+        </p>
+      )}
     </dl>
   );
 }

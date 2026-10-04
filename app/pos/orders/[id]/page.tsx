@@ -3,6 +3,7 @@ import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
 import { orderNumberLabel, ticketTitle } from "@/lib/posOrders";
+import { orderBackLink } from "@/lib/posOrderBack";
 import OrderTicket from "@/components/OrderTicket";
 import type { Order, MenuItem, Table } from "@/lib/posTypes";
 
@@ -42,6 +43,7 @@ export default async function PosOrderPage({ params }: { params: { id: string } 
           canManagePayments={canManagePayments}
           canVoidSentItems={canVoidSentItems}
           basePath="/pos"
+          back={orderBackLink("/pos", order, table?.zone ?? null)}
           // The phone's "will be recorded as" check before money moves, a void or a cancellation
           // (PosAttributedConfirm.tsx). The /pos layout requires a session, so `user` is non-null
           // in practice - the fallbacks only satisfy the type.

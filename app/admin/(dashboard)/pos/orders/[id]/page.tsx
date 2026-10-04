@@ -1,8 +1,10 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import { requireSessionUser, hasRoleAtLeast } from "@/lib/rbac";
 import { orderNumberLabel, orderRefLabel, ticketTitle } from "@/lib/posOrders";
+import { isSpaOrder, orderBackLink } from "@/lib/posOrderBack";
 import OrderTicket from "@/components/OrderTicket";
 import type { Order, MenuItem, Table } from "@/lib/posTypes";
 
@@ -42,10 +44,22 @@ export default async function OrderTicketPage({ params }: { params: { id: string
     backendJsonOrDefault<Table[]>("/tables", [], { auth: true }),
   ]);
   const table = order.tableId ? tables.find((t) => t.id === order.tableId) ?? null : null;
+  const tableZone = table?.zone ?? null;
+  // A spa ticket is reached from the spa schedule (billing an appointment), not the restaurant
+  // floor - its header and way back say so.
+  const spa = isSpaOrder(order, tableZone);
+  const back = orderBackLink("/admin/pos", order, tableZone);
 
   return (
     <div>
-      <p className="eyebrow text-sea mb-2">Restaurant</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <p className="eyebrow text-sea mb-2">{spa ? "Spa" : "Restaurant"}</p>
+        {spa && (
+          <Link href={back.href} className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4">
+            {back.label}
+          </Link>
+        )}
+      </div>
       <h1 className="font-display italic text-3xl">{table ? table.label : ticketTitle(order)}</h1>
       <p className="text-sm text-cream/50 mb-8">
         Order {orderNumberLabel(order)} <span className="font-mono text-xs text-cream/40">ref {orderRefLabel(order)}</span>
@@ -55,11 +69,12 @@ export default async function OrderTicketPage({ params }: { params: { id: string
       <OrderTicket
         initialOrder={order}
         menu={menu}
-        tableZone={table?.zone ?? null}
+        tableZone={tableZone}
         canManagePayments={canManagePayments}
         canVoidSentItems={canVoidSentItems}
         basePath="/admin/pos"
         actor={null}
+        back={back}
       />
     </div>
   );

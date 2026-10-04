@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { searchActiveBookings } from "@/lib/pos/bookingSearchClient";
 import { closeOrder } from "@/lib/pos/ordersClient";
+import { currentRoomUnitLabel } from "@/lib/bookingRooms";
+import { hotelDateKey } from "@/lib/hotelDate";
 import type { Order } from "@/lib/posTypes";
 import type { Booking } from "@/lib/types";
 
@@ -12,6 +14,11 @@ const DEBOUNCE_MS = 300;
 // over currently-staying bookings. It replaced the desktop's long <select> of every staying
 // booking - a phone can't reasonably scroll that list, and a till gains nothing from it either.
 // Debounced so a fast typist doesn't fire a request per keystroke.
+function roomLabel(booking: Booking): string {
+  const unit = currentRoomUnitLabel(booking, hotelDateKey(new Date()));
+  return unit ? `Room ${unit}` : "No room assigned";
+}
+
 export default function RoomChargeSearch({
   orderId,
   actor,
@@ -97,7 +104,10 @@ export default function RoomChargeSearch({
                 selectedId === b.id ? "border-coral bg-coral/10" : "border-cream/15 hover:bg-cream/5 active:bg-cream/5"
               }`}
             >
-              <p className="text-cream text-sm">{b.guestName}</p>
+              {/* The room number is what tells two guests apart - several share a room type. */}
+              <p className="text-cream text-sm">
+                <span className="font-medium">{roomLabel(b)}</span> · {b.guestName}
+              </p>
               <p className="text-cream/50 text-xs">{b.room.name}</p>
             </button>
           ))}

@@ -123,7 +123,9 @@ export default async function OrderHistoryPage({
             className="bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
           >
             <option value="">All tables</option>
-            {tables.map((t) => (
+            {/* Restaurant/bar tables only: spa treatment tables ("1", "2") read as restaurant
+                tables here. The full list still labels spa orders in the table below. */}
+            {tables.filter((t) => t.zone !== "SPA").map((t) => (
               <option key={t.id} value={t.id}>
                 {t.label}
               </option>

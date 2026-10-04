@@ -26,7 +26,7 @@ export default async function AdminRoomsPage() {
             href="/admin/rooms/new"
             className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2.5 text-sm font-medium"
           >
-            New room
+            New room type
           </Link>
         )}
       </div>
