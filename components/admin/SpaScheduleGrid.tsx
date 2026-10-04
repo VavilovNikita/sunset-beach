@@ -13,7 +13,7 @@ import type { MenuItem, SpaAppointment, SpaSchedule, SpaTherapist } from "@/lib/
 import type { Booking } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
 import { hotelDateKey } from "@/lib/hotelDate";
-import { spaBlockMark, spaBlockTitle } from "@/lib/spaAppointmentDisplay";
+import { isSpaOverdue, spaBlockMark, spaBlockTitle } from "@/lib/spaAppointmentDisplay";
 
 const ROW_HEIGHT = 44;
 const LABEL_WIDTH = 160;
@@ -441,6 +441,7 @@ export default function SpaScheduleGrid({
                       const isSwapTarget = dragState?.swapTarget?.appointmentId === a.id;
                       const tapHandlers = bindTapOrDoubleClick(() => setSelectedAppointmentId(a.id));
                       const mark = spaBlockMark(a.status);
+                      const overdue = isSpaOverdue(a, new Date());
                       return (
                         <button
                           key={a.id}
@@ -484,7 +485,7 @@ export default function SpaScheduleGrid({
                             pointerEvents: dragging ? "none" : "auto",
                             backgroundImage: STATUS_HATCH[a.status],
                           }}
-                          title={spaBlockTitle(a)}
+                          title={overdue ? `${spaBlockTitle(a)} · overdue - mark completed or no-show` : spaBlockTitle(a)}
                         >
                           {mark && (
                             <span className="shrink-0 font-semibold no-underline" aria-label={mark.label}>
@@ -501,6 +502,11 @@ export default function SpaScheduleGrid({
                           )}
                           {a.treatments.length > 1 && <span className="text-[10px] opacity-70">×{a.treatments.length}</span>}
                           {a.missingTreatmentNames.length > 0 && <span title="Not yet fully charged">⚠</span>}
+                          {overdue && (
+                            <span className="shrink-0 rounded px-1 text-[10px] bg-amber-400 text-ink" title="Time has passed - still marked Booked">
+                              overdue
+                            </span>
+                          )}
                         </button>
                       );
                     })}

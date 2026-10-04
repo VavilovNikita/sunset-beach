@@ -8,7 +8,7 @@ import { billSpaAppointment } from "@/lib/spaOrderClient";
 import { adminRequest } from "@/lib/adminFetch";
 import { orderNumberLabel } from "@/lib/posOrders";
 import { sumTreatmentPrices } from "@/lib/spaTreatmentPricing";
-import { billTreatmentsLabel } from "@/lib/spaAppointmentDisplay";
+import { billTreatmentsLabel, isSpaOverdue } from "@/lib/spaAppointmentDisplay";
 import type { MenuItem, Order, SpaAppointment, SpaAppointmentStatus } from "@/lib/posTypes";
 import { formatDate } from "@/lib/formatDate";
 
@@ -173,13 +173,21 @@ export default function SpaAppointmentPanel({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-5 border-b border-cream/10 flex items-center justify-between sticky top-0 bg-ink2 z-10">
-          <p className="eyebrow text-sea">{current.status}</p>
+          <p className="eyebrow text-sea">
+            {current.status}
+            {isSpaOverdue(current, new Date()) && <span className="text-amber-400"> · overdue</span>}
+          </p>
           <button onClick={onClose} className="text-cream/50 hover:text-cream transition-colors text-xl leading-none">
             ×
           </button>
         </div>
 
         <div className="p-5 space-y-4">
+          {isSpaOverdue(current, new Date()) && (
+            <p className="text-sm text-amber-400">
+              This appointment&rsquo;s time has passed and it&rsquo;s still marked Booked — mark it completed (and bill it) or a no-show.
+            </p>
+          )}
           <div>
             <h2 className="font-display italic text-2xl mb-1">{current.guestName}</h2>
           </div>

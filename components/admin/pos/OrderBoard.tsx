@@ -15,6 +15,7 @@ import {
   longOpenLabel,
   orderNumberLabel,
   ticketTitle,
+  tableBillLabel,
 } from "@/lib/posOrders";
 import type { Order, Table, Zone } from "@/lib/posTypes";
 
@@ -182,6 +183,9 @@ export default function OrderBoard({
                             they still have an open order (see visibleTables) —
                             flagged so staff know it's deactivated, not a
                             normal open table. */}
+                        {tableBillLabel(tableOrders) && (
+                          <span className="text-xs text-cream tabular-nums">{tableBillLabel(tableOrders)}</span>
+                        )}
                         {!table.isActive && <span className="text-[0.6rem] text-cream/40">Inactive</span>}
                         {stale && (
                           <span className="text-[0.6rem] text-amber-400" suppressHydrationWarning>

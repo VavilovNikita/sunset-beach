@@ -8,7 +8,7 @@ import { isSpaOrder, orderBackLink } from "@/lib/posOrderBack";
 import OrderTicket from "@/components/OrderTicket";
 import type { Order, MenuItem, Table } from "@/lib/posTypes";
 
-export default async function OrderTicketPage({ params }: { params: { id: string } }) {
+export default async function OrderTicketPage({ params, searchParams }: { params: { id: string }; searchParams: { category?: string } }) {
   // GET /orders/{id} itself is WAITER+ (no ownership boundary - the whole floor sees every
   // table), but POST /orders/{id}/close is CASHIER+ on the backend - computed here, at the page,
   // and passed down as a real prop, the same way the /pos page does it. The component
@@ -68,6 +68,7 @@ export default async function OrderTicketPage({ params }: { params: { id: string
       {/* actor={null}: the till has no "will be recorded as" step - see PosAttributedConfirm.tsx. */}
       <OrderTicket
         initialOrder={order}
+        initialMenuCategory={searchParams.category ?? null}
         menu={menu}
         tableZone={tableZone}
         canManagePayments={canManagePayments}

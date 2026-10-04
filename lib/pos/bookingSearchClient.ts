@@ -5,10 +5,10 @@
 // Adds `guestName` (case-insensitive substring, backend query param) so staff can search by
 // typing instead of scrolling every currently-staying booking. Includes a guest still checked in
 // past checkOut (the backend's OverstayRule widens this filter). "Today" is the hotel's date.
-// Status eligibility (CONFIRMED/PAID only) is filtered client-side - see isChargeableBookingStatus.
+// Eligibility (checked in, not cancelled) is filtered client-side - see isChargeableToRoom.
 import { posRequest, type PosResult } from "@/lib/pos/posFetch";
 import { hotelDateKey } from "@/lib/hotelDate";
-import { isChargeableBookingStatus } from "@/lib/pos/roomCharge";
+import { isChargeableToRoom } from "@/lib/pos/roomCharge";
 import type { Booking } from "@/lib/types";
 
 export async function searchActiveBookings(guestName: string): Promise<PosResult<Booking[]>> {
@@ -17,5 +17,5 @@ export async function searchActiveBookings(guestName: string): Promise<PosResult
   if (guestName.trim()) params.set("guestName", guestName.trim());
   const result = await posRequest<Booking[]>(`/bookings?${params.toString()}`, undefined, "Could not search bookings.");
   if (!result.ok) return result;
-  return { ...result, data: result.data.filter((b) => isChargeableBookingStatus(b.status)) };
+  return { ...result, data: result.data.filter(isChargeableToRoom) };
 }

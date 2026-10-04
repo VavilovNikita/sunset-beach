@@ -7,7 +7,7 @@ import { orderBackLink } from "@/lib/posOrderBack";
 import OrderTicket from "@/components/OrderTicket";
 import type { Order, MenuItem, Table } from "@/lib/posTypes";
 
-export default async function PosOrderPage({ params }: { params: { id: string } }) {
+export default async function PosOrderPage({ params, searchParams }: { params: { id: string }; searchParams: { category?: string } }) {
   let order: Order;
   try {
     order = await backendJson<Order>(`/orders/${params.id}`, { auth: true });
@@ -39,6 +39,7 @@ export default async function PosOrderPage({ params }: { params: { id: string } 
       <div className="p-4">
         <OrderTicket
           initialOrder={order}
+          initialMenuCategory={searchParams.category ?? null}
           menu={menu}
           tableZone={table?.zone ?? null}
           canManagePayments={canManagePayments}

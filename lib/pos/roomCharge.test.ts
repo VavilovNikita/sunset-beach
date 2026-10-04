@@ -1,23 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { isChargeableBookingStatus } from "./roomCharge";
+import { isChargeableToRoom } from "./roomCharge";
 
-// The bug this guards: a booking moved to PAID (prepaid stay, routine at a resort) used to drop
-// out of the "charge to room" search entirely, even though the guest was still physically
-// staying - see bookingSearchClient.ts for where this is applied.
-describe("isChargeableBookingStatus", () => {
-  it("allows a prepaid, currently-staying booking (PAID)", () => {
-    expect(isChargeableBookingStatus("PAID")).toBe(true);
+// The bugs this guards: a walk-in (created NEW, checked in) didn't appear in POS's "charge to
+// room" list until someone changed its status to CONFIRMED; before that, a prepaid (PAID) stay
+// dropped out of it. Occupancy decides, not booking status - see roomCharge.ts.
+describe("isChargeableToRoom", () => {
+  it("allows a checked-in walk-in whose status is still NEW", () => {
+    expect(isChargeableToRoom({ status: "NEW", occupancyStatus: "CHECKED_IN" })).toBe(true);
   });
 
-  it("allows a confirmed, currently-staying booking (CONFIRMED)", () => {
-    expect(isChargeableBookingStatus("CONFIRMED")).toBe(true);
+  it("allows a checked-in prepaid stay (PAID)", () => {
+    expect(isChargeableToRoom({ status: "PAID", occupancyStatus: "CHECKED_IN" })).toBe(true);
   });
 
-  it("rejects an unconfirmed inquiry, not yet a guest (NEW)", () => {
-    expect(isChargeableBookingStatus("NEW")).toBe(false);
+  it("allows a checked-in confirmed stay", () => {
+    expect(isChargeableToRoom({ status: "CONFIRMED", occupancyStatus: "CHECKED_IN" })).toBe(true);
   });
 
-  it("rejects a cancelled booking (CANCELLED)", () => {
-    expect(isChargeableBookingStatus("CANCELLED")).toBe(false);
+  it("rejects a guest who hasn't arrived yet", () => {
+    expect(isChargeableToRoom({ status: "CONFIRMED", occupancyStatus: "EXPECTED" })).toBe(false);
+  });
+
+  it("rejects a guest who has already checked out", () => {
+    expect(isChargeableToRoom({ status: "PAID", occupancyStatus: "CHECKED_OUT" })).toBe(false);
+  });
+
+  it("rejects a cancelled booking even if its occupancy was never cleared", () => {
+    expect(isChargeableToRoom({ status: "CANCELLED", occupancyStatus: "CHECKED_IN" })).toBe(false);
   });
 });

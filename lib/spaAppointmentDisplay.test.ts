@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { billTreatmentsLabel, spaBlockMark, spaBlockTitle } from "./spaAppointmentDisplay";
+import { billTreatmentsLabel, isSpaOverdue, spaBlockMark, spaBlockTitle } from "./spaAppointmentDisplay";
+import type { SpaAppointmentStatus } from "@/lib/posTypes";
 
 describe("billTreatmentsLabel", () => {
   it("counts the treatments it will bill", () => {
@@ -33,5 +34,40 @@ describe("spaBlockTitle", () => {
     expect(
       spaBlockTitle({ guestName: "Jane", roomUnitLabel: null, treatments, status: "CANCELLED", cancelReason: "Guest unwell" })
     ).toBe("Jane · Thai massage, Foot scrub · Cancelled: Guest unwell");
+  });
+});
+
+describe("isSpaOverdue", () => {
+  // 14:00 Bangkok on 4 Oct 2026 is 07:00Z.
+  const now = new Date("2026-10-04T07:00:00Z");
+  const appt = (over: Partial<{ status: SpaAppointmentStatus; date: string; startTime: string; durationMinutes: number }>) => ({
+    status: "BOOKED" as SpaAppointmentStatus,
+    date: "2026-10-04",
+    startTime: "10:00",
+    durationMinutes: 60,
+    ...over,
+  });
+
+  it("flags a booked appointment that ended earlier today", () => {
+    expect(isSpaOverdue(appt({}), now)).toBe(true);
+  });
+
+  it("does not flag one still running or still to come", () => {
+    expect(isSpaOverdue(appt({ startTime: "13:30" }), now)).toBe(false);
+    expect(isSpaOverdue(appt({ startTime: "15:00" }), now)).toBe(false);
+  });
+
+  it("flags one from an earlier day, not one from a later day", () => {
+    expect(isSpaOverdue(appt({ date: "2026-10-03", startTime: "20:00" }), now)).toBe(true);
+    expect(isSpaOverdue(appt({ date: "2026-10-05", startTime: "08:00" }), now)).toBe(false);
+  });
+
+  it("never flags a settled appointment", () => {
+    expect(isSpaOverdue(appt({ status: "COMPLETED" }), now)).toBe(false);
+    expect(isSpaOverdue(appt({ status: "NO_SHOW" }), now)).toBe(false);
+  });
+
+  it("reads the hotel clock, not UTC: 23:30 UTC is already the next day in Bangkok", () => {
+    expect(isSpaOverdue(appt({ date: "2026-10-04", startTime: "01:00" }), new Date("2026-10-03T23:30:00Z"))).toBe(true);
   });
 });

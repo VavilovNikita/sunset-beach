@@ -20,6 +20,10 @@ export default async function AdminSchedulePage({ searchParams }: { searchParams
 
   const entries = await backendJson<RosterEntry[]>(`/roster/me?year=${year}&month=${month}`, { auth: true });
   const byDate = new Map(entries.map((e) => [e.date, e]));
+  // A day with no entry is a day off - but only once the month has been rostered at all. A month
+  // with no entries whatsoever hasn't been scheduled yet (the roster is generated month by month),
+  // and calling every day of it "Day off" told staff they were free when nobody had planned it.
+  const notScheduledYet = entries.length === 0;
 
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => {
@@ -48,6 +52,12 @@ export default async function AdminSchedulePage({ searchParams }: { searchParams
           Next →
         </Link>
       </div>
+
+      {notScheduledYet && (
+        <p className="max-w-4xl mb-4 text-sm text-amber-400">
+          This month hasn&rsquo;t been scheduled yet — no shifts or days off are set. Check back once the roster is published.
+        </p>
+      )}
 
       <div className="max-w-4xl grid grid-cols-7 gap-1 sm:gap-2">
         {WEEKDAY_ABBR.map((w) => (
@@ -98,7 +108,7 @@ export default async function AdminSchedulePage({ searchParams }: { searchParams
                 )}
               </div>
             ) : (
-              <p className="mt-0.5 text-[10px] sm:text-xs text-cream/30">Day off</p>
+              <p className="mt-0.5 text-[10px] sm:text-xs text-cream/30">{notScheduledYet ? "—" : "Day off"}</p>
             )}
           </div>
         ))}

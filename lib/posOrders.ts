@@ -131,3 +131,10 @@ export function validateVoidReason(reason: string): string | null {
   if (trimmed.length > VOID_REASON_MAX) return `Keep the reason under ${VOID_REASON_MAX} characters.`;
   return null;
 }
+
+// What's on a table's tile: the running bill of its open orders, each order's own server-computed
+// total (never re-derived from lines here). Null for an empty table or a bill that's still ฿0.
+export function tableBillLabel(orders: { total: string }[]): string | null {
+  const sum = orders.reduce((acc, o) => acc + Number(o.total), 0);
+  return sum > 0 ? `฿${sum.toLocaleString("en-US")}` : null;
+}

@@ -35,18 +35,32 @@ export default function OrderMenuPicker({
   draft,
   menu,
   onAdded,
+  initialCategory,
+  onCategoryChange,
 }: {
   // null while the ticket is a draft - the first tap creates the order with that item.
   orderId: string | null;
   draft?: DraftOrderTarget;
   menu: MenuItem[];
   onAdded: (order: Order) => void;
+  // The tab to open on. The first item of a draft creates the order and moves to its own page -
+  // a fresh picker - so the draft reports its tab and the order page passes it back in; without
+  // that, the waiter was thrown back to the first category after every first item.
+  initialCategory?: string | null;
+  onCategoryChange?: (category: string | null) => void;
 }) {
   const available = useMemo(() => menu.filter((m) => m.isAvailable), [menu]);
   const spaItems = useMemo(() => available.filter((m) => m.department === "SPA"), [available]);
   const nonSpaItems = useMemo(() => available.filter((m) => m.department !== "SPA"), [available]);
   const categories = useMemo(() => Array.from(new Set(nonSpaItems.map((m) => m.category))).sort(), [nonSpaItems]);
-  const [category, setCategory] = useState<string | null>(categories[0] ?? (spaItems.length > 0 ? SPA_TAB : null));
+  const [category, setCategoryState] = useState<string | null>(() => {
+    if (initialCategory && (categories.includes(initialCategory) || (initialCategory === SPA_TAB && spaItems.length > 0))) return initialCategory;
+    return categories[0] ?? (spaItems.length > 0 ? SPA_TAB : null);
+  });
+  function setCategory(next: string | null) {
+    setCategoryState(next);
+    onCategoryChange?.(next);
+  }
   const [query, setQuery] = useState("");
   const [addingId, setAddingId] = useState<string | null>(null);
   const [noteDraftId, setNoteDraftId] = useState<string | null>(null);

@@ -14,6 +14,7 @@ import {
   longOpenLabel,
   orderNumberLabel,
   ticketTitle,
+  tableBillLabel,
 } from "@/lib/posOrders";
 import type { Order, Table, Zone } from "@/lib/posTypes";
 
@@ -164,6 +165,7 @@ export default function PosTableBoard({
                               {tableOrders.length} open
                             </span>
                           )}
+                          {tableBillLabel(tableOrders) && <span className="text-sm text-cream tabular-nums">{tableBillLabel(tableOrders)}</span>}
                           {!table.isActive && <span className="text-xs text-cream/40">Inactive</span>}
                           {stale && (
                             <span className="text-xs text-amber-400" suppressHydrationWarning>

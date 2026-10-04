@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { usePolling } from "@/lib/usePolling";
+import UnsettledOrdersNotice, { useUnsettledOrders } from "@/components/pos/UnsettledOrdersNotice";
 import StatCard from "@/components/admin/StatCard";
 import { isLongOpenShift, reconcileCash, shiftOpeningFacts } from "@/lib/shiftReconciliation";
 import { longOpenLabel } from "@/lib/posOrders";
@@ -111,6 +112,8 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
   }, []);
 
   usePolling(refetchCurrent, 20000, shift?.status === "OPEN");
+  const unsettled = useUnsettledOrders(adminRequest, shift?.status === "OPEN");
+  const closeBlocked = (unsettled?.length ?? 0) > 0;
 
   async function handleOpen(e: React.FormEvent) {
     e.preventDefault();
@@ -211,6 +214,10 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
         <StatCard label="Card" value={`฿${Number(shift.totals.card).toLocaleString("en-US")}`} />
         <StatCard label="Room charge" value={`฿${Number(shift.totals.roomCharge).toLocaleString("en-US")}`} />
         <StatCard label="Payments" value={String(shift.totals.paymentCount)} />
+        {/* Cash taken at reception against a booking's folio - in the drawer, so in expected cash. */}
+        {Number(shift.totals.folioCash ?? 0) > 0 && (
+          <StatCard label="Folio cash (reception)" value={`฿${Number(shift.totals.folioCash).toLocaleString("en-US")}`} />
+        )}
       </div>
 
       {/* /admin/pos/orders (like GET /shifts itself) is MANAGER+ - canExport already carries
@@ -249,7 +256,8 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
               className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral resize-none"
             />
           </div>
-          {blockedByOpenOrders && (
+          {unsettled && <UnsettledOrdersNotice orders={unsettled} orderHref={(id) => `/admin/pos/orders/${id}`} />}
+          {blockedByOpenOrders && !closeBlocked && (
             <p className="text-sm text-coral">
               Can&rsquo;t close — there are still open orders somewhere in the system, not just on this shift.{" "}
               <Link href="/admin/pos" className="underline underline-offset-4">
@@ -260,7 +268,7 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
           {error && <p className="text-sm text-coral">{error}</p>}
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || closeBlocked}
             className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-6 py-2.5 text-sm font-medium disabled:opacity-60"
           >
             {submitting ? "Closing…" : "Close shift"}

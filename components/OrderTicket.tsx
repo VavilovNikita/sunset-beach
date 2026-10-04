@@ -80,10 +80,12 @@ type TicketProps = Surface & {
 export default function OrderTicket({
   initialOrder,
   draft,
+  initialMenuCategory,
   ...props
-}: TicketProps & { initialOrder: Order | null; draft?: DraftOrderTarget }) {
+}: TicketProps & { initialOrder: Order | null; draft?: DraftOrderTarget; initialMenuCategory?: string | null }) {
   const router = useRouter();
   const [created, setCreated] = useState<Order | null>(initialOrder);
+  const [draftCategory, setDraftCategory] = useState<string | null>(null);
   if (!created) {
     return (
       <TicketLayout
@@ -94,16 +96,18 @@ export default function OrderTicket({
             orderId={null}
             draft={draft}
             menu={menuForOrder(props.menu, props.tableZone)}
+            onCategoryChange={setDraftCategory}
             onAdded={(order) => {
               setCreated(order);
-              router.replace(`${props.basePath}/orders/${order.id}`);
+              const keep = draftCategory ? `?category=${encodeURIComponent(draftCategory)}` : "";
+              router.replace(`${props.basePath}/orders/${order.id}${keep}`);
             }}
           />
         }
       />
     );
   }
-  return <LiveOrderTicket initialOrder={created} {...props} />;
+  return <LiveOrderTicket initialOrder={created} initialMenuCategory={draftCategory ?? initialMenuCategory} {...props} />;
 }
 
 // Three blocks so the phone keeps its top-to-bottom order (lines, then the menu, then Send and
@@ -159,7 +163,8 @@ function LiveOrderTicket({
   basePath,
   actor,
   back,
-}: TicketProps & { initialOrder: Order }) {
+  initialMenuCategory,
+}: TicketProps & { initialOrder: Order; initialMenuCategory?: string | null }) {
   const [order, setOrder] = useState(initialOrder);
   const [cashReceived, setCashReceived] = useState("");
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
@@ -741,7 +746,7 @@ function LiveOrderTicket({
     <TicketLayout
       withMenu={canAddItems}
       ticket={ticket}
-      menu={<OrderMenuPicker orderId={order.id} menu={menuForOrder(menu, tableZone)} onAdded={setOrder} />}
+      menu={<OrderMenuPicker orderId={order.id} menu={menuForOrder(menu, tableZone)} onAdded={setOrder} initialCategory={initialMenuCategory} />}
       actions={actions}
       bar={
         closable ? (

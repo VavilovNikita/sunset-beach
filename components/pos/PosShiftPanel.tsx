@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePolling } from "@/lib/usePolling";
+import { posRequest } from "@/lib/pos/posFetch";
+import UnsettledOrdersNotice, { useUnsettledOrders } from "@/components/pos/UnsettledOrdersNotice";
 import { fetchCurrentShift, fetchShift, openShift, closeShift } from "@/lib/pos/shiftsClient";
 import { isLongOpenShift, reconcileCash, shiftOpeningFacts } from "@/lib/shiftReconciliation";
 import { longOpenLabel } from "@/lib/posOrders";
@@ -122,6 +124,8 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
   }, []);
 
   usePolling(refetchCurrent, 20000, shift?.status === "OPEN");
+  const unsettled = useUnsettledOrders(posRequest, shift?.status === "OPEN");
+  const closeBlocked = (unsettled?.length ?? 0) > 0;
 
   async function handleOpen(e: React.FormEvent) {
     e.preventDefault();
@@ -209,6 +213,9 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
         <StatTile label="Card" value={`฿${Number(shift.totals.card).toLocaleString("en-US")}`} />
         <StatTile label="Room charge" value={`฿${Number(shift.totals.roomCharge).toLocaleString("en-US")}`} />
         <StatTile label="Payments" value={String(shift.totals.paymentCount)} />
+        {Number(shift.totals.folioCash ?? 0) > 0 && (
+          <StatTile label="Folio cash (reception)" value={`฿${Number(shift.totals.folioCash).toLocaleString("en-US")}`} />
+        )}
       </div>
 
       {/* Paid orders vanish from the live floor board (/pos only shows OPEN/SENT) - this is the
@@ -266,9 +273,11 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
                 className="w-full bg-ink2 border border-cream/20 rounded-xl px-4 py-3 text-cream text-base focus:outline-none focus:border-coral resize-none"
               />
             </div>
+            {unsettled && <UnsettledOrdersNotice orders={unsettled} orderHref={(id) => `/pos/orders/${id}`} />}
             <button
               type="submit"
-              className="w-full rounded-xl bg-coral active:bg-coraldeep transition-colors py-3.5 text-base font-medium"
+              disabled={closeBlocked}
+              className="w-full rounded-xl bg-coral active:bg-coraldeep transition-colors py-3.5 text-base font-medium disabled:opacity-50"
             >
               Review &amp; close
             </button>

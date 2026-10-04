@@ -24,7 +24,7 @@ export default async function AdminSpaMapPage() {
       <h1 className="font-display italic text-3xl mb-2">Spa table map</h1>
       <p className="text-xs text-cream/40 mb-6 max-w-2xl">
         Sea is free, dark is busy right now, dim is deactivated. Double-click a table (tap once on a touchscreen)
-        for its today.
+        to see its appointments today.
         {canManage && " Drag a table onto the plan (or back to the list) to place it, then save the layout."}
       </p>
 

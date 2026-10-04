@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isLongOpen, isSpaOrder, longOpenLabel, orderNumberLabel, orderRefLabel, ticketTitle, validateVoidReason } from "./posOrders";
+import { isLongOpen, isSpaOrder, longOpenLabel, orderNumberLabel, orderRefLabel, tableBillLabel, ticketTitle, validateVoidReason } from "./posOrders";
 
 const NOW = new Date("2026-10-03T12:00:00Z");
 
@@ -48,5 +48,15 @@ describe("validateVoidReason", () => {
     expect(validateVoidReason("no")).not.toBeNull();
     expect(validateVoidReason("Guest sent it back")).toBeNull();
     expect(validateVoidReason("x".repeat(501))).not.toBeNull();
+  });
+});
+
+describe("tableBillLabel", () => {
+  it("sums the open orders' own totals", () => {
+    expect(tableBillLabel([{ total: "450.00" }, { total: "1280.00" }])).toBe("฿1,730");
+  });
+  it("is null for an empty table or a ฿0 bill", () => {
+    expect(tableBillLabel([])).toBeNull();
+    expect(tableBillLabel([{ total: "0.00" }])).toBeNull();
   });
 });
