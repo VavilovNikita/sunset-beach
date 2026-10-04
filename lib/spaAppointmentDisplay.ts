@@ -66,3 +66,12 @@ export function isSpaOverdue(a: Pick<SpaAppointment, "status" | "date" | "startT
   if (current.date !== a.date) return current.date > a.date;
   return current.minutes >= endMinutes;
 }
+
+// A start time already behind the hotel's clock - booking it is allowed (recording a walk-in after
+// the fact is real), but it's usually a mis-click on the grid, so the create form asks first.
+export function isSpaStartInPast(date: string, startTime: string, now: Date): boolean {
+  const [h, m] = startTime.split(":").map(Number);
+  const current = hotelNow(now);
+  if (current.date !== date) return current.date > date;
+  return h * 60 + m < current.minutes;
+}

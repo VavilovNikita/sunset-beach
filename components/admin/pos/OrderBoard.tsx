@@ -14,7 +14,7 @@ import {
   isSpaOrder,
   longOpenLabel,
   orderNumberLabel,
-  ticketTitle,
+  ticketHeading,
   tableBillLabel,
 } from "@/lib/posOrders";
 import type { Order, Table, Zone } from "@/lib/posTypes";
@@ -271,7 +271,7 @@ export default function OrderBoard({
                 }`}
               >
                 <span className="text-cream min-w-0">
-                  {ticketTitle(order)} <span className="text-cream/40 text-sm">{orderNumberLabel(order)}</span>
+                  {ticketHeading(order)} <span className="text-cream/40 text-sm">{orderNumberLabel(order)}</span>
                   {isLongOpen(order, now) && (
                     <span className="block text-xs text-amber-400" suppressHydrationWarning>
                       {longOpenLabel(order.createdAt, now)} — forgotten?

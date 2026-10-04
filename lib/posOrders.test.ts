@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isLongOpen, isSpaOrder, longOpenLabel, orderNumberLabel, orderRefLabel, tableBillLabel, ticketTitle, validateVoidReason } from "./posOrders";
+import { isLongOpen, isSpaOrder, longOpenLabel, orderNumberLabel, orderRefLabel, tableBillLabel, ticketHeading, ticketTitle, validateVoidReason } from "./posOrders";
 
 const NOW = new Date("2026-10-03T12:00:00Z");
 
@@ -11,7 +11,10 @@ describe("order number labels", () => {
 
   it("names a table-less ticket by guest, else by number", () => {
     expect(ticketTitle({ number: 7, guestName: "Anna" })).toBe("Anna");
-    expect(ticketTitle({ number: 7, guestName: null })).toBe("Ticket #7");
+    expect(ticketTitle({ number: 7, guestName: null })).toBe("Order #7");
+    // Shown beside orderNumberLabel - never repeats the number.
+    expect(ticketHeading({ guestName: null })).toBe("Order");
+    expect(ticketHeading({ guestName: "Anna" })).toBe("Anna");
   });
 });
 

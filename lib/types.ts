@@ -764,6 +764,9 @@ export type CheckOutPreview = {
   currentRoomTotal: string;
   shortenedRoomTotal: string;
   outstandingBalance: string;
+  // Balance due if the stay is shortened without charging the released nights; charging them
+  // keeps the room total, so that choice's balance is outstandingBalance.
+  shortenedOutstandingBalance: string;
 };
 
 // One row of GET /bookings/today. Whether a room still needs assigning (booking.roomUnitId) or

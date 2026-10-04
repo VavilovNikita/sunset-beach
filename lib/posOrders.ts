@@ -92,9 +92,15 @@ export function orderRefLabel(order: { id: string }): string {
   return order.id.slice(0, 8).toUpperCase();
 }
 
-// What a ticket without a table is called in lists and headers.
+// What an order without a table is called on its own (a header, a history cell).
 export function ticketTitle(order: { number: number; guestName: string | null }): string {
-  return order.guestName ?? `Ticket ${orderNumberLabel(order)}`;
+  return order.guestName ?? `Order ${orderNumberLabel(order)}`;
+}
+
+// The same, for a spot that already prints orderNumberLabel right after it - so a guest-less
+// order reads "Order #15", never "Order #15 #15" (or the old "Ticket #15 · #15").
+export function ticketHeading(order: { guestName: string | null }): string {
+  return order.guestName ?? "Order";
 }
 
 // An OPEN/SENT order this old is almost always a forgotten table or a ticket nobody closed, not a

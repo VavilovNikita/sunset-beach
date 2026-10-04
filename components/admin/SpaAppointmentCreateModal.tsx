@@ -6,6 +6,7 @@ import { tableClash, therapistClash, therapistDay } from "@/lib/spaAvailability"
 import type { MenuItem, SpaAppointment, SpaTherapist } from "@/lib/posTypes";
 import type { Booking } from "@/lib/types";
 import { formatDate, formatDateRange } from "@/lib/formatDate";
+import { isSpaStartInPast } from "@/lib/spaAppointmentDisplay";
 
 // Opened from a click on a free grid cell (components/admin/SpaScheduleGrid.tsx) - date/tableId/
 // startTime arrive pre-filled and fixed; only the booking/therapist/treatment are picked here.
@@ -55,8 +56,12 @@ export default function SpaAppointmentCreateModal({
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  // Read once when the modal opens - the cell was clicked "now".
+  const [startsInPast] = useState(() => isSpaStartInPast(date, startTime, new Date()));
+  const [pastConfirmed, setPastConfirmed] = useState(false);
 
-  const canSubmit = bookingId && therapistUserId && treatmentMenuItemId && !selectedTherapistClash && !tableConflict;
+  const canSubmit =
+    bookingId && therapistUserId && treatmentMenuItemId && !selectedTherapistClash && !tableConflict && (!startsInPast || pastConfirmed);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -183,6 +188,16 @@ export default function SpaAppointmentCreateModal({
                 )
               )}
             </div>
+
+            {startsInPast && (
+              <label className="flex items-start gap-2 text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2 cursor-pointer">
+                <input type="checkbox" className="mt-1" checked={pastConfirmed} onChange={(e) => setPastConfirmed(e.target.checked)} />
+                <span>
+                  {formatDate(date)} {startTime} has already passed. Book it anyway (e.g. recording a treatment that already
+                  happened)?
+                </span>
+              </label>
+            )}
 
             {error && <p className="text-sm text-coral">{error}</p>}
 

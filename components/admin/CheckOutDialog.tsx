@@ -52,6 +52,9 @@ export default function CheckOutDialog({
   const canShorten = preview !== null && preview.early && preview.shortenable;
   const shortening = canShorten && shorten;
   const needsChoice = shortening && charge === null;
+  // Follows the choice live: "nights stayed only" drops the released nights from what's owed;
+  // "full stay" (or not shortening, or not choosing yet) is today's balance. Both from the server.
+  const balanceDue = preview && shortening && charge === "stayed" ? preview.shortenedOutstandingBalance : preview?.outstandingBalance;
 
   async function handleConfirm() {
     if (!preview) return;
@@ -84,9 +87,9 @@ export default function CheckOutDialog({
     >
       {preview && (
         <div className="space-y-3 text-sm text-cream/80">
-          {Number(preview.outstandingBalance) > 0 ? (
+          {Number(balanceDue) > 0 ? (
             <p>
-              Balance due now: <span className="text-coral font-medium">{baht(preview.outstandingBalance)}</span>
+              Balance due now: <span className="text-coral font-medium">{baht(balanceDue!)}</span>
             </p>
           ) : (
             <p className="text-cream/60">Nothing is owed right now.</p>

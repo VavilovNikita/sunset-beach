@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { getNights } from "@/lib/bookings";
@@ -180,13 +181,21 @@ export default function BookingCreateFromGridModal({
             </p>
             <p className="font-display italic text-3xl text-coral">฿{Number(created.totalPrice).toLocaleString("en-US")}</p>
             {created.guest && <p className="text-xs text-cream/50">Linked to guest card {created.guest.name}.</p>}
-            <button
-              type="button"
-              onClick={onCreated}
-              className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2.5 text-sm font-medium w-full"
-            >
-              Done
-            </button>
+            <div className="flex gap-3">
+              <Link
+                href={`/admin/bookings/${created.id}`}
+                className="flex-1 text-center rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2.5 text-sm font-medium"
+              >
+                Open booking
+              </Link>
+              <button
+                type="button"
+                onClick={onCreated}
+                className="flex-1 rounded-full border border-cream/25 hover:border-cream/50 transition-colors px-5 py-2.5 text-sm font-medium"
+              >
+                Done
+              </button>
+            </div>
           </div>
         ) : (
           <form onSubmit={submit} noValidate className="space-y-4">

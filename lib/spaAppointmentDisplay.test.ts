@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { billTreatmentsLabel, isSpaOverdue, spaBlockMark, spaBlockTitle } from "./spaAppointmentDisplay";
+import { billTreatmentsLabel, isSpaOverdue, isSpaStartInPast, spaBlockMark, spaBlockTitle } from "./spaAppointmentDisplay";
 import type { SpaAppointmentStatus } from "@/lib/posTypes";
 
 describe("billTreatmentsLabel", () => {
@@ -69,5 +69,25 @@ describe("isSpaOverdue", () => {
 
   it("reads the hotel clock, not UTC: 23:30 UTC is already the next day in Bangkok", () => {
     expect(isSpaOverdue(appt({ date: "2026-10-04", startTime: "01:00" }), new Date("2026-10-03T23:30:00Z"))).toBe(true);
+  });
+});
+
+describe("isSpaStartInPast", () => {
+  // 15:16 UTC = 22:16 in Bangkok - the case found: booking 10:30 at 22:16.
+  const NOW = new Date("2026-10-04T15:16:00Z");
+
+  it("flags an earlier time today and any earlier day", () => {
+    expect(isSpaStartInPast("2026-10-04", "10:30", NOW)).toBe(true);
+    expect(isSpaStartInPast("2026-10-03", "23:00", NOW)).toBe(true);
+  });
+
+  it("leaves a later time today and a later day alone", () => {
+    expect(isSpaStartInPast("2026-10-04", "22:30", NOW)).toBe(false);
+    expect(isSpaStartInPast("2026-10-05", "09:00", NOW)).toBe(false);
+  });
+
+  it("reads the hotel clock, not UTC", () => {
+    // 18:00 UTC is 01:00 the next day in Bangkok, so a 23:00 slot on the UTC date is already over.
+    expect(isSpaStartInPast("2026-10-04", "23:00", new Date("2026-10-04T18:00:00Z"))).toBe(true);
   });
 });

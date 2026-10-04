@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePolling } from "@/lib/usePolling";
-import { orderNumberLabel, ticketTitle } from "@/lib/posOrders";
+import { orderNumberLabel } from "@/lib/posOrders";
 import type { Order } from "@/lib/posTypes";
 
 type Requester = <T>(path: string, init: RequestInit | undefined, fallbackError: string) => Promise<{ ok: true; data: T } | { ok: false }>;
@@ -43,7 +43,8 @@ export default function UnsettledOrdersNotice({ orders, orderHref }: { orders: O
         {orders.slice(0, 8).map((o) => (
           <li key={o.id}>
             <Link href={orderHref(o.id)} className="underline underline-offset-4">
-              {ticketTitle(o)} · {orderNumberLabel(o)}
+              Order {orderNumberLabel(o)}
+              {o.guestName ? ` · ${o.guestName}` : ""}
             </Link>
           </li>
         ))}

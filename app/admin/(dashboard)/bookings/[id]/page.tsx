@@ -168,6 +168,10 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             canListUnits={canListUnits}
           />
           <BookingStatusForm
+            // The form seeds its fields from these props once. A folio payment (or check-out)
+            // elsewhere on this page changes them through router.refresh() - e.g. NEW -> PAID -
+            // and without remounting, the dropdown kept showing the old status until a reload.
+            key={[booking.status, booking.paymentNote, booking.channel, booking.purpose, booking.adults, booking.children].join("|")}
             bookingId={booking.id}
             guestName={booking.guestName}
             currentStatus={booking.status}
