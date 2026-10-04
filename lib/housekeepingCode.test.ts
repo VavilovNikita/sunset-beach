@@ -39,10 +39,19 @@ describe("resolveHousekeepingStatus", () => {
     expect(status?.arrivingToday).toBe(true);
   });
 
-  it("flags a checked-in guest due out today, or overdue", () => {
+  it("says due out today only on the departure date itself", () => {
     expect(resolveHousekeepingStatus("CLEAN", unit({ currentBooking: booking("CHECKED_IN", TODAY) }), TODAY)?.departingToday).toBe(true);
-    expect(resolveHousekeepingStatus("CLEAN", unit({ currentBooking: booking("CHECKED_IN", "2033-05-08") }), TODAY)?.departingToday).toBe(true);
     expect(resolveHousekeepingStatus("CLEAN", unit({ currentBooking: booking("CHECKED_IN") }), TODAY)?.departingToday).toBe(false);
+  });
+
+  it("flags a guest past their departure date as overdue, not due out today", () => {
+    const status = resolveHousekeepingStatus(
+      "CLEAN",
+      unit({ currentBooking: { ...booking("CHECKED_IN", "2033-05-08"), overdueDays: 2 } }),
+      TODAY,
+    );
+    expect(status?.departingToday).toBe(false);
+    expect(status?.overdueDays).toBe(2);
   });
 
   it("flags a blocked room as out of order without changing its code", () => {

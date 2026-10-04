@@ -19,7 +19,10 @@ export type HousekeepingRoomStatus = {
   code: HousekeepingCode;
   occupied: boolean;
   arrivingToday: boolean;
+  // Due out today exactly, never once the date has passed - that's overdueDays instead.
   departingToday: boolean;
+  // Server-computed (OverstayRule); 0 unless still checked in after checkOut.
+  overdueDays: number;
   outOfOrder: boolean;
 };
 
@@ -39,7 +42,8 @@ export function resolveHousekeepingStatus(
     code,
     occupied,
     arrivingToday: booking !== null && booking.occupancyStatus === "EXPECTED",
-    departingToday: occupied && booking !== null && booking.checkOut <= today,
+    departingToday: occupied && booking !== null && booking.checkOut === today,
+    overdueDays: occupied && booking !== null ? booking.overdueDays ?? 0 : 0,
     outOfOrder: occupancy.activeBlock !== null,
   };
 }

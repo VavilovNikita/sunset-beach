@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
-import { orderNumberLabel, ticketTitle } from "@/lib/posOrders";
+import { ticketTitle } from "@/lib/posOrders";
 import { orderBackLink } from "@/lib/posOrderBack";
 import OrderTicket from "@/components/OrderTicket";
 import type { Order, MenuItem, Table } from "@/lib/posTypes";
@@ -32,7 +32,8 @@ export default async function PosOrderPage({ params }: { params: { id: string } 
     <div>
       <div className="px-4 pt-4">
         <h1 className="font-display italic text-2xl">
-          {table ? table.label : ticketTitle(order)} <span className="text-base not-italic text-cream/50">{orderNumberLabel(order)}</span>
+          {/* The number is on the ticket's own "Order #N ref …" line just below - same as the till. */}
+          {table ? table.label : ticketTitle(order)}
         </h1>
       </div>
       <div className="p-4">

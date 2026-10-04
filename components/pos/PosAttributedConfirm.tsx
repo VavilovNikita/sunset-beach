@@ -32,6 +32,7 @@ export default function PosAttributedConfirm({
   busy,
   error,
   confirmDisabled = false,
+  confirmDisabledReason,
   children,
 }: {
   title: string;
@@ -49,6 +50,8 @@ export default function PosAttributedConfirm({
   error?: string | null;
   // Extra input the action needs before it can be confirmed (the cash close's amount received).
   confirmDisabled?: boolean;
+  // Why it's disabled, as the button's tooltip - the children should also say it in-line.
+  confirmDisabledReason?: string;
   children?: React.ReactNode;
 }) {
   return (
@@ -72,6 +75,7 @@ export default function PosAttributedConfirm({
           type="button"
           onClick={onConfirm}
           disabled={busy || confirmDisabled}
+          title={confirmDisabled && !busy ? confirmDisabledReason : undefined}
           className="flex-1 rounded-xl bg-coral hover:bg-coraldeep active:bg-coraldeep transition-colors py-3.5 text-sm font-medium disabled:opacity-60"
         >
           {busy ? "…" : confirmLabel}

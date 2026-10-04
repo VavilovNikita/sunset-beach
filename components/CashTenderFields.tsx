@@ -27,17 +27,27 @@ export default function CashTenderFields({
         autoFocus
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={Number(total).toLocaleString("en-US")}
-        className={inputClassName}
+        // The total as a hint, styled so it can't pass for an amount already typed in.
+        placeholder={`at least ${Number(total).toLocaleString("en-US")}`}
+        className={`${inputClassName} placeholder:text-cream/25 placeholder:italic`}
       />
       {tender.ok ? (
         <p className="text-sm text-cream">
           Change to give: <span className="font-display italic text-xl text-coral">฿{Number(tender.change).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
         </p>
       ) : tender.reason === "insufficient" ? (
-        <p className="text-sm text-amber-400">฿{Number(tender.short).toLocaleString("en-US", { maximumFractionDigits: 2 })} short of the total.</p>
+        <p className="text-sm text-amber-400">
+          ฿{Number(tender.short).toLocaleString("en-US", { maximumFractionDigits: 2 })} short of the total — the cash received must cover it to close.
+        </p>
       ) : (
-        value.trim() !== "" && <p className="text-sm text-amber-400">Enter an amount like 500 or 500.50.</p>
+        value.trim() !== "" ? (
+          <p className="text-sm text-amber-400">Enter an amount like 500 or 500.50.</p>
+        ) : (
+          // Says why the close button is still disabled, before anyone wonders.
+          <p className="text-sm text-cream/50">
+            Enter the cash received — at least ฿{Number(total).toLocaleString("en-US", { maximumFractionDigits: 2 })} — to close the order.
+          </p>
+        )
       )}
     </div>
   );

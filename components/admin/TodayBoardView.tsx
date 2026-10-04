@@ -29,6 +29,16 @@ export default function TodayBoardView({ initialBoard }: { initialBoard: TodayBo
     router.refresh();
   }
 
+  // Each guest appears once. The API's departingToday also carries overdue guests and inHouse is
+  // every CHECKED_IN guest, so taken as-is a departure showed twice, each with its own Check out.
+  // "Departing today" is the departure date itself; an overdue guest is in the house (OverstayRule)
+  // and sits under In-house, first, with the overdue flag on the row.
+  const departing = initialBoard.departingToday.filter((e) => !e.overdueDays);
+  const departingIds = new Set(departing.map((e) => e.booking.id));
+  const inHouse = initialBoard.inHouse
+    .filter((e) => !departingIds.has(e.booking.id))
+    .sort((a, b) => (b.overdueDays ?? 0) - (a.overdueDays ?? 0));
+
   return (
     <div className="space-y-10">
       <Section
@@ -38,16 +48,8 @@ export default function TodayBoardView({ initialBoard }: { initialBoard: TodayBo
         onDone={refresh}
         empty="No arrivals today."
       />
-      {/* Includes guests who should have left on an earlier day and were never checked out -
-          they're still due out (the backend's OverstayRule), flagged per row below. */}
-      <Section
-        title="Departing today"
-        entries={initialBoard.departingToday}
-        action="checkout"
-        onDone={refresh}
-        empty="No departures today."
-      />
-      <Section title="In-house" entries={initialBoard.inHouse} action="checkout" onDone={refresh} empty="No one is currently checked in." />
+      <Section title="Departing today" entries={departing} action="checkout" onDone={refresh} empty="No departures today." />
+      <Section title="In-house" entries={inHouse} action="checkout" onDone={refresh} empty="No one else is checked in." />
     </div>
   );
 }

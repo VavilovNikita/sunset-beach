@@ -606,6 +606,7 @@ function LiveOrderTicket({
               busy={closingMethod !== null}
               error={error}
               confirmDisabled={confirmingMethod === "CASH" && !cash.ok}
+              confirmDisabledReason="Enter cash received at least as large as the total"
               onConfirm={() => handleClose(confirmingMethod)}
               onCancel={() => {
                 setConfirmingMethod(null);

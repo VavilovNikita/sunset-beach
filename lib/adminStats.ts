@@ -3,6 +3,7 @@ import { BackendError } from "@/lib/backend";
 import { addDaysUTC, dateOnlyUTC, startOfMonthUTC, endOfMonthUTC, toDateKey } from "@/lib/bookings";
 import type { Booking, Room } from "@/lib/types";
 import type { PaymentsSummary } from "@/lib/posTypes";
+import { overdueDaysFor } from "@/lib/overstay";
 
 const OCCUPANCY_WINDOW_DAYS = 30;
 
@@ -85,6 +86,11 @@ export function computeRoomStats(
       const end = checkOut < occupancyWindowEnd ? checkOut : occupancyWindowEnd;
       bookedNights += Math.max(0, Math.round((end.getTime() - start.getTime()) / 86_400_000));
     }
+
+    // A guest still checked in past checkOut holds their room tonight (the backend's OverstayRule,
+    // same rule the manager report and In house count). Their agreed dates end before today, so
+    // the window above gave them nothing - tonight is the one overstay night inside it.
+    if (overdueDaysFor(b, toDateKey(todayStart)) > 0) bookedNights += 1;
   }
 
   // Each Room row is a room *type*; activeUnitCount is how many physical

@@ -130,6 +130,21 @@ describe("computeRoomStats", () => {
     expect(stats.occupancyPct).toBe(0);
   });
 
+  it("counts tonight for a guest still checked in past their checkOut (overstay)", () => {
+    const stats = computeRoomStats(NOW, [room({ activeUnitCount: 1 })], [
+      booking({ checkIn: "2026-06-01", checkOut: "2026-06-05", occupancyStatus: "CHECKED_IN" }),
+    ]);
+    // 1 overstay night (tonight, 06-15) out of 1 unit * 30 = 30 -> 3%
+    expect(stats.occupancyPct).toBe(3);
+  });
+
+  it("counts a guest due out today only through the agreed dates, not as an overstay", () => {
+    const stats = computeRoomStats(NOW, [room({ activeUnitCount: 1 })], [
+      booking({ checkIn: "2026-06-10", checkOut: "2026-06-15", occupancyStatus: "CHECKED_IN" }),
+    ]);
+    expect(stats.occupancyPct).toBe(0);
+  });
+
   it("clips a stay that started before today to only count nights from today onward", () => {
     // Checked in 5 days ago, checks out in 3 days: only the remaining 3 nights (today + 2) fall
     // inside the occupancy window, not all 8.

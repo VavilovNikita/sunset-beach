@@ -9,6 +9,7 @@ import {
   type HousekeepingCode,
   type HousekeepingRoomStatus,
 } from "@/lib/housekeepingCode";
+import { overdueLabel } from "@/lib/overstay";
 import type { PropertyMapUnit, Room, RoomUnit } from "@/lib/types";
 
 // Every physical room's cleaning state, grouped by room type - independent of RoomUnitManager
@@ -134,6 +135,9 @@ function UnitRow({ unit, status }: { unit: RoomUnit; status: HousekeepingRoomSta
           </span>
         )}
         {status?.departingToday && <span className="text-xs text-amber-400">Due out today</span>}
+        {status && overdueLabel(status.overdueDays) && (
+          <span className="text-xs text-coral">Overdue · {overdueLabel(status.overdueDays)}</span>
+        )}
         {status?.arrivingToday && <span className="text-xs text-amber-400">Arriving today</span>}
         {status?.outOfOrder && <span className="text-xs text-coral">Out of order</span>}
       </div>
