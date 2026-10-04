@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { checkInBooking, checkOutBooking } from "@/lib/bookingOccupancyClient";
+import CheckOutDialog from "@/components/admin/CheckOutDialog";
+import { checkInBooking } from "@/lib/bookingOccupancyClient";
+import type { CheckOutResult } from "@/lib/types";
 import { overdueLabel } from "@/lib/overstay";
 import { updateRoomUnitHousekeeping } from "@/lib/roomUnitHousekeepingClient";
 import type { PropertyMapUnit } from "@/lib/types";
@@ -25,6 +27,7 @@ export default function PropertyMapUnitPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [checkingOut, setCheckingOut] = useState(false);
 
   const booking = unit.currentBooking;
   const isCheckedIn = booking?.occupancyStatus === "CHECKED_IN";
@@ -49,18 +52,11 @@ export default function PropertyMapUnitPanel({
     onSaved();
   }
 
-  async function handleCheckOut() {
-    if (!booking) return;
-    setBusy(true);
+  function handleCheckedOut(result: CheckOutResult) {
+    setCheckingOut(false);
     setError(null);
     setWarning(null);
-    const result = await checkOutBooking(booking.bookingId);
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    const stillOwed = Number(result.result.outstandingBalance);
+    const stillOwed = Number(result.outstandingBalance);
     if (stillOwed > 0) {
       setWarning(`฿${stillOwed.toLocaleString("en-US")} still owed — collect before the guest leaves.`);
       return;
@@ -184,7 +180,7 @@ export default function PropertyMapUnitPanel({
             {isCheckedIn && (
               <button
                 type="button"
-                onClick={handleCheckOut}
+                onClick={() => setCheckingOut(true)}
                 disabled={busy}
                 className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-4 py-2 text-sm font-medium disabled:opacity-50"
               >
@@ -202,6 +198,15 @@ export default function PropertyMapUnitPanel({
           </div>
         </div>
       </div>
+      {checkingOut && booking && (
+        <CheckOutDialog
+          bookingId={booking.bookingId}
+          guestName={booking.guestName}
+          checkOut={booking.checkOut}
+          onBack={() => setCheckingOut(false)}
+          onDone={handleCheckedOut}
+        />
+      )}
     </div>
   );
 }

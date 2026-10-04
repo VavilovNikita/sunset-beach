@@ -162,17 +162,23 @@ export default function BookingCardPanel({
               {folio ? (
                 <div className="bg-ink border border-cream/10 rounded-xl p-4 text-sm space-y-1">
                   <div className="flex items-center justify-between text-cream/60">
-                    <span>Room</span>
-                    <span>฿{Number(folio.roomTotal).toLocaleString("en-US")}</span>
+                    <span>Room{Number(folio.earlyDepartureFee) > 0 ? " + early departure" : ""}</span>
+                    <span>฿{(Number(folio.roomTotal) + Number(folio.earlyDepartureFee)).toLocaleString("en-US")}</span>
                   </div>
                   <div className="flex items-center justify-between text-cream/60">
-                    <span>Room charges ({folio.roomChargeCount})</span>
-                    <span>฿{Number(folio.roomChargesTotal).toLocaleString("en-US")}</span>
+                    <span>POS room charges ({folio.roomChargeCount})</span>
+                    <span>฿{Number(folio.roomChargesGross).toLocaleString("en-US")}</span>
                   </div>
+                  {Number(folio.paidTotal) + Number(folio.settledOutside) > 0 && (
+                    <div className="flex items-center justify-between text-cream/60">
+                      <span>Paid</span>
+                      <span>−฿{(Number(folio.paidTotal) + Number(folio.settledOutside)).toLocaleString("en-US")}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between pt-2 mt-2 border-t border-cream/10">
-                    <span className="font-display italic text-cream">Total due</span>
-                    <span className="font-display italic text-2xl text-coral">
-                      ฿{Number(folio.folioTotal).toLocaleString("en-US")}
+                    <span className="font-display italic text-cream">Balance due</span>
+                    <span className={`font-display italic text-2xl ${Number(folio.balanceDue) > 0 ? "text-coral" : "text-sea"}`}>
+                      ฿{Number(folio.balanceDue).toLocaleString("en-US")}
                     </span>
                   </div>
                 </div>
@@ -318,10 +324,12 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
           ))}
         </select>
       </div>
-      {status === "PAID" && folio && Number(folio.roomChargesTotal) > 0 && (
+      {status === "PAID" && booking.status !== "PAID" && folio && Number(folio.balanceDue) > 0 && (
         <p className="text-xs text-coral bg-coral/10 border border-coral/30 rounded-lg px-3 py-2">
-          Total due including room charges is ฿{Number(folio.folioTotal).toLocaleString("en-US")} — confirm that&rsquo;s
-          what was collected.
+          Paid means the room was collected outside the folio (OTA, bank transfer). Money taken at the desk goes in the booking&rsquo;s
+          folio, which turns it Paid by itself.
+          {Number(folio.roomChargesTotal) > 0 &&
+            ` POS room charges of ฿${Number(folio.roomChargesTotal).toLocaleString("en-US")} stay owed either way.`}
         </p>
       )}
       <div>

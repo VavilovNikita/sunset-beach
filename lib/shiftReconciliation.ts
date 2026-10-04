@@ -2,7 +2,7 @@ import type { ShiftSummary } from "@/lib/posTypes";
 import { formatTimestamp } from "@/lib/formatDate";
 
 // expectedCash/discrepancy are never returned by the API - the backend computes the same
-// arithmetic (openingFloat + cash payments, counted - expected) three separate times
+// arithmetic (openingFloat + POS cash + folio cash taken at reception, counted - expected) several times
 // (SHIFT_CLOSED audit summary, the printed Z-report, the CSV export - see ShiftService) but
 // never puts it on the Shift/ShiftSummary response itself, so the one thing shift close is
 // actually FOR (does the drawer match) was only ever visible after the fact, in the audit log.
@@ -20,7 +20,7 @@ import { formatTimestamp } from "@/lib/formatDate";
 export type ReconciledCash = { expectedCash: number; counted: number | null; discrepancy: number | null };
 
 export function reconcileCash(shift: ShiftSummary, countedInput: string): ReconciledCash {
-  const expectedCash = Number(shift.openingCashFloat ?? 0) + Number(shift.totals.cash);
+  const expectedCash = Number(shift.openingCashFloat ?? 0) + Number(shift.totals.cash) + Number(shift.totals.folioCash ?? 0);
   const counted = shift.closingCashCounted != null ? Number(shift.closingCashCounted) : countedInput ? Number(countedInput) : null;
   const discrepancy = counted !== null ? counted - expectedCash : null;
   return { expectedCash, counted, discrepancy };

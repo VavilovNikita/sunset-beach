@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { checkInBooking, checkOutBooking, markBookingNoShow } from "@/lib/bookingOccupancyClient";
+import CheckOutDialog from "@/components/admin/CheckOutDialog";
+import { checkInBooking, markBookingNoShow } from "@/lib/bookingOccupancyClient";
 import { hotelDateKey } from "@/lib/hotelDate";
 import { overdueDaysFor, overdueLabel } from "@/lib/overstay";
 import type { Booking } from "@/lib/types";
@@ -22,9 +23,15 @@ const OCCUPANCY_LABELS: Record<Booking["occupancyStatus"], string> = {
 // backend's OverstayRule) all have a working path from here. Nothing here moves dates or money:
 // a no-show stays a label (cancel or shorten the booking separately to release nights), and an
 // overdue guest who is really still staying gets their stay extended with the schedule form
-// below, which prices the extra nights.
-export default function BookingOccupancyPanel({ booking }: { booking: Booking }) {
+// below, which prices the extra nights. Check-out goes through CheckOutDialog, which is where an
+// early departure can shorten the stay.
+//
+// balanceDue is the folio's own figure (null when the folio didn't load), shown for as long as it
+// is above zero - not a one-off message after check-out, which used to vanish after a partial
+// payment while money was still owed.
+export default function BookingOccupancyPanel({ booking, balanceDue }: { booking: Booking; balanceDue: string | null }) {
   const router = useRouter();
+  const [checkingOut, setCheckingOut] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; tone: "warning" | "error" } | null>(null);
 
@@ -62,20 +69,12 @@ export default function BookingOccupancyPanel({ booking }: { booking: Booking })
     });
   }
 
-  function handleCheckOut() {
-    if (overdue && !window.confirm(`Check ${booking.guestName} out now? They were due out on ${formatDate(booking.checkOut)}.`)) return;
-    return run(async () => {
-      const result = await checkOutBooking(booking.id);
-      if (!result.ok) return result;
-      const stillOwed = Number(result.result.outstandingBalance);
-      return { ok: true, warning: stillOwed > 0 ? `฿${stillOwed.toLocaleString("en-US")} still owed — collect it.` : null };
-    });
-  }
 
   const canCheckIn = !cancelled && arrivalDue && (occupancy === "EXPECTED" || occupancy === "NO_SHOW");
   const canMarkNoShow = !cancelled && arrivalDue && occupancy === "EXPECTED";
   const canCheckOut = occupancy === "CHECKED_IN";
   const needsRoom = booking.roomUnitId === null;
+  const owed = balanceDue !== null && Number(balanceDue) > 0;
 
   return (
     <div className="bg-ink2/40 border border-cream/10 rounded-xl p-4 space-y-3">
@@ -83,6 +82,12 @@ export default function BookingOccupancyPanel({ booking }: { booking: Booking })
         <p className="eyebrow text-cream/50">Stay</p>
         <span className="text-sm text-cream/80">{OCCUPANCY_LABELS[occupancy]}</span>
       </div>
+
+      {owed && (
+        <p className="text-sm text-coral">
+          Balance due: ฿{Number(balanceDue).toLocaleString("en-US")} — collect it in the folio below.
+        </p>
+      )}
 
       {overdue && (
         <p className="text-sm text-coral">
@@ -120,7 +125,7 @@ export default function BookingOccupancyPanel({ booking }: { booking: Booking })
           {canCheckOut && (
             <button
               type="button"
-              onClick={handleCheckOut}
+              onClick={() => setCheckingOut(true)}
               disabled={busy}
               className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-4 py-2 text-sm font-medium disabled:opacity-50"
             >
@@ -132,6 +137,19 @@ export default function BookingOccupancyPanel({ booking }: { booking: Booking })
       {canCheckIn && needsRoom && <p className="text-xs text-amber-400">Assign a room below before checking in.</p>}
 
       {message && <p className={`text-xs ${message.tone === "error" ? "text-coral" : "text-amber-400"}`}>{message.text}</p>}
+
+      {checkingOut && (
+        <CheckOutDialog
+          bookingId={booking.id}
+          guestName={booking.guestName}
+          checkOut={booking.checkOut}
+          onBack={() => setCheckingOut(false)}
+          onDone={() => {
+            setCheckingOut(false);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

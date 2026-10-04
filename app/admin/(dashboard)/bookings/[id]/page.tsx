@@ -69,7 +69,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
     folioFailed = true;
   }
 
-  // Only fetched when the folio itself loaded - without a known roomChargesTotal there's no safe
+  // Only fetched when the folio itself loaded - without a known balanceDue there's no safe
   // "amount owed" to cap a new payment at, so FolioPaymentPanel isn't rendered either way.
   const folioPayments = folio
     ? await backendJson<FolioPayment[]>(`/bookings/${params.id}/folio-payments`, { auth: true }).catch(() => [])
@@ -138,6 +138,12 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
           </p>
           <p>
             <span className="text-cream/40">Total:</span> ฿{Number(booking.totalPrice).toLocaleString("en-US")}
+            {Number(booking.earlyDepartureFee ?? 0) > 0 && (
+              <span className="text-cream/40">
+                {" "}
+                + ฿{Number(booking.earlyDepartureFee).toLocaleString("en-US")} early departure
+              </span>
+            )}
           </p>
           <p>
             <span className="text-cream/40">Booked on:</span> {formatTimestampDate(booking.createdAt)}
@@ -154,7 +160,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
         </div>
 
         <div className="space-y-6">
-          <BookingOccupancyPanel booking={booking} />
+          <BookingOccupancyPanel booking={booking} balanceDue={folio ? folio.balanceDue : null} />
           <BookingScheduleForm
             booking={booking}
             units={assignableUnits}
@@ -189,24 +195,37 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
         folio && (
           <div className="mt-10 pt-10 border-t border-cream/10">
             <p className="eyebrow text-cream/50 mb-3">Folio</p>
+            {/* Every figure is the server's (BookingFolio) - charged, collected, and the one balance
+                that check-out, the Today board and the Stay panel above all show. Nothing is summed
+                here: "Total due" used to be room + charges regardless of what was paid or of PAID,
+                so it disagreed with the "still owed" warning and the desk couldn't tell what to collect. */}
             <div className="bg-ink2/40 border border-cream/10 rounded-xl p-6">
               <div className="space-y-1 text-sm text-cream/60">
-                <div className="flex items-center justify-between">
-                  <span>Room</span>
-                  <span>฿{Number(folio.roomTotal).toLocaleString("en-US")}</span>
+                <FolioLine label={booking.status === "CANCELLED" ? "Room (cancelled — not charged)" : "Room"} amount={folio.roomTotal} />
+                {Number(folio.earlyDepartureFee) > 0 && <FolioLine label="Early departure (unused nights)" amount={folio.earlyDepartureFee} />}
+                <FolioLine label={`POS room charges (${folio.roomChargeCount})`} amount={folio.roomChargesGross} />
+                <div className="flex items-center justify-between pt-1 text-cream/80">
+                  <span>Total charged</span>
+                  <span>฿{Number(folio.folioTotal).toLocaleString("en-US")}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>Room charges ({folio.roomChargeCount})</span>
-                  <span>฿{Number(folio.roomChargesTotal).toLocaleString("en-US")}</span>
-                </div>
+                {Number(folio.paidTotal) > 0 && <FolioLine label="Paid at the desk" amount={folio.paidTotal} negative />}
+                {Number(folio.settledOutside) > 0 && (
+                  <FolioLine label="Room settled outside (marked Paid)" amount={folio.settledOutside} negative />
+                )}
               </div>
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-cream/10">
-                <span className="font-display italic text-lg text-cream">Total due</span>
-                <span className="font-display italic text-4xl text-coral">
-                  ฿{Number(folio.folioTotal).toLocaleString("en-US")}
+                <span className="font-display italic text-lg text-cream">Balance due</span>
+                <span className={`font-display italic text-4xl ${Number(folio.balanceDue) > 0 ? "text-coral" : "text-sea"}`}>
+                  ฿{Number(folio.balanceDue).toLocaleString("en-US")}
                 </span>
               </div>
-              <FolioPaymentPanel bookingId={booking.id} outstanding={folio.roomChargesTotal} payments={folioPayments} />
+              {Number(folio.creditBalance) > 0 && (
+                <p className="mt-2 text-sm text-amber-400">
+                  ฿{Number(folio.creditBalance).toLocaleString("en-US")} was collected beyond what&rsquo;s charged (the stay got
+                  shorter after it was paid). There&rsquo;s no refund record in the system — settle it with the guest and note it.
+                </p>
+              )}
+              <FolioPaymentPanel bookingId={booking.id} outstanding={folio.balanceDue} payments={folioPayments} />
             </div>
           </div>
         )
@@ -257,6 +276,17 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function FolioLine({ label, amount, negative = false }: { label: string; amount: string; negative?: boolean }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span>{label}</span>
+      <span>
+        {negative ? "−" : ""}฿{Number(amount).toLocaleString("en-US")}
+      </span>
     </div>
   );
 }

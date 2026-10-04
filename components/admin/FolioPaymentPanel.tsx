@@ -8,12 +8,11 @@ import { formatTimestamp } from "@/lib/formatDate";
 
 const METHODS: FolioPaymentMethod[] = ["CASH", "CARD", "OTHER"];
 
-// Settles a booking's outstanding POS room charges — the only way roomChargesTotal (and the
-// checkout warning / RoomChargeDebtBadge that read it) ever goes back down. See
-// lib/folioPaymentClient.ts and openapi.yaml's /bookings/{id}/folio-payments for why this is a
-// standalone record rather than folded into the PAID status flip: a guest can settle the room
-// charges without the room stay being PAID yet, or vice versa, and they're tracked separately on
-// purpose. This page already gates on CASHIER+ before rendering at all, so there's no additional
+// Takes money against a booking's folio - room, early-departure charge and POS room charges alike,
+// up to the folio's balanceDue (`outstanding`). Payments go to POS charges first, then the room;
+// once the room is covered the backend marks the booking PAID itself, so the desk never has to
+// flip the status by hand after collecting. Cash recorded here counts in the recorder's open cash
+// shift. This page already gates on CASHIER+ before rendering at all, so there's no additional
 // role check here.
 export default function FolioPaymentPanel({
   bookingId,

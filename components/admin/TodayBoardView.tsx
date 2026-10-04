@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { checkInBooking, checkOutBooking, markBookingNoShow } from "@/lib/bookingOccupancyClient";
+import CheckOutDialog from "@/components/admin/CheckOutDialog";
+import { checkInBooking, markBookingNoShow } from "@/lib/bookingOccupancyClient";
+import type { CheckOutResult } from "@/lib/types";
 import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
 import { overdueLabel } from "@/lib/overstay";
 import type { TodayBoard, TodayBoardEntry } from "@/lib/types";
@@ -88,6 +90,7 @@ function Section({
 function TodayRow({ entry, action, onDone }: { entry: TodayBoardEntry; action: "checkin" | "checkout"; onDone: () => void }) {
   const { booking, outstandingBalance } = entry;
   const [busy, setBusy] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
   const [message, setMessage] = useState<{ text: string; tone: "warning" | "error"; holdsRefresh: boolean } | null>(null);
 
   const needsRoom = booking.roomUnitId === null;
@@ -111,16 +114,10 @@ function TodayRow({ entry, action, onDone }: { entry: TodayBoardEntry; action: "
     onDone();
   }
 
-  async function handleCheckOut() {
-    setBusy(true);
+  function handleCheckedOut(result: CheckOutResult) {
+    setCheckingOut(false);
     setMessage(null);
-    const result = await checkOutBooking(booking.id);
-    setBusy(false);
-    if (!result.ok) {
-      setMessage({ text: result.error, tone: "error", holdsRefresh: false });
-      return;
-    }
-    const stillOwed = Number(result.result.outstandingBalance);
+    const stillOwed = Number(result.outstandingBalance);
     if (stillOwed > 0) {
       setMessage({
         text: `฿${stillOwed.toLocaleString("en-US")} still owed — collect before the guest leaves.`,
@@ -215,7 +212,7 @@ function TodayRow({ entry, action, onDone }: { entry: TodayBoardEntry; action: "
         {action === "checkout" && (
           <button
             type="button"
-            onClick={handleCheckOut}
+            onClick={() => setCheckingOut(true)}
             disabled={busy}
             className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-4 py-2 text-sm font-medium disabled:opacity-50"
           >
@@ -223,6 +220,15 @@ function TodayRow({ entry, action, onDone }: { entry: TodayBoardEntry; action: "
           </button>
         )}
       </div>
+      {checkingOut && (
+        <CheckOutDialog
+          bookingId={booking.id}
+          guestName={booking.guestName}
+          checkOut={booking.checkOut}
+          onBack={() => setCheckingOut(false)}
+          onDone={handleCheckedOut}
+        />
+      )}
     </div>
   );
 }

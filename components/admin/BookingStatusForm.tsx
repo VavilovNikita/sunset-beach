@@ -127,12 +127,15 @@ export default function BookingStatusForm({
         </select>
       </div>
 
-      {status === "PAID" && folio && Number(folio.roomChargesTotal) > 0 && (
+      {/* Setting PAID by hand means "the room was collected outside the folio" (OTA, bank
+          transfer) - the folio then stops counting it. Money taken at the desk goes through the
+          folio form, which sets PAID by itself once the room is covered. */}
+      {status === "PAID" && currentStatus !== "PAID" && folio && Number(folio.balanceDue) > 0 && (
         <p className="text-sm text-coral bg-coral/10 border border-coral/30 rounded-lg px-3 py-2">
-          This booking has {folio.roomChargeCount} POS room charge{folio.roomChargeCount === 1 ? "" : "s"} totaling ฿
-          {Number(folio.roomChargesTotal).toLocaleString("en-US")}. Total due including the room is ฿
-          {Number(folio.folioTotal).toLocaleString("en-US")} — make sure that&rsquo;s what was collected, not just
-          the room total.
+          Paid means the room was collected outside the folio (OTA, bank transfer). If the guest is paying at the desk, record it
+          in the folio below instead — the booking turns Paid by itself once the room is covered.
+          {Number(folio.roomChargesTotal) > 0 &&
+            ` POS room charges of ฿${Number(folio.roomChargesTotal).toLocaleString("en-US")} stay owed either way.`}
         </p>
       )}
 

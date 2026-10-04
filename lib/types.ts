@@ -674,6 +674,9 @@ export type Booking = {
   checkIn: string;
   checkOut: string;
   totalPrice: string;
+  // "0.00" unless an early checkout released nights and staff chose to charge them anyway - owed
+  // on top of totalPrice (the nights actually stayed). Optional only for older payloads.
+  earlyDepartureFee?: string;
   status: BookingStatus;
   channel: BookingChannel;
   purpose: BookingPurpose;
@@ -732,11 +735,30 @@ export type CheckInResult = {
   warning: string | null;
 };
 
-// Response of POST /bookings/{id}/check-out. `outstandingBalance` is what's actually left to
-// collect right now (room total, if not yet PAID, plus any uncollected room-charge payments) —
-// "0.00" means nothing is owed, not that the field was skipped.
+// Response of POST /bookings/{id}/check-out. `outstandingBalance` is the folio's balanceDue at
+// that instant (after any shortening the request asked for) — "0.00" means nothing is owed, not
+// that the field was skipped.
 export type CheckOutResult = {
   booking: Booking;
+  outstandingBalance: string;
+};
+
+// Optional body of POST /bookings/{id}/check-out. Only matters for an early checkout:
+// shortenStay moves checkOut to today (never before the first night) so the released nights are
+// free again everywhere; chargeUnusedNights keeps their agreed price as Booking.earlyDepartureFee.
+export type CheckOutInput = { shortenStay: boolean; chargeUnusedNights: boolean };
+
+// GET /bookings/{id}/check-out/preview — what checking out today would release and cost. All
+// amounts are server-computed; the dialog only displays them.
+export type CheckOutPreview = {
+  early: boolean;
+  shortenable: boolean;
+  reason: string | null;
+  shortenedCheckOut: string | null;
+  nightsReleased: number;
+  unusedNightsAmount: string;
+  currentRoomTotal: string;
+  shortenedRoomTotal: string;
   outstandingBalance: string;
 };
 

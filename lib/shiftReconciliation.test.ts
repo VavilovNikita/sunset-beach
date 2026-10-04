@@ -24,6 +24,14 @@ describe("reconcileCash", () => {
     expect(result.expectedCash).toBe(1500);
   });
 
+  it("includes cash taken at reception against a booking's folio", () => {
+    const result = reconcileCash(
+      shift({ openingCashFloat: "1000.00", totals: { cash: "500.00", card: "0", roomCharge: "0", other: "0", paymentCount: 1, folioCash: "450.00" } }),
+      "",
+    );
+    expect(result.expectedCash).toBe(1950);
+  });
+
   it("treats a null opening float as zero", () => {
     const result = reconcileCash(shift({ openingCashFloat: null, totals: { cash: "500.00", card: "0", roomCharge: "0", other: "0", paymentCount: 1 } }), "");
     expect(result.expectedCash).toBe(500);

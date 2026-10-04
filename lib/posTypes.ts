@@ -334,6 +334,11 @@ export type ShiftTotals = {
   roomCharge: string;
   other: string;
   paymentCount: number;
+  // Folio payments taken at reception during this shift (FolioPayment.shiftId) - on shift reads
+  // only, absent from GET /payments/summary. folioCash is in the drawer, so it's in expected cash.
+  folioCash?: string;
+  folioCard?: string;
+  folioOther?: string;
 };
 
 // openedByEmail/closedByEmail: who opened/closed the drawer, resolved server-side (a CASHIER
@@ -385,34 +390,43 @@ export type BookingPosOrder = {
   items: { name: string; quantity: number }[];
 };
 
-// GET /bookings/{id}/folio — room stay + POS room charges, combined into
-// what the front desk collects at checkout.
-// roomChargesTotal is *net of settlement* — see FolioPayment below for how a room charge gets
-// marked collected. roomChargeCount is a raw historical count (how many ROOM_CHARGE payments
-// this stay ever generated), not "how many are still unsettled" — individual charges aren't
-// tracked as settled/unsettled, only the running total is.
+// GET /bookings/{id}/folio — what the stay was charged, what was collected, and what is still
+// owed (the backend's BookingFolio; computed server-side, never summed here). balanceDue is THE
+// "how much to collect" figure — the same number check-out, the Today board and the property map
+// show as outstandingBalance. Charged: roomTotal (nights stayed) + earlyDepartureFee +
+// roomChargesGross = folioTotal (a CANCELLED booking's room doesn't count). Collected: paidTotal
+// (folio payments, applied to POS charges first) + settledOutside (the rest of the room on a
+// booking marked PAID by hand - OTA/bank transfer). roomChargesTotal is the POS charges still
+// uncollected. creditBalance is money taken beyond what was charged (a stay shortened after it
+// was paid) - there's no refund record for it.
 export type Folio = {
   roomTotal: string;
+  earlyDepartureFee: string;
+  roomChargesGross: string;
   roomChargesTotal: string;
   folioTotal: string;
+  paidTotal: string;
+  settledOutside: string;
+  balanceDue: string;
+  creditBalance: string;
   roomChargeCount: number;
 };
 
 // Excludes ROOM_CHARGE — a room charge can't be settled by charging it to the room.
 export type FolioPaymentMethod = "CASH" | "CARD" | "OTHER";
 
-// Money actually collected against a booking's folio — the record that makes a ROOM_CHARGE
-// payment's amount stop counting as owed in Folio.roomChargesTotal / the check-out warning /
-// the today board. Deliberately not tied to a shift — unlike a POS Payment, cash collected this
-// way isn't counted in end-of-shift cash-drawer reconciliation, the same gap Booking.status =
-// PAID already has for the room portion of a stay. Rows accumulate (a guest can pay part now,
-// the rest later) and are never edited or deleted.
+// Money actually collected against a booking's folio — room and POS charges alike (see Folio).
+// shiftId is the recorder's open cash shift, if any: the payment counts in that shift's
+// totals.folio* and its cash in the shift's expected cash. When a payment covers the room, the
+// backend marks the booking PAID itself. Rows accumulate (a guest can pay part now, the rest
+// later) and are never edited or deleted.
 export type FolioPayment = {
   id: string;
   bookingId: string;
   method: FolioPaymentMethod;
   amount: string;
   recordedByUserId: string;
+  shiftId?: string | null;
   createdAt: string;
 };
 
