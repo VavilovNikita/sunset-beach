@@ -2,12 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { getAttendanceSummary, recordAttendancePunch } from "@/lib/rosterClient";
-import { formatDate } from "@/lib/formatDate";
 import type { AttendanceDaySummary, PunchDirection, RosterEmployee } from "@/lib/types";
 import { attendanceCell, hotelToday, totalWorkedMinutes, type AttendanceCellTone } from "@/lib/attendanceMatrix";
 
 const NOW = new Date();
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function minutesToHours(minutes: number) {
   const h = Math.floor(minutes / 60);
@@ -43,10 +41,6 @@ export default function AttendancePanel({ employees }: { employees: RosterEmploy
 
   const today = hotelToday(NOW);
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  // Newest first, and nothing past today - a day that hasn't happened has nothing to show.
-  const dayKeys = Array.from({ length: daysInMonth }, (_, i) => `${year}-${String(month).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`)
-    .filter((key) => key <= today)
-    .reverse();
 
   function reload() {
     let cancelled = false;
@@ -129,55 +123,55 @@ export default function AttendancePanel({ employees }: { employees: RosterEmploy
 
       {loading && <p className="text-cream/50 text-sm mb-2">Loading…</p>}
 
-      <div className="overflow-auto max-h-[70vh] mb-2 border border-cream/10 rounded-lg">
+      <div className="overflow-x-auto mb-2">
         <table className="text-xs border-collapse">
           <thead>
-            <tr className="text-cream/60">
-              <th className="sticky top-0 left-0 z-30 bg-ink3 text-left px-3 py-2 font-normal eyebrow">Day</th>
-              {employees.map((emp) => (
-                <th key={emp.id} className="sticky top-0 z-20 bg-ink3 px-3 py-2 text-center font-medium whitespace-nowrap min-w-[6.5rem]">
-                  <button type="button" onClick={() => setEmployeeUserId(emp.id)} className="hover:text-coral" title="Select for manual punch">
-                    {emp.name}
-                  </button>
-                </th>
-              ))}
-            </tr>
-            <tr className="text-cream/60">
-              <th className="sticky top-[37px] left-0 z-30 bg-ink2 text-left px-3 py-1.5 font-normal">Hours worked</th>
-              {employees.map((emp) => (
-                <th key={emp.id} className="sticky top-[37px] z-20 bg-ink2 px-3 py-1.5 text-center font-normal tabular-nums">
-                  {rowErrors[emp.id] ? <span className="text-coral">error</span> : summaries[emp.id] ? minutesToHours(totalWorkedMinutes(summaries[emp.id])) : "—"}
-                </th>
-              ))}
+            <tr className="text-cream/40">
+              <th className="sticky left-0 z-10 bg-ink text-left py-2 pr-3 font-normal eyebrow">Employee</th>
+              {Array.from({ length: daysInMonth }, (_, i) => {
+                const key = `${year}-${String(month).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`;
+                const weekday = new Date(Date.UTC(year, month - 1, i + 1)).getUTCDay();
+                return (
+                  <th key={key} className={`px-1.5 py-2 text-center font-normal tabular-nums ${key === today ? "text-sea" : ""} ${weekday === 0 || weekday === 6 ? "bg-cream/5" : ""}`}>
+                    {i + 1}
+                    <div className="text-[10px]">{["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][weekday]}</div>
+                  </th>
+                );
+              })}
+              <th className="px-2 py-2 text-right font-normal eyebrow">Total</th>
             </tr>
           </thead>
           <tbody>
-            {dayKeys.map((key) => {
-              const weekday = new Date(`${key}T00:00:00Z`).getUTCDay();
-              const weekend = weekday === 0 || weekday === 6;
+            {employees.map((emp) => {
+              const days = summaries[emp.id];
+              const byDate = new Map((days ?? []).map((d) => [d.date, d]));
               return (
-                <tr key={key} className={`border-t border-cream/10 align-top ${key === today ? "bg-sea/10" : weekend ? "bg-cream/5" : ""}`}>
-                  <td className="sticky left-0 z-10 bg-ink px-3 py-1.5 whitespace-nowrap tabular-nums">
-                    <span className={key === today ? "text-sea font-medium" : ""}>{formatDate(key)}</span>
-                    <span className="text-cream/40 ml-2">{WEEKDAYS[weekday]}</span>
+                <tr key={emp.id} className="border-t border-cream/10 align-top">
+                  <td className="sticky left-0 z-10 bg-ink py-1.5 pr-3 whitespace-nowrap text-sm">
+                    <button type="button" onClick={() => setEmployeeUserId(emp.id)} className="hover:text-coral text-left" title="Select for manual punch">
+                      {emp.name}
+                    </button>
                   </td>
-                  {employees.map((emp) => {
-                    if (rowErrors[emp.id]) {
-                      return (
-                        <td key={emp.id} className="px-3 py-1.5 text-center text-coral">
-                          {key === dayKeys[0] ? rowErrors[emp.id] : ""}
-                        </td>
-                      );
-                    }
-                    const cell = attendanceCell(summaries[emp.id]?.find((d) => d.date === key), today);
-                    return (
-                      <td key={emp.id} className={`px-3 py-1.5 text-center tabular-nums whitespace-nowrap ${TONE_CLASS[cell.tone]}`}>
-                        {cell.lines.map((line, n) => (
-                          <div key={n}>{line}</div>
-                        ))}
-                      </td>
-                    );
-                  })}
+                  {rowErrors[emp.id] ? (
+                    <td colSpan={daysInMonth + 1} className="py-1.5 text-coral">
+                      {rowErrors[emp.id]}
+                    </td>
+                  ) : (
+                    <>
+                      {Array.from({ length: daysInMonth }, (_, i) => {
+                        const key = `${year}-${String(month).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`;
+                        const cell = attendanceCell(byDate.get(key), today);
+                        return (
+                          <td key={key} className={`px-1.5 py-1.5 text-center tabular-nums whitespace-nowrap ${TONE_CLASS[cell.tone]}`}>
+                            {cell.lines.map((line, n) => (
+                              <div key={n}>{line}</div>
+                            ))}
+                          </td>
+                        );
+                      })}
+                      <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{days ? minutesToHours(totalWorkedMinutes(days)) : "—"}</td>
+                    </>
+                  )}
                 </tr>
               );
             })}
@@ -185,7 +179,7 @@ export default function AttendancePanel({ employees }: { employees: RosterEmploy
         </table>
       </div>
       <p className="text-xs text-cream/40 mb-6">
-        One row per day, newest first; time in – out per person. <span className="text-coral">–?</span> clock-out missing, <span className="text-coral italic">missed</span> scheduled but no punches. Today and future days are never flagged.
+        Time in – out per day. <span className="text-coral">–?</span> clock-out missing, <span className="text-coral italic">missed</span> scheduled but no punches. Today and future days are never flagged.
       </p>
 
       <form onSubmit={handleRecord} className="max-w-4xl bg-ink2/40 border border-cream/10 rounded-xl p-4 space-y-3">
