@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getAttendanceSummary, recordAttendancePunch } from "@/lib/rosterClient";
 import type { AttendanceDaySummary, PunchDirection, RosterEmployee } from "@/lib/types";
-import { formatDate } from "@/lib/formatDate";
+import { attendanceCell, hotelToday, totalWorkedMinutes, type AttendanceCellTone } from "@/lib/attendanceMatrix";
 
 const NOW = new Date();
 
@@ -13,16 +13,25 @@ function minutesToHours(minutes: number) {
   return `${h}h${m ? ` ${m}m` : ""}`;
 }
 
-// The raw punch stream, paired at read time - see AttendanceDaySummary's own description.
-// incomplete (an odd punch count) is closed only by recording another punch below, with a note;
-// there is no separate "correction" action.
+const TONE_CLASS: Record<AttendanceCellTone, string> = {
+  empty: "",
+  ok: "text-cream/80",
+  incomplete: "text-coral font-medium",
+  missed: "text-coral italic",
+};
+
+// Every employee at once: rows are people, columns are days of the month, a cell holds that day's
+// punches (paired at read time - see AttendanceDaySummary's own description). One summary request
+// per employee, in parallel; one person failing to load is shown on their own row and doesn't
+// blank the table. An incomplete day (odd punch count) is closed only by recording another punch
+// below, with a note; there is no separate "correction" action.
 export default function AttendancePanel({ employees }: { employees: RosterEmployee[] }) {
   const [employeeUserId, setEmployeeUserId] = useState(employees[0]?.id ?? "");
   const [year, setYear] = useState(NOW.getFullYear());
   const [month, setMonth] = useState(NOW.getMonth() + 1);
-  const [summaries, setSummaries] = useState<AttendanceDaySummary[]>([]);
+  const [summaries, setSummaries] = useState<Record<string, AttendanceDaySummary[]>>({});
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [punchAt, setPunchAt] = useState("");
   const [direction, setDirection] = useState<PunchDirection>("IN");
@@ -30,21 +39,30 @@ export default function AttendancePanel({ employees }: { employees: RosterEmploy
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const today = hotelToday(NOW);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
   function reload() {
-    if (!employeeUserId) return;
+    let cancelled = false;
     setLoading(true);
-    setLoadError(null);
-    getAttendanceSummary(employeeUserId, year, month).then((result) => {
-      setLoading(false);
-      if (!result.ok) {
-        setLoadError(result.error);
-        return;
+    Promise.all(employees.map((emp) => getAttendanceSummary(emp.id, year, month).then((result) => [emp.id, result] as const))).then((results) => {
+      if (cancelled) return;
+      const data: Record<string, AttendanceDaySummary[]> = {};
+      const errors: Record<string, string> = {};
+      for (const [id, result] of results) {
+        if (result.ok) data[id] = result.data;
+        else errors[id] = result.error;
       }
-      setSummaries(result.data);
+      setSummaries(data);
+      setRowErrors(errors);
+      setLoading(false);
     });
+    return () => {
+      cancelled = true;
+    };
   }
 
-  useEffect(reload, [employeeUserId, year, month]);
+  useEffect(reload, [year, month, employees]);
 
   async function handleRecord(e: React.FormEvent) {
     e.preventDefault();
@@ -68,19 +86,8 @@ export default function AttendancePanel({ employees }: { employees: RosterEmploy
   }
 
   return (
-    <div className="max-w-4xl">
+    <div>
       <div className="flex flex-wrap items-end gap-3 mb-4">
-        <select
-          value={employeeUserId}
-          onChange={(e) => setEmployeeUserId(e.target.value)}
-          className="bg-ink2 border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
-        >
-          {employees.map((emp) => (
-            <option key={emp.id} value={emp.id}>
-              {emp.name}
-            </option>
-          ))}
-        </select>
         <button
           type="button"
           onClick={() => {
@@ -114,43 +121,83 @@ export default function AttendancePanel({ employees }: { employees: RosterEmploy
         </button>
       </div>
 
-      {loading && <p className="text-cream/50 text-sm">Loading…</p>}
-      {loadError && <p className="text-sm text-coral">{loadError}</p>}
+      {loading && <p className="text-cream/50 text-sm mb-2">Loading…</p>}
 
-      {!loading && !loadError && (
-        <div className="overflow-x-auto mb-6">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-cream/40 eyebrow">
-                <th className="py-2 pr-4">Date</th>
-                <th className="py-2 pr-4">Planned</th>
-                <th className="py-2 pr-4">Punches</th>
-                <th className="py-2 pr-4">Worked</th>
-              </tr>
-            </thead>
-            <tbody>
-              {summaries.map((day) => (
-                <tr key={day.date} className="border-t border-cream/10">
-                  <td className="py-2 pr-4 tabular-nums whitespace-nowrap">{formatDate(day.date)}</td>
-                  <td className="py-2 pr-4 text-cream/70">
-                    {day.shiftCode ? (day.plannedIntervals.length ? day.plannedIntervals.map((i) => `${i.startTime}–${i.endTime}`).join(", ") : "OP") : "Day off"}
+      <div className="overflow-x-auto mb-2">
+        <table className="text-xs border-collapse">
+          <thead>
+            <tr className="text-cream/40">
+              <th className="sticky left-0 z-10 bg-ink text-left py-2 pr-3 font-normal eyebrow">Employee</th>
+              {Array.from({ length: daysInMonth }, (_, i) => {
+                const key = `${year}-${String(month).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`;
+                const weekday = new Date(Date.UTC(year, month - 1, i + 1)).getUTCDay();
+                return (
+                  <th key={key} className={`px-1.5 py-2 text-center font-normal tabular-nums ${key === today ? "text-sea" : ""} ${weekday === 0 || weekday === 6 ? "bg-cream/5" : ""}`}>
+                    {i + 1}
+                    <div className="text-[10px]">{["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][weekday]}</div>
+                  </th>
+                );
+              })}
+              <th className="px-2 py-2 text-right font-normal eyebrow">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {employees.map((emp) => {
+              const days = summaries[emp.id];
+              const byDate = new Map((days ?? []).map((d) => [d.date, d]));
+              return (
+                <tr key={emp.id} className="border-t border-cream/10 align-top">
+                  <td className="sticky left-0 z-10 bg-ink py-1.5 pr-3 whitespace-nowrap text-sm">
+                    <button type="button" onClick={() => setEmployeeUserId(emp.id)} className="hover:text-coral text-left" title="Select for manual punch">
+                      {emp.name}
+                    </button>
                   </td>
-                  <td className="py-2 pr-4 text-cream/70">
-                    {day.punches.length === 0
-                      ? "—"
-                      : day.punches.map((p) => `${p.direction === "IN" ? "In" : "Out"} ${p.punchAt.slice(11, 16)}`).join(", ")}
-                    {day.incomplete && <span className="text-coral ml-2">Incomplete</span>}
-                  </td>
-                  <td className="py-2 pr-4 tabular-nums">{day.workedMinutes !== null ? minutesToHours(day.workedMinutes) : "—"}</td>
+                  {rowErrors[emp.id] ? (
+                    <td colSpan={daysInMonth + 1} className="py-1.5 text-coral">
+                      {rowErrors[emp.id]}
+                    </td>
+                  ) : (
+                    <>
+                      {Array.from({ length: daysInMonth }, (_, i) => {
+                        const key = `${year}-${String(month).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`;
+                        const cell = attendanceCell(byDate.get(key), today);
+                        return (
+                          <td key={key} className={`px-1.5 py-1.5 text-center tabular-nums whitespace-nowrap ${TONE_CLASS[cell.tone]}`}>
+                            {cell.lines.map((line, n) => (
+                              <div key={n}>{line}</div>
+                            ))}
+                          </td>
+                        );
+                      })}
+                      <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{days ? minutesToHours(totalWorkedMinutes(days)) : "—"}</td>
+                    </>
+                  )}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-cream/40 mb-6">
+        Time in – out per day. <span className="text-coral">–?</span> clock-out missing, <span className="text-coral italic">missed</span> scheduled but no punches. Today and future days are never flagged.
+      </p>
 
-      <form onSubmit={handleRecord} className="bg-ink2/40 border border-cream/10 rounded-xl p-4 space-y-3">
+      <form onSubmit={handleRecord} className="max-w-4xl bg-ink2/40 border border-cream/10 rounded-xl p-4 space-y-3">
         <p className="eyebrow text-cream/60">Record a punch by hand</p>
+        <div>
+          <label className="eyebrow text-cream/60 block mb-1">Employee</label>
+          <select
+            value={employeeUserId}
+            onChange={(e) => setEmployeeUserId(e.target.value)}
+            className="bg-ink2 border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
+          >
+            {employees.map((emp) => (
+              <option key={emp.id} value={emp.id}>
+                {emp.name}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="grid sm:grid-cols-4 gap-3 items-end">
           <div>
             <label className="eyebrow text-cream/60 block mb-1">When</label>
