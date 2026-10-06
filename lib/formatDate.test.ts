@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatDateRange, formatTimestamp, formatTimestampDate, formatTimestampTime } from "@/lib/formatDate";
+import { formatDate, formatDateRange, formatTimestamp, formatTimestampDate, formatTimestampTime, hotelToday } from "@/lib/formatDate";
 
 describe("formatDate", () => {
   it("shows a stay date as day, short month, year without shifting the day", () => {
@@ -55,5 +55,12 @@ describe("month labels", () => {
 
   it("writes midnight as 00:00, not 24:00", () => {
     expect(formatTimestamp("2026-10-02T17:00:00Z")).toBe("3 Oct 2026, 00:00");
+  });
+});
+
+describe("hotelToday", () => {
+  it("uses Bangkok's calendar day, not the browser's", () => {
+    expect(hotelToday(new Date("2026-10-04T18:30:00Z"))).toBe("2026-10-05");
+    expect(hotelToday(new Date("2026-10-05T16:30:00Z"))).toBe("2026-10-05");
   });
 });

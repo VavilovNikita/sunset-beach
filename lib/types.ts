@@ -1181,9 +1181,11 @@ export type ShiftCodeCreateInput = {
 };
 
 // Body of POST /shift-codes/{id}/versions - the edit action. staffArea and code stay the edited
-// code's own and effectiveFrom is always today (backend's clock), so neither is sent. Every field
-// is sent: an omitted time or colour means "none", not "keep the old one".
+// code's own. effectiveFrom is the first day the new terms apply (YYYY-MM-DD, past or future;
+// the backend defaults it to today). Every other field is sent: an omitted time or colour means
+// "none", not "keep the old one".
 export type ShiftCodeVersionInput = {
+  effectiveFrom?: string;
   kind: ShiftCodeKind;
   startTime1: string | null;
   endTime1: string | null;

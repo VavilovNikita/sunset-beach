@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createShiftCode, createShiftCodeVersion, updateShiftCodeDisplayColor, updateShiftCodeKind } from "@/lib/rosterClient";
 import { STAFF_AREA_LABELS } from "@/lib/rosterGrid";
 import type { ShiftCode, ShiftCodeCreateInput, ShiftCodeKind, ShiftCodeVersionInput, StaffArea } from "@/lib/types";
-import { formatDate } from "@/lib/formatDate";
+import { formatDate, hotelToday } from "@/lib/formatDate";
 
 // Neutral starting point for the picker on a code with no displayColor and no suggestedColor -
 // never saved on its own; the admin still has to press Save. Matches this screen's own ink2 tone.
@@ -163,11 +163,13 @@ function DisplayColorRow({ code, onSaved }: { code: ShiftCode; onSaved: (updated
   );
 }
 
-// Edits an existing code's terms - the code text and area stay. Saved as a new version effective
-// today, never an in-place change (see createShiftCodeVersion): entries from today on follow the
-// new terms, earlier days keep the old ones.
+// Edits an existing code's terms - the code text and area stay. Saved as a new version from the
+// chosen date (today by default), never an in-place change (see createShiftCodeVersion): entries
+// from that date on follow the new terms, earlier days keep the old ones.
 function EditVersionForm({ code, onSaved, onCancel }: { code: ShiftCode; onSaved: (updated: ShiftCode) => void; onCancel: () => void }) {
+  const todayKey = hotelToday(new Date());
   const [form, setForm] = useState({
+    effectiveFrom: todayKey,
     kind: (code.kind ?? code.suggestedKind ?? "") as ShiftCodeKind | "",
     startTime1: code.startTime1 ?? "",
     endTime1: code.endTime1 ?? "",
@@ -191,9 +193,14 @@ function EditVersionForm({ code, onSaved, onCancel }: { code: ShiftCode; onSaved
       setError("Choose what kind of shift this is.");
       return;
     }
+    if (!form.effectiveFrom) {
+      setError("Choose the date these terms start.");
+      return;
+    }
     setSaving(true);
     setError(null);
     const input: ShiftCodeVersionInput = {
+      effectiveFrom: form.effectiveFrom,
       kind: form.kind,
       startTime1: form.startTime1 || null,
       endTime1: form.endTime1 || null,
@@ -227,10 +234,20 @@ function EditVersionForm({ code, onSaved, onCancel }: { code: ShiftCode; onSaved
   return (
     <form onSubmit={handleSave} className="space-y-3 mt-2">
       <p className="text-xs text-cream/40">
-        Saved as a new version from today. Days from today on (including ones already planned) use the new terms; earlier days keep the old
+        Saved as a new version. Days from the effective date on (including ones already planned) use the new terms; earlier days keep the old
         ones.
       </p>
       <div className="grid sm:grid-cols-4 gap-3 items-end">
+        <div>
+          <label className="eyebrow text-cream/60 block mb-1">Effective from</label>
+          <input
+            type="date"
+            required
+            value={form.effectiveFrom}
+            onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })}
+            className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
+          />
+        </div>
         <div>
           <label className="eyebrow text-cream/60 block mb-1">Kind</label>
           <select
@@ -282,6 +299,17 @@ function EditVersionForm({ code, onSaved, onCancel }: { code: ShiftCode; onSaved
           />
         )}
       </div>
+      {form.effectiveFrom && form.effectiveFrom < todayKey && (
+        <p className="text-xs text-amber-400">
+          This date is in the past: days from {formatDate(form.effectiveFrom)} up to today will be recalculated with the new terms (coverage,
+          hours, attendance reports).
+        </p>
+      )}
+      {form.effectiveFrom && form.effectiveFrom < code.effectiveFrom && (
+        <p className="text-xs text-coral">
+          This code&apos;s current version starts on {formatDate(code.effectiveFrom)} - an earlier date will be refused.
+        </p>
+      )}
       {form.kind === "ABSENCE" && form.countsAsWorked && (
         <p className="text-xs text-amber-400">An absence can&apos;t count as worked - pick another kind (e.g. Open schedule) or untick Counts as worked.</p>
       )}
