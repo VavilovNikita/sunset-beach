@@ -1,12 +1,21 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser, SESSION_COOKIE_NAME } from "@/lib/session";
+import { BackendUnavailableError } from "@/lib/backendOutage";
+import { updatingResponse } from "@/lib/updatingPage";
 import { getCurrentGuestAccount, GUEST_SESSION_COOKIE_NAME } from "@/lib/guestSession";
 
 export async function middleware(req: NextRequest) {
-  if (req.nextUrl.pathname.startsWith("/guest/account") || req.nextUrl.pathname.startsWith("/guest/room-service")) {
-    return guestMiddleware(req);
+  try {
+    if (req.nextUrl.pathname.startsWith("/guest/account") || req.nextUrl.pathname.startsWith("/guest/room-service")) {
+      return await guestMiddleware(req);
+    }
+    return await staffMiddleware(req);
+  } catch (e) {
+    // The backend is restarting (a deploy). Not a logged-out user: keep the cookie, don't redirect
+    // to login, show the self-refreshing "updating" page instead of a bare 500.
+    if (e instanceof BackendUnavailableError) return updatingResponse();
+    throw e;
   }
-  return staffMiddleware(req);
 }
 
 async function staffMiddleware(req: NextRequest) {

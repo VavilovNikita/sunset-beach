@@ -1,5 +1,6 @@
 import { BACKEND_URL } from "@/lib/backend";
 import type { StaffArea } from "@/lib/types";
+import { fetchBackend } from "@/lib/backendOutage";
 
 // No `next/headers` import here on purpose — this module is also imported
 // by middleware.ts, which runs on the Edge runtime and reads cookies via
@@ -92,10 +93,12 @@ export function sessionCookieOptions() {
 // so Java stays the only place that needs to know how to verify its own
 // tokens (see lib/backendServer.ts for the same Bearer-token pattern used
 // against protected resource endpoints).
+// Throws BackendUnavailableError (lib/backendOutage.ts) while the backend is down - a deploy, not a
+// logged-out user - so callers show the "updating" screen instead of bouncing to the login page.
 export async function getCurrentUser(token: string | null): Promise<SessionUser | null> {
   if (!token) return null;
 
-  const res = await fetch(`${BACKEND_URL}/auth/me`, {
+  const res = await fetchBackend(`${BACKEND_URL}/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });

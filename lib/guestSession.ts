@@ -1,4 +1,5 @@
 import { BACKEND_URL } from "@/lib/backend";
+import { fetchBackend } from "@/lib/backendOutage";
 
 // Mirrors lib/session.ts's shape exactly, for a completely separate identity system — a
 // GuestAccount is never a User (see the backend's GuestAccountAuth/GuestAccount tag
@@ -59,7 +60,7 @@ export function guestSessionCookieOptions() {
 export async function getCurrentGuestAccount(token: string | null): Promise<GuestSessionAccount | null> {
   if (!token) return null;
 
-  const res = await fetch(`${BACKEND_URL}/guest/me`, {
+  const res = await fetchBackend(`${BACKEND_URL}/guest/me`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });

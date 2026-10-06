@@ -271,6 +271,13 @@ repo's own docs for the exact volume name.
 
 ## Troubleshooting
 
+- **"Updating…" page during a deploy** (instead of a bare 502/500): nginx serves `nginx/updating.html`
+  from `/var/www/sunset/` when a container is restarting, and the app itself shows the same page
+  (middleware) or an "Updating…" screen with a spinner (each section's `error.tsx`) when only the
+  backend is down; both retry on their own. One-time install on the VPS:
+  `sudo mkdir -p /var/www/sunset && sudo cp nginx/updating.html /var/www/sunset/ &&
+  sudo cp nginx/conf.d/app.conf /etc/nginx/conf.d/app.conf && sudo nginx -t && sudo systemctl reload nginx`.
+  Re-copy `updating.html` if its wording ever changes.
 - **502 from nginx on `/` or `/api/session/`**: sunset-beach's `app`
   container isn't up yet or crashed — check `docker compose -f
   docker-compose.prod.yml logs app`.
