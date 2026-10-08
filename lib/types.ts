@@ -1570,6 +1570,23 @@ export type AttendancePunch = {
   recordedByEmail: string | null;
   note: string | null;
   createdAt: string;
+  // Set on a punch recorded by a day correction (PUT /attendance/day).
+  correctionId?: string;
+  // Present only on a voided punch - replaced by a correction, counted nowhere, kept as history.
+  // Only returned when asked for (GET /attendance?includeVoided=true).
+  voidedAt?: string;
+  voidedByEmail?: string;
+  voidReason?: string;
+};
+
+// Body of PUT /attendance/day: the complete list of that hotel-local day's punches as HH:mm hotel
+// time, increasing. Directions aren't sent - they alternate IN/OUT by position. Empty clears the
+// day. The old punches are voided, never deleted.
+export type AttendanceDayCorrectionInput = {
+  employeeUserId: string;
+  date: string;
+  times: string[];
+  reason: string;
 };
 
 export type AttendancePunchCreateInput = {

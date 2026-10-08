@@ -81,9 +81,3 @@ export function formatTimestampTime(iso: string): string {
   const p = instantParts(iso);
   return p ? `${p.hour}:${p.minute}` : iso;
 }
-
-// Today's hotel-local calendar day as "YYYY-MM-DD" (Asia/Bangkok, whatever the browser's zone) - the
-// default for a date field and the cut-off between "past" and "future" on a screen.
-export function hotelToday(now: Date): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(now);
-}

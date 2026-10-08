@@ -28,10 +28,6 @@ export function attendanceCell(day: AttendanceDaySummary | undefined, today: str
   return { lines, tone: open && day.date < today ? "incomplete" : "ok" };
 }
 
-export function hotelToday(now: Date): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(now);
-}
-
 export function totalWorkedMinutes(days: AttendanceDaySummary[]): number {
   return days.reduce((sum, d) => sum + (d.workedMinutes ?? 0), 0);
 }

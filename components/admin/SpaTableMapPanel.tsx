@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { toDateKey } from "@/lib/bookings";
+import { hotelDateKey } from "@/lib/hotelDate";
 import type { SpaMapTable } from "@/lib/posTypes";
 
 // Side panel for one table clicked/tapped on the spa map - same shell as PropertyMapUnitPanel.tsx
@@ -11,7 +11,7 @@ import type { SpaMapTable } from "@/lib/posTypes";
 // schedule grid, which is exactly what "Open in schedule" below leads to. Doesn't refetch its own
 // data - the parent already has the full SpaMapTable from GET /spa-map.
 export default function SpaTableMapPanel({ table, onClose }: { table: SpaMapTable; onClose: () => void }) {
-  const today = toDateKey(new Date());
+  const today = hotelDateKey(new Date());
 
   return (
     <div className="fixed inset-0 z-40 pointer-events-none">

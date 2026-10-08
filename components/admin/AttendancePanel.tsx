@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getAttendanceSummary, recordAttendancePunch } from "@/lib/rosterClient";
-import type { AttendanceDaySummary, PunchDirection, RosterEmployee } from "@/lib/types";
-import { attendanceCell, hotelToday, totalWorkedMinutes, type AttendanceCellTone } from "@/lib/attendanceMatrix";
-
-const NOW = new Date();
+import { getAttendanceSummary } from "@/lib/rosterClient";
+import type { AttendanceDaySummary, RosterEmployee } from "@/lib/types";
+import { attendanceCell, totalWorkedMinutes, type AttendanceCellTone } from "@/lib/attendanceMatrix";
+import { hotelDateKey, hotelYearMonth } from "@/lib/hotelDate";
+import AttendanceDayEditor from "@/components/admin/AttendanceDayEditor";
 
 function minutesToHours(minutes: number) {
   const h = Math.floor(minutes / 60);
@@ -23,23 +23,19 @@ const TONE_CLASS: Record<AttendanceCellTone, string> = {
 // Every employee at once: rows are people, columns are days of the month, a cell holds that day's
 // punches (paired at read time - see AttendanceDaySummary's own description). One summary request
 // per employee, in parallel; one person failing to load is shown on their own row and doesn't
-// blank the table. An incomplete day (odd punch count) is closed only by recording another punch
-// below, with a note; there is no separate "correction" action.
+// blank the table. Click a cell to correct that day (AttendanceDayEditor): the old punches are
+// voided and kept as history, never deleted. "Today" and the opening month are the hotel's
+// (Asia/Bangkok), not this device's.
 export default function AttendancePanel({ employees }: { employees: RosterEmployee[] }) {
-  const [employeeUserId, setEmployeeUserId] = useState(employees[0]?.id ?? "");
-  const [year, setYear] = useState(NOW.getFullYear());
-  const [month, setMonth] = useState(NOW.getMonth() + 1);
+  const [initial] = useState(() => hotelYearMonth(new Date()));
+  const [year, setYear] = useState(initial.year);
+  const [month, setMonth] = useState(initial.month);
+  const [editing, setEditing] = useState<{ employeeUserId: string; employeeName: string; date: string } | null>(null);
   const [summaries, setSummaries] = useState<Record<string, AttendanceDaySummary[]>>({});
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
-  const [punchAt, setPunchAt] = useState("");
-  const [direction, setDirection] = useState<PunchDirection>("IN");
-  const [note, setNote] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const today = hotelToday(NOW);
+  const today = hotelDateKey(new Date());
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
 
   function reload() {
@@ -63,27 +59,6 @@ export default function AttendancePanel({ employees }: { employees: RosterEmploy
   }
 
   useEffect(reload, [year, month, employees]);
-
-  async function handleRecord(e: React.FormEvent) {
-    e.preventDefault();
-    if (!punchAt) return;
-    setSubmitting(true);
-    setError(null);
-    const result = await recordAttendancePunch({
-      employeeUserId,
-      punchAt: new Date(punchAt).toISOString(),
-      direction,
-      note: note || null,
-    });
-    setSubmitting(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setPunchAt("");
-    setNote("");
-    reload();
-  }
 
   return (
     <div>
@@ -148,9 +123,7 @@ export default function AttendancePanel({ employees }: { employees: RosterEmploy
               return (
                 <tr key={emp.id} className="border-t border-cream/10 align-top">
                   <td className="sticky left-0 z-10 bg-ink py-1.5 pr-3 whitespace-nowrap text-sm">
-                    <button type="button" onClick={() => setEmployeeUserId(emp.id)} className="hover:text-coral text-left" title="Select for manual punch">
-                      {emp.name}
-                    </button>
+                    {emp.name}
                   </td>
                   {rowErrors[emp.id] ? (
                     <td colSpan={daysInMonth + 1} className="py-1.5 text-coral">
@@ -162,10 +135,19 @@ export default function AttendancePanel({ employees }: { employees: RosterEmploy
                         const key = `${year}-${String(month).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`;
                         const cell = attendanceCell(byDate.get(key), today);
                         return (
-                          <td key={key} className={`px-1.5 py-1.5 text-center tabular-nums whitespace-nowrap ${TONE_CLASS[cell.tone]}`}>
-                            {cell.lines.map((line, n) => (
-                              <div key={n}>{line}</div>
-                            ))}
+                          <td key={key} className={`p-0 text-center tabular-nums whitespace-nowrap ${TONE_CLASS[cell.tone]}`}>
+                            {key <= today ? (
+                              <button
+                                type="button"
+                                onClick={() => setEditing({ employeeUserId: emp.id, employeeName: emp.name, date: key })}
+                                className="block w-full min-w-[3.25rem] px-1.5 py-1.5 hover:bg-cream/10 min-h-[2rem]"
+                                title={`Correct ${emp.name}, ${key}`}
+                              >
+                                {cell.lines.map((line, n) => (
+                                  <div key={n}>{line}</div>
+                                ))}
+                              </button>
+                            ) : null}
                           </td>
                         );
                       })}
@@ -179,67 +161,18 @@ export default function AttendancePanel({ employees }: { employees: RosterEmploy
         </table>
       </div>
       <p className="text-xs text-cream/40 mb-6">
-        Time in – out per day. <span className="text-coral">–?</span> clock-out missing, <span className="text-coral italic">missed</span> scheduled but no punches. Today and future days are never flagged.
+        Click a day to correct it - the old punches stay in its history. Time in – out per day. <span className="text-coral">–?</span> clock-out missing, <span className="text-coral italic">missed</span> scheduled but no punches. Today and future days are never flagged.
       </p>
 
-      <form onSubmit={handleRecord} className="max-w-4xl bg-ink2/40 border border-cream/10 rounded-xl p-4 space-y-3">
-        <p className="eyebrow text-cream/60">Record a punch by hand</p>
-        <div>
-          <label className="eyebrow text-cream/60 block mb-1">Employee</label>
-          <select
-            value={employeeUserId}
-            onChange={(e) => setEmployeeUserId(e.target.value)}
-            className="bg-ink2 border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
-          >
-            {employees.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="grid sm:grid-cols-4 gap-3 items-end">
-          <div>
-            <label className="eyebrow text-cream/60 block mb-1">When</label>
-            <input
-              type="datetime-local"
-              required
-              value={punchAt}
-              onChange={(e) => setPunchAt(e.target.value)}
-              className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
-            />
-          </div>
-          <div>
-            <label className="eyebrow text-cream/60 block mb-1">Direction</label>
-            <select
-              value={direction}
-              onChange={(e) => setDirection(e.target.value as PunchDirection)}
-              className="w-full bg-ink2 border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
-            >
-              <option value="IN">In</option>
-              <option value="OUT">Out</option>
-            </select>
-          </div>
-          <div className="sm:col-span-2">
-            <label className="eyebrow text-cream/60 block mb-1">Note (required to close an incomplete day)</label>
-            <input
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="e.g. forgot to clock out"
-              className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm placeholder:text-cream/40 focus:outline-none focus:border-coral"
-            />
-          </div>
-        </div>
-        <button
-          type="submit"
-          disabled={submitting || !employeeUserId}
-          className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium disabled:opacity-60"
-        >
-          {submitting ? "Recording…" : "Record punch"}
-        </button>
-        {error && <p className="text-sm text-coral">{error}</p>}
-      </form>
+      {editing && (
+        <AttendanceDayEditor
+          employeeUserId={editing.employeeUserId}
+          employeeName={editing.employeeName}
+          date={editing.date}
+          onClose={() => setEditing(null)}
+          onSaved={reload}
+        />
+      )}
     </div>
   );
 }

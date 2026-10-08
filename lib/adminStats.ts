@@ -4,6 +4,7 @@ import { addDaysUTC, dateOnlyUTC, startOfMonthUTC, endOfMonthUTC, toDateKey } fr
 import type { Booking, Room } from "@/lib/types";
 import type { PaymentsSummary } from "@/lib/posTypes";
 import { overdueDaysFor } from "@/lib/overstay";
+import { hotelDateKey } from "@/lib/hotelDate";
 
 const OCCUPANCY_WINDOW_DAYS = 30;
 
@@ -56,11 +57,14 @@ export function computeRoomStats(
   rooms: Room[],
   bookings: Booking[]
 ): { bookingsToday: number; bookingsThisWeek: number; occupancyPct: number; revenueThisMonth: number } {
-  const todayStart = dateOnlyUTC(now);
+  // "Today" and "this month" are the hotel's (Asia/Bangkok), not the UTC day `now` falls in or the
+  // machine's zone: a booking made at 02:00 Bangkok is still yesterday in UTC.
+  const todayKey = hotelDateKey(now);
+  const todayStart = dateOnlyUTC(todayKey);
   const tomorrowStart = addDaysUTC(todayStart, 1);
   const weekStart = addDaysUTC(todayStart, -6); // rolling 7-day window, inclusive of today
-  const monthStart = startOfMonthUTC(now);
-  const monthEnd = endOfMonthUTC(now);
+  const monthStart = startOfMonthUTC(todayStart);
+  const monthEnd = endOfMonthUTC(todayStart);
   const nextMonthStart = addDaysUTC(monthEnd, 1);
   const occupancyWindowEnd = addDaysUTC(todayStart, OCCUPANCY_WINDOW_DAYS);
 
@@ -70,7 +74,7 @@ export function computeRoomStats(
   let bookedNights = 0;
 
   for (const b of bookings) {
-    const createdAt = new Date(b.createdAt);
+    const createdAt = dateOnlyUTC(hotelDateKey(new Date(b.createdAt)));
     if (createdAt >= todayStart && createdAt < tomorrowStart) bookingsToday += 1;
     if (createdAt >= weekStart && createdAt < tomorrowStart) bookingsThisWeek += 1;
 
@@ -124,8 +128,9 @@ async function getRoomStats(now: Date): Promise<DashboardRoomStats> {
 // large enough to need a real aggregate endpoint.
 export async function getDashboardStats() {
   const now = new Date();
-  const monthStart = startOfMonthUTC(now);
-  const monthEnd = endOfMonthUTC(now);
+  const hotelToday = dateOnlyUTC(hotelDateKey(now));
+  const monthStart = startOfMonthUTC(hotelToday);
+  const monthEnd = endOfMonthUTC(hotelToday);
 
   const [roomStats, posSummary] = await Promise.all([
     getRoomStats(now),

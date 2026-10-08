@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { toDateKey } from "@/lib/bookings";
+import { hotelDateKey } from "@/lib/hotelDate";
 import { saveRoomUnitPositions, uploadPropertyMapImage } from "@/lib/propertyMapClient";
 import { resolveUnitDisplay, type UnitBadge, type UnitFill } from "@/lib/propertyMapDisplay";
 import type { PropertyMap, PropertyMapUnit, RoomUnitPositionInput } from "@/lib/types";
@@ -97,7 +97,7 @@ function PropertyMapLegend() {
 
 export default function PropertyMapView({ initialMap, canManage }: { initialMap: PropertyMap; canManage: boolean }) {
   const router = useRouter();
-  const today = toDateKey(new Date());
+  const today = hotelDateKey(new Date());
 
   const [pending, setPending] = useState<Record<string, PendingPosition>>({});
   const [drag, setDrag] = useState<DragState | null>(null);

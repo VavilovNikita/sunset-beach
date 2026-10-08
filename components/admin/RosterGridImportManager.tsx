@@ -16,12 +16,12 @@ import type {
   StaffArea,
 } from "@/lib/types";
 import { formatDate, formatTimestamp } from "@/lib/formatDate";
+import { hotelDateKey, hotelYearMonth } from "@/lib/hotelDate";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
 ];
 
-const TODAY = new Date().toISOString().slice(0, 10);
 const STAFF_AREAS: StaffArea[] = ["ADMIN", "FRONT_OFFICE", "MAINTENANCE", "HOUSEKEEPING", "RESTAURANT", "KITCHEN"];
 const SHARED_LABEL = "Shared (every area)";
 const SHIFT_CODE_KINDS: ShiftCodeKind[] = ["MORNING", "SPLIT", "EVENING", "OPEN_SCHEDULE", "ABSENCE"];
@@ -228,10 +228,10 @@ function DiffRowLine({ row, excluded, onToggleExclude }: { row: RosterGridImport
 }
 
 export default function RosterGridImportManager({ initialEmployees }: { initialEmployees: EmployeeOption[] }) {
-  const now = new Date();
+  const [initial] = useState(() => hotelYearMonth(new Date()));
   const [file, setFile] = useState<File | null>(null);
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(initial.year);
+  const [month, setMonth] = useState(initial.month);
   const [preview, setPreview] = useState<RosterGridImportPreview | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -297,7 +297,7 @@ export default function RosterGridImportManager({ initialEmployees }: { initialE
         endTime2: fields.endTime2 || null,
         countsAsWorked: fields.countsAsWorked,
         isPaid: fields.isPaid,
-        effectiveFrom: TODAY,
+        effectiveFrom: hotelDateKey(new Date()),
         displayColor: fields.displayColor || null,
       },
     }));
@@ -317,7 +317,7 @@ export default function RosterGridImportManager({ initialEmployees }: { initialE
         endTime2: fields.endTime2 || null,
         countsAsWorked: fields.countsAsWorked,
         isPaid: fields.isPaid,
-        effectiveFrom: TODAY,
+        effectiveFrom: hotelDateKey(new Date()),
         displayColor: fields.displayColor || null,
       },
     }));

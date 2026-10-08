@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { createEmployeePayRate, listEmployeePayRates } from "@/lib/rosterClient";
 import type { EmployeePayRate, RosterEmployee } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
+import { hotelDateKey } from "@/lib/hotelDate";
 
-const TODAY = new Date().toISOString().slice(0, 10);
 
 // EmployeePayRate is versioned like ShiftCode - never edited, only superseded, so this manager
 // only ever adds a new rate effective from a given date. History is shown oldest-first, matching
@@ -17,7 +17,7 @@ export default function PayRateManager({ employees }: { employees: RosterEmploye
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [dailyRate, setDailyRate] = useState("");
-  const [effectiveFrom, setEffectiveFrom] = useState(TODAY);
+  const [effectiveFrom, setEffectiveFrom] = useState(() => hotelDateKey(new Date()));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

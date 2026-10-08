@@ -34,6 +34,8 @@ Types in `lib/types.ts` and `lib/posTypes.ts` mirror the backend's `openapi.yaml
 
 Do not add a date library. Local-time parsing shifts date-only values by a day in this timezone, which is exactly what the helpers exist to prevent.
 
+**"Today", "this month" and a time the user types are the hotel's (Asia/Bangkok), never this device's.** Use `hotelDateKey(new Date())` / `hotelYearMonth(new Date())` from `lib/hotelDate.ts`; never `new Date().toISOString().slice(0, 10)` (that is the UTC day), `toDateKey(new Date())` (same), or `getFullYear()/getMonth()/getHours()` on a "now" - they follow the browser's or the server's zone, and a manager's laptop on Moscow time (or the UTC container) got a different day/month for hours at a time. A time of day goes to the API as an `HH:mm` string next to a date (`PUT /attendance/day`), never through `<input type="datetime-local">` + `new Date(...).toISOString()`, which reads it in the browser's zone. Parsing an ISO string that carries an offset into an instant (`new Date(createdAt).getTime()`) is fine - it's the "now as a calendar day" and "typed local time" cases that break.
+
 **Show every date through `lib/formatDate.ts`** - "3 Oct 2026" for a stay date, "3 Oct 2026, 14:05" for a timestamp. The admin used to mix `2026-10-05`, `03.10.2026` (a bare `toLocaleString()` in a Russian browser) and `Oct 3, 2026`, and printed audit/order times as raw UTC. Timestamps are shown in Asia/Bangkok whatever offset they arrive with; never slice an ISO string for display or append "UTC". The browser's own `<input type="date">` is the one thing it can't reach.
 
 ## Money

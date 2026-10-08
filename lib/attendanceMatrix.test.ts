@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attendanceCell, hotelToday, totalWorkedMinutes } from "./attendanceMatrix";
+import { attendanceCell, totalWorkedMinutes } from "./attendanceMatrix";
 import type { AttendanceDaySummary } from "./types";
 
 function punch(iso: string) {
@@ -49,9 +49,6 @@ describe("attendanceCell", () => {
 });
 
 describe("helpers", () => {
-  it("hotelToday uses Bangkok's calendar day", () => {
-    expect(hotelToday(new Date("2026-10-04T18:30:00Z"))).toBe("2026-10-05");
-  });
   it("totalWorkedMinutes ignores days without a figure", () => {
     expect(totalWorkedMinutes([{ ...day("a", []), workedMinutes: 60 }, day("b", []), { ...day("c", []), workedMinutes: 30 }])).toBe(90);
   });

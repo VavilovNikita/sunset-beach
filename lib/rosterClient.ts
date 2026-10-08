@@ -9,6 +9,7 @@ import { extractApiError } from "@/lib/apiError";
 import type {
   RosterCopyInput,
   RosterCopyResult,
+  AttendanceDayCorrectionInput,
   AttendanceDaySummary,
   AttendancePunch,
   AttendancePunchCreateInput,
@@ -199,9 +200,15 @@ export async function setStaffAreaCoverageRule(staffArea: StaffArea, input: Staf
   return { ok: true, data: result.data };
 }
 
-export async function listAttendancePunches(employeeUserId: string, from: string, to: string): Promise<Result<AttendancePunch[]>> {
+// includeVoided: also the punches a correction replaced (each with who/when/why) - the day's history.
+export async function listAttendancePunches(
+  employeeUserId: string,
+  from: string,
+  to: string,
+  includeVoided = false
+): Promise<Result<AttendancePunch[]>> {
   const result = await adminRequest<AttendancePunch[]>(
-    `/attendance?employeeUserId=${employeeUserId}&from=${from}&to=${to}`,
+    `/attendance?employeeUserId=${employeeUserId}&from=${from}&to=${to}${includeVoided ? "&includeVoided=true" : ""}`,
     undefined,
     "Could not load attendance."
   );
@@ -211,6 +218,14 @@ export async function listAttendancePunches(employeeUserId: string, from: string
 
 export async function recordAttendancePunch(input: AttendancePunchCreateInput): Promise<Result<AttendancePunch>> {
   const result = await adminRequest<AttendancePunch>("/attendance", adminJsonInit("POST", input), "Could not record this punch.");
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, data: result.data };
+}
+
+// Replaces one day's punches; the old ones are voided and kept as history (see
+// AttendanceDayCorrectionInput). Returns the day's live punches afterwards.
+export async function correctAttendanceDay(input: AttendanceDayCorrectionInput): Promise<Result<AttendancePunch[]>> {
+  const result = await adminRequest<AttendancePunch[]>("/attendance/day", adminJsonInit("PUT", input), "Could not save this correction.");
   if (!result.ok) return { ok: false, error: result.error };
   return { ok: true, data: result.data };
 }

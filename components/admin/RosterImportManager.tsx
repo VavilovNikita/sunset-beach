@@ -18,6 +18,7 @@ import type {
   ShiftCode,
 } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
+import { hotelYearMonth } from "@/lib/hotelDate";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
@@ -261,10 +262,10 @@ function ColorMappingRow({
 }
 
 export default function RosterImportManager({ initialEmployees }: { initialEmployees: EmployeeOption[] }) {
-  const now = new Date();
+  const [initial] = useState(() => hotelYearMonth(new Date()));
   const [file, setFile] = useState<File | null>(null);
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(initial.year);
+  const [month, setMonth] = useState(initial.month);
   const [preview, setPreview] = useState<RosterImportPreview | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

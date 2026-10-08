@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { createShiftCode, createShiftCodeVersion, updateShiftCodeDisplayColor, updateShiftCodeKind } from "@/lib/rosterClient";
 import { STAFF_AREA_LABELS } from "@/lib/rosterGrid";
 import type { ShiftCode, ShiftCodeCreateInput, ShiftCodeKind, ShiftCodeVersionInput, StaffArea } from "@/lib/types";
-import { formatDate, hotelToday } from "@/lib/formatDate";
+import { formatDate } from "@/lib/formatDate";
+import { hotelDateKey } from "@/lib/hotelDate";
 
 // Neutral starting point for the picker on a code with no displayColor and no suggestedColor -
 // never saved on its own; the admin still has to press Save. Matches this screen's own ink2 tone.
 const NEUTRAL_COLOR_DEFAULT = "#153138";
 
 const STAFF_AREAS: StaffArea[] = ["ADMIN", "FRONT_OFFICE", "MAINTENANCE", "HOUSEKEEPING", "RESTAURANT", "KITCHEN"];
-const TODAY = new Date().toISOString().slice(0, 10);
 const SHARED_LABEL = "Shared (every area)";
 
 const SHIFT_CODE_KINDS: ShiftCodeKind[] = ["MORNING", "SPLIT", "EVENING", "OPEN_SCHEDULE", "ABSENCE"];
@@ -39,7 +39,7 @@ function emptyForm(): FormState {
     endTime2: "",
     countsAsWorked: true,
     isPaid: true,
-    effectiveFrom: TODAY,
+    effectiveFrom: hotelDateKey(new Date()),
   };
 }
 
@@ -167,7 +167,7 @@ function DisplayColorRow({ code, onSaved }: { code: ShiftCode; onSaved: (updated
 // chosen date (today by default), never an in-place change (see createShiftCodeVersion): entries
 // from that date on follow the new terms, earlier days keep the old ones.
 function EditVersionForm({ code, onSaved, onCancel }: { code: ShiftCode; onSaved: (updated: ShiftCode) => void; onCancel: () => void }) {
-  const todayKey = hotelToday(new Date());
+  const todayKey = hotelDateKey(new Date());
   const [form, setForm] = useState({
     effectiveFrom: todayKey,
     kind: (code.kind ?? code.suggestedKind ?? "") as ShiftCodeKind | "",

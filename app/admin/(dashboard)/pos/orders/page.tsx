@@ -3,10 +3,7 @@ import { backendJson } from "@/lib/backendServer";
 import { requireRoleAtLeast } from "@/lib/rbac";
 import OrderHistoryTable from "@/components/admin/pos/OrderHistoryTable";
 import type { Order, OrderDateBasis, Table } from "@/lib/posTypes";
-
-function isoDate(d: Date) {
-  return d.toISOString().slice(0, 10);
-}
+import { addDaysToDateKey, hotelDateKey } from "@/lib/hotelDate";
 
 export default async function OrderHistoryPage({
   searchParams,
@@ -20,15 +17,15 @@ export default async function OrderHistoryPage({
   // board (/admin/pos) already covers "what's open right now" for everyone.
   await requireRoleAtLeast("MANAGER", "/admin/pos");
 
-  const today = new Date();
-  const defaultFrom = new Date(today);
-  defaultFrom.setDate(defaultFrom.getDate() - 7);
+  // The hotel's days, not the server's or the browser's (a UTC server is still on yesterday until 07:00 here).
+  const today = hotelDateKey(new Date());
+  const defaultFrom = addDaysToDateKey(today, -7);
   const { status, tableId, shiftId } = searchParams;
   // Reached from a shift's own page (?shiftId= only): the shift already bounds the list, and a
   // default week would hide the orders of a shift older than that.
   const datesFromShift = Boolean(shiftId) && !searchParams.from && !searchParams.to;
-  const from = datesFromShift ? "" : searchParams.from || isoDate(defaultFrom);
-  const to = datesFromShift ? "" : searchParams.to || isoDate(today);
+  const from = datesFromShift ? "" : searchParams.from || defaultFrom;
+  const to = datesFromShift ? "" : searchParams.to || today;
   // By default the period means when an order was paid or cancelled: an order opened a month ago
   // and paid today belongs in today's takings review. "Opened" stays available for finding an
   // order by when the table sat down (and still-open orders, which have no close date).

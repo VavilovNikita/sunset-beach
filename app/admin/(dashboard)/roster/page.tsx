@@ -10,6 +10,7 @@ import AttendancePanel from "@/components/admin/AttendancePanel";
 import TodayShiftBoard from "@/components/admin/TodayShiftBoard";
 import PayRateManager from "@/components/admin/PayRateManager";
 import type { EmployeePattern, RosterEmployee, RosterMonth, ServerTime, ShiftCode, StaffAreaCoverageRule, TodayShiftStatus } from "@/lib/types";
+import { hotelYearMonth } from "@/lib/hotelDate";
 
 // Same "slice the ISO string, don't reformat through Date" convention TodayShiftBoard's own
 // timeLabel already uses - `serverTime.now` is already the backend clock's own zone, so parsing
@@ -46,9 +47,9 @@ export default async function AdminRosterPage({
   // GET /roster/me (a different page - see app/admin/(dashboard)/schedule/page.tsx).
   const sessionUser = await requireRoleAtLeast("MANAGER");
 
-  const now = new Date();
-  const year = Number(searchParams.year) || now.getUTCFullYear();
-  const month = Number(searchParams.month) || now.getUTCMonth() + 1;
+  const current = hotelYearMonth(new Date());
+  const year = Number(searchParams.year) || current.year;
+  const month = Number(searchParams.month) || current.month;
   const tab = parseTab(searchParams.tab);
 
   const qs = (overrides: Partial<{ year: number; month: number; tab: TabKey }>) => {

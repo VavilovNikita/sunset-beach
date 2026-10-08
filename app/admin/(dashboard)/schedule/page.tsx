@@ -2,6 +2,7 @@ import Link from "next/link";
 import { backendJson } from "@/lib/backendServer";
 import { requireSessionUser } from "@/lib/rbac";
 import type { RosterEntry } from "@/lib/types";
+import { hotelDateKey, hotelYearMonth } from "@/lib/hotelDate";
 
 const WEEKDAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -12,8 +13,9 @@ export default async function AdminSchedulePage({ searchParams }: { searchParams
   await requireSessionUser();
 
   const now = new Date();
-  const year = Number(searchParams.year) || now.getUTCFullYear();
-  const month = Number(searchParams.month) || now.getUTCMonth() + 1;
+  const current = hotelYearMonth(now);
+  const year = Number(searchParams.year) || current.year;
+  const month = Number(searchParams.month) || current.month;
   const prevMonth = month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
   const nextMonth = month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 };
   const qs = (y: number, m: number) => `/admin/schedule?year=${y}&month=${m}`;
@@ -34,7 +36,7 @@ export default async function AdminSchedulePage({ searchParams }: { searchParams
   // Blank cells before day 1 so it lands under its own weekday column (WEEKDAY_ABBR is Sun-first).
   const leadingBlanks = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
   // Hotel-local today, not the server's zone - only used to highlight a cell.
-  const todayKey = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(now);
+  const todayKey = hotelDateKey(now);
 
   return (
     <div>
