@@ -180,6 +180,7 @@ export default function BookingCreateFromGridModal({
               {formatDateRange(created.checkIn, created.checkOut)} ({nights} night{nights === 1 ? "" : "s"})
             </p>
             <p className="font-display italic text-3xl text-coral">฿{Number(created.totalPrice).toLocaleString("en-US")}</p>
+            {created.warning && <p className="text-sm text-amber-400">{created.warning}</p>}
             {created.guest && <p className="text-xs text-cream/50">Linked to guest card {created.guest.name}.</p>}
             <div className="flex gap-3">
               <Link

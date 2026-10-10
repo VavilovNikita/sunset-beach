@@ -3,6 +3,10 @@ import { loadNotPrintedJobs } from "@/lib/printQueueServer";
 import { requireSessionUser } from "@/lib/rbac";
 import PrintQueue from "@/components/admin/pos/PrintQueue";
 
+// Reads the print queue with the visitor's session on every request - never prerendered at build
+// (where there is no backend, and the load failure below printed an error into the build log).
+export const dynamic = "force-dynamic";
+
 // Any authenticated staff session — GET /print-jobs is WAITER+ on the
 // backend, filtered server-side to the document types that role may see
 // (WAITER/CASHIER: kitchen tickets and pre-bills only; MANAGER+: everything,

@@ -714,6 +714,9 @@ export type Booking = {
   cancellationReason: string | null;
   createdAt: string;
   updatedAt: string;
+  // Only on the response to POST /bookings/staff, when the booking was accepted but front desk
+  // should look twice (today: more guests than the room type sleeps). Never present on a read.
+  warning?: string;
 };
 
 // Response of GET /bookings/search - the admin Bookings list, searched, sorted and paged by the

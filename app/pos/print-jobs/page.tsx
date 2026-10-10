@@ -1,6 +1,10 @@
 import { loadNotPrintedJobs } from "@/lib/printQueueServer";
 import PosPrintQueue from "@/components/pos/PosPrintQueue";
 
+// Reads the print queue with the visitor's session on every request - never prerendered at build
+// (where there is no backend, and the load failure below printed an error into the build log).
+export const dynamic = "force-dynamic";
+
 export default async function PosPrintJobsPage() {
   // Opens on "Not printed" (FAILED + still-retrying PENDING) - the same set the floor banner
   // counts, so the number there is the number of rows here. A failed first load is an error page
