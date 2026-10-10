@@ -26,3 +26,17 @@ export async function fetchBackend(input: string, init?: RequestInit): Promise<R
   if (isOutageStatus(res.status)) throw new BackendUnavailableError(`status ${res.status}`);
   return res;
 }
+
+// For a layout that only decorates the page with session state (the public site's Nav): while the
+// backend is down, show the page as signed out instead of letting the layout itself throw - an
+// error thrown by a layout is not caught by the same segment's error.tsx, so the visitor would get
+// Next's bare "Application error" page instead of the "Updating" screen. Anything other than an
+// outage is rethrown.
+export async function nullDuringOutage<T>(lookup: Promise<T | null>): Promise<T | null> {
+  try {
+    return await lookup;
+  } catch (e) {
+    if (e instanceof BackendUnavailableError) return null;
+    throw e;
+  }
+}

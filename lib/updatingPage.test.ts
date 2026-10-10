@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { isOutageStatus } from "./backendOutage";
+import { BackendUnavailableError, isOutageStatus, nullDuringOutage } from "./backendOutage";
 import { UPDATING_HTML, updatingResponse } from "./updatingPage";
 
 describe("updating page", () => {
@@ -20,5 +20,13 @@ describe("isOutageStatus", () => {
   it("treats gateway errors as an outage and a real 500 as a bug", () => {
     expect([502, 503, 504].every(isOutageStatus)).toBe(true);
     expect([200, 401, 404, 500].some(isOutageStatus)).toBe(false);
+  });
+});
+
+describe("nullDuringOutage", () => {
+  it("turns an outage into 'no session' and lets everything else through", async () => {
+    await expect(nullDuringOutage(Promise.reject(new BackendUnavailableError("down")))).resolves.toBeNull();
+    await expect(nullDuringOutage(Promise.resolve({ id: "u1" }))).resolves.toEqual({ id: "u1" });
+    await expect(nullDuringOutage(Promise.reject(new Error("a real bug")))).rejects.toThrow("a real bug");
   });
 });

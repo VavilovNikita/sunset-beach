@@ -5,6 +5,7 @@ import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import { getGuestSessionAccount } from "@/lib/guestRbac";
 import { getSessionUser } from "@/lib/rbac";
+import { nullDuringOutage } from "@/lib/backendOutage";
 
 export const metadata: Metadata = {
   title: "The Sunset Beach Resort & Spa — Taling Ngam, Koh Samui",
@@ -22,8 +23,8 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const [guestAccount, staffUser] = await Promise.all([
-    getGuestSessionAccount(),
-    getSessionUser(),
+    nullDuringOutage(getGuestSessionAccount()),
+    nullDuringOutage(getSessionUser()),
   ]);
 
   return (
