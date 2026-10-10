@@ -16,7 +16,9 @@ const EMPTY: AttendanceCell = { lines: [], tone: "empty" };
 export function attendanceCell(day: AttendanceDaySummary | undefined, today: string): AttendanceCell {
   if (!day) return EMPTY;
   if (day.punches.length === 0) {
-    return day.shiftCode && day.date < today ? { lines: ["missed"], tone: "missed" } : EMPTY;
+    // Only a day that counts as worked can be missed: PH, leave and other absence codes are
+    // planned days off, not a no-show.
+    return day.shiftCode?.countsAsWorked && day.date < today ? { lines: ["missed"], tone: "missed" } : EMPTY;
   }
   const lines: string[] = [];
   for (let i = 0; i < day.punches.length; i += 2) {

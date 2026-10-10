@@ -5,10 +5,10 @@ import type { AttendanceDaySummary } from "./types";
 function punch(iso: string) {
   return { punchAt: iso } as AttendanceDaySummary["punches"][number];
 }
-function day(date: string, punches: string[], planned = false): AttendanceDaySummary {
+function day(date: string, punches: string[], planned = false, countsAsWorked = true): AttendanceDaySummary {
   return {
     date,
-    shiftCode: planned ? ({ code: "7" } as AttendanceDaySummary["shiftCode"]) : null,
+    shiftCode: planned ? ({ code: "7", countsAsWorked } as AttendanceDaySummary["shiftCode"]) : null,
     plannedIntervals: [],
     punches: punches.map(punch),
     workedMinutes: null,
@@ -41,6 +41,10 @@ describe("attendanceCell", () => {
     expect(attendanceCell(day("2026-10-04", [], true), "2026-10-05").tone).toBe("missed");
     expect(attendanceCell(day("2026-10-05", [], true), "2026-10-05").tone).toBe("empty");
     expect(attendanceCell(day("2026-10-20", [], true), "2026-10-05").tone).toBe("empty");
+  });
+
+  it("a planned day that doesn't count as worked (PH, leave) is never missed", () => {
+    expect(attendanceCell(day("2026-10-04", [], true, false), "2026-10-05").tone).toBe("empty");
   });
 
   it("an unscheduled day with no punches is empty", () => {
