@@ -47,7 +47,7 @@ describe("visibleNavGroups", () => {
 
     const byTitle = Object.fromEntries(groups.map((g) => [g.title, g.links.map((l) => l.label)]));
     expect(byTitle["Front desk"]).not.toContain("Guest emails"); // ADMIN only
-    expect(byTitle["Restaurant"]).not.toContain("Receipt layout"); // ADMIN only
+    expect(byTitle["Restaurant"]).not.toContain("Print layouts"); // ADMIN only
     expect(byTitle["Restaurant"]).toEqual(["POS", "Print queue", "Shifts", "Menu", "Printers"]);
     expect(byTitle["Spa"]).toEqual(["Appointments", "Table map", "Treatments", "Tables"]);
     expect(byTitle["Reports"]).toEqual(["Dashboard", "Room production", "Manager report", "History"]);
@@ -62,7 +62,7 @@ describe("visibleNavGroups", () => {
       "Roster", "My schedule", "Fingerprint terminals", "Import schedule", "Users",
     ]);
     expect(groups.find((g) => g.title === "Front desk")?.links.map((l) => l.label)).toContain("Guest emails");
-    expect(groups.find((g) => g.title === "Restaurant")?.links.map((l) => l.label)).toContain("Receipt layout");
+    expect(groups.find((g) => g.title === "Restaurant")?.links.map((l) => l.label)).toContain("Print layouts");
     expect(groups.flatMap((g) => g.links)).toHaveLength(NAV_GROUPS.flatMap((g) => g.links).length);
   });
 
@@ -104,7 +104,7 @@ describe("activeNavHref / activeNavGroupTitle", () => {
     ["/admin/pos/printers", "/admin/pos/printers", "Restaurant"],
     ["/admin/roster/import", "/admin/roster/import", "Staff"],
     ["/admin/settings/lifecycle-emails", "/admin/settings/lifecycle-emails", "Front desk"],
-    ["/admin/settings/receipt", "/admin/settings/receipt", "Restaurant"],
+    ["/admin/settings/print-layouts", "/admin/settings/print-layouts", "Restaurant"],
     ["/admin/rooms/7/edit", "/admin/rooms", "Front desk"],
   ])("%s highlights %s in %s", (pathname, href, group) => {
     expect(activeNavHref(links, pathname)).toBe(href);

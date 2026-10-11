@@ -87,9 +87,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/pos/shifts", label: "Shifts", minRole: "CASHIER" },
       { href: "/admin/pos/menu", label: "Menu" },
       { href: "/admin/pos/printers", label: "Printers", minRole: "MANAGER" },
-      // How the guest receipt and pre-bill look. ADMIN-only: GET/PUT /settings/receipt has no
-      // lower-privilege read, like every /settings route.
-      { href: "/admin/settings/receipt", label: "Receipt layout", minRole: "ADMIN" },
+      // How the receipt, pre-bill, kitchen/bar tickets and Z-report look. ADMIN-only:
+      // GET/PUT /settings/print-layouts has no lower-privilege read, like every /settings route.
+      { href: "/admin/settings/print-layouts", label: "Print layouts", minRole: "ADMIN" },
     ],
   },
   {

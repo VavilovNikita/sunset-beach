@@ -373,50 +373,65 @@ export type LifecycleEmailSettings = {
 // server-side: days 0-60, months 1-120; postStayReviewUrl must be http(s) or blank/null for none.
 export type LifecycleEmailSettingsUpdateInput = Omit<LifecycleEmailSettings, "updatedAt">;
 
-// GET/PUT /settings/receipt (ADMIN only): how the guest receipt and the pre-bill look on paper.
-// Never the kitchen/bar tickets or the Z report. A thermal printer has no arbitrary fonts - body
-// text is the printer's own Font A or B, magnified 1x/2x and optionally bold.
-export type ReceiptPaperWidth = "MM58" | "MM80";
-export type ReceiptBodyFont = "A" | "B";
+// /settings/print-layouts (ADMIN only): how each printed document looks on paper. A thermal printer
+// has no arbitrary fonts - body text is the printer's own Font A or B, magnified 1x/2x and
+// optionally bold. Every layout carries every field; which ones a document actually reads is
+// listed in lib/printLayout.ts (and in PrintLayoutInput's description in openapi.yaml).
+export type PrintLayoutDocument = "RECEIPT" | "PREBILL" | "KITCHEN_TICKET" | "BAR_TICKET" | "Z_REPORT";
+export type PrintPaperWidth = "MM58" | "MM80";
+export type PrintBodyFont = "A" | "B";
+export type PrintGlyphSize = 1 | 2;
 
-export type ReceiptSettingsInput = {
-  paperWidth: ReceiptPaperWidth;
-  bodyFont: ReceiptBodyFont;
-  receiptTitle: string;
-  prebillTitle: string;
-  titleSize: 1 | 2;
-  totalSize: 1 | 2;
-  totalBold: boolean;
+export type PrintLayoutInput = {
+  paperWidth: PrintPaperWidth;
+  bodyFont: PrintBodyFont;
+  title: string;
+  titleSize: PrintGlyphSize;
   headerText: string;
   headerBold: boolean;
   footerText: string;
-  showOrderNumber: boolean;
-  showTime: boolean;
-  showVatLine: boolean;
-  showPaymentMethod: boolean;
   showLogo: boolean;
   logoWidthPercent: number;
+  showTime: boolean;
+  itemSize: PrintGlyphSize;
+  showLocation: boolean;
+  locationSize: PrintGlyphSize;
+  showOrderNumber: boolean;
+  showWaiter: boolean;
+  showItemNotes: boolean;
+  showVatLine: boolean;
+  showPaymentMethod: boolean;
+  totalSize: PrintGlyphSize;
+  totalBold: boolean;
 };
 
-export type ReceiptSettings = ReceiptSettingsInput & {
-  hasLogo: boolean;
+export type PrintLayout = PrintLayoutInput & {
+  documentType: PrintLayoutDocument;
   updatedAt: string;
 };
 
+// GET /settings/print-layouts - all five, in order receipt, pre-bill, kitchen, bar, Z-report. The
+// logo is one shared image; `hasLogo` says whether it is uploaded.
+export type PrintLayouts = {
+  hasLogo: boolean;
+  layouts: PrintLayout[];
+};
+
 // One printed line as the server's renderer laid it out - the same code builds the real bytes.
-export type ReceiptPreviewLine = {
+export type PrintPreviewLine = {
   text: string;
   center: boolean;
   bold: boolean;
-  size: 1 | 2;
+  size: PrintGlyphSize;
   fontB: boolean;
 };
 
-// POST /settings/receipt/preview. `columns` is the line width in Font A/B characters at 1x for the
-// chosen paper and font. The logo is black-and-white at its printed size; absent when off or none.
-export type ReceiptPreview = {
+// POST /settings/print-layouts/{documentType}/preview. `columns` is the line width in Font A/B
+// characters at 1x for the chosen paper and font. The logo is black-and-white at its printed size;
+// absent when off, not uploaded, or the document never prints it.
+export type PrintLayoutPreview = {
   columns: number;
-  lines: ReceiptPreviewLine[];
+  lines: PrintPreviewLine[];
   logoPngBase64?: string;
   logoWidthDots?: number;
 };
