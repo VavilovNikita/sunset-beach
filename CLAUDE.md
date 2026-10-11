@@ -122,6 +122,10 @@ The boards and shift screens are still separate - when changing behaviour in one
 
 Show an order by `orderNumberLabel` ("#1234", `lib/posOrders.ts`) with `orderRefLabel` (id prefix) beside it, never a slice of the id on its own. A sent line is voided (MANAGER+, reason required), not removed - see the backend CLAUDE.md, "Money".
 
+## Receipt layout (`/admin/settings/receipt`, ADMIN)
+
+**The preview is the server's, not a client imitation.** `ReceiptSettingsForm` posts the unsaved form to `POST /settings/receipt/preview` (debounced; a reply for an older edit is dropped) and draws the returned lines - `text`, `center`, `bold`, `size`, `fontB` - in a monospace box `columns` characters wide. The backend's renderer decides what wraps and what is cut; do not re-wrap, re-measure or "fix up" lines on the client, or the preview stops being what the paper does. `lib/receiptSettings.ts` only holds the pre-checks (title 1-24, header/footer up to 6 lines x 48) and the dirty comparison, which normalises the same way the server does on save (blank lines dropped, lines trimmed). The logo is uploaded and removed immediately (its own calls), not by Save; test print is disabled while there are unsaved edits because it prints the *saved* layout. A real printer is the only true check of paper width and logo density - say so when a change here needs one you can't do.
+
 ## Spa
 
 Spa tables are ordinary POS `Table` rows (`zone: "SPA"`), and a spa appointment occupies the same `Table`/therapist model the restaurant floor uses — the data is shared. The *screens* are still deliberately separate: `OrderBoard`/`PosTableBoard` (the restaurant floor views) explicitly exclude SPA-zone tables, and the spa module gets its own schedule grid (`/admin/spa`, `SpaScheduleGrid.tsx`, built around treatment/therapist/time-slot booking rather than walk-up table service) and its own table/map screens (`/admin/spa/tables`, `/admin/spa/map`). Reception works a spa appointment by treatment and time, not by walking up to a table — that's the whole reason for the split; don't read it as the data being separate too.

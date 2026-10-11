@@ -373,6 +373,54 @@ export type LifecycleEmailSettings = {
 // server-side: days 0-60, months 1-120; postStayReviewUrl must be http(s) or blank/null for none.
 export type LifecycleEmailSettingsUpdateInput = Omit<LifecycleEmailSettings, "updatedAt">;
 
+// GET/PUT /settings/receipt (ADMIN only): how the guest receipt and the pre-bill look on paper.
+// Never the kitchen/bar tickets or the Z report. A thermal printer has no arbitrary fonts - body
+// text is the printer's own Font A or B, magnified 1x/2x and optionally bold.
+export type ReceiptPaperWidth = "MM58" | "MM80";
+export type ReceiptBodyFont = "A" | "B";
+
+export type ReceiptSettingsInput = {
+  paperWidth: ReceiptPaperWidth;
+  bodyFont: ReceiptBodyFont;
+  receiptTitle: string;
+  prebillTitle: string;
+  titleSize: 1 | 2;
+  totalSize: 1 | 2;
+  totalBold: boolean;
+  headerText: string;
+  headerBold: boolean;
+  footerText: string;
+  showOrderNumber: boolean;
+  showTime: boolean;
+  showVatLine: boolean;
+  showPaymentMethod: boolean;
+  showLogo: boolean;
+  logoWidthPercent: number;
+};
+
+export type ReceiptSettings = ReceiptSettingsInput & {
+  hasLogo: boolean;
+  updatedAt: string;
+};
+
+// One printed line as the server's renderer laid it out - the same code builds the real bytes.
+export type ReceiptPreviewLine = {
+  text: string;
+  center: boolean;
+  bold: boolean;
+  size: 1 | 2;
+  fontB: boolean;
+};
+
+// POST /settings/receipt/preview. `columns` is the line width in Font A/B characters at 1x for the
+// chosen paper and font. The logo is black-and-white at its printed size; absent when off or none.
+export type ReceiptPreview = {
+  columns: number;
+  lines: ReceiptPreviewLine[];
+  logoPngBase64?: string;
+  logoWidthDots?: number;
+};
+
 // One room type's figures from GET /reports/occupancy, or the property total (roomId/roomName
 // null). Money and percentages are decimal strings, computed and rounded server-side; a ratio is
 // null when its denominator is zero.
