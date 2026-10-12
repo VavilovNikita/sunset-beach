@@ -106,6 +106,8 @@ Extract logic out of fetch-bound functions so it can be tested; `computeRoomStat
 
 **Do not run `next build` while the dev server is running.** Both write to `.next` and corrupt each other, producing module-not-found errors that look like code bugs.
 
+**Before pushing, `npm run build` must pass on a clean tree - no uncommitted and no untracked files - not only `npm run check`.** Production builds from `origin/main` (`.github/workflows/deploy.yml`), and a working copy that still holds an uncommitted file hides an import of a file the push deleted: typecheck and tests pass locally while `next build` on the server dies with "Module not found" (it happened: a commit that carried only the deletion of `RoomChargeDebtBadge` went out while its replacement sat unstaged, and that deploy failed). `git status --short` must be empty, then build - or clone `origin/main` into a temp folder and run `npm ci && npm run build` there. After the push, check the deploy run actually succeeded (GitHub Actions), not just that the push went through.
+
 Components are not covered by tests. Restructuring them is verified in the browser or not at all — say so when a change needs a live check you cannot perform.
 
 ## Two POS surfaces
