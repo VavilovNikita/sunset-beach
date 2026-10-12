@@ -1,74 +1,114 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import CheckInDialog from "@/components/admin/CheckInDialog";
 import CheckOutDialog from "@/components/admin/CheckOutDialog";
+import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 import { checkInBooking, markBookingNoShow } from "@/lib/bookingOccupancyClient";
-import type { CheckOutResult } from "@/lib/types";
 import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
 import { overdueLabel } from "@/lib/overstay";
-import type { TodayBoard, TodayBoardEntry } from "@/lib/types";
+import { applyCheckedIn, applyCheckedOut, applyNoShow } from "@/lib/todayBoard";
+import type { CheckInResult, CheckOutResult, TodayBoard, TodayBoardEntry } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
 
 // The front desk's daily working set - see openapi.yaml's TodayBoard description for exactly
 // which booking lands in which of the three lists. Data comes down as server-rendered props
-// (app/admin/(dashboard)/today/page.tsx); actions call the backend directly and then
-// router.refresh() to get the next fresh board, the same pattern BookingStatusForm.tsx already
-// uses - there's no client-side re-fetch/reconcile logic to keep in sync with the server's own
-// grouping rules.
+// (app/admin/(dashboard)/today/page.tsx).
 //
-// A row can carry a message worth reading (check-in into a dirty room; check-out with money
-// still owed) that the *next* refresh would otherwise remove along with the row - a booking
-// leaves "arriving" the moment it's checked in, and leaves "departing"/"in-house" the moment
-// it's checked out. Refreshing immediately would make the warning flash and vanish before
-// anyone reads it, on exactly the two messages this screen exists to surface. So a message
-// pauses the refresh until it's dismissed; only a message-free result refreshes right away.
+// Anything worth reading is shown BEFORE the action, in the dialog that asks for it: a room that
+// isn't clean (CheckInDialog), a balance still owed (CheckOutDialog). After an action the card
+// moves at once - the board in state is updated from the response (lib/todayBoard.ts) - and
+// router.refresh() then replaces it with the server's own board, so nothing here re-derives the
+// server's grouping rules and a stale local guess is corrected within a request. Earlier the board
+// held its refresh while a warning was on screen, so a checked-in guest sat in "Arriving" until
+// someone pressed OK.
 export default function TodayBoardView({ initialBoard }: { initialBoard: TodayBoard }) {
   const router = useRouter();
+  const [board, setBoard] = useState(initialBoard);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // router.refresh() delivers a new initialBoard: it replaces whatever the actions guessed.
+  useEffect(() => {
+    setBoard(initialBoard);
+  }, [initialBoard]);
 
   function refresh() {
     router.refresh();
+  }
+
+  function handleCheckedIn(entry: TodayBoardEntry, result: CheckInResult, warnedBefore: boolean) {
+    setBoard((b) => applyCheckedIn(b, entry, result.booking));
+    // The dialog already told the desk about a dirty room; only an unexpected warning is news.
+    setNotice(result.warning && !warnedBefore ? `${result.booking.guestName}: ${result.warning}` : null);
+    refresh();
+  }
+
+  function handleCheckedOut(entry: TodayBoardEntry, _result: CheckOutResult) {
+    setBoard((b) => applyCheckedOut(b, entry.booking.id));
+    setNotice(null);
+    refresh();
+  }
+
+  function handleNoShow(entry: TodayBoardEntry) {
+    setBoard((b) => applyNoShow(b, entry.booking.id));
+    setNotice(null);
+    refresh();
   }
 
   // Each guest appears once. The API's departingToday also carries overdue guests and inHouse is
   // every CHECKED_IN guest, so taken as-is a departure showed twice, each with its own Check out.
   // "Departing today" is the departure date itself; an overdue guest is in the house (OverstayRule)
   // and sits under In-house, first, with the overdue flag on the row.
-  const departing = initialBoard.departingToday.filter((e) => !e.overdueDays);
+  const departing = board.departingToday.filter((e) => !e.overdueDays);
   const departingIds = new Set(departing.map((e) => e.booking.id));
-  const inHouse = initialBoard.inHouse
+  const inHouse = board.inHouse
     .filter((e) => !departingIds.has(e.booking.id))
     .sort((a, b) => (b.overdueDays ?? 0) - (a.overdueDays ?? 0));
 
+  const handlers = { onCheckedIn: handleCheckedIn, onCheckedOut: handleCheckedOut, onNoShow: handleNoShow, onChanged: refresh };
+
   return (
     <div className="space-y-10">
-      <Section
-        title="Arriving today"
-        entries={initialBoard.arrivingToday}
-        action="checkin"
-        onDone={refresh}
-        empty="No arrivals today."
-      />
-      <Section title="Departing today" entries={departing} action="checkout" onDone={refresh} empty="No departures today." />
-      <Section title="In-house" entries={inHouse} action="checkout" onDone={refresh} empty="No one else is checked in." />
+      {notice && (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2" role="status">
+          <p className="text-sm text-amber-400">{notice}</p>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            className="ml-auto shrink-0 text-xs text-sea hover:text-coral transition-colors underline underline-offset-4"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+      <Section title="Arriving today" entries={board.arrivingToday} action="checkin" empty="No arrivals today." {...handlers} />
+      <Section title="Departing today" entries={departing} action="checkout" empty="No departures today." {...handlers} />
+      <Section title="In-house" entries={inHouse} action="checkout" empty="No one else is checked in." {...handlers} />
     </div>
   );
 }
+
+type RowHandlers = {
+  onCheckedIn: (entry: TodayBoardEntry, result: CheckInResult, warnedBefore: boolean) => void;
+  onCheckedOut: (entry: TodayBoardEntry, result: CheckOutResult) => void;
+  onNoShow: (entry: TodayBoardEntry) => void;
+  onChanged: () => void;
+};
 
 function Section({
   title,
   entries,
   action,
-  onDone,
   empty,
+  ...handlers
 }: {
   title: string;
   entries: TodayBoardEntry[];
   action: "checkin" | "checkout";
-  onDone: () => void;
   empty: string;
-}) {
+} & RowHandlers) {
   return (
     <div>
       <p className="eyebrow text-sea mb-3">
@@ -79,7 +119,7 @@ function Section({
       ) : (
         <div className="space-y-2">
           {entries.map((entry) => (
-            <TodayRow key={entry.booking.id} entry={entry} action={action} onDone={onDone} />
+            <TodayRow key={entry.booking.id} entry={entry} action={action} {...handlers} />
           ))}
         </div>
       )}
@@ -87,59 +127,41 @@ function Section({
   );
 }
 
-function TodayRow({ entry, action, onDone }: { entry: TodayBoardEntry; action: "checkin" | "checkout"; onDone: () => void }) {
+function TodayRow({
+  entry,
+  action,
+  onCheckedIn,
+  onCheckedOut,
+  onNoShow,
+  onChanged,
+}: { entry: TodayBoardEntry; action: "checkin" | "checkout" } & RowHandlers) {
   const { booking, outstandingBalance } = entry;
   const [busy, setBusy] = useState(false);
+  const [checkingIn, setCheckingIn] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
-  const [message, setMessage] = useState<{ text: string; tone: "warning" | "error"; holdsRefresh: boolean } | null>(null);
+  const [markingNoShow, setMarkingNoShow] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const needsRoom = booking.roomUnitId === null;
   const roomDirty = booking.roomUnit?.housekeepingStatus === "DIRTY";
   const owed = Number(outstandingBalance) > 0;
   const overdue = overdueLabel(entry.overdueDays);
 
+  // A clean room is checked in straight away; a dirty one asks first (CheckInDialog).
   async function handleCheckIn() {
+    if (roomDirty) {
+      setCheckingIn(true);
+      return;
+    }
     setBusy(true);
-    setMessage(null);
+    setError(null);
     const result = await checkInBooking(booking.id);
     setBusy(false);
     if (!result.ok) {
-      setMessage({ text: result.error, tone: "error", holdsRefresh: false });
+      setError(result.error);
       return;
     }
-    if (result.result.warning) {
-      setMessage({ text: result.result.warning, tone: "warning", holdsRefresh: true });
-      return;
-    }
-    onDone();
-  }
-
-  function handleCheckedOut(result: CheckOutResult) {
-    setCheckingOut(false);
-    setMessage(null);
-    const stillOwed = Number(result.outstandingBalance);
-    if (stillOwed > 0) {
-      setMessage({
-        text: `฿${stillOwed.toLocaleString("en-US")} still owed — collect before the guest leaves.`,
-        tone: "warning",
-        holdsRefresh: true,
-      });
-      return;
-    }
-    onDone();
-  }
-
-  async function handleNoShow() {
-    if (!window.confirm(`Mark ${booking.guestName} as a no-show?`)) return;
-    setBusy(true);
-    setMessage(null);
-    const result = await markBookingNoShow(booking.id);
-    setBusy(false);
-    if (!result.ok) {
-      setMessage({ text: result.error, tone: "error", holdsRefresh: false });
-      return;
-    }
-    onDone();
+    onCheckedIn(entry, result.result, false);
   }
 
   return (
@@ -169,23 +191,10 @@ function TodayRow({ entry, action, onDone }: { entry: TodayBoardEntry; action: "
             doesn't require one to check in. */}
         {action === "checkin" && (
           <div className="mt-1">
-            <GuestLinkEditor booking={booking} onSaved={onDone} />
+            <GuestLinkEditor booking={booking} onSaved={onChanged} />
           </div>
         )}
-        {message && (
-          <div className="mt-2 flex items-center gap-3">
-            <p className={`text-xs ${message.tone === "error" ? "text-coral" : "text-amber-400"}`}>{message.text}</p>
-            {message.holdsRefresh && (
-              <button
-                type="button"
-                onClick={onDone}
-                className="text-xs text-sea hover:text-coral transition-colors underline underline-offset-4 shrink-0"
-              >
-                OK
-              </button>
-            )}
-          </div>
-        )}
+        {error && <p className="mt-2 text-xs text-coral">{error}</p>}
       </div>
       <div className="flex gap-2 shrink-0">
         {action === "checkin" && (
@@ -201,7 +210,7 @@ function TodayRow({ entry, action, onDone }: { entry: TodayBoardEntry; action: "
             </button>
             <button
               type="button"
-              onClick={handleNoShow}
+              onClick={() => setMarkingNoShow(true)}
               disabled={busy}
               className="rounded-full border border-cream/25 hover:border-cream/50 transition-colors px-4 py-2 text-sm font-medium disabled:opacity-50"
             >
@@ -220,14 +229,48 @@ function TodayRow({ entry, action, onDone }: { entry: TodayBoardEntry; action: "
           </button>
         )}
       </div>
+      {checkingIn && (
+        <CheckInDialog
+          bookingId={booking.id}
+          guestName={booking.guestName}
+          roomLabel={booking.roomUnit?.label ?? null}
+          onBack={() => setCheckingIn(false)}
+          onDone={(result) => {
+            setCheckingIn(false);
+            onCheckedIn(entry, result, true);
+          }}
+        />
+      )}
       {checkingOut && (
         <CheckOutDialog
           bookingId={booking.id}
           guestName={booking.guestName}
           checkOut={booking.checkOut}
           onBack={() => setCheckingOut(false)}
-          onDone={handleCheckedOut}
+          onDone={(result) => {
+            setCheckingOut(false);
+            onCheckedOut(entry, result);
+          }}
         />
+      )}
+      {markingNoShow && (
+        <ConfirmActionDialog
+          eyebrow="No-show"
+          title={`Mark ${booking.guestName} as a no-show?`}
+          confirmLabel="Mark no-show"
+          busyLabel="Saving…"
+          action={async () => {
+            const result = await markBookingNoShow(booking.id);
+            return result.ok ? null : result.error;
+          }}
+          onDone={() => {
+            setMarkingNoShow(false);
+            onNoShow(entry);
+          }}
+          onBack={() => setMarkingNoShow(false)}
+        >
+          <p className="text-sm text-cream/60">The booking&rsquo;s dates and price don&rsquo;t change.</p>
+        </ConfirmActionDialog>
       )}
     </div>
   );

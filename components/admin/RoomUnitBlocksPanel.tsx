@@ -7,16 +7,61 @@ import { createRoomUnitBlock, deleteRoomUnitBlock, listRoomUnitBlocks } from "@/
 import { isAutoMigrated, weekdayOf } from "@/lib/ratesGrid";
 import type { AvailabilityDay, AvailabilityUnitDay, RoomUnitBlock, RoomUnitBlockResult } from "@/lib/types";
 import { formatDate, formatDateRange } from "@/lib/formatDate";
+import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 
 const MONTH_FORMAT = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 
 // "Booked" and "Blocked" share a first letter, so the unit calendar's single-character cells need
-// their own disambiguated code.
+// their own disambiguated code. A night can be both (a block laid over a booking that was already
+// there - RoomUnitService#createBlock allows it and warns), and then both facts are shown.
 function unitStatusCode(u: AvailabilityUnitDay | null) {
   if (!u) return "";
+  if (u.isBooked && u.isBlocked) return "R X";
   if (u.isBooked) return "R"; // Reserved
   if (u.isBlocked) return "X";
   return "";
+}
+
+// Colours follow the app's meanings (CLAUDE.md, "Colour meanings"): sea = free, coral = a blocked
+// room, neutral = occupied without a problem. A block over a booking is the one night that is both,
+// so it keeps the booking's neutral fill and carries the block as coral hatching - a shape, since
+// the palette has no colour left for it. The legend below the calendar draws these same swatches.
+const BLOCK_HATCH =
+  "repeating-linear-gradient(-45deg, rgba(226,97,47,0.75), rgba(226,97,47,0.75) 3px, transparent 3px, transparent 7px)";
+
+function cellAppearance(u: AvailabilityUnitDay | null): { className: string; style?: React.CSSProperties } {
+  if (u?.isBooked && u.isBlocked) return { className: "bg-cream/15 text-cream/90", style: { backgroundImage: BLOCK_HATCH } };
+  if (u?.isBooked) return { className: "bg-cream/15 text-cream/80" };
+  if (u?.isBlocked) return { className: "bg-coral/30 text-cream/90" };
+  return { className: "bg-sea/15 text-cream/70" };
+}
+
+function CalendarLegend() {
+  const swatch = "inline-block w-4 h-4 rounded align-middle mr-1.5";
+  return (
+    <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-cream/60">
+      <li>
+        <span className={`${swatch} bg-sea/15`} />
+        Free
+      </li>
+      <li>
+        <span className={`${swatch} bg-cream/15`} />
+        Booked (R)
+      </li>
+      <li>
+        <span className={`${swatch} bg-coral/30`} />
+        Blocked (X)
+      </li>
+      <li>
+        <span className={`${swatch} bg-cream/15`} style={{ backgroundImage: BLOCK_HATCH }} />
+        Blocked over a booking (R X)
+      </li>
+      <li>
+        <span className={`${swatch} bg-coral/30 ring-1 ring-amber-400/70`} />
+        Block from the old data move - needs review
+      </li>
+    </ul>
+  );
 }
 
 // Single-room drill-down of the Rates & availability grid (moved here unchanged from the old
@@ -100,18 +145,17 @@ export default function RoomUnitBlocksPanel({
     onChanged();
   }
 
-  async function handleDeleteBlock(id: string) {
-    if (!window.confirm("Remove this block? The room becomes bookable for those dates again.")) return;
+  const [removingBlockId, setRemovingBlockId] = useState<string | null>(null);
+
+  async function handleDeleteBlock(id: string): Promise<string | null> {
     setError(null);
 
     const result = await deleteRoomUnitBlock(roomUnitId, id);
 
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
+    if (!result.ok) return result.error;
     await refetchBlocks();
     onChanged();
+    return null;
   }
 
   const [y, m] = month.split("-").map(Number);
@@ -120,15 +164,16 @@ export default function RoomUnitBlocksPanel({
 
   const cells: CalendarCell[] = days.map((d) => {
     const u = d.units.find((x) => x.roomUnitId === roomUnitId) ?? null;
-    let className = "bg-sea/10 text-cream/70"; // free
-    if (u?.isBooked) className = "bg-coraldeep/40 text-cream/70";
-    else if (u?.isBlocked) className = "bg-coral/15 text-cream/80";
+    const { className: baseClass, style } = cellAppearance(u);
+    let className = baseClass;
     if (u?.isBlocked && isAutoMigrated(u.blockReason)) className += " ring-1 ring-amber-400/70";
 
     return {
       date: d.date,
       content: <span className="text-[0.6rem]">{unitStatusCode(u)}</span>,
       className,
+      style,
+      title: u?.isBlocked && u.blockReason ? `${u.isBooked ? "Booked; blocked: " : "Blocked: "}${u.blockReason}` : undefined,
       onClick: () => {
         if (!canManage) return;
         setFrom(d.date);
@@ -155,9 +200,8 @@ export default function RoomUnitBlocksPanel({
             onPrevMonth={() => onMonthChange(-1)}
             onNextMonth={() => onMonthChange(1)}
           />
-          <p className="mt-3 text-xs text-cream/40">
-            Sea = free, coral = blocked, dark = booked. {canManage && "Click a free or blocked day to load it into the form."}
-          </p>
+          <CalendarLegend />
+          {canManage && <p className="mt-2 text-xs text-cream/40">Click a free or blocked day to load it into the form.</p>}
         </div>
 
         <div className="space-y-6">
@@ -288,7 +332,7 @@ export default function RoomUnitBlocksPanel({
                         </p>
                         <button
                           type="button"
-                          onClick={() => handleDeleteBlock(b.id)}
+                          onClick={() => setRemovingBlockId(b.id)}
                           className="text-xs text-cream/50 hover:text-coral transition-colors shrink-0"
                         >
                           Delete
@@ -306,6 +350,19 @@ export default function RoomUnitBlocksPanel({
           </div>
         </div>
       </div>
+      {removingBlockId && (
+        <ConfirmActionDialog
+          eyebrow="Block"
+          title="Remove this block?"
+          confirmLabel="Remove block"
+          busyLabel="Removing…"
+          action={() => handleDeleteBlock(removingBlockId)}
+          onDone={() => setRemovingBlockId(null)}
+          onBack={() => setRemovingBlockId(null)}
+        >
+          <p className="text-sm text-cream/60">The room becomes bookable for those dates again.</p>
+        </ConfirmActionDialog>
+      )}
     </div>
   );
 }

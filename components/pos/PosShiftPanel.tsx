@@ -227,7 +227,7 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
           way back to one for a dispute or a "what did we actually charge" lookup. */}
       <Link
         href={`/pos/orders?shiftId=${shift.id}`}
-        className="block text-sm text-sea active:text-coral transition-colors underline underline-offset-4 mb-6"
+        className="flex items-center min-h-11 text-sm text-sea active:text-coral transition-colors underline underline-offset-4 mb-6"
       >
         Orders in this shift →
       </Link>
@@ -299,7 +299,7 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
       {blockedMessage && (
         <p className="mt-3 text-sm text-coral">
           Can&rsquo;t close — {blockedMessage}{" "}
-          <Link href="/pos" className="underline underline-offset-4">
+          <Link href="/pos" className="inline-flex items-center min-h-11 underline underline-offset-4">
             View orders →
           </Link>
         </p>

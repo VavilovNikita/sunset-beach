@@ -6,6 +6,9 @@ export type CalendarCell = {
   date: string; // YYYY-MM-DD
   content: React.ReactNode;
   className?: string;
+  /** For what a class can't say, e.g. the hatching of a block laid over a booking. */
+  style?: React.CSSProperties;
+  title?: string;
   onClick?: () => void;
 };
 
@@ -70,6 +73,8 @@ export default function PriceCalendar({
               type="button"
               onClick={cell?.onClick}
               disabled={!cell?.onClick}
+              style={cell?.style}
+              title={cell?.title}
               className={`aspect-square rounded-lg text-xs flex flex-col items-center justify-center gap-0.5 transition-colors ${
                 cell?.className ?? "bg-cream/5 text-cream/70"
               }`}

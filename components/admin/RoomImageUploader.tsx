@@ -5,6 +5,7 @@ import UploadedImage from "@/components/UploadedImage";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL, resolveImageUrl } from "@/lib/backend";
 import { extractApiError } from "@/lib/apiError";
+import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 
 export default function RoomImageUploader({
   roomId,
@@ -45,8 +46,9 @@ export default function RoomImageUploader({
     router.refresh();
   }
 
-  async function handleRemove(imagePath: string) {
-    if (!window.confirm("Remove this photo from the room? This can't be undone.")) return;
+  const [confirmingRemoval, setConfirmingRemoval] = useState<string | null>(null);
+
+  async function handleRemove(imagePath: string): Promise<string | null> {
     setRemoving(imagePath);
     setError(null);
 
@@ -60,10 +62,10 @@ export default function RoomImageUploader({
     setRemoving(null);
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      setError(extractApiError(data, "Could not remove photo."));
-      return;
+      return extractApiError(data, "Could not remove photo.");
     }
     router.refresh();
+    return null;
   }
 
   return (
@@ -87,7 +89,7 @@ export default function RoomImageUploader({
                 the second guard. */}
             <button
               type="button"
-              onClick={() => handleRemove(src)}
+              onClick={() => setConfirmingRemoval(src)}
               disabled={removing === src}
               aria-label="Remove photo"
               title="Remove photo"
@@ -118,6 +120,19 @@ export default function RoomImageUploader({
       />
       {uploading && <p className="text-sm text-cream/50 mt-2">Uploading…</p>}
       {error && <p className="text-sm text-coral mt-2">{error}</p>}
+      {confirmingRemoval && (
+        <ConfirmActionDialog
+          eyebrow="Photo"
+          title="Remove this photo from the room?"
+          confirmLabel="Remove photo"
+          busyLabel="Removing…"
+          action={() => handleRemove(confirmingRemoval)}
+          onDone={() => setConfirmingRemoval(null)}
+          onBack={() => setConfirmingRemoval(null)}
+        >
+          <p className="text-sm text-cream/60">This can&rsquo;t be undone.</p>
+        </ConfirmActionDialog>
+      )}
     </div>
   );
 }

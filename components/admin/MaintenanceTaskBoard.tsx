@@ -10,6 +10,7 @@ import {
 import type { MaintenanceTask, MaintenanceTaskBlockResult, MaintenanceTaskStatus, RoomUnit } from "@/lib/types";
 import { formatDateRange, formatTimestamp } from "@/lib/formatDate";
 import UploadedImage from "@/components/UploadedImage";
+import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 
 const STATUS_LABEL: Record<MaintenanceTaskStatus, string> = { OPEN: "Open", IN_PROGRESS: "In progress", DONE: "Done" };
 const STATUS_CLASS: Record<MaintenanceTaskStatus, string> = {
@@ -233,17 +234,27 @@ function TaskCard({
   const [blockResult, setBlockResult] = useState<MaintenanceTaskBlockResult | null>(null);
   const [blockForm, setBlockForm] = useState(false);
 
+  const [confirmingDone, setConfirmingDone] = useState(false);
+
   async function handleStatusChange(status: MaintenanceTaskStatus) {
-    if (status === "DONE" && !window.confirm(`Mark "${task.description}" in ${unitLabel} as done?`)) return;
+    if (status === "DONE") {
+      setConfirmingDone(true);
+      return;
+    }
+    await applyStatus(status);
+  }
+
+  async function applyStatus(status: MaintenanceTaskStatus): Promise<string | null> {
     setBusy(true);
     setError(null);
     const result = await updateMaintenanceTaskStatus(task.id, status);
     setBusy(false);
     if (!result.ok) {
       setError(result.error);
-      return;
+      return result.error;
     }
     onChanged();
+    return null;
   }
 
   // Start stays in its place once the task is in progress (disabled, "Started"), rather than
@@ -258,6 +269,17 @@ function TaskCard({
 
   return (
     <div className="bg-ink2/40 border border-cream/10 rounded-xl overflow-hidden">
+      {confirmingDone && (
+        <ConfirmActionDialog
+          eyebrow="Maintenance"
+          title={`Mark "${task.description}" in ${unitLabel} as done?`}
+          confirmLabel="Mark done"
+          busyLabel="Saving…"
+          action={() => applyStatus("DONE")}
+          onDone={() => setConfirmingDone(false)}
+          onBack={() => setConfirmingDone(false)}
+        />
+      )}
       <button type="button" onClick={onToggle} className="w-full text-left px-4 py-4 flex items-center gap-3">
         <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_CLASS[task.status]}`}>
           {STATUS_LABEL[task.status]}

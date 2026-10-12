@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import CheckInDialog from "@/components/admin/CheckInDialog";
 import CheckOutDialog from "@/components/admin/CheckOutDialog";
 import { checkInBooking } from "@/lib/bookingOccupancyClient";
-import type { CheckOutResult } from "@/lib/types";
 import { overdueLabel } from "@/lib/overstay";
 import { updateRoomUnitHousekeeping } from "@/lib/roomUnitHousekeepingClient";
 import type { PropertyMapUnit } from "@/lib/types";
@@ -28,14 +28,20 @@ export default function PropertyMapUnitPanel({
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [checkingOut, setCheckingOut] = useState(false);
+  const [checkingIn, setCheckingIn] = useState(false);
 
   const booking = unit.currentBooking;
   const isCheckedIn = booking?.occupancyStatus === "CHECKED_IN";
   const isExpectedToday = booking?.occupancyStatus === "EXPECTED";
   const owed = booking ? Number(booking.outstandingBalance) : 0;
 
+  // A room that isn't clean is asked about first (CheckInDialog); a clean one is checked in at once.
   async function handleCheckIn() {
     if (!booking) return;
+    if (unit.housekeepingStatus === "DIRTY") {
+      setCheckingIn(true);
+      return;
+    }
     setBusy(true);
     setError(null);
     setWarning(null);
@@ -45,22 +51,17 @@ export default function PropertyMapUnitPanel({
       setError(result.error);
       return;
     }
-    if (result.result.warning) {
-      setWarning(result.result.warning);
-      return;
-    }
+    // The map refreshes at once either way; an unexpected warning stays visible in the panel.
+    if (result.result.warning) setWarning(result.result.warning);
     onSaved();
   }
 
-  function handleCheckedOut(result: CheckOutResult) {
+  // The balance owed was shown in the dialog before the check-out, so nothing is held back here:
+  // the map and this panel refresh at once.
+  function handleCheckedOut() {
     setCheckingOut(false);
     setError(null);
     setWarning(null);
-    const stillOwed = Number(result.outstandingBalance);
-    if (stillOwed > 0) {
-      setWarning(`฿${stillOwed.toLocaleString("en-US")} still owed — collect before the guest leaves.`);
-      return;
-    }
     onSaved();
   }
 
@@ -198,6 +199,20 @@ export default function PropertyMapUnitPanel({
           </div>
         </div>
       </div>
+      {checkingIn && booking && (
+        <CheckInDialog
+          bookingId={booking.bookingId}
+          guestName={booking.guestName}
+          roomLabel={unit.unitLabel}
+          onBack={() => setCheckingIn(false)}
+          onDone={() => {
+            setCheckingIn(false);
+            setError(null);
+            setWarning(null);
+            onSaved();
+          }}
+        />
+      )}
       {checkingOut && booking && (
         <CheckOutDialog
           bookingId={booking.bookingId}

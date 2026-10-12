@@ -69,14 +69,14 @@ export default function GuestOrderQrButton({
             <button
               type="button"
               onClick={() => window.print()}
-              className="rounded-full bg-ink text-cream hover:bg-ink2 transition-colors px-6 py-2.5 text-sm font-medium"
+              className="min-h-11 rounded-full bg-ink text-cream hover:bg-ink2 transition-colors px-6 py-2.5 text-sm font-medium"
             >
               Print
             </button>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-full border border-ink/25 hover:border-ink/50 transition-colors px-6 py-2.5 text-sm font-medium"
+              className="min-h-11 rounded-full border border-ink/25 hover:border-ink/50 transition-colors px-6 py-2.5 text-sm font-medium"
             >
               Close
             </button>

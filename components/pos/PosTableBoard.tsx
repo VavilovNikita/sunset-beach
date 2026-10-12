@@ -49,10 +49,19 @@ export default function PosTableBoard({
   const [pickerTableId, setPickerTableId] = useState<string | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
+  // The last refresh failed: what's on screen is the last known state, and a table that has an
+  // order by now could still look free. Said out loud rather than leaving the board looking current.
+  const [refreshFailed, setRefreshFailed] = useState(false);
 
   useEffect(() => {
     setTables(initialTables);
   }, [initialTables]);
+
+  // Orders too: the table that was free when this page was cached is exactly the one that shows an
+  // order after "Back", and a stale `orders` is what drew it as free.
+  useEffect(() => {
+    setOrders(initialOrders);
+  }, [initialOrders]);
 
   // Once per opening, not on every render - the 5s poll re-renders this board, and re-scrolling
   // each time would yank the page back to the picker while someone is looking elsewhere.
@@ -65,10 +74,20 @@ export default function PosTableBoard({
     if (result.ok) {
       setTables(result.data.tables);
       setOrders(result.data.orders);
+      setRefreshFailed(false);
+    } else {
+      setRefreshFailed(true);
     }
   }
 
+  // Every 5 s while visible, and at once when the page comes back (usePolling); plus right now on
+  // mount, because "Back" shows the page from the router's cache, which can be a snapshot taken
+  // before the table was taken.
   usePolling(refetch, 5000);
+  useEffect(() => {
+    refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const ordersByTableId = new Map<string, Order[]>();
   for (const o of orders) {
@@ -128,6 +147,11 @@ export default function PosTableBoard({
       </div>
 
       {error && <p className="text-sm text-coral mb-4">{error}</p>}
+      {refreshFailed && (
+        <p className="text-sm text-amber-400 mb-4" role="status">
+          Can&rsquo;t reach the server - tables may be out of date. Retrying…
+        </p>
+      )}
 
       {tab === "tables" ? (
         <div className="space-y-7">

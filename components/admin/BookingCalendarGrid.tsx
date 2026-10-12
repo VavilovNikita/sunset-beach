@@ -16,6 +16,7 @@ import {
 } from "@/lib/calendarLayout";
 import { quoteBookingSchedule, applyBookingSchedule } from "@/lib/bookingScheduleClient";
 import { assignBookingSegmentRoomUnit, swapBookingSegmentRoomUnit } from "@/lib/bookingSegmentClient";
+import { findClash, isSwapPartner } from "@/lib/calendarDrop";
 import { useBookingSiblingsCache } from "@/lib/useBookingSiblingsCache";
 import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
 import { DEFAULT_DAY_WIDTH_PX, MIN_DAY_WIDTH_PX, MAX_DAY_WIDTH_PX, loadStoredDensity, saveStoredDensity } from "@/lib/calendarRange";
@@ -233,6 +234,8 @@ export default function BookingCalendarGrid({
     checkIn: string;
     checkOut: string;
     roomUnitId: string | null;
+    // What the booking has now, shown next to the new values so the desk sees what changes.
+    from: { checkIn: string; checkOut: string; roomUnitId: string | null };
     status: "loading" | "ready" | "error";
     quote?: BookingScheduleQuote;
     error?: string;
@@ -273,7 +276,14 @@ export default function BookingCalendarGrid({
   }, [dragState]);
 
   function cellUnderPointer(e: React.PointerEvent): { roomUnitId: string; roomId: string; date: Date } | null {
-    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-cell]");
+    // The whole stack under the pointer, not only the topmost element: another booking's bar sits
+    // over the cells of its nights, and a drop on a bar in the same room has to resolve to the
+    // date underneath it (a date shift) instead of to nothing.
+    let el: HTMLElement | null = null;
+    for (const candidate of document.elementsFromPoint(e.clientX, e.clientY)) {
+      el = candidate.closest<HTMLElement>("[data-cell]");
+      if (el) break;
+    }
     if (!el || el.dataset.date === undefined || el.dataset.roomUnitId === undefined || el.dataset.roomId === undefined) return null;
     return { roomUnitId: el.dataset.roomUnitId, roomId: el.dataset.roomId, date: dateOnlyUTC(el.dataset.date) };
   }
@@ -421,7 +431,7 @@ export default function BookingCalendarGrid({
       // Bar-hover (a swap candidate) is checked first - it takes priority over whatever cell
       // happens to sit underneath the hovered bar.
       const hoveredBar = barUnderPointer(e, dragState.segmentId);
-      const swapTarget = hoveredBar && hoveredBar.bookingId !== dragState.bookingId && dragState.originalRoomUnitId !== "" ? hoveredBar : null;
+      const swapTarget = isSwapPartner(hoveredBar, dragState.bookingId, dragState.originalRoomUnitId) ? hoveredBar : null;
       if (swapTarget) {
         setDragState({
           ...dragState,
@@ -470,8 +480,30 @@ export default function BookingCalendarGrid({
     }
   }
 
-  function openScheduleConfirm(booking: CalendarBooking, checkIn: string, checkOut: string, roomUnitId: string | null) {
-    setScheduleConfirm({ bookingId: booking.bookingId, guestName: booking.guestName, checkIn, checkOut, roomUnitId, status: "loading" });
+  function openScheduleConfirm(
+    booking: CalendarBooking,
+    checkIn: string,
+    checkOut: string,
+    roomUnitId: string | null,
+    from: { checkIn: string; checkOut: string; roomUnitId: string | null }
+  ) {
+    // Known from the grid already: the drop lands on nights another booking holds in that room.
+    // Said plainly here instead of a generic "no longer available" from the quote.
+    const clash = findClash(data.bookings, booking.bookingId, roomUnitId, checkIn, checkOut);
+    if (clash) {
+      setScheduleConfirm({
+        bookingId: booking.bookingId,
+        guestName: booking.guestName,
+        checkIn,
+        checkOut,
+        roomUnitId,
+        from,
+        status: "error",
+        error: `${clash.guestName} has ${roomUnitLabelById.get(clash.roomUnitId ?? "") ?? "this room"} on ${formatDateRange(clash.checkIn, clash.checkOut)}, so ${booking.guestName} can't be moved there. Drop on free nights, or move that booking first.`,
+      });
+      return;
+    }
+    setScheduleConfirm({ bookingId: booking.bookingId, guestName: booking.guestName, checkIn, checkOut, roomUnitId, from, status: "loading" });
     quoteBookingSchedule(booking.bookingId, { checkIn, checkOut, roomUnitId }).then((result) => {
       setScheduleConfirm((prev) => {
         if (!prev || prev.bookingId !== booking.bookingId || prev.checkIn !== checkIn || prev.checkOut !== checkOut) return prev;
@@ -511,7 +543,7 @@ export default function BookingCalendarGrid({
       // validly-hovered position, which is a deliberate, separate decision (not this one).
       if (finished.hasHoveredSwapTarget) {
         const hoveredBar = barUnderPointer(e, finished.segmentId);
-        const swapTarget = hoveredBar && hoveredBar.bookingId !== finished.bookingId && finished.originalRoomUnitId !== "" ? hoveredBar : null;
+        const swapTarget = isSwapPartner(hoveredBar, finished.bookingId, finished.originalRoomUnitId) ? hoveredBar : null;
         if (!swapTarget) return; // aimed at a bar, missed on release - cancel, don't fall back to a move
         if (swapTarget.roomId !== finished.roomId) return; // cross-type - refused before any request, no modal
         openSwapConfirm(booking, swapTarget);
@@ -530,7 +562,11 @@ export default function BookingCalendarGrid({
         toDateKey(finished.checkOut) === toDateKey(finished.originalCheckOut) &&
         finished.roomUnitId === finished.originalRoomUnitId;
       if (unchanged) return;
-      openScheduleConfirm(booking, toDateKey(finished.checkIn), toDateKey(finished.checkOut), finished.roomUnitId || null);
+      openScheduleConfirm(booking, toDateKey(finished.checkIn), toDateKey(finished.checkOut), finished.roomUnitId || null, {
+        checkIn: toDateKey(finished.originalCheckIn),
+        checkOut: toDateKey(finished.originalCheckOut),
+        roomUnitId: finished.originalRoomUnitId || null,
+      });
       return;
     }
 
@@ -548,7 +584,11 @@ export default function BookingCalendarGrid({
     // is only the same value when segmentCount === 1.
     const submitCheckIn = finished.edge === "end" ? finished.overallCheckIn : finished.checkIn;
     const submitCheckOut = finished.edge === "start" ? finished.overallCheckOut : finished.checkOut;
-    openScheduleConfirm(booking, toDateKey(submitCheckIn), toDateKey(submitCheckOut), finished.roomUnitId || null);
+    openScheduleConfirm(booking, toDateKey(submitCheckIn), toDateKey(submitCheckOut), finished.roomUnitId || null, {
+      checkIn: toDateKey(finished.edge === "end" ? finished.overallCheckIn : finished.originalCheckIn),
+      checkOut: toDateKey(finished.edge === "start" ? finished.overallCheckOut : finished.originalCheckOut),
+      roomUnitId: booking.roomUnitId,
+    });
   }
 
   function onDragPointerCancel() {
@@ -570,10 +610,15 @@ export default function BookingCalendarGrid({
     router.refresh();
   }
 
+  function unitLabelOrUnassigned(roomUnitId: string | null) {
+    return roomUnitId === null ? "unassigned" : (roomUnitLabelById.get(roomUnitId) ?? roomUnitId);
+  }
+
   function openSwapConfirm(
     booking: CalendarBooking,
     target: { bookingId: string; segmentId: string; roomId: string; roomUnitId: string; guestName: string }
   ) {
+    if (booking.roomUnitId === target.roomUnitId) return; // same room: nothing to exchange
     setSwapConfirm({
       draggedBookingId: booking.bookingId,
       draggedSegmentId: booking.segmentId,
@@ -1048,14 +1093,21 @@ export default function BookingCalendarGrid({
         <div className="fixed inset-0 z-50 bg-ink/80 flex items-center justify-center p-4" onClick={() => setScheduleConfirm(null)}>
           <div className="bg-ink2 border border-cream/15 rounded-xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
             <p className="eyebrow text-sea mb-1">Confirm change</p>
-            <p className="text-cream mb-1">{scheduleConfirm.guestName}</p>
-            <p className="text-sm text-cream/60 mb-4">
-              {formatDateRange(scheduleConfirm.checkIn, scheduleConfirm.checkOut)}
-              {" · "}
-              {scheduleConfirm.roomUnitId === null
-                ? "unassigned"
-                : (roomUnitLabelById.get(scheduleConfirm.roomUnitId) ?? scheduleConfirm.roomUnitId)}
-            </p>
+            <p className="text-cream mb-2">{scheduleConfirm.guestName}</p>
+            <dl className="text-sm mb-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+              <dt className="text-cream/40">Now</dt>
+              <dd className="text-cream/60">
+                {formatDateRange(scheduleConfirm.from.checkIn, scheduleConfirm.from.checkOut)}
+                {" · "}
+                {unitLabelOrUnassigned(scheduleConfirm.from.roomUnitId)}
+              </dd>
+              <dt className="text-cream/40">New</dt>
+              <dd className="text-cream">
+                {formatDateRange(scheduleConfirm.checkIn, scheduleConfirm.checkOut)}
+                {" · "}
+                {unitLabelOrUnassigned(scheduleConfirm.roomUnitId)}
+              </dd>
+            </dl>
 
             {scheduleConfirm.status === "loading" && <p className="text-sm text-cream/50">Pricing…</p>}
 

@@ -120,9 +120,21 @@ The boards and shift screens are still separate - when changing behaviour in one
 
 **Opening a table creates nothing.** Both boards navigate to `.../orders/new?tableId=` (`lib/posDraftOrder.ts`), a draft that exists only in the URL; the first item creates the order with that line in one request. Which menu items a ticket offers is `lib/posMenu.ts#menuForOrder` (a restaurant/bar table never sees spa treatments; the item picker has no pre-selected default). Buttons that change state stay in place, disabled, after their action (Send → "Sent ✓", Start → "Started ✓") - a button that vanished let the next one slide under a double-click.
 
-**Confirmations are dialogs, not `window.confirm()`.** Inside an order ticket use `PosAttributedConfirm` (inline, with the phone's "will be recorded as" block; `cancelLabel` when the action is itself a cancel). Elsewhere in the admin use `components/admin/ConfirmDialog.tsx` (the modal `CancelBookingDialog` and `DeleteButton` are built on). Some front-desk screens still call `window.confirm()` - move them over when touched.
+**Confirmations are dialogs, not `window.confirm()`.** Inside an order ticket use `PosAttributedConfirm` (inline, with the phone's "will be recorded as" block; `cancelLabel` when the action is itself a cancel). Elsewhere in the admin use `components/admin/ConfirmDialog.tsx` (the modal `CancelBookingDialog` and `DeleteButton` are built on), or `ConfirmActionDialog.tsx` when the answer is one request (it owns the busy/error state and keeps the dialog open on a failure). **No `window.confirm()`/`window.prompt()` remains anywhere** - grep for them before adding a screen; the browser's own dialog can't show a failure and is blocked by some browsers.
+
+**Cancelling an order that was already sent is a manager's void with a reason** (`POST /orders/{id}/cancel`, backend CLAUDE.md "Money"): on a `SENT` order `OrderTicket` shows the reason field to MANAGER+ and a plain "only a manager can cancel" line to everyone else - no button that can only fail. The mobile staff app does the same.
 
 Show an order by `orderNumberLabel` ("#1234", `lib/posOrders.ts`) with `orderRefLabel` (id prefix) beside it, never a slice of the id on its own. A sent line is voided (MANAGER+, reason required), not removed - see the backend CLAUDE.md, "Money".
+
+**Every control on `/pos` is at least 44px high** (`min-h-11`, or padding that adds up to it) - category tabs, quantity buttons, Remove/Void/Cancel order, filter chips, the links inside notices. This is a phone passed between staff with wet hands. An inline text link counts: give it `inline-flex items-center min-h-11`. Checked by reading, not on a device.
+
+**A board that shows who is where refetches when the page comes back, not only on a timer** (`lib/usePolling.ts`: tab visible again, window focused, bfcache restore) and once on mount (`PosTableBoard`, `OrderBoard`): the router cache can serve the page from before a table was taken, and a hidden phone tab's timers are frozen. `PosTableBoard` also says so when a refresh fails - a table must never look free because the last poll silently failed.
+
+## Front desk (Today board, calendar)
+
+**A warning is read before the action, in the dialog that asks for it.** Check-in into a room that is not clean opens `CheckInDialog` ("Check in anyway"); check-out with a balance owed shows it in `CheckOutDialog` ("Check out anyway"). Both are warnings, not blocks - the backend only warns. After an action the Today board moves the card at once from the response (`lib/todayBoard.ts`) and `router.refresh()` replaces that guess with the server's board; it never holds a refresh behind a message.
+
+**On the booking calendar a drop on a booking in the SAME room is a date shift, never a swap** (`lib/calendarDrop.ts#isSwapPartner`; the backend refuses a same-room swap too). A clash with that booking is said by name in the confirm dialog, which shows the old and new dates and room side by side. Only a bar in a different room is a swap partner.
 
 ## Print layouts (`/admin/settings/print-layouts`, ADMIN)
 

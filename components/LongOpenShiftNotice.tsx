@@ -25,7 +25,7 @@ export default function LongOpenShiftNotice({
           {s.openedByEmail ? ` by ${s.openedByEmail}` : ""}. A shift should be closed when the drawer is counted.
         </p>
       ))}
-      <Link href={shiftsHref} className="text-sea hover:text-coral transition-colors underline underline-offset-4">
+      <Link href={shiftsHref} className="inline-flex items-center min-h-11 text-sea hover:text-coral transition-colors underline underline-offset-4">
         Go to shifts →
       </Link>
     </div>

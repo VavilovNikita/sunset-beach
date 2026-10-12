@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import CheckInDialog from "@/components/admin/CheckInDialog";
 import CheckOutDialog from "@/components/admin/CheckOutDialog";
+import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 import { checkInBooking, markBookingNoShow } from "@/lib/bookingOccupancyClient";
 import { hotelDateKey } from "@/lib/hotelDate";
 import { overdueDaysFor, overdueLabel } from "@/lib/overstay";
@@ -32,6 +34,8 @@ const OCCUPANCY_LABELS: Record<Booking["occupancyStatus"], string> = {
 export default function BookingOccupancyPanel({ booking, balanceDue }: { booking: Booking; balanceDue: string | null }) {
   const router = useRouter();
   const [checkingOut, setCheckingOut] = useState(false);
+  const [checkingIn, setCheckingIn] = useState(false);
+  const [markingNoShow, setMarkingNoShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; tone: "warning" | "error" } | null>(null);
 
@@ -54,26 +58,23 @@ export default function BookingOccupancyPanel({ booking, balanceDue }: { booking
     router.refresh();
   }
 
+  // A room that isn't clean is asked about first (CheckInDialog); a clean one is checked in at once.
   function handleCheckIn() {
+    if (roomDirty) {
+      setCheckingIn(true);
+      return;
+    }
     return run(async () => {
       const result = await checkInBooking(booking.id);
       return result.ok ? { ok: true, warning: result.result.warning } : result;
     });
   }
 
-  function handleNoShow() {
-    if (!window.confirm(`Mark ${booking.guestName} as a no-show? The booking's dates and price don't change.`)) return;
-    return run(async () => {
-      const result = await markBookingNoShow(booking.id);
-      return result.ok ? { ok: true, warning: null } : result;
-    });
-  }
-
-
   const canCheckIn = !cancelled && arrivalDue && (occupancy === "EXPECTED" || occupancy === "NO_SHOW");
   const canMarkNoShow = !cancelled && arrivalDue && occupancy === "EXPECTED";
   const canCheckOut = occupancy === "CHECKED_IN";
   const needsRoom = booking.roomUnitId === null;
+  const roomDirty = booking.roomUnit?.housekeepingStatus === "DIRTY";
   const owed = balanceDue !== null && Number(balanceDue) > 0;
 
   return (
@@ -115,7 +116,7 @@ export default function BookingOccupancyPanel({ booking, balanceDue }: { booking
           {canMarkNoShow && (
             <button
               type="button"
-              onClick={handleNoShow}
+              onClick={() => setMarkingNoShow(true)}
               disabled={busy}
               className="rounded-full border border-cream/25 hover:border-cream/50 transition-colors px-4 py-2 text-sm font-medium disabled:opacity-50"
             >
@@ -138,6 +139,37 @@ export default function BookingOccupancyPanel({ booking, balanceDue }: { booking
 
       {message && <p className={`text-xs ${message.tone === "error" ? "text-coral" : "text-amber-400"}`}>{message.text}</p>}
 
+      {checkingIn && (
+        <CheckInDialog
+          bookingId={booking.id}
+          guestName={booking.guestName}
+          roomLabel={booking.roomUnit?.label ?? null}
+          onBack={() => setCheckingIn(false)}
+          onDone={() => {
+            setCheckingIn(false);
+            router.refresh();
+          }}
+        />
+      )}
+      {markingNoShow && (
+        <ConfirmActionDialog
+          eyebrow="No-show"
+          title={`Mark ${booking.guestName} as a no-show?`}
+          confirmLabel="Mark no-show"
+          busyLabel="Saving…"
+          action={async () => {
+            const result = await markBookingNoShow(booking.id);
+            return result.ok ? null : result.error;
+          }}
+          onDone={() => {
+            setMarkingNoShow(false);
+            router.refresh();
+          }}
+          onBack={() => setMarkingNoShow(false)}
+        >
+          <p className="text-sm text-cream/60">The booking&rsquo;s dates and price don&rsquo;t change.</p>
+        </ConfirmActionDialog>
+      )}
       {checkingOut && (
         <CheckOutDialog
           bookingId={booking.id}

@@ -20,6 +20,7 @@ import { BookingScheduleEditor, RoomUnitAssignmentEditor } from "@/components/ad
 import type { Booking, BookingChannel, BookingScheduleQuote, Room, RoomUnit, AuditLogEntry } from "@/lib/types";
 import type { BookingPosOrder, Folio, FolioPaymentInput } from "@/lib/posTypes";
 import { describeAuditActor, humanizeAuditSummary } from "@/lib/auditDisplay";
+import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 
 // Slide-in panel opened by clicking a bar on the booking calendar grid - deliberately a fixed-
 // width side panel, not a full-screen modal, so reception can still see the grid (neighbouring
@@ -712,33 +713,36 @@ function RelocateForm({ booking, canManage, onSaved }: { booking: Booking; canMa
 }
 
 function UndoRelocationButton({ bookingId, splitDate, onSaved }: { bookingId: string; splitDate: string; onSaved: () => void }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleUndo() {
-    if (!window.confirm("Undo this relocation? The earlier room will cover the full merged range again.")) return;
-    setBusy(true);
-    setError(null);
-    const result = await undoBookingRelocation(bookingId, { splitDate });
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    onSaved();
-  }
+  const [asking, setAsking] = useState(false);
 
   return (
     <div className="mt-2">
       <button
         type="button"
-        onClick={handleUndo}
-        disabled={busy}
-        className="text-xs text-sea hover:text-coral transition-colors underline underline-offset-4 disabled:opacity-60"
+        onClick={() => setAsking(true)}
+        className="text-xs text-sea hover:text-coral transition-colors underline underline-offset-4"
       >
-        {busy ? "Undoing…" : "Undo this relocation"}
+        Undo this relocation
       </button>
-      {error && <p className="text-xs text-coral mt-1">{error}</p>}
+      {asking && (
+        <ConfirmActionDialog
+          eyebrow="Relocation"
+          title="Undo this relocation?"
+          confirmLabel="Undo relocation"
+          busyLabel="Undoing…"
+          action={async () => {
+            const result = await undoBookingRelocation(bookingId, { splitDate });
+            return result.ok ? null : result.error;
+          }}
+          onDone={() => {
+            setAsking(false);
+            onSaved();
+          }}
+          onBack={() => setAsking(false)}
+        >
+          <p className="text-sm text-cream/60">The earlier room will cover the full merged range again.</p>
+        </ConfirmActionDialog>
+      )}
     </div>
   );
 }

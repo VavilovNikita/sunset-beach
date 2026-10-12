@@ -24,7 +24,7 @@ export default async function PosOrderHistoryPage({ searchParams }: { searchPara
         <h1 className="font-display italic text-2xl mb-4">Orders</h1>
         <p className="text-sm text-cream/60">
           No open shift right now, and none was specified.{" "}
-          <Link href="/pos/shifts" className="text-sea underline underline-offset-4">
+          <Link href="/pos/shifts" className="inline-flex items-center min-h-11 text-sea underline underline-offset-4">
             Open a shift →
           </Link>
         </p>

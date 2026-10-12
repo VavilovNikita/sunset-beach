@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import type { UserUpdateResult } from "@/lib/types";
+import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 
 // The whole point of this control: closing access for someone who just left, without waiting on
 // a password reset or a JWT to expire on its own — see JwtAuthFilter, which rejects a disabled
@@ -22,36 +23,31 @@ export default function UserActiveToggle({
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
 
-  async function handleToggle() {
-    const next = !active;
-    const confirmed = window.confirm(
-      next ? "Re-enable this account? They will be able to sign in again." : "Disable this account? They will be signed out immediately."
-    );
-    if (!confirmed) return;
+  const [asking, setAsking] = useState(false);
 
+  // Asked in the admin's own dialog (ConfirmActionDialog), not window.confirm().
+  async function toggle(): Promise<string | null> {
     setSaving(true);
     setError(null);
     setWarning(null);
 
-    const result = await adminRequest<UserUpdateResult>(`/users/${userId}/active`, adminJsonInit("PATCH", { active: next }), "Could not update this account.");
+    const result = await adminRequest<UserUpdateResult>(`/users/${userId}/active`, adminJsonInit("PATCH", { active: !active }), "Could not update this account.");
 
     setSaving(false);
 
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
+    if (!result.ok) return result.error;
     // Disabling a therapist with future spa appointments still assigned to them warns rather
     // than blocks - see UserService#futureBookedAppointmentWarning on the backend.
     if (result.data.warning) setWarning(result.data.warning);
     router.refresh();
+    return null;
   }
 
   return (
     <span>
       <button
         type="button"
-        onClick={handleToggle}
+        onClick={() => setAsking(true)}
         disabled={disabled || saving}
         className={`text-xs px-2.5 py-1 rounded-lg border transition-colors disabled:opacity-50 ${
           active
@@ -61,6 +57,21 @@ export default function UserActiveToggle({
       >
         {saving ? "…" : active ? "Disable" : "Enable"}
       </button>
+      {asking && (
+        <ConfirmActionDialog
+          eyebrow="Account"
+          title={active ? "Disable this account?" : "Re-enable this account?"}
+          confirmLabel={active ? "Disable" : "Enable"}
+          busyLabel="Saving…"
+          action={toggle}
+          onDone={() => setAsking(false)}
+          onBack={() => setAsking(false)}
+        >
+          <p className="text-sm text-cream/60">
+            {active ? "They will be signed out immediately." : "They will be able to sign in again."}
+          </p>
+        </ConfirmActionDialog>
+      )}
       {error && <span className="block text-xs text-coral mt-1">{error}</span>}
       {warning && <span className="block text-xs text-amber-400 mt-1">{warning}</span>}
     </span>

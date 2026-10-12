@@ -74,7 +74,7 @@ function OrderLinks({ orders, orderHref, tone }: { orders: Order[]; orderHref: (
     <ul className="space-y-0.5">
       {orders.slice(0, 8).map((o) => (
         <li key={o.id}>
-          <Link href={orderHref(o.id)} className="underline underline-offset-4">
+          <Link href={orderHref(o.id)} className="flex items-center min-h-11 underline underline-offset-4">
             Order {orderNumberLabel(o)}
             {o.guestName ? ` · ${o.guestName}` : ""}
           </Link>

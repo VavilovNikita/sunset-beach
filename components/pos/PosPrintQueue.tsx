@@ -107,7 +107,7 @@ export default function PosPrintQueue({ initialJobs, initialFilter }: { initialJ
             key={f || "ALL"}
             type="button"
             onClick={() => handleFilterChange(f)}
-            className={`shrink-0 text-sm rounded-full px-4 py-2.5 font-medium transition-colors ${
+            className={`shrink-0 min-h-11 text-sm rounded-full px-4 py-2.5 font-medium transition-colors ${
               filter === f ? "bg-coral text-ink" : "bg-ink2 text-cream/70"
             }`}
           >

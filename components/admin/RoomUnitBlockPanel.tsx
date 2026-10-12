@@ -5,6 +5,7 @@ import Link from "next/link";
 import { deleteRoomUnitBlock } from "@/lib/roomUnitBlockClient";
 import type { RoomUnitBlock } from "@/lib/types";
 import { formatDate, formatTimestamp } from "@/lib/formatDate";
+import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 
 // Side panel opened by double-clicking (or, on touch, single-tapping) a block segment on the
 // booking calendar grid - same shell as BookingCardPanel.tsx/PropertyMapUnitPanel.tsx (no dimming
@@ -70,21 +71,7 @@ function BlockCard({
   canManage: boolean;
   onSaved: () => void;
 }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleRemove() {
-    if (!window.confirm("Remove this block? The room becomes available for these dates again.")) return;
-    setBusy(true);
-    setError(null);
-    const result = await deleteRoomUnitBlock(roomUnitId, block.id);
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    onSaved();
-  }
+  const [asking, setAsking] = useState(false);
 
   return (
     <div className="bg-ink border border-cream/10 rounded-xl p-4 space-y-2 text-sm">
@@ -110,17 +97,33 @@ function BlockCard({
         </div>
       )}
 
-      {error && <p className="text-xs text-coral">{error}</p>}
-
       {canManage && (
         <button
           type="button"
-          onClick={handleRemove}
-          disabled={busy}
-          className="text-xs text-coral hover:text-coraldeep transition-colors underline underline-offset-4 disabled:opacity-60"
+          onClick={() => setAsking(true)}
+          className="text-xs text-coral hover:text-coraldeep transition-colors underline underline-offset-4"
         >
-          {busy ? "Removing…" : "Remove block"}
+          Remove block
         </button>
+      )}
+      {asking && (
+        <ConfirmActionDialog
+          eyebrow="Block"
+          title="Remove this block?"
+          confirmLabel="Remove block"
+          busyLabel="Removing…"
+          action={async () => {
+            const result = await deleteRoomUnitBlock(roomUnitId, block.id);
+            return result.ok ? null : result.error;
+          }}
+          onDone={() => {
+            setAsking(false);
+            onSaved();
+          }}
+          onBack={() => setAsking(false)}
+        >
+          <p className="text-sm text-cream/60">The room becomes available for these dates again.</p>
+        </ConfirmActionDialog>
       )}
     </div>
   );

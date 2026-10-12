@@ -50,7 +50,7 @@ export default function UpdatingNotice({ error, reset }: { error: Error & { dige
         </p>
         {gaveUp && (
           <>
-            <button type="button" onClick={() => window.location.reload()} className="mt-6 rounded-full border border-current px-6 py-2 text-sm">
+            <button type="button" onClick={() => window.location.reload()} className="mt-6 min-h-11 rounded-full border border-current px-6 py-2 text-sm">
               Reload
             </button>
             {error.digest && <p className="mt-4 text-xs opacity-40">Reference: {error.digest}</p>}

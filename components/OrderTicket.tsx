@@ -194,6 +194,9 @@ function LiveOrderTicket({
   const [voidError, setVoidError] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);
+  // Cancelling an order that was already sent is a void (manager, with a reason) - see handleCancel.
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelReasonError, setCancelReasonError] = useState<string | null>(null);
 
   // OrderItem only carries menuItemId (no denormalized name), so names are joined from the menu.
   const menuById = useMemo(() => new Map(menu.map((m) => [m.id, m])), [menu]);
@@ -251,15 +254,25 @@ function LiveOrderTicket({
   }
 
   async function handleCancel() {
+    const wasSent = order.status === "SENT";
+    if (wasSent) {
+      const reasonError = validateVoidReason(cancelReason);
+      if (reasonError) {
+        setCancelReasonError(reasonError);
+        return;
+      }
+    }
     setCancelBusy(true);
     setError(null);
-    const result = await cancelOrder(order.id);
+    const result = await cancelOrder(order.id, wasSent ? cancelReason.trim() : undefined);
     setCancelBusy(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
     setConfirmingCancel(false);
+    setCancelReason("");
+    setCancelReasonError(null);
     setOrder(result.data);
   }
 
@@ -369,7 +382,9 @@ function LiveOrderTicket({
       {order.status === "SENT" && (
         <p className="text-sm text-cream/50 bg-ink2 border border-cream/10 rounded-xl px-4 py-3">
           Already sent — sent lines can&rsquo;t be edited or removed, but you can still add more.
-          {canVoidSentItems ? " A manager can void a sent item with a reason." : " Ask a manager to void a sent item."}
+          {canVoidSentItems
+            ? " A manager can void a sent item, or cancel the whole order, with a reason."
+            : " Ask a manager to void a sent item or cancel the order."}
         </p>
       )}
 
@@ -426,7 +441,7 @@ function LiveOrderTicket({
                   type="button"
                   onClick={() => handleRemoveItem(item.id)}
                   disabled={busyItemId === item.id}
-                  className="text-sm text-cream/50 hover:text-coral active:text-coral transition-colors px-2 py-2"
+                  className="min-h-11 text-sm text-cream/50 hover:text-coral active:text-coral transition-colors px-3 py-2"
                 >
                   Remove
                 </button>
@@ -441,7 +456,7 @@ function LiveOrderTicket({
                       setVoidError(null);
                       setVoiding({ itemId: item.id, quantity: item.quantity, reason: "", reasonError: null });
                     }}
-                    className="text-sm text-cream/50 hover:text-coral active:text-coral transition-colors px-2 py-2"
+                    className="min-h-11 text-sm text-cream/50 hover:text-coral active:text-coral transition-colors px-3 py-2"
                   >
                     Void
                   </button>
@@ -596,7 +611,7 @@ function LiveOrderTicket({
               Open a shift to accept payment.{" "}
               <Link
                 href={`${basePath}/shifts`}
-                className="text-sea hover:text-coral active:text-coral transition-colors underline underline-offset-4"
+                className="inline-flex items-center min-h-11 text-sea hover:text-coral active:text-coral transition-colors underline underline-offset-4"
               >
                 Open shift →
               </Link>
@@ -682,18 +697,49 @@ function LiveOrderTicket({
           detail={`Order ${orderNumberLabel(order)}`}
           actorEmail={actorLabel?.email}
           actorRole={actorLabel?.role}
-          confirmLabel="Cancel order"
+          confirmLabel={order.status === "SENT" ? "Void and cancel" : "Cancel order"}
           cancelLabel="Keep order"
           busy={cancelBusy}
           error={error}
           onConfirm={handleCancel}
           onCancel={() => {
             setConfirmingCancel(false);
+            setCancelReason("");
+            setCancelReasonError(null);
             setError(null);
           }}
         >
-          <p className="text-sm text-cream/60">Nothing is charged and the table is freed. This can&rsquo;t be undone.</p>
+          <p className="text-sm text-cream/60">
+            {order.status === "SENT"
+              ? "Everything already sent is voided - a void ticket goes to the kitchen/bar for each line. Nothing is charged and the table is freed. This can\u2019t be undone."
+              : "Nothing is charged and the table is freed. This can\u2019t be undone."}
+          </p>
+          {order.status === "SENT" && (
+            <div>
+              <label className="eyebrow text-cream/60 block mb-1">
+                Reason <span className="text-coral">*</span>
+              </label>
+              <textarea
+                rows={2}
+                value={cancelReason}
+                maxLength={VOID_REASON_MAX}
+                autoFocus
+                onChange={(e) => {
+                  setCancelReason(e.target.value);
+                  setCancelReasonError(null);
+                }}
+                placeholder="e.g. table walked out, rung up on the wrong table"
+                className={`w-full bg-ink border rounded-xl px-3 py-2 text-sm text-cream placeholder:text-cream/30 focus:outline-none focus:border-coral ${
+                  cancelReasonError ? "border-coral" : "border-cream/20"
+                }`}
+              />
+              {cancelReasonError && <p className="text-xs text-coral mt-1">{cancelReasonError}</p>}
+            </div>
+          )}
         </PosAttributedConfirm>
+      ) : order.status === "SENT" && !canVoidSentItems ? (
+        // The server refuses it too (403); no button that can only fail.
+        <p className="text-sm text-cream/50 text-center py-2">A sent order can only be cancelled by a manager.</p>
       ) : (
         <button
           type="button"
@@ -701,7 +747,7 @@ function LiveOrderTicket({
             setError(null);
             setConfirmingCancel(true);
           }}
-          className="w-full text-sm text-cream/50 hover:text-coral active:text-coral transition-colors py-2"
+          className="w-full min-h-11 text-sm text-cream/50 hover:text-coral active:text-coral transition-colors py-2"
         >
           Cancel order
         </button>

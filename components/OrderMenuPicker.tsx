@@ -122,7 +122,7 @@ export default function OrderMenuPicker({
                 key={c}
                 type="button"
                 onClick={() => setCategory(c)}
-                className={`shrink-0 text-sm rounded-full px-4 py-2.5 font-medium transition-colors xl:text-left xl:rounded-xl ${
+                className={`shrink-0 min-h-11 text-sm rounded-full px-4 py-2.5 font-medium transition-colors xl:text-left xl:rounded-xl ${
                   category === c ? "bg-coral text-ink" : "bg-ink2 text-cream/60 hover:text-cream"
                 }`}
               >
@@ -133,7 +133,7 @@ export default function OrderMenuPicker({
               <button
                 type="button"
                 onClick={() => setCategory(SPA_TAB)}
-                className={`shrink-0 text-sm rounded-full px-4 py-2.5 font-medium transition-colors xl:text-left xl:rounded-xl ${
+                className={`shrink-0 min-h-11 text-sm rounded-full px-4 py-2.5 font-medium transition-colors xl:text-left xl:rounded-xl ${
                   category === SPA_TAB ? "bg-coral text-ink" : "bg-sea/15 text-sea"
                 }`}
               >
@@ -157,7 +157,7 @@ export default function OrderMenuPicker({
                   value={noteDraft}
                   onChange={(e) => setNoteDraft(e.target.value)}
                   placeholder="e.g. no ice"
-                  className="w-full bg-ink border border-cream/20 rounded-lg px-2.5 py-1.5 text-cream text-sm placeholder:text-cream/30 focus:outline-none focus:border-coral"
+                  className="w-full min-h-11 bg-ink border border-cream/20 rounded-lg px-2.5 py-2 text-cream text-base placeholder:text-cream/30 focus:outline-none focus:border-coral"
                 />
                 <div className="flex gap-2">
                   <button

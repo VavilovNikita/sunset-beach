@@ -10,6 +10,7 @@ import VipBadge from "@/components/admin/VipBadge";
 import type { GuestDetail } from "@/lib/types";
 import { roomTypeSummary } from "@/lib/bookingRooms";
 import { formatDateRange } from "@/lib/formatDate";
+import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 
 // The guest card: contact details plus this guest's entire stay history (every booking with
 // this guestId, any status - cancelled included, see GuestDetail's own description). Each
@@ -303,33 +304,33 @@ function GuestEditForm({
 // says so; this just surfaces it rather than pre-checking client-side.
 function DeleteGuestButton({ guestId, guestName }: { guestId: string; guestName: string }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleDelete() {
-    if (!window.confirm(`Delete ${guestName}? This can't be undone.`)) return;
-    setBusy(true);
-    setError(null);
-    const result = await deleteGuest(guestId);
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    router.push("/admin/guests");
-  }
+  const [asking, setAsking] = useState(false);
 
   return (
     <div className="text-right">
       <button
         type="button"
-        onClick={handleDelete}
-        disabled={busy}
-        className="text-sm text-coral hover:text-coraldeep transition-colors disabled:opacity-60"
+        onClick={() => setAsking(true)}
+        className="text-sm text-coral hover:text-coraldeep transition-colors"
       >
-        {busy ? "Deleting…" : "Delete"}
+        Delete
       </button>
-      {error && <p className="text-xs text-coral mt-1 max-w-xs">{error}</p>}
+      {asking && (
+        <ConfirmActionDialog
+          eyebrow="Guest"
+          title={`Delete ${guestName}?`}
+          confirmLabel="Delete"
+          busyLabel="Deleting…"
+          action={async () => {
+            const result = await deleteGuest(guestId);
+            return result.ok ? null : result.error;
+          }}
+          onDone={() => router.push("/admin/guests")}
+          onBack={() => setAsking(false)}
+        >
+          <p className="text-sm text-cream/60">This can&rsquo;t be undone.</p>
+        </ConfirmActionDialog>
+      )}
     </div>
   );
 }

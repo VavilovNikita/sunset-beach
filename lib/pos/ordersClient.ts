@@ -60,8 +60,11 @@ export function sendOrder(orderId: string): Promise<PosResult<Order>> {
   return posRequest<Order>(`/orders/${orderId}`, posJsonInit("PATCH", { status: "SENT" }), "Could not send this order.");
 }
 
-export function cancelOrder(orderId: string): Promise<PosResult<Order>> {
-  return posRequest<Order>(`/orders/${orderId}/cancel`, { method: "POST" }, "Could not cancel this order.");
+// `reason` is required by the server for an order that was already sent (POST /orders/{id}/cancel:
+// MANAGER+, every sent line is voided); for an order nothing was sent from it is not sent at all.
+export function cancelOrder(orderId: string, reason?: string): Promise<PosResult<Order>> {
+  const init = reason !== undefined ? posJsonInit("POST", { reason }) : { method: "POST" };
+  return posRequest<Order>(`/orders/${orderId}/cancel`, init, "Could not cancel this order.");
 }
 
 export function closeOrder(orderId: string, input: CloseOrderInput): Promise<PosResult<Order>> {

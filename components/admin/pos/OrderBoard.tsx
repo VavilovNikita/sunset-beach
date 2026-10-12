@@ -58,6 +58,11 @@ export default function OrderBoard({
     setTables(initialTables);
   }, [initialTables]);
 
+  // Orders too - a cached page (browser Back) can carry orders from before this table was taken.
+  useEffect(() => {
+    setOrders(initialOrders);
+  }, [initialOrders]);
+
   async function refetch() {
     const result = await fetchBoardData();
     if (!result.ok) {
@@ -69,7 +74,12 @@ export default function OrderBoard({
     setOrders(result.orders);
   }
 
+  // Every 5 s while visible, at once when the page comes back (usePolling), and right now on mount.
   usePolling(refetch, 5000);
+  useEffect(() => {
+    refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Map<tableId, Order[]>, not Map<tableId, Order> — a single "latest wins"
   // slot would silently drop a second open order on the same table out of

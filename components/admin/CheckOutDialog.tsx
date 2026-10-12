@@ -55,6 +55,7 @@ export default function CheckOutDialog({
   // Follows the choice live: "nights stayed only" drops the released nights from what's owed;
   // "full stay" (or not shortening, or not choosing yet) is today's balance. Both from the server.
   const balanceDue = preview && shortening && charge === "stayed" ? preview.shortenedOutstandingBalance : preview?.outstandingBalance;
+  const owes = Number(balanceDue) > 0;
 
   async function handleConfirm() {
     if (!preview) return;
@@ -78,7 +79,7 @@ export default function CheckOutDialog({
     <ConfirmDialog
       eyebrow="Check out"
       title={`Check ${guestName} out now?`}
-      confirmLabel={needsChoice ? "Choose what to charge" : "Check out"}
+      confirmLabel={needsChoice ? "Choose what to charge" : owes ? "Check out anyway" : "Check out"}
       busyLabel="Checking out…"
       busy={busy || (preview === null && loadError === null)}
       error={error ?? loadError}
@@ -87,10 +88,16 @@ export default function CheckOutDialog({
     >
       {preview && (
         <div className="space-y-3 text-sm text-cream/80">
-          {Number(balanceDue) > 0 ? (
-            <p>
-              Balance due now: <span className="text-coral font-medium">{baht(balanceDue!)}</span>
-            </p>
+          {owes ? (
+            <div className="rounded-lg border border-coral/40 bg-coral/10 p-3 space-y-1">
+              <p>
+                Balance due now: <span className="text-coral font-medium">{baht(balanceDue!)}</span>
+              </p>
+              <p className="text-cream/70">
+                Checking out doesn&rsquo;t collect it. The amount stays on the booking as a debt (the night audit lists it) - record the
+                payment in the folio first, or check out anyway.
+              </p>
+            </div>
           ) : (
             <p className="text-cream/60">Nothing is owed right now.</p>
           )}
