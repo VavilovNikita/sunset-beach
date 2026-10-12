@@ -6,6 +6,7 @@ import { ADMIN_API_URL } from "@/lib/backend";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { usePolling } from "@/lib/usePolling";
 import UnsettledOrdersNotice, { useUnsettledOrders } from "@/components/pos/UnsettledOrdersNotice";
+import { splitUnsettledOrders } from "@/lib/shiftOrders";
 import StatCard from "@/components/admin/StatCard";
 import { isLongOpenShift, reconcileCash, shiftOpeningFacts } from "@/lib/shiftReconciliation";
 import { longOpenLabel } from "@/lib/posOrders";
@@ -69,11 +70,11 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // POST /shifts/{id}/close 409s whenever ANY order in the system is still
-  // OPEN/SENT — not just orders under this shift — so the generic error
-  // body ("Cannot close shift...") would be confusing on its own; this gets
-  // its own message with a link to go clear those orders.
-  const [blockedByOpenOrders, setBlockedByOpenOrders] = useState(false);
+  // POST /shifts/{id}/close 409s while an order opened by this shift's cashier is still OPEN/SENT;
+  // the server's message names them, shown here with a link to go clear them.
+  const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
+  // The close response's warning: other staff's open orders that were left open.
+  const [closeWarning, setCloseWarning] = useState<string | null>(null);
 
   // /shifts/current works from any device under the same account — no more
   // reason to track a shift id client-side.
@@ -113,7 +114,7 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
 
   usePolling(refetchCurrent, 20000, shift?.status === "OPEN");
   const unsettled = useUnsettledOrders(adminRequest, shift?.status === "OPEN");
-  const closeBlocked = (unsettled?.length ?? 0) > 0;
+  const closeBlocked = splitUnsettledOrders(unsettled ?? [], shift?.openedByUserId).blocking.length > 0;
 
   async function handleOpen(e: React.FormEvent) {
     e.preventDefault();
@@ -144,7 +145,7 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
     if (!shift) return;
     setSubmitting(true);
     setError(null);
-    setBlockedByOpenOrders(false);
+    setBlockedMessage(null);
 
     const result = await adminRequest<ShiftSummary>(
       `/shifts/${shift.id}/close`,
@@ -159,12 +160,13 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
 
     if (!result.ok) {
       if (result.status === 409) {
-        setBlockedByOpenOrders(true);
+        setBlockedMessage(result.error);
         return;
       }
       setError(result.error);
       return;
     }
+    setCloseWarning(result.data.warning ?? null);
     // POST .../close returns a plain Shift, not a ShiftSummary — no `totals`,
     // which the stat cards below render unconditionally. Same shape gap as
     // /shifts/current, fixed the same way: fetch the full summary before
@@ -256,10 +258,12 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
               className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral resize-none"
             />
           </div>
-          {unsettled && <UnsettledOrdersNotice orders={unsettled} orderHref={(id) => `/admin/pos/orders/${id}`} />}
-          {blockedByOpenOrders && !closeBlocked && (
+          {unsettled && (
+            <UnsettledOrdersNotice orders={unsettled} shiftOpenerId={shift?.openedByUserId} orderHref={(id) => `/admin/pos/orders/${id}`} />
+          )}
+          {blockedMessage && !closeBlocked && (
             <p className="text-sm text-coral">
-              Can&rsquo;t close — there are still open orders somewhere in the system, not just on this shift.{" "}
+              Can&rsquo;t close — {blockedMessage}{" "}
               <Link href="/admin/pos" className="underline underline-offset-4">
                 View open orders →
               </Link>
@@ -276,6 +280,7 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
         </form>
       ) : (
         <div className="space-y-3">
+          {closeWarning && <p className="text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2">{closeWarning}</p>}
           <p className="text-sm text-cream/50">
             Shift closed.
             {canExport && (

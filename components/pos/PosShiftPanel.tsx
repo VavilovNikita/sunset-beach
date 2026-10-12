@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePolling } from "@/lib/usePolling";
 import { posRequest } from "@/lib/pos/posFetch";
 import UnsettledOrdersNotice, { useUnsettledOrders } from "@/components/pos/UnsettledOrdersNotice";
+import { splitUnsettledOrders } from "@/lib/shiftOrders";
 import { fetchCurrentShift, fetchShift, openShift, closeShift } from "@/lib/pos/shiftsClient";
 import { isLongOpenShift, reconcileCash, shiftOpeningFacts } from "@/lib/shiftReconciliation";
 import { longOpenLabel } from "@/lib/posOrders";
@@ -87,7 +88,10 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
   const [reviewingClose, setReviewingClose] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [blockedByOpenOrders, setBlockedByOpenOrders] = useState(false);
+  // The server's 409 message when this shift's own open orders stand in the way; null otherwise.
+  const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
+  // The close response's warning: other staff's open orders that were left open.
+  const [closeWarning, setCloseWarning] = useState<string | null>(null);
 
   // React (Strict Mode in dev, but the same shape can happen from a real double-navigation)
   // mounts this component and runs its effects twice - two concurrent GET /shifts/current calls
@@ -125,7 +129,7 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
 
   usePolling(refetchCurrent, 20000, shift?.status === "OPEN");
   const unsettled = useUnsettledOrders(posRequest, shift?.status === "OPEN");
-  const closeBlocked = (unsettled?.length ?? 0) > 0;
+  const closeBlocked = splitUnsettledOrders(unsettled ?? [], shift?.openedByUserId).blocking.length > 0;
 
   async function handleOpen(e: React.FormEvent) {
     e.preventDefault();
@@ -144,7 +148,7 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
   function handleReviewClose(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setBlockedByOpenOrders(false);
+    setBlockedMessage(null);
     setReviewingClose(true);
   }
 
@@ -152,7 +156,7 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
     if (!shift) return;
     setSubmitting(true);
     setError(null);
-    setBlockedByOpenOrders(false);
+    setBlockedMessage(null);
     const result = await closeShift(shift.id, {
       closingCashCounted: closingCounted ? Number(closingCounted) : undefined,
       notes: notes || undefined,
@@ -160,12 +164,13 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
     setSubmitting(false);
     if (!result.ok) {
       if (result.status === 409) {
-        setBlockedByOpenOrders(true);
+        setBlockedMessage(result.error);
         return;
       }
       setError(result.error);
       return;
     }
+    setCloseWarning(result.data.warning ?? null);
     setReviewingClose(false);
     const full = await fetchShift(result.data.id);
     setShift(full.ok ? full.data : null);
@@ -238,12 +243,12 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
               actorRole={ROLE_LABELS[actorRole]}
               confirmLabel="Confirm close"
               busy={submitting}
-              error={blockedByOpenOrders ? null : error}
+              error={blockedMessage ? null : error}
               onConfirm={handleConfirmClose}
               onCancel={() => {
                 setReviewingClose(false);
                 setError(null);
-                setBlockedByOpenOrders(false);
+                setBlockedMessage(null);
               }}
             />
           </div>
@@ -273,7 +278,7 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
                 className="w-full bg-ink2 border border-cream/20 rounded-xl px-4 py-3 text-cream text-base focus:outline-none focus:border-coral resize-none"
               />
             </div>
-            {unsettled && <UnsettledOrdersNotice orders={unsettled} orderHref={(id) => `/pos/orders/${id}`} />}
+            {unsettled && <UnsettledOrdersNotice orders={unsettled} shiftOpenerId={shift?.openedByUserId} orderHref={(id) => `/pos/orders/${id}`} />}
             <button
               type="submit"
               disabled={closeBlocked}
@@ -286,13 +291,14 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-cream/50">Shift closed.</p>
+          {closeWarning && <p className="text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2">{closeWarning}</p>}
           <DiscrepancyBlock {...reconciled} />
         </div>
       )}
 
-      {blockedByOpenOrders && (
+      {blockedMessage && (
         <p className="mt-3 text-sm text-coral">
-          Can&rsquo;t close — there are still open orders somewhere.{" "}
+          Can&rsquo;t close — {blockedMessage}{" "}
           <Link href="/pos" className="underline underline-offset-4">
             View orders →
           </Link>
