@@ -191,9 +191,10 @@ sunset-beach's side depends on):
 - `CORS_ALLOWED_ORIGINS` — not load-bearing for this same-domain, path-routed
   setup (the browser never makes a cross-origin request), but harmless to
   set to `http://thesunsetbeachsip.ddns.net:8888` anyway as defense in depth.
-- `UPLOADS_ROOT` — leave it unset: sunset's own `docker-compose.yml` now pins it to
-  `/app/uploads`, the `uploads` Docker volume. That is where every staff upload lives
-  (room photos, the property/spa/restaurant floor plans, maintenance photos).
+- `UPLOADS_ROOT` — leave it unset: it then defaults to `/app/uploads`, the `uploads` Docker
+  volume sunset's own `docker-compose.yml` mounts. That is where every staff upload lives
+  (room photos, the property/spa/restaurant floor plans, maintenance photos); a different value
+  puts them outside the volume and they are lost on the next rebuild.
 
 ```bash
 docker compose build
