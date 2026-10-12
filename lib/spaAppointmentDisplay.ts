@@ -75,3 +75,24 @@ export function isSpaStartInPast(date: string, startTime: string, now: Date): bo
   if (current.date !== date) return current.date > date;
   return h * 60 + m < current.minutes;
 }
+
+// What the panel offers for the linked order, decided from the order's status (read separately by
+// the panel; null until it has loaded or if it couldn't be read - the server still enforces both).
+//  - "Remove" on a treatment is gone once the order is PAID: a paid treatment is refunded through
+//    the order, not deleted from the appointment (the server answers 409 to it as well).
+//  - A completed appointment whose order lacks some of its treatments can have them added to that
+//    same order in one click - but only while the order can still take lines.
+export function canRemoveTreatmentFrom(orderStatus: string | null | undefined): boolean {
+  return orderStatus !== "PAID";
+}
+
+export function canAddMissingToOrder(
+  a: Pick<SpaAppointment, "status" | "missingTreatmentNames">,
+  orderStatus: string | null | undefined
+): boolean {
+  return a.status === "COMPLETED" && a.missingTreatmentNames.length > 0 && (orderStatus === "OPEN" || orderStatus === "SENT");
+}
+
+export function addMissingLabel(missingCount: number): string {
+  return missingCount === 1 ? "Add it to the order" : `Add ${missingCount} treatments to the order`;
+}

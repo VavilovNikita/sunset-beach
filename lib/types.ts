@@ -786,8 +786,10 @@ export type Booking = {
   cancellationReason: string | null;
   createdAt: string;
   updatedAt: string;
-  // Only on the response to POST /bookings/staff, when the booking was accepted but front desk
-  // should look twice (today: more guests than the room type sleeps). Never present on a read.
+  // When front desk should look twice: on the response to POST /bookings/staff, more guests than
+  // the room type sleeps; on a cancelled booking (PATCH status response and GET /bookings/{id}),
+  // a BOOKED spa appointment that is already paid, which the cancellation left untouched. Never
+  // stored and absent from lists - GET /bookings/{id} reads it fresh, so it clears once dealt with.
   warning?: string;
 };
 

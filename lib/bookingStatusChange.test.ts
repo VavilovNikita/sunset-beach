@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  canCancelBooking,
+  cancelUnavailableReason,
   needsCancellationConfirm,
   needsPaymentDialog,
   paidPaymentInput,
+  selectableStatuses,
   validateCancellationReason,
   validatePaidPayment,
 } from "@/lib/bookingStatusChange";
@@ -65,5 +68,29 @@ describe("validatePaidPayment", () => {
 describe("paidPaymentInput", () => {
   it("sends the amount as typed, trimmed", () => {
     expect(paidPaymentInput("OTHER", " 4500.00 ")).toEqual({ method: "OTHER", amount: "4500.00" });
+  });
+});
+
+describe("cancelling a booking whose guest has arrived", () => {
+  it("is offered only while the guest has not checked in", () => {
+    expect(canCancelBooking("CONFIRMED", "EXPECTED")).toBe(true);
+    expect(canCancelBooking("PAID", "EXPECTED")).toBe(true);
+    expect(canCancelBooking("PAID", "NO_SHOW")).toBe(true);
+    expect(canCancelBooking("CONFIRMED", "CHECKED_IN")).toBe(false);
+    expect(canCancelBooking("PAID", "CHECKED_OUT")).toBe(false);
+  });
+
+  it("leaves CANCELLED out of the dropdown for an arrived guest, but keeps it for an already-cancelled booking", () => {
+    expect(selectableStatuses("PAID", "CHECKED_IN")).toEqual(["NEW", "CONFIRMED", "PAID"]);
+    expect(selectableStatuses("NEW", "CHECKED_OUT")).toEqual(["NEW", "CONFIRMED", "PAID"]);
+    expect(selectableStatuses("NEW", "EXPECTED")).toEqual(["NEW", "CONFIRMED", "PAID", "CANCELLED"]);
+    expect(selectableStatuses("CANCELLED", "CHECKED_OUT")).toEqual(["NEW", "CONFIRMED", "PAID", "CANCELLED"]);
+  });
+
+  it("explains why the option is missing", () => {
+    expect(cancelUnavailableReason("PAID", "CHECKED_IN")).toMatch(/checked in/);
+    expect(cancelUnavailableReason("PAID", "CHECKED_OUT")).toMatch(/checked out/);
+    expect(cancelUnavailableReason("PAID", "EXPECTED")).toBeNull();
+    expect(cancelUnavailableReason("CANCELLED", "EXPECTED")).toBeNull();
   });
 });

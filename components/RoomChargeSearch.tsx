@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { searchActiveBookings } from "@/lib/pos/bookingSearchClient";
 import { closeOrder } from "@/lib/pos/ordersClient";
+import { pickRoomChargeSelection } from "@/lib/pos/roomCharge";
 import { currentRoomUnitLabel } from "@/lib/bookingRooms";
 import { hotelDateKey } from "@/lib/hotelDate";
 import type { Order } from "@/lib/posTypes";
@@ -21,11 +22,15 @@ function roomLabel(booking: Booking): string {
 
 export default function RoomChargeSearch({
   orderId,
+  preferredBookingId,
   actor,
   onClose,
   onSettled,
 }: {
   orderId: string;
+  // The guest the order already belongs to (a spa ticket opened from that guest's appointment) -
+  // the list opens on them instead of on whoever is first. See pickRoomChargeSelection.
+  preferredBookingId?: string | null;
   // Whoever is currently logged in - shown once a booking is picked, right where Confirm is
   // tapped, so a swapped identity is caught before the charge is recorded, not after. null on the
   // desktop till, which has no such step (see PosAttributedConfirm.tsx for why).
@@ -54,7 +59,7 @@ export default function RoomChargeSearch({
         return;
       }
       setBookings(result.data);
-      setSelectedId((prev) => (prev && result.data.some((b) => b.id === prev) ? prev : (result.data[0]?.id ?? null)));
+      setSelectedId((prev) => pickRoomChargeSelection(result.data, prev, preferredBookingId, query.trim() !== ""));
     }, DEBOUNCE_MS);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);

@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { hotelDateKey } from "@/lib/hotelDate";
 import { saveRoomUnitPositions, uploadPropertyMapImage } from "@/lib/propertyMapClient";
 import { resolveUnitDisplay, type UnitBadge, type UnitFill } from "@/lib/propertyMapDisplay";
+import { mapImageState, showsTileGrid } from "@/lib/mapImageFallback";
+import MapImage from "@/components/admin/MapImage";
+import MapImageNotice from "@/components/admin/MapImageNotice";
 import type { PropertyMap, PropertyMapUnit, RoomUnitPositionInput } from "@/lib/types";
 import PropertyMapUnitPanel from "./PropertyMapUnitPanel";
 
@@ -106,6 +109,9 @@ export default function PropertyMapView({ initialMap, canManage }: { initialMap:
   const [saveError, setSaveError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // The plan's file is missing or did not load (the path is in the database, the file is not).
+  // Keyed by the URL, so a re-upload (new ?v=) gets a fresh chance without any reset.
+  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageWrapperRef = useRef<HTMLDivElement>(null);
@@ -123,6 +129,8 @@ export default function PropertyMapView({ initialMap, canManage }: { initialMap:
     return pending[unit.roomUnitId] ?? { positionX: unit.positionX, positionY: unit.positionY };
   }
 
+  const imageSrc = initialMap.imagePath ? `/api/admin-proxy/property-map/image?v=${encodeURIComponent(initialMap.imageUpdatedAt ?? "")}` : null;
+  const imageState = mapImageState(imageSrc !== null, imageSrc !== null && failedImageSrc === imageSrc);
   const placedUnits = initialMap.units.filter((u) => effectivePosition(u).positionX !== null);
   const unplacedUnits = initialMap.units.filter((u) => effectivePosition(u).positionX === null);
   const pendingCount = Object.keys(pending).length;
@@ -214,16 +222,39 @@ export default function PropertyMapView({ initialMap, canManage }: { initialMap:
 
       <PropertyMapLegend />
 
+      {showsTileGrid(imageState) ? (
+        // No plan to place rooms on (never uploaded, or its file is gone): every room is still a
+        // button, in a plain grid with room to breathe - placed ones included, which would
+        // otherwise vanish with the picture - and the screen says why.
+        <div className="mt-4 space-y-4">
+          <MapImageNotice state={imageState} canUpload={canManage} what="floor plan" />
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2 min-h-[10rem] content-start">
+            {initialMap.units.map((unit) => (
+              <RoomTile
+                key={unit.roomUnitId}
+                unit={unit}
+                display={resolveUnitDisplay(unit, today)}
+                canManage={false}
+                dragging={false}
+                tray
+                onPointerDown={onTilePointerDown}
+                onPointerMove={onDragPointerMove}
+                onPointerUp={onDragPointerUp}
+                onClick={() => setSelectedUnitId(unit.roomUnitId)}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
       <div className="flex flex-col lg:flex-row gap-6 mt-4">
         <div className="flex-1 min-w-0 overflow-x-auto pb-2">
-          {initialMap.imagePath ? (
+          {imageSrc && (
             <div ref={imageWrapperRef} className="relative inline-block select-none">
-              {/* eslint-disable-next-line @next/next/no-img-element -- authenticated, proxied image; next/image can't reach it */}
-              <img
-                src={`/api/admin-proxy/property-map/image?v=${encodeURIComponent(initialMap.imageUpdatedAt ?? "")}`}
+              <MapImage
+                src={imageSrc}
                 alt="Property map"
                 className="block w-[960px] max-w-none rounded-xl border border-cream/10"
-                draggable={false}
+                onFailed={() => setFailedImageSrc(imageSrc)}
               />
               {placedUnits.map((unit) => {
                 const pos = effectivePosition(unit);
@@ -249,10 +280,6 @@ export default function PropertyMapView({ initialMap, canManage }: { initialMap:
                   />
                 );
               })}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-cream/20 p-10 text-center text-sm text-cream/50 min-w-[480px]">
-              {canManage ? "Upload a floor plan above to start placing rooms." : "No property map has been uploaded yet."}
             </div>
           )}
         </div>
@@ -284,6 +311,7 @@ export default function PropertyMapView({ initialMap, canManage }: { initialMap:
           )}
         </div>
       </div>
+      )}
 
       {drag && draggedUnit && (
         <div

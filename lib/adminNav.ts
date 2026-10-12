@@ -159,6 +159,16 @@ export function visibleNavGroups(role: Role): NavGroup[] {
   );
 }
 
+// A page that belongs to one section but lives under another's URL (a spa treatment is billed on the
+// POS order ticket, /admin/pos/orders/...) says so with ?section=spa, because the sidebar can only
+// read the URL. The result is what the sidebar matches its links against.
+export const SPA_SECTION = "spa";
+
+export function navPathname(pathname: string, section: string | null | undefined): string {
+  if (section === SPA_SECTION && (pathname === "/admin/pos/orders" || pathname.startsWith("/admin/pos/orders/"))) return "/admin/spa";
+  return pathname;
+}
+
 // Nested routes (e.g. /admin/bookings/calendar under /admin/bookings, /admin/spa/map under
 // /admin/spa) mean more than one link's href can prefix-match the current path - picking the
 // single longest matching href keeps exactly one link highlighted instead of a parent and its

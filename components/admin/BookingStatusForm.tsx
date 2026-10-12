@@ -5,20 +5,19 @@ import { useRouter } from "next/navigation";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS } from "@/lib/bookingChannel";
 import { parsePartySize } from "@/lib/bookingPurpose";
-import { needsCancellationConfirm, needsPaymentDialog } from "@/lib/bookingStatusChange";
+import { cancelUnavailableReason, needsCancellationConfirm, needsPaymentDialog, selectableStatuses } from "@/lib/bookingStatusChange";
 import { useSavedNotice } from "@/lib/useSavedNotice";
 import type { Folio, FolioPaymentInput } from "@/lib/posTypes";
-import type { BookingChannel, BookingPurpose, BookingStatus } from "@/lib/types";
+import type { BookingChannel, BookingPurpose, BookingStatus, OccupancyStatus } from "@/lib/types";
 import BookingPurposePartyFields from "@/components/admin/BookingPurposePartyFields";
 import CancelBookingDialog from "@/components/admin/CancelBookingDialog";
 import MarkPaidDialog from "@/components/admin/MarkPaidDialog";
-
-const STATUSES = ["NEW", "CONFIRMED", "PAID", "CANCELLED"] as const;
 
 export default function BookingStatusForm({
   bookingId,
   guestName,
   currentStatus,
+  occupancyStatus,
   currentPaymentNote,
   currentChannel,
   currentPurpose,
@@ -30,6 +29,8 @@ export default function BookingStatusForm({
   bookingId: string;
   guestName: string;
   currentStatus: BookingStatus;
+  // A guest who has arrived can't be cancelled (the server answers 409), so the option isn't offered.
+  occupancyStatus: OccupancyStatus;
   currentPaymentNote: string | null;
   currentChannel: BookingChannel;
   currentPurpose: BookingPurpose;
@@ -133,12 +134,15 @@ export default function BookingStatusForm({
           onChange={(e) => setStatus(e.target.value as BookingStatus)}
           className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
         >
-          {STATUSES.map((s) => (
+          {selectableStatuses(currentStatus, occupancyStatus).map((s) => (
             <option key={s} value={s}>
               {s}
             </option>
           ))}
         </select>
+        {cancelUnavailableReason(currentStatus, occupancyStatus) && (
+          <p className="text-xs text-cream/50 mt-1">{cancelUnavailableReason(currentStatus, occupancyStatus)}</p>
+        )}
       </div>
 
       {/* PAID needs a payment behind it: Save opens a dialog that collects it (amount pre-filled

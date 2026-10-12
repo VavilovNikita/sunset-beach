@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { billTreatmentsLabel, isSpaOverdue, isSpaStartInPast, spaBlockMark, spaBlockTitle } from "./spaAppointmentDisplay";
+import {
+  addMissingLabel,
+  billTreatmentsLabel,
+  canAddMissingToOrder,
+  canRemoveTreatmentFrom,
+  isSpaOverdue,
+  isSpaStartInPast,
+  spaBlockMark,
+  spaBlockTitle,
+} from "./spaAppointmentDisplay";
 import type { SpaAppointmentStatus } from "@/lib/posTypes";
 
 describe("billTreatmentsLabel", () => {
@@ -89,5 +98,37 @@ describe("isSpaStartInPast", () => {
   it("reads the hotel clock, not UTC", () => {
     // 18:00 UTC is 01:00 the next day in Bangkok, so a 23:00 slot on the UTC date is already over.
     expect(isSpaStartInPast("2026-10-04", "23:00", new Date("2026-10-04T18:00:00Z"))).toBe(true);
+  });
+});
+
+describe("canRemoveTreatmentFrom", () => {
+  it("is false only once the order is paid", () => {
+    expect(canRemoveTreatmentFrom("PAID")).toBe(false);
+    expect(canRemoveTreatmentFrom("OPEN")).toBe(true);
+    expect(canRemoveTreatmentFrom("SENT")).toBe(true);
+    expect(canRemoveTreatmentFrom("CANCELLED")).toBe(true);
+    expect(canRemoveTreatmentFrom(null)).toBe(true);
+  });
+});
+
+describe("canAddMissingToOrder", () => {
+  const completedMissing = { status: "COMPLETED" as const, missingTreatmentNames: ["Thai massage"] };
+
+  it("offers the top-up while the order can still take lines", () => {
+    expect(canAddMissingToOrder(completedMissing, "OPEN")).toBe(true);
+    expect(canAddMissingToOrder(completedMissing, "SENT")).toBe(true);
+  });
+
+  it("does not, for a paid or cancelled order, an unknown order, or nothing missing", () => {
+    expect(canAddMissingToOrder(completedMissing, "PAID")).toBe(false);
+    expect(canAddMissingToOrder(completedMissing, "CANCELLED")).toBe(false);
+    expect(canAddMissingToOrder(completedMissing, null)).toBe(false);
+    expect(canAddMissingToOrder({ status: "COMPLETED", missingTreatmentNames: [] }, "OPEN")).toBe(false);
+    expect(canAddMissingToOrder({ status: "BOOKED", missingTreatmentNames: ["Thai massage"] }, "OPEN")).toBe(false);
+  });
+
+  it("words the button by how many are missing", () => {
+    expect(addMissingLabel(1)).toBe("Add it to the order");
+    expect(addMissingLabel(3)).toBe("Add 3 treatments to the order");
   });
 });

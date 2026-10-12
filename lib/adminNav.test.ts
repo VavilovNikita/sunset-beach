@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NAV_GROUPS, activeNavGroupTitle, activeNavHref, visibleNavGroups } from "./adminNav";
+import { NAV_GROUPS, activeNavGroupTitle, activeNavHref, navPathname, visibleNavGroups } from "./adminNav";
 
 // No group may ever render with zero links under it - a WAITER with an empty "Spa" header
 // would be the exact bug this test exists to catch.
@@ -118,5 +118,21 @@ describe("activeNavHref / activeNavGroupTitle", () => {
 
   it("/admin/roomsX is not under /admin/rooms", () => {
     expect(activeNavHref(links, "/admin/roomsX")).toBeUndefined();
+  });
+});
+
+describe("navPathname", () => {
+  it("keeps a spa billing ticket on the Spa section of the sidebar", () => {
+    const groups = visibleNavGroups("CASHIER");
+    const path = navPathname("/admin/pos/orders/abc", "spa");
+    expect(path).toBe("/admin/spa");
+    expect(activeNavGroupTitle(groups, path)).toBe("Spa");
+    expect(activeNavHref(groups.flatMap((g) => g.links), path)).toBe("/admin/spa");
+  });
+
+  it("leaves a restaurant ticket, and every other page, where its URL puts it", () => {
+    expect(navPathname("/admin/pos/orders/abc", null)).toBe("/admin/pos/orders/abc");
+    expect(navPathname("/admin/pos/orders/abc", "restaurant")).toBe("/admin/pos/orders/abc");
+    expect(navPathname("/admin/bookings", "spa")).toBe("/admin/bookings");
   });
 });

@@ -2,18 +2,20 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Role } from "@/lib/session";
 import {
   activeNavGroupTitle,
   activeNavHref,
   loadStoredOpenNavGroups,
+  navPathname,
   saveStoredOpenNavGroups,
   visibleNavGroups,
 } from "@/lib/adminNav";
 
 export default function AdminSidebar({ email, role }: { email: string; role: Role }) {
-  const pathname = usePathname();
+  // A spa ticket lives under /admin/pos/orders but belongs to Spa - see lib/adminNav.ts#navPathname.
+  const pathname = navPathname(usePathname(), useSearchParams().get("section"));
   const router = useRouter();
 
   async function handleSignOut() {

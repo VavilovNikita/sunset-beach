@@ -1,5 +1,5 @@
 import type { FolioPaymentInput, FolioPaymentMethod } from "@/lib/posTypes";
-import type { BookingStatus } from "@/lib/types";
+import type { BookingStatus, OccupancyStatus } from "@/lib/types";
 
 // Shared by the two booking edit forms (BookingStatusForm on the booking page, the calendar
 // panel's StatusAndNoteEditor), so the cancel rule can't drift between them. Pure, tested in
@@ -10,6 +10,29 @@ import type { BookingStatus } from "@/lib/types";
 // reason; saving an already-cancelled booking (a payment-note fix) doesn't.
 export function needsCancellationConfirm(current: BookingStatus, next: BookingStatus): boolean {
   return next === "CANCELLED" && current !== "CANCELLED";
+}
+
+// A guest who has arrived is not cancelled: the server answers a change into CANCELLED for a
+// CHECKED_IN or CHECKED_OUT booking with a 409, so the screens don't offer it (check the guest out,
+// shortening the stay if they leave early, instead). A booking that is already CANCELLED keeps
+// showing its own status in the dropdown.
+export const BOOKING_STATUSES: readonly BookingStatus[] = ["NEW", "CONFIRMED", "PAID", "CANCELLED"];
+
+export function canCancelBooking(status: BookingStatus, occupancyStatus: OccupancyStatus): boolean {
+  if (status === "CANCELLED") return false;
+  return occupancyStatus !== "CHECKED_IN" && occupancyStatus !== "CHECKED_OUT";
+}
+
+export function selectableStatuses(status: BookingStatus, occupancyStatus: OccupancyStatus): BookingStatus[] {
+  return BOOKING_STATUSES.filter((s) => s !== "CANCELLED" || status === "CANCELLED" || canCancelBooking(status, occupancyStatus));
+}
+
+// Why the cancel option is missing, shown next to the dropdown - or null when it is offered.
+export function cancelUnavailableReason(status: BookingStatus, occupancyStatus: OccupancyStatus): string | null {
+  if (status === "CANCELLED" || canCancelBooking(status, occupancyStatus)) return null;
+  return occupancyStatus === "CHECKED_OUT"
+    ? "This guest has checked out, so the booking can't be cancelled."
+    : "This guest is checked in, so the booking can't be cancelled - check them out instead.";
 }
 
 // Marking a booking PAID never writes money off: whatever is still owed has to arrive with the

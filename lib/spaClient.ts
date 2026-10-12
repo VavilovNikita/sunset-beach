@@ -98,3 +98,17 @@ export async function removeSpaAppointmentTreatment(appointmentId: string, treat
   if (!result.ok) return { ok: false, error: result.error };
   return { ok: true, appointment: result.data };
 }
+
+export type BillMissingSpaTreatmentsResult = { ok: true; appointment: SpaAppointment } | { ok: false; error: string };
+
+// POST /spa-appointments/{id}/bill-missing-treatments - adds exactly the treatments the linked
+// order doesn't carry to that same order, in one action (live menu prices, like any POS line).
+export async function billMissingSpaTreatments(appointmentId: string): Promise<BillMissingSpaTreatmentsResult> {
+  const result = await adminRequest<SpaAppointment>(
+    `/spa-appointments/${appointmentId}/bill-missing-treatments`,
+    adminJsonInit("POST"),
+    "Could not add the missing treatments to the order."
+  );
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, appointment: result.data };
+}

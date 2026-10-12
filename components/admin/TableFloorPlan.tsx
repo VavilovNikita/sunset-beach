@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { saveTablePositions } from "@/lib/tablePositionsClient";
 import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
 import { useSavedNotice } from "@/lib/useSavedNotice";
+import { mapImageState, showsTileGrid } from "@/lib/mapImageFallback";
+import MapImage from "@/components/admin/MapImage";
+import MapImageNotice from "@/components/admin/MapImageNotice";
 import type { TablePositionInput, TableShape } from "@/lib/posTypes";
 
 // The table-placement floor plan shared by the spa map (SpaTableMapView) and the restaurant map
@@ -99,6 +102,9 @@ export default function TableFloorPlan({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // The plan's file is missing or did not load (the path is in the database, the file is not).
+  // Keyed by the URL, so a re-upload (new ?v=) gets a fresh chance without any reset.
+  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
   // "Layout saved." after Save layout - the save bar itself disappears with the pending changes,
   // so without this nothing on screen said whether the save went through.
   const [savedNotice, showSavedNotice] = useSavedNotice();
@@ -128,6 +134,7 @@ export default function TableFloorPlan({
     return pending[table.tableId] ?? { positionX: table.positionX, positionY: table.positionY };
   }
 
+  const imageState = mapImageState(Boolean(imageSrc), imageSrc !== null && failedImageSrc === imageSrc);
   const placedTables = tables.filter((t) => effectivePosition(t).positionX !== null);
   const unplacedTables = tables.filter((t) => effectivePosition(t).positionX === null);
 
@@ -220,9 +227,30 @@ export default function TableFloorPlan({
         </span>
       </div>
 
-      {!imageSrc ? (
-        <div className="mt-4 rounded-xl border border-dashed border-cream/20 p-10 text-center text-sm text-cream/50">
-          {canManage ? "Upload a floor plan above to start placing tables." : "No floor plan has been uploaded yet."}
+      {showsTileGrid(imageState) ? (
+        // No plan to place tables on (never uploaded, or its file is gone): every table is still a
+        // button, in a plain grid with room to breathe, so the screen stays usable - and says why.
+        <div className="mt-4 space-y-4">
+          <MapImageNotice state={imageState} canUpload={canManage} what="floor plan" />
+          {tables.length === 0 ? (
+            <p className="text-sm text-cream/40">{emptyTablesText}</p>
+          ) : (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-3 min-h-[10rem] content-start">
+              {tables.map((table) => (
+                <TableTile
+                  key={table.tableId}
+                  table={table}
+                  canManage={false}
+                  dragging={false}
+                  tray
+                  onPointerDown={onTilePointerDown}
+                  onPointerMove={onDragPointerMove}
+                  onPointerUp={onDragPointerUp}
+                  tapHandlers={bindTapOrDoubleClick(() => onOpenTable(table.tableId))}
+                />
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex flex-col lg:flex-row gap-6 mt-4">
@@ -231,8 +259,12 @@ export default function TableFloorPlan({
                 placed in % of the wrapper, so they stay on the same spot at any size; the drag
                 reads the wrapper's rect at pointerdown, so it works at any scale too. */}
             <div ref={imageWrapperRef} className="relative block w-full max-w-[1200px] select-none">
-              {/* eslint-disable-next-line @next/next/no-img-element -- authenticated, proxied image; next/image can't reach it */}
-              <img src={imageSrc} alt={imageAlt} className="block w-full h-auto rounded-xl border border-cream/10" draggable={false} />
+              <MapImage
+                src={imageSrc!}
+                alt={imageAlt}
+                className="block w-full h-auto rounded-xl border border-cream/10"
+                onFailed={() => setFailedImageSrc(imageSrc)}
+              />
               {placedTables.map((table) => {
                 const pos = effectivePosition(table);
                 return (

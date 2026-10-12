@@ -13,15 +13,13 @@ import { quoteBookingReprice, applyBookingReprice } from "@/lib/bookingRepriceCl
 import OwesBadge from "@/components/admin/OwesBadge";
 import CancelBookingDialog from "@/components/admin/CancelBookingDialog";
 import MarkPaidDialog from "@/components/admin/MarkPaidDialog";
-import { needsCancellationConfirm, needsPaymentDialog } from "@/lib/bookingStatusChange";
+import { cancelUnavailableReason, needsCancellationConfirm, needsPaymentDialog, selectableStatuses } from "@/lib/bookingStatusChange";
 import { useSavedNotice } from "@/lib/useSavedNotice";
 import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
 import { BookingScheduleEditor, RoomUnitAssignmentEditor } from "@/components/admin/BookingScheduleEditor";
 import type { Booking, BookingChannel, BookingScheduleQuote, Room, RoomUnit, AuditLogEntry } from "@/lib/types";
 import type { BookingPosOrder, Folio, FolioPaymentInput } from "@/lib/posTypes";
 import { describeAuditActor, humanizeAuditSummary } from "@/lib/auditDisplay";
-
-const STATUSES = ["NEW", "CONFIRMED", "PAID", "CANCELLED"] as const;
 
 // Slide-in panel opened by clicking a bar on the booking calendar grid - deliberately a fixed-
 // width side panel, not a full-screen modal, so reception can still see the grid (neighbouring
@@ -328,12 +326,15 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
           onChange={(e) => setStatus(e.target.value as Booking["status"])}
           className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
         >
-          {STATUSES.map((s) => (
+          {selectableStatuses(booking.status, booking.occupancyStatus).map((s) => (
             <option key={s} value={s}>
               {s}
             </option>
           ))}
         </select>
+        {cancelUnavailableReason(booking.status, booking.occupancyStatus) && (
+          <p className="text-xs text-cream/50 mt-1">{cancelUnavailableReason(booking.status, booking.occupancyStatus)}</p>
+        )}
       </div>
       {needsPaymentDialog(booking.status, status, amountToMarkPaid) && (
         <p className="text-xs text-coral bg-coral/10 border border-coral/30 rounded-lg px-3 py-2">

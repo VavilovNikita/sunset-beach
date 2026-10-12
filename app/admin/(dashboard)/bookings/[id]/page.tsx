@@ -84,6 +84,14 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
         <OwesBadge balanceDue={booking.balanceDue} />
       </div>
 
+      {/* Cancelling cleaned up the guest's spa, but anything already paid is left for a person
+          (refund, then cancel the appointment) - the server keeps saying so until it's dealt with. */}
+      {booking.warning && (
+        <p role="alert" className="mb-6 max-w-3xl text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-4 py-3">
+          {booking.warning}
+        </p>
+      )}
+
       <div className="grid md:grid-cols-2 gap-8">
         <div className="space-y-2 text-sm">
           {/* From the segments, not booking.room: that's only the *last* segment's type (where the
@@ -179,6 +187,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             bookingId={booking.id}
             guestName={booking.guestName}
             currentStatus={booking.status}
+            occupancyStatus={booking.occupancyStatus}
             balanceDue={booking.balanceDue}
             currentPaymentNote={booking.paymentNote}
             currentChannel={booking.channel}

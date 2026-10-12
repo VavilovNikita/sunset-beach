@@ -12,7 +12,10 @@ describe("updating page", () => {
   });
 
   it("nginx serves the same page when the whole app is down", () => {
-    expect(readFileSync("nginx/updating.html", "utf8")).toBe(UPDATING_HTML);
+    // Same content, not same line endings: a Windows checkout (core.autocrlf) turns the file's LF
+    // into CRLF, which nobody serving or reading the page can see.
+    const lf = (text: string) => text.replace(/\r\n/g, "\n");
+    expect(lf(readFileSync("nginx/updating.html", "utf8"))).toBe(lf(UPDATING_HTML));
   });
 });
 

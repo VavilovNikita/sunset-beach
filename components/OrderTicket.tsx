@@ -663,6 +663,7 @@ function LiveOrderTicket({
           ) : (
             <RoomChargeSearch
               orderId={order.id}
+              preferredBookingId={order.bookingId}
               actor={actorLabel}
               onClose={() => setShowRoomCharge(false)}
               onSettled={(updated) => {

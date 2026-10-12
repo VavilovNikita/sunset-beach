@@ -1,14 +1,16 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import { requireSessionUser, hasRoleAtLeast } from "@/lib/rbac";
 import { orderNumberLabel, orderRefLabel, ticketTitle } from "@/lib/posOrders";
 import { isSpaOrder, orderBackLink } from "@/lib/posOrderBack";
+import { SPA_MENU_TAB } from "@/lib/posMenu";
+import { SPA_SECTION } from "@/lib/adminNav";
 import OrderTicket from "@/components/OrderTicket";
 import type { Order, MenuItem, Table } from "@/lib/posTypes";
 
-export default async function OrderTicketPage({ params, searchParams }: { params: { id: string }; searchParams: { category?: string } }) {
+export default async function OrderTicketPage({ params, searchParams }: { params: { id: string }; searchParams: { category?: string; section?: string } }) {
   // GET /orders/{id} itself is WAITER+ (no ownership boundary - the whole floor sees every
   // table), but POST /orders/{id}/close is CASHIER+ on the backend - computed here, at the page,
   // and passed down as a real prop, the same way the /pos page does it. The component
@@ -50,6 +52,15 @@ export default async function OrderTicketPage({ params, searchParams }: { params
   const spa = isSpaOrder(order, tableZone);
   const back = orderBackLink("/admin/pos", order, tableZone);
 
+  // Billing a treatment is spa work: the sidebar stays on Spa (it can only read the URL, so the
+  // section rides along as a query parameter - see lib/adminNav.ts#navPathname) and the picker
+  // opens on the Spa tab instead of the first restaurant category. Reached any other way (the
+  // orders list, a pasted link), the same URL is simply completed once.
+  if (spa && searchParams.section !== SPA_SECTION) {
+    const query = new URLSearchParams({ section: SPA_SECTION, category: searchParams.category ?? SPA_MENU_TAB });
+    redirect(`/admin/pos/orders/${order.id}?${query.toString()}`);
+  }
+
   return (
     <div>
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -68,7 +79,7 @@ export default async function OrderTicketPage({ params, searchParams }: { params
       {/* actor={null}: the till has no "will be recorded as" step - see PosAttributedConfirm.tsx. */}
       <OrderTicket
         initialOrder={order}
-        initialMenuCategory={searchParams.category ?? null}
+        initialMenuCategory={searchParams.category ?? (spa ? SPA_MENU_TAB : null)}
         menu={menu}
         tableZone={tableZone}
         canManagePayments={canManagePayments}

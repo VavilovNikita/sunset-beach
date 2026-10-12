@@ -191,8 +191,9 @@ sunset-beach's side depends on):
 - `CORS_ALLOWED_ORIGINS` — not load-bearing for this same-domain, path-routed
   setup (the browser never makes a cross-origin request), but harmless to
   set to `http://thesunsetbeachsip.ddns.net:8888` anyway as defense in depth.
-- `UPLOADS_ROOT` — leave as its default (a Docker volume, per sunset's own
-  `docker-compose.yml`); this is where staff-uploaded room photos live.
+- `UPLOADS_ROOT` — leave it unset: sunset's own `docker-compose.yml` now pins it to
+  `/app/uploads`, the `uploads` Docker volume. That is where every staff upload lives
+  (room photos, the property/spa/restaurant floor plans, maintenance photos).
 
 ```bash
 docker compose build
@@ -266,8 +267,11 @@ migrations on start.
 Sunset owns all the data now (users, rooms, bookings, etc.) in its own
 Postgres instance — back that up from wherever sunset's own docs say its
 database lives; this repo no longer has a database to back up. Also back up
-sunset's `uploads` named volume (staff-uploaded room photos) — see that
-repo's own docs for the exact volume name.
+sunset's `uploads` named volume (room photos, floor plans, maintenance photos) —
+sunset's DEPLOY.md, "Uploads", has the volume name and the backup/restore commands. The
+database dump does not contain these files; if the volume is ever lost, the maps show an
+"image not found" notice and list their rooms/tables as plain buttons until the plan is
+uploaded again.
 
 ## Troubleshooting
 

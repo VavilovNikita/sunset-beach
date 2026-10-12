@@ -13,3 +13,8 @@ export function menuForOrder(menu: MenuItem[], tableZone: Zone | null): MenuItem
   if (tableZone !== null) return available.filter((m) => m.department !== "SPA");
   return available;
 }
+
+// The id of the picker's pinned "Spa" tab (OrderMenuPicker.tsx). A spa ticket opens on it: the spa
+// billing door's order has no table, so the picker used to open on the first restaurant category
+// and reception had to find the treatments by hand.
+export const SPA_MENU_TAB = "__spa__";

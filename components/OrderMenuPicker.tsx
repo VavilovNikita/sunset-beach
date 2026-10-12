@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { addOrderItem, createOrderWithItem } from "@/lib/pos/ordersClient";
 import type { DraftOrderTarget } from "@/lib/posDraftOrder";
+import { SPA_MENU_TAB } from "@/lib/posMenu";
 import type { MenuItem, Order } from "@/lib/posTypes";
 
 // The item picker of the one order ticket both POS surfaces render (OrderTicket.tsx): categories
@@ -28,7 +29,7 @@ import type { MenuItem, Order } from "@/lib/posTypes";
 // only treatments. Where both can appear (a table-less ticket), treatments are grouped under their
 // own pinned "Spa" tab, regardless of whatever free-text `category` they were given. There is no
 // pre-selected item to add by accident: nothing is added until an item itself is tapped.
-const SPA_TAB = "__spa__";
+const SPA_TAB = SPA_MENU_TAB;
 
 export default function OrderMenuPicker({
   orderId,

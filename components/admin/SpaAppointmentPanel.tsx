@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { addSpaAppointmentTreatment, removeSpaAppointmentTreatment, updateSpaAppointmentStatus } from "@/lib/spaClient";
+import { addSpaAppointmentTreatment, billMissingSpaTreatments, removeSpaAppointmentTreatment, updateSpaAppointmentStatus } from "@/lib/spaClient";
 import { billSpaAppointment } from "@/lib/spaOrderClient";
 import { adminRequest } from "@/lib/adminFetch";
 import { orderNumberLabel } from "@/lib/posOrders";
 import { sumTreatmentPrices } from "@/lib/spaTreatmentPricing";
-import { billTreatmentsLabel, isSpaOverdue } from "@/lib/spaAppointmentDisplay";
+import { addMissingLabel, billTreatmentsLabel, canAddMissingToOrder, canRemoveTreatmentFrom, isSpaOverdue } from "@/lib/spaAppointmentDisplay";
+import { SPA_SECTION } from "@/lib/adminNav";
+import { SPA_MENU_TAB } from "@/lib/posMenu";
 import type { MenuItem, Order, SpaAppointment, SpaAppointmentStatus } from "@/lib/posTypes";
 import { formatDate } from "@/lib/formatDate";
 
@@ -63,12 +65,16 @@ export default function SpaAppointmentPanel({
   // The linked order's status/number, read once the panel knows which order that is. null while
   // loading or when it couldn't be read - the plain "Open order" link still works then.
   const [linkedOrder, setLinkedOrder] = useState<Pick<Order, "id" | "status" | "number"> | null>(null);
+  // A spa ticket opens on the Spa menu tab and keeps the sidebar on Spa (see the order page).
+  const orderHref = (id: string) => `/admin/pos/orders/${id}?section=${SPA_SECTION}&category=${encodeURIComponent(SPA_MENU_TAB)}`;
   const [error, setError] = useState<string | null>(null);
   const [addTreatmentId, setAddTreatmentId] = useState(availableTreatments[0]?.id ?? "");
   const [addingTreatment, setAddingTreatment] = useState(false);
   const [addTreatmentError, setAddTreatmentError] = useState<string | null>(null);
   const [removingTreatmentId, setRemovingTreatmentId] = useState<string | null>(null);
   const [removeTreatmentError, setRemoveTreatmentError] = useState<string | null>(null);
+  const [addingMissing, setAddingMissing] = useState(false);
+  const [addMissingError, setAddMissingError] = useState<string | null>(null);
 
   async function setStatus(status: SpaAppointmentStatus, reason?: string) {
     setSaving(true);
@@ -108,7 +114,22 @@ export default function SpaAppointmentPanel({
       setBillError(`Order opened, but "${treatmentNames}" couldn't be added automatically — open the order and add it by hand.`);
       return;
     }
-    router.push(`/admin/pos/orders/${result.orderId}`);
+    router.push(orderHref(result.orderId));
+  }
+
+  // The partial-payment top-up: the missing treatments go onto the order the appointment is
+  // already linked to, in one action - the order is then closed as usual from its own page.
+  async function handleAddMissing() {
+    setAddingMissing(true);
+    setAddMissingError(null);
+    const result = await billMissingSpaTreatments(current.id);
+    setAddingMissing(false);
+    if (!result.ok) {
+      setAddMissingError(result.error);
+      return;
+    }
+    setCurrent(result.appointment);
+    router.refresh();
   }
 
   async function handleAddTreatment(e: React.FormEvent) {
@@ -162,7 +183,8 @@ export default function SpaAppointmentPanel({
   // (below) stays available through COMPLETED too, to correct an over-count, since it can never
   // collide with anything.
   const canAddTreatment = isBooked;
-  const canRemoveTreatment = isBooked || isCompleted;
+  // Not once the linked order is paid - see canRemoveTreatmentFrom (the server refuses it too).
+  const canRemoveTreatment = (isBooked || isCompleted) && canRemoveTreatmentFrom(linkedOrder?.id === orderId ? linkedOrder.status : null);
   const totalCurrentPrice = sumTreatmentPrices(current.treatments.map((t) => t.currentPrice));
 
   return (
@@ -283,7 +305,7 @@ export default function SpaAppointmentPanel({
                 </button>
               )}
               <Link
-                href={`/admin/pos/orders/${orderId}`}
+                href={orderHref(orderId)}
                 className="block text-xs text-cream/50 hover:text-coral transition-colors underline underline-offset-4"
               >
                 View the cancelled order
@@ -293,7 +315,7 @@ export default function SpaAppointmentPanel({
           ) : orderId ? (
             <div className="space-y-2">
               <Link
-                href={`/admin/pos/orders/${orderId}`}
+                href={orderHref(orderId)}
                 className="inline-block text-sm text-sea hover:text-coral transition-colors underline underline-offset-4"
               >
                 Open order{linkedOrder?.id === orderId ? ` ${orderNumberLabel(linkedOrder)}` : ""} →
@@ -322,9 +344,23 @@ export default function SpaAppointmentPanel({
           )}
 
           {current.status === "COMPLETED" && orderId && current.missingTreatmentNames.length > 0 && (
-            <p className="text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2">
-              Linked order doesn&apos;t carry: {current.missingTreatmentNames.join(", ")}.
-            </p>
+            <div className="space-y-2">
+              <p className="text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2">
+                Linked order doesn&apos;t carry: {current.missingTreatmentNames.join(", ")}.
+                {linkedOrder?.id === orderId && linkedOrder.status === "PAID" && " It is already paid, so the rest can't be added to it."}
+              </p>
+              {canAddMissingToOrder(current, linkedOrder?.id === orderId ? linkedOrder.status : null) && (
+                <button
+                  type="button"
+                  onClick={handleAddMissing}
+                  disabled={addingMissing}
+                  className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-4 py-2 text-sm font-medium disabled:opacity-50"
+                >
+                  {addingMissing ? "Adding…" : addMissingLabel(current.missingTreatmentNames.length)}
+                </button>
+              )}
+              {addMissingError && <p className="text-sm text-coral">{addMissingError}</p>}
+            </div>
           )}
 
           {current.status === "CANCELLED" && current.cancelReason && (
