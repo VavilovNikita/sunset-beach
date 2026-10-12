@@ -37,6 +37,7 @@ import RoomChargeSearch from "@/components/RoomChargeSearch";
 import PosAttributedConfirm from "@/components/pos/PosAttributedConfirm";
 import type { Role } from "@/lib/session";
 import { formatTimestamp } from "@/lib/formatDate";
+import { MAX_LINE_QUANTITY, canAddOne } from "@/lib/orderQuantity";
 import type { Order, MenuItem, PaymentMethod, PrintAttemptResult, Zone } from "@/lib/posTypes";
 
 const ROLE_LABELS: Record<Role, string> = { WAITER: "Waiter", CASHIER: "Cashier", MANAGER: "Manager", ADMIN: "Admin" };
@@ -213,7 +214,7 @@ function LiveOrderTicket({
   usePolling(refetch, 3000, !isTerminalStatus(order.status));
 
   async function handleQuantityChange(item: Order["items"][number], nextQuantity: number) {
-    if (nextQuantity < 1) return;
+    if (nextQuantity < 1 || nextQuantity > MAX_LINE_QUANTITY) return;
     setBusyItemId(item.id);
     setError(null);
     const result = await updateOrderItemQuantity(order.id, item.id, item.menuItemId, nextQuantity, item.note);
@@ -414,7 +415,8 @@ function LiveOrderTicket({
                     type="button"
                     aria-label="One more"
                     onClick={() => handleQuantityChange(item, item.quantity + 1)}
-                    disabled={busyItemId === item.id}
+                    disabled={busyItemId === item.id || !canAddOne(item.quantity)}
+                    title={canAddOne(item.quantity) ? undefined : `At most ${MAX_LINE_QUANTITY} per line`}
                     className="w-11 h-11 rounded-full bg-ink text-cream text-lg font-medium hover:bg-cream/10 active:bg-cream/10 transition-colors disabled:opacity-50"
                   >
                     +

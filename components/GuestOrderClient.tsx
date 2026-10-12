@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePolling } from "@/lib/usePolling";
+import { canAddOne } from "@/lib/orderQuantity";
 import { fetchGuestMenu, fetchGuestOrder, addGuestOrderItems } from "@/lib/guestOrderClient";
+import { addToCart, cartItemCount, cartToItems, removeFromCart, removeOneFromCart, type CartLine } from "@/lib/guestCart";
 import type { MenuItem } from "@/lib/posTypes";
 import type { GuestOrderView } from "@/lib/guestOrderTypes";
 
@@ -30,7 +32,9 @@ export default function GuestOrderClient({ orderId, token }: { orderId: string; 
   const [order, setOrder] = useState<GuestOrderView | null>(null);
   const [menu, setMenu] = useState<MenuItem[] | null>(null);
   const [category, setCategory] = useState<string | null>(null);
-  const [addingId, setAddingId] = useState<string | null>(null);
+  // Picked but not sent: nothing reaches the kitchen until the guest confirms (see lib/guestCart.ts).
+  const [cart, setCart] = useState<CartLine[]>([]);
+  const [sending, setSending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [transientError, setTransientError] = useState<string | null>(null);
   const [gateError, setGateError] = useState<string | null>(null);
@@ -79,13 +83,15 @@ export default function GuestOrderClient({ orderId, token }: { orderId: string; 
     if (first) setCategory(first);
   }, [menu, category]);
 
-  async function handleAdd(item: MenuItem) {
+  async function handleSend() {
+    if (cart.length === 0 || sending) return;
     setActionError(null);
-    setAddingId(item.id);
-    const result = await addGuestOrderItems(orderId, token, [{ menuItemId: item.id, quantity: 1 }]);
-    setAddingId(null);
+    setSending(true);
+    const result = await addGuestOrderItems(orderId, token, cartToItems(cart));
+    setSending(false);
     if (result.ok) {
       setOrder(result.data);
+      setCart([]);
       return;
     }
     if (result.status === 404) {
@@ -161,6 +167,61 @@ export default function GuestOrderClient({ orderId, token }: { orderId: string; 
       )}
       {order.items.length === 0 && canOrder && <p className="text-cream/50 text-sm mb-8">No items yet — add something below.</p>}
 
+      {canOrder && cart.length > 0 && (
+        <div className="mb-8 bg-ink2 border border-sea/40 rounded-xl p-4">
+          <p className="eyebrow text-sea mb-3">To send ({cartItemCount(cart)})</p>
+          <div className="space-y-2">
+            {cart.map((line) => {
+              const item = menu?.find((m) => m.id === line.menuItemId);
+              return (
+                <div key={line.menuItemId} className="flex items-center justify-between gap-2">
+                  <p className="text-cream text-sm min-w-0 truncate">{item?.name ?? "Item"}</p>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      aria-label={`One fewer ${item?.name ?? ""}`}
+                      disabled={sending}
+                      onClick={() => setCart((c) => removeOneFromCart(c, line.menuItemId))}
+                      className="w-9 h-9 rounded-full bg-ink text-cream active:bg-cream/10 disabled:opacity-50"
+                    >
+                      −
+                    </button>
+                    <span className="w-8 text-center text-cream text-sm">{line.quantity}</span>
+                    <button
+                      type="button"
+                      aria-label={`One more ${item?.name ?? ""}`}
+                      disabled={sending || !canAddOne(line.quantity)}
+                      onClick={() => setCart((c) => addToCart(c, line.menuItemId))}
+                      className="w-9 h-9 rounded-full bg-ink text-cream active:bg-cream/10 disabled:opacity-50"
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      disabled={sending}
+                      onClick={() => setCart((c) => removeFromCart(c, line.menuItemId))}
+                      className="ml-1 text-xs text-cream/50 active:text-coral px-1 py-2 disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {actionError && <p className="text-sm text-coral mt-3">{actionError}</p>}
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={sending}
+            className="mt-4 w-full rounded-xl bg-coral active:bg-coraldeep transition-colors py-3 text-sm font-medium disabled:opacity-60"
+          >
+            {sending ? "Sending…" : "Send order"}
+          </button>
+          <p className="text-xs text-cream/40 mt-2">Nothing is ordered until you press Send. The total is confirmed once it is sent.</p>
+        </div>
+      )}
+
       {canOrder && menu && (
         <div>
           <p className="eyebrow text-cream/50 mb-3">Menu</p>
@@ -181,21 +242,17 @@ export default function GuestOrderClient({ orderId, token }: { orderId: string; 
             </div>
           )}
 
-          {actionError && <p className="text-sm text-coral mb-3">{actionError}</p>}
-
           <div className="grid grid-cols-2 gap-2.5">
             {visibleMenuItems.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                disabled={addingId === item.id}
-                onClick={() => handleAdd(item)}
+                disabled={sending}
+                onClick={() => setCart((c) => addToCart(c, item.id))}
                 className="rounded-xl bg-ink2 border border-cream/10 active:bg-sea/15 active:border-sea/40 transition-colors px-3 py-2.5 text-left disabled:opacity-50"
               >
                 <p className="text-cream text-sm leading-snug">{item.name}</p>
-                <p className="text-cream/50 text-xs mt-0.5">
-                  {addingId === item.id ? "Adding…" : `฿${Number(item.price).toLocaleString("en-US")}`}
-                </p>
+                <p className="text-cream/50 text-xs mt-0.5">฿{Number(item.price).toLocaleString("en-US")}</p>
               </button>
             ))}
             {visibleMenuItems.length === 0 && <p className="col-span-2 text-cream/50 text-sm py-2">No items in this category.</p>}
