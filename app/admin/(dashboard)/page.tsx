@@ -59,11 +59,16 @@ export default async function AdminDashboardPage() {
             value={`${stats.roomStats.occupancyPct}%`}
             sublabel={`Next ${stats.occupancyWindowDays} days`}
           />
-          <StatCard
-            label="Room revenue (paid)"
-            value={`฿${stats.roomStats.revenueThisMonth.toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
-            sublabel={`${MONTH_LABEL}, by check-in date`}
-          />
+          {/* Money actually recorded against bookings' folios this month (PaymentsSummary
+              .folioPaymentsTotal) - never a sum over bookings by status. Needs the same MANAGER+ read
+              as the POS block below, so it is simply absent when that read is refused. */}
+          {stats.posSummary.status === "ok" && (
+            <StatCard
+              label="Room payments collected"
+              value={`฿${Number(stats.posSummary.data.folioPaymentsTotal).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
+              sublabel={`${MONTH_LABEL} · recorded at the desk against bookings (includes POS charged to rooms once paid)`}
+            />
+          )}
         </div>
       )}
 

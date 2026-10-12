@@ -1,3 +1,4 @@
+import type { FolioPaymentInput, FolioPaymentMethod } from "@/lib/posTypes";
 import type { BookingStatus } from "@/lib/types";
 
 // Shared by the two booking edit forms (BookingStatusForm on the booking page, the calendar
@@ -9,6 +10,28 @@ import type { BookingStatus } from "@/lib/types";
 // reason; saving an already-cancelled booking (a payment-note fix) doesn't.
 export function needsCancellationConfirm(current: BookingStatus, next: BookingStatus): boolean {
   return next === "CANCELLED" && current !== "CANCELLED";
+}
+
+// Marking a booking PAID never writes money off: whatever is still owed has to arrive with the
+// request as a payment (BookingStatusInput.payment), so the change opens a payment dialog first.
+// `amountDue` is the server's figure (Folio.amountToMarkPaid, or Booking.balanceDue before the
+// folio has loaded) - nothing is worked out here. When nothing is owed the status just saves.
+export function needsPaymentDialog(current: BookingStatus, next: BookingStatus, amountDue: string | null | undefined): boolean {
+  return next === "PAID" && current !== "PAID" && Number(amountDue) > 0;
+}
+
+// The payment the dialog collects: a method has to be chosen (no default - the desk says how the
+// money came in) and the amount must be a positive number. Whether it is exactly what is owed is
+// the server's call; a different figure comes back as a 409 naming the right one.
+export function validatePaidPayment(method: FolioPaymentMethod | "", amount: string): string | null {
+  if (!method) return "Choose how the guest paid.";
+  const value = Number(amount);
+  if (amount.trim() === "" || !Number.isFinite(value) || value <= 0) return "Enter the amount collected.";
+  return null;
+}
+
+export function paidPaymentInput(method: FolioPaymentMethod, amount: string): FolioPaymentInput {
+  return { method, amount: amount.trim() };
 }
 
 export const CANCELLATION_REASON_MAX = 500;

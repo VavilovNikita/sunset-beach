@@ -561,6 +561,9 @@ export type NightAudit = {
   date: string;
   missedArrivals: NightAuditBooking[];
   missedDepartures: NightAuditBooking[];
+  // Stays that are over (checked out, past their check-out and not in the house, or cancelled) and
+  // still owe money, whatever their status. Each row carries balanceDue.
+  unpaidBalances: NightAuditBooking[];
   snapshot: OccupancyReportRow;
   closure: NightAuditClosure | null;
 };
@@ -578,6 +581,8 @@ export type NightAuditBooking = {
   // date - the backend's OverstayRule, the same nights the room reports count at zero revenue.
   // Always 0 on missedArrivals, and 0 for a guest due out today. A warning only.
   unpaidOverstayNights: number;
+  // Set on every unpaidBalances row: BookingFolio.balanceDue.
+  balanceDue?: string;
 };
 
 // A receipt that someone reviewed a date - it locks and blocks nothing. closedByName is the
@@ -744,6 +749,10 @@ export type Booking = {
   // "0.00" unless an early checkout released nights and staff chose to charge them anyway - owed
   // on top of totalPrice (the nights actually stayed). Optional only for older payloads.
   earlyDepartureFee?: string;
+  // What the guest still owes on this booking right now - the server's single folio balance
+  // (BookingFolio.balanceDue), sent on every booking whatever its status or occupancy. The "Owes"
+  // badge reads this and nothing else; never work a balance out from totalPrice and payments here.
+  balanceDue: string;
   status: BookingStatus;
   channel: BookingChannel;
   purpose: BookingPurpose;

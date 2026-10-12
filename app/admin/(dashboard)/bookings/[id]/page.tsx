@@ -7,6 +7,7 @@ import BookingStatusForm from "@/components/admin/BookingStatusForm";
 import BookingOccupancyPanel from "@/components/admin/BookingOccupancyPanel";
 import BookingScheduleForm from "@/components/admin/BookingScheduleForm";
 import FolioPaymentPanel from "@/components/admin/FolioPaymentPanel";
+import OwesBadge from "@/components/admin/OwesBadge";
 import BookingGuestLinkSection from "@/components/admin/BookingGuestLinkSection";
 import { BOOKING_PURPOSE_LABELS, formatPartySize } from "@/lib/bookingPurpose";
 import { BOOKING_CHANNEL_LABELS, bookingOriginNote } from "@/lib/bookingChannel";
@@ -78,7 +79,10 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
   return (
     <div>
       <p className="eyebrow text-sea mb-2">Reservation</p>
-      <h1 className="font-display italic text-3xl mb-8">{booking.guestName}</h1>
+      <div className="flex flex-wrap items-center gap-3 mb-8">
+        <h1 className="font-display italic text-3xl">{booking.guestName}</h1>
+        <OwesBadge balanceDue={booking.balanceDue} />
+      </div>
 
       <div className="grid md:grid-cols-2 gap-8">
         <div className="space-y-2 text-sm">
@@ -175,6 +179,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             bookingId={booking.id}
             guestName={booking.guestName}
             currentStatus={booking.status}
+            balanceDue={booking.balanceDue}
             currentPaymentNote={booking.paymentNote}
             currentChannel={booking.channel}
             currentPurpose={booking.purpose}

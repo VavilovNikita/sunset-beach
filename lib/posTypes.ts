@@ -326,6 +326,9 @@ export type Shift = {
   closingCashCounted: string | null;
   status: "OPEN" | "CLOSED";
   notes: string | null;
+  // Only on the response to closing a shift: other staff's open orders were left open (they don't
+  // block a close). Absent otherwise.
+  warning?: string;
 };
 
 export type ShiftTotals = {
@@ -408,6 +411,9 @@ export type Folio = {
   paidTotal: string;
   settledOutside: string;
   balanceDue: string;
+  // What a change into PAID must be paid with (BookingStatusInput.payment): the balance as if the
+  // booking were not yet paid and not cancelled. Equals balanceDue for a NEW/CONFIRMED booking.
+  amountToMarkPaid: string;
   creditBalance: string;
   roomChargeCount: number;
 };
@@ -455,6 +461,9 @@ export type PaymentsSummary = {
     paymentCount: number;
   };
   grandTotal: string;
+  // Money recorded against bookings' folios in the same period (every method). The dashboard's room
+  // revenue is this - recorded payments, never a booking's status.
+  folioPaymentsTotal: string;
 };
 
 // Forward-only from BOOKED in practice: PATCH /spa-appointments/{id}/status accepts

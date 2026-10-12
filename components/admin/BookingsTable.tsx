@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import RoomChargeDebtBadge from "@/components/admin/RoomChargeDebtBadge";
+import OwesBadge from "@/components/admin/OwesBadge";
 import { isArrivalPassed } from "@/lib/bookingList";
 import { roomTypeSummary, roomUnitSummary } from "@/lib/bookingRooms";
 import { formatDate, formatTimestampDate } from "@/lib/formatDate";
 import type { Booking, BookingSortField, SortDirection } from "@/lib/types";
-import type { Folio } from "@/lib/posTypes";
 
 const STATUS_STYLES: Record<string, string> = {
   NEW: "bg-sea/15 text-sea",
@@ -33,7 +32,6 @@ const COLUMNS: { label: string; sort: BookingSortField | null }[] = [
 // than one room.
 export default function BookingsTable({
   bookings,
-  folios = {},
   sort,
   dir,
   sortHrefs,
@@ -41,7 +39,6 @@ export default function BookingsTable({
   emptyMessage,
 }: {
   bookings: Booking[];
-  folios?: Record<string, Folio>;
   sort: BookingSortField;
   dir: SortDirection;
   sortHrefs: Record<BookingSortField, string>;
@@ -137,7 +134,8 @@ export default function BookingsTable({
                         Arrival passed
                       </span>
                     )}
-                    {folios[b.id] && <RoomChargeDebtBadge roomChargesTotal={folios[b.id].roomChargesTotal} />}
+                    {/* Any status: the balance is the server's (Booking.balanceDue), not a PAID-only hint. */}
+                    <OwesBadge balanceDue={b.balanceDue} />
                   </div>
                 </td>
                 <td className="py-3 pr-4 text-cream/40 text-xs whitespace-nowrap">{formatTimestampDate(b.createdAt)}</td>

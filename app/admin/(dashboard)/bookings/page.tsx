@@ -13,7 +13,6 @@ import {
 } from "@/lib/bookingList";
 import BookingsTable from "@/components/admin/BookingsTable";
 import type { BookingPage, BookingSortField, BookingStatus } from "@/lib/types";
-import type { Folio } from "@/lib/posTypes";
 
 const STATUSES: BookingStatus[] = ["NEW", "CONFIRMED", "PAID", "CANCELLED"];
 const SORT_FIELDS: BookingSortField[] = ["GUEST_NAME", "ROOM", "CHECK_IN", "CHECK_OUT", "TOTAL_PRICE", "STATUS", "CREATED_AT"];
@@ -30,22 +29,6 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
   // show it oldest-first, with no way to find one but scrolling.
   const result = await backendJson<BookingPage>(bookingSearchApiPath(params), { auth: true });
   const bookings = result.items;
-
-  // The "owes for POS charges" badge only ever applies to a PAID booking - fetch each PAID
-  // row's already-existing folio (no new backend computation, just GET /bookings/{id}/folio,
-  // same endpoint the calendar panel and booking detail page already call) in parallel,
-  // server-side. Bounded by the page size now that the list is paged.
-  const paidBookingIds = bookings.filter((b) => b.status === "PAID").map((b) => b.id);
-  const folioEntries = await Promise.all(
-    paidBookingIds.map(async (id) => {
-      try {
-        return [id, await backendJson<Folio>(`/bookings/${id}/folio`, { auth: true })] as const;
-      } catch {
-        return null;
-      }
-    })
-  );
-  const folios: Record<string, Folio> = Object.fromEntries(folioEntries.filter((e): e is [string, Folio] => e !== null));
 
   const sortHrefs = Object.fromEntries(SORT_FIELDS.map((f) => [f, bookingListHref(sortedBy(params, f))])) as Record<BookingSortField, string>;
   const { first, last, pageCount } = pageSpan(params.page, BOOKING_LIST_PAGE_SIZE, result.totalCount);
@@ -130,7 +113,6 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
 
       <BookingsTable
         bookings={bookings}
-        folios={folios}
         sort={params.sort}
         dir={params.dir}
         sortHrefs={sortHrefs}

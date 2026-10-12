@@ -33,6 +33,7 @@ function booking(overrides: Partial<Booking>): Booking {
     checkIn: "2026-06-15",
     checkOut: "2026-06-18",
     totalPrice: "3000.00",
+    balanceDue: "3000.00",
     status: "CONFIRMED",
     channel: "DIRECT",
     purpose: "STANDARD",
@@ -76,34 +77,15 @@ describe("computeRoomStats", () => {
     expect(stats.bookingsThisWeek).toBe(0);
   });
 
-  it("sums totalPrice for PAID bookings checking in this month into revenueThisMonth", () => {
+  it("derives no revenue from booking status", () => {
+    // Room revenue on the dashboard used to be the sum of totalPrice over PAID bookings - but PAID is
+    // a status, not a payment. The figure is now the server's recorded payments (PaymentsSummary
+    // .folioPaymentsTotal); this guards against a status-derived number creeping back in here.
     const stats = computeRoomStats(NOW, [], [
       booking({ id: "b1", status: "PAID", checkIn: "2026-06-05", totalPrice: "1500.00" }),
       booking({ id: "b2", status: "PAID", checkIn: "2026-06-25", totalPrice: "2500.00" }),
     ]);
-    expect(stats.revenueThisMonth).toBe(4000);
-  });
-
-  it("excludes a PAID booking checking in next month from revenueThisMonth", () => {
-    const stats = computeRoomStats(NOW, [], [booking({ status: "PAID", checkIn: "2026-07-01", totalPrice: "1500.00" })]);
-    expect(stats.revenueThisMonth).toBe(0);
-  });
-
-  it("excludes a PAID booking checking in last month from revenueThisMonth", () => {
-    const stats = computeRoomStats(NOW, [], [booking({ status: "PAID", checkIn: "2026-05-31", totalPrice: "1500.00" })]);
-    expect(stats.revenueThisMonth).toBe(0);
-  });
-
-  it("does not count a CONFIRMED (not yet PAID) booking toward revenue", () => {
-    const stats = computeRoomStats(NOW, [], [booking({ status: "CONFIRMED", checkIn: "2026-06-10", totalPrice: "1500.00" })]);
-    expect(stats.revenueThisMonth).toBe(0);
-  });
-
-  it("includes the last day of the month in revenueThisMonth", () => {
-    // Regression guard for an off-by-one at the month boundary specifically, not just "some
-    // day in the month" - endOfMonthUTC/nextMonthStart is where that kind of bug hides.
-    const stats = computeRoomStats(NOW, [], [booking({ status: "PAID", checkIn: "2026-06-30", totalPrice: "999.00" })]);
-    expect(stats.revenueThisMonth).toBe(999);
+    expect(Object.keys(stats).sort()).toEqual(["bookingsThisWeek", "bookingsToday", "occupancyPct"]);
   });
 
   it("computes occupancy from booked nights within the 30-day window over total active units", () => {

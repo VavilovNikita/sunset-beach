@@ -10,14 +10,15 @@ import { BOOKING_PURPOSE_LABELS, formatPartySize, parsePartySize } from "@/lib/b
 import BookingPurposePartyFields from "@/components/admin/BookingPurposePartyFields";
 import { quoteBookingRelocation, applyBookingRelocation, undoBookingRelocation } from "@/lib/bookingRelocationClient";
 import { quoteBookingReprice, applyBookingReprice } from "@/lib/bookingRepriceClient";
-import RoomChargeDebtBadge from "@/components/admin/RoomChargeDebtBadge";
+import OwesBadge from "@/components/admin/OwesBadge";
 import CancelBookingDialog from "@/components/admin/CancelBookingDialog";
-import { needsCancellationConfirm } from "@/lib/bookingStatusChange";
+import MarkPaidDialog from "@/components/admin/MarkPaidDialog";
+import { needsCancellationConfirm, needsPaymentDialog } from "@/lib/bookingStatusChange";
 import { useSavedNotice } from "@/lib/useSavedNotice";
 import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
 import { BookingScheduleEditor, RoomUnitAssignmentEditor } from "@/components/admin/BookingScheduleEditor";
 import type { Booking, BookingChannel, BookingScheduleQuote, Room, RoomUnit, AuditLogEntry } from "@/lib/types";
-import type { BookingPosOrder, Folio } from "@/lib/posTypes";
+import type { BookingPosOrder, Folio, FolioPaymentInput } from "@/lib/posTypes";
 import { describeAuditActor, humanizeAuditSummary } from "@/lib/auditDisplay";
 
 const STATUSES = ["NEW", "CONFIRMED", "PAID", "CANCELLED"] as const;
@@ -240,7 +241,10 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [confirmingPaid, setConfirmingPaid] = useState(false);
   const [notice, showNotice, clearNotice] = useSavedNotice();
+  // What a change into PAID has to be paid with (the server's figure; see Folio.amountToMarkPaid).
+  const amountToMarkPaid = folio?.amountToMarkPaid ?? booking.balanceDue;
 
   useEffect(() => {
     setStatus(booking.status);
@@ -264,10 +268,15 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
       setConfirmingCancel(true);
       return;
     }
+    // Same rule as BookingStatusForm: PAID with money owed asks for the payment first.
+    if (needsPaymentDialog(booking.status, status, amountToMarkPaid)) {
+      setConfirmingPaid(true);
+      return;
+    }
     save(null);
   }
 
-  async function save(cancellationReason: string | null) {
+  async function save(cancellationReason: string | null, payment?: FolioPaymentInput) {
     const party = parsePartySize(adults, children);
     if ("error" in party) return;
     setSaving(true);
@@ -283,13 +292,14 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
         adults: party.adults,
         children: party.children,
         ...(cancellationReason ? { cancellationReason } : {}),
+        ...(payment ? { payment } : {}),
       }),
       "Could not update booking."
     );
     setSaving(false);
     if (!result.ok) {
       setError(result.error);
-      if (cancellationReason) return;
+      if (cancellationReason || payment) return;
       // See BookingStatusForm.tsx's identical note - the select already jumped to the chosen
       // value on change, so a failed save has to jump it back, or the form looks like it saved.
       setStatus(booking.status);
@@ -301,7 +311,8 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
       return;
     }
     setConfirmingCancel(false);
-    showNotice(cancellationReason ? "Booking cancelled." : "Saved.");
+    setConfirmingPaid(false);
+    showNotice(cancellationReason ? "Booking cancelled." : payment ? "Payment recorded, booking marked paid." : "Saved.");
     onSaved();
   }
 
@@ -310,7 +321,7 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
       <div>
         <div className="flex items-center justify-between mb-1">
           <label className="eyebrow text-cream/60">Status</label>
-          {booking.status === "PAID" && folio && <RoomChargeDebtBadge roomChargesTotal={folio.roomChargesTotal} />}
+          <OwesBadge balanceDue={booking.balanceDue} />
         </div>
         <select
           value={status}
@@ -324,12 +335,10 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
           ))}
         </select>
       </div>
-      {status === "PAID" && booking.status !== "PAID" && folio && Number(folio.balanceDue) > 0 && (
+      {needsPaymentDialog(booking.status, status, amountToMarkPaid) && (
         <p className="text-xs text-coral bg-coral/10 border border-coral/30 rounded-lg px-3 py-2">
-          Paid means the room was collected outside the folio (OTA, bank transfer). Money taken at the desk goes in the booking&rsquo;s
-          folio, which turns it Paid by itself.
-          {Number(folio.roomChargesTotal) > 0 &&
-            ` POS room charges of ฿${Number(folio.roomChargesTotal).toLocaleString("en-US")} stay owed either way.`}
+          ฿{Number(amountToMarkPaid).toLocaleString("en-US")} is still owed. Saving as Paid asks how it was collected and records that
+          payment with the status.
         </p>
       )}
       <div>
@@ -365,7 +374,7 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
           className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm placeholder:text-cream/30"
         />
       </div>
-      {error && !confirmingCancel && <p className="text-xs text-coral">{error}</p>}
+      {error && !confirmingCancel && !confirmingPaid && <p className="text-xs text-coral">{error}</p>}
       <div className="flex items-center gap-3">
         <button
           type="submit"
@@ -380,6 +389,19 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
           </span>
         )}
       </div>
+      {confirmingPaid && (
+        <MarkPaidDialog
+          guestName={booking.guestName}
+          amountDue={amountToMarkPaid}
+          saving={saving}
+          error={error}
+          onConfirm={(payment) => save(null, payment)}
+          onBack={() => {
+            setConfirmingPaid(false);
+            setError(null);
+          }}
+        />
+      )}
       {confirmingCancel && (
         <CancelBookingDialog
           guestName={booking.guestName}

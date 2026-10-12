@@ -41,7 +41,6 @@ export type DashboardRoomStats =
       bookingsToday: number;
       bookingsThisWeek: number;
       occupancyPct: number;
-      revenueThisMonth: number;
     }
   | { status: "forbidden" }
   | { status: "error" };
@@ -56,21 +55,17 @@ export function computeRoomStats(
   now: Date,
   rooms: Room[],
   bookings: Booking[]
-): { bookingsToday: number; bookingsThisWeek: number; occupancyPct: number; revenueThisMonth: number } {
+): { bookingsToday: number; bookingsThisWeek: number; occupancyPct: number } {
   // "Today" and "this month" are the hotel's (Asia/Bangkok), not the UTC day `now` falls in or the
   // machine's zone: a booking made at 02:00 Bangkok is still yesterday in UTC.
   const todayKey = hotelDateKey(now);
   const todayStart = dateOnlyUTC(todayKey);
   const tomorrowStart = addDaysUTC(todayStart, 1);
   const weekStart = addDaysUTC(todayStart, -6); // rolling 7-day window, inclusive of today
-  const monthStart = startOfMonthUTC(todayStart);
-  const monthEnd = endOfMonthUTC(todayStart);
-  const nextMonthStart = addDaysUTC(monthEnd, 1);
   const occupancyWindowEnd = addDaysUTC(todayStart, OCCUPANCY_WINDOW_DAYS);
 
   let bookingsToday = 0;
   let bookingsThisWeek = 0;
-  let revenueThisMonth = 0;
   let bookedNights = 0;
 
   for (const b of bookings) {
@@ -80,10 +75,6 @@ export function computeRoomStats(
 
     const checkIn = dateOnlyUTC(b.checkIn);
     const checkOut = dateOnlyUTC(b.checkOut);
-
-    if (b.status === "PAID" && checkIn >= monthStart && checkIn < nextMonthStart) {
-      revenueThisMonth += Number(b.totalPrice);
-    }
 
     if (b.status !== "CANCELLED" && checkIn < occupancyWindowEnd && checkOut > todayStart) {
       const start = checkIn > todayStart ? checkIn : todayStart;
@@ -104,7 +95,10 @@ export function computeRoomStats(
   const totalRoomNights = totalUnits * OCCUPANCY_WINDOW_DAYS;
   const occupancyPct = totalRoomNights > 0 ? Math.round((bookedNights / totalRoomNights) * 100) : 0;
 
-  return { bookingsToday, bookingsThisWeek, occupancyPct, revenueThisMonth };
+  // No revenue here on purpose: room revenue used to be summed from bookings whose status was PAID,
+  // and a status is not a payment (it can be set with nothing collected). The dashboard's room
+  // figure is the server's recorded payments (PaymentsSummary.folioPaymentsTotal) - see getPosSummary.
+  return { bookingsToday, bookingsThisWeek, occupancyPct };
 }
 
 async function getRoomStats(now: Date): Promise<DashboardRoomStats> {

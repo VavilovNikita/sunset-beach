@@ -3,6 +3,7 @@ import { backendJson } from "@/lib/backendServer";
 import { requireRoleAtLeast } from "@/lib/rbac";
 import { describeOverdue, describeUnpaidNights, parseNightAuditDateParam } from "@/lib/nightAudit";
 import StatCard from "@/components/admin/StatCard";
+import OwesBadge from "@/components/admin/OwesBadge";
 import NightAuditCloseForm from "@/components/admin/NightAuditCloseForm";
 import type { NightAudit, NightAuditBooking } from "@/lib/types";
 import { formatDateRange } from "@/lib/formatDate";
@@ -82,9 +83,48 @@ export default async function NightAuditPage({ searchParams }: { searchParams: {
         dueDate={(b) => b.checkOut}
         reviewedDate={audit.date}
       />
+      <UnpaidBalances bookings={audit.unpaidBalances} />
 
       <NightAuditCloseForm key={audit.date} date={audit.date} initialClosure={audit.closure} />
     </div>
+  );
+}
+
+// Stays that are over - checked out, past their check-out and not in the house, or cancelled - that
+// still owe money, whatever the booking's status says. The balance is the server's (the folio's single
+// balance); a PAID/CHECKED_OUT label above a debt used to hide exactly these.
+function UnpaidBalances({ bookings }: { bookings: NightAuditBooking[] }) {
+  return (
+    <section className="mb-8">
+      <h2 className="font-display italic text-xl mb-1">
+        Unpaid balances <span className="text-cream/40 not-italic text-base">({bookings.length})</span>
+      </h2>
+      <p className="text-xs text-cream/40 mb-3">
+        Bookings whose stay is over (checked out, past check-out, or cancelled with charges) and that still owe money, whatever their
+        status. Open the booking to record the payment in its folio.
+      </p>
+      {bookings.length === 0 ? (
+        <p className="text-sm text-cream/60">No finished stay has money outstanding.</p>
+      ) : (
+        <ul className="divide-y divide-cream/10 border border-cream/10 rounded-xl">
+          {bookings.map((b) => (
+            <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+              <div className="min-w-0">
+                <Link href={`/admin/bookings/${b.id}`} className="text-cream hover:text-coral transition-colors font-medium">
+                  {b.guestName}
+                </Link>
+                <p className="text-xs text-cream/50">
+                  {b.roomName}
+                  {b.roomUnitLabel ? ` · ${b.roomUnitLabel}` : " · no room assigned"} · {formatDateRange(b.checkIn, b.checkOut)} ·{" "}
+                  {b.status}, {b.occupancyStatus.replace("_", " ").toLowerCase()}
+                </p>
+              </div>
+              <OwesBadge balanceDue={b.balanceDue} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS } from "@/lib/bookingChannel";
 import { parsePartySize } from "@/lib/bookingPurpose";
-import { needsCancellationConfirm } from "@/lib/bookingStatusChange";
+import { needsCancellationConfirm, needsPaymentDialog } from "@/lib/bookingStatusChange";
 import { useSavedNotice } from "@/lib/useSavedNotice";
-import type { Folio } from "@/lib/posTypes";
+import type { Folio, FolioPaymentInput } from "@/lib/posTypes";
 import type { BookingChannel, BookingPurpose, BookingStatus } from "@/lib/types";
 import BookingPurposePartyFields from "@/components/admin/BookingPurposePartyFields";
 import CancelBookingDialog from "@/components/admin/CancelBookingDialog";
+import MarkPaidDialog from "@/components/admin/MarkPaidDialog";
 
 const STATUSES = ["NEW", "CONFIRMED", "PAID", "CANCELLED"] as const;
 
@@ -23,6 +24,7 @@ export default function BookingStatusForm({
   currentPurpose,
   currentAdults,
   currentChildren,
+  balanceDue,
   folio,
 }: {
   bookingId: string;
@@ -33,6 +35,8 @@ export default function BookingStatusForm({
   currentPurpose: BookingPurpose;
   currentAdults: number;
   currentChildren: number;
+  // Booking.balanceDue - the server's balance, used until/unless the folio itself has loaded.
+  balanceDue: string;
   // Purely informational — nothing here writes to paymentNote or blocks
   // saving. null covers both "no POS orders" and "folio failed to load";
   // either way there's nothing safe to warn about, so no banner.
@@ -48,7 +52,10 @@ export default function BookingStatusForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [confirmingPaid, setConfirmingPaid] = useState(false);
   const [notice, showNotice, clearNotice] = useSavedNotice();
+  // What a change into PAID has to be paid with (the server's figure; see Folio.amountToMarkPaid).
+  const amountToMarkPaid = folio?.amountToMarkPaid ?? balanceDue;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -63,10 +70,15 @@ export default function BookingStatusForm({
       setConfirmingCancel(true);
       return;
     }
+    // Moving into PAID while money is owed asks for the payment first - PAID never writes it off.
+    if (needsPaymentDialog(currentStatus, status, amountToMarkPaid)) {
+      setConfirmingPaid(true);
+      return;
+    }
     save(null);
   }
 
-  async function save(cancellationReason: string | null) {
+  async function save(cancellationReason: string | null, payment?: FolioPaymentInput) {
     const party = parsePartySize(adults, children);
     if ("error" in party) return;
     setSaving(true);
@@ -83,6 +95,7 @@ export default function BookingStatusForm({
         adults: party.adults,
         children: party.children,
         ...(cancellationReason ? { cancellationReason } : {}),
+        ...(payment ? { payment } : {}),
       }),
       "Could not update booking."
     );
@@ -91,8 +104,8 @@ export default function BookingStatusForm({
 
     if (!result.ok) {
       setError(result.error);
-      // A failed cancel keeps its dialog open, with the error, so the reason isn't lost.
-      if (cancellationReason) return;
+      // A failed cancel or payment keeps its dialog open, with the error, so what was typed isn't lost.
+      if (cancellationReason || payment) return;
       // A dropped connection (or a rejected write) must not leave the form looking like it
       // saved - the select already jumped to the chosen value on change, so on failure it has
       // to jump back to what's actually persisted, or the empty state (no error banner visible
@@ -106,7 +119,8 @@ export default function BookingStatusForm({
       return;
     }
     setConfirmingCancel(false);
-    showNotice(cancellationReason ? "Booking cancelled." : "Saved.");
+    setConfirmingPaid(false);
+    showNotice(cancellationReason ? "Booking cancelled." : payment ? "Payment recorded, booking marked paid." : "Saved.");
     router.refresh();
   }
 
@@ -127,15 +141,14 @@ export default function BookingStatusForm({
         </select>
       </div>
 
-      {/* Setting PAID by hand means "the room was collected outside the folio" (OTA, bank
-          transfer) - the folio then stops counting it. Money taken at the desk goes through the
-          folio form, which sets PAID by itself once the room is covered. */}
-      {status === "PAID" && currentStatus !== "PAID" && folio && Number(folio.balanceDue) > 0 && (
+      {/* PAID needs a payment behind it: Save opens a dialog that collects it (amount pre-filled
+          from the server, method chosen), and the payment and the status change are saved
+          together. Money taken at the desk can equally go through the folio form below, which sets
+          PAID by itself once the room is covered. */}
+      {needsPaymentDialog(currentStatus, status, amountToMarkPaid) && (
         <p className="text-sm text-coral bg-coral/10 border border-coral/30 rounded-lg px-3 py-2">
-          Paid means the room was collected outside the folio (OTA, bank transfer). If the guest is paying at the desk, record it
-          in the folio below instead — the booking turns Paid by itself once the room is covered.
-          {Number(folio.roomChargesTotal) > 0 &&
-            ` POS room charges of ฿${Number(folio.roomChargesTotal).toLocaleString("en-US")} stay owed either way.`}
+          ฿{Number(amountToMarkPaid).toLocaleString("en-US")} is still owed. Saving as Paid asks how it was collected and records
+          that payment with the status.
         </p>
       )}
 
@@ -175,7 +188,7 @@ export default function BookingStatusForm({
         />
       </div>
 
-      {error && !confirmingCancel && <p className="text-sm text-coral">{error}</p>}
+      {error && !confirmingCancel && !confirmingPaid && <p className="text-sm text-coral">{error}</p>}
 
       <div className="flex items-center gap-4">
         <button
@@ -191,6 +204,20 @@ export default function BookingStatusForm({
           </span>
         )}
       </div>
+
+      {confirmingPaid && (
+        <MarkPaidDialog
+          guestName={guestName}
+          amountDue={amountToMarkPaid}
+          saving={saving}
+          error={error}
+          onConfirm={(payment) => save(null, payment)}
+          onBack={() => {
+            setConfirmingPaid(false);
+            setError(null);
+          }}
+        />
+      )}
 
       {confirmingCancel && (
         <CancelBookingDialog
