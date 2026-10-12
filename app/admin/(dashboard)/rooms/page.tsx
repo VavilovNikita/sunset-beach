@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import UploadedImage from "@/components/UploadedImage";
 import { backendJson } from "@/lib/backendServer";
 import { ADMIN_API_URL, resolveImageUrl } from "@/lib/backend";
 import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
@@ -39,7 +39,7 @@ export default async function AdminRoomsPage() {
           >
             <div className="relative w-24 h-16 rounded-lg overflow-hidden shrink-0 bg-ink3">
               {room.images[0] && (
-                <Image
+                <UploadedImage
                   src={resolveImageUrl(room.images[0])!}
                   alt=""
                   fill

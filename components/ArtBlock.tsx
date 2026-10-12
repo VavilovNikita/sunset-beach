@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 
 const icons: Record<string, JSX.Element> = {
@@ -40,6 +43,9 @@ export default function ArtBlock({
   priority?: boolean;
   unoptimized?: boolean;
 }) {
+  // A photo whose file is gone (an uploaded room photo whose path outlived its file) must not leave a
+  // broken-image icon on a guest-facing page: it falls back to the plain art block, as if it had no photo.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const bg =
     tone === "warm"
       ? "from-coraldeep via-coral to-[#F0A26B]"
@@ -49,7 +55,7 @@ export default function ArtBlock({
 
   const iconColor = tone === "sand" ? "text-ink/50" : "text-cream/60";
 
-  if (src) {
+  if (src && failedSrc !== src) {
     return (
       <div className={`relative overflow-hidden rounded-xl aspect-[4/3] ${className}`}>
         <Image
@@ -60,6 +66,7 @@ export default function ArtBlock({
           className="object-cover"
           priority={priority}
           unoptimized={unoptimized}
+          onError={() => setFailedSrc(src)}
         />
         {label && (
           <span className="absolute bottom-3 left-3 eyebrow text-cream/80 bg-ink/40 backdrop-blur-sm px-2 py-1 rounded">

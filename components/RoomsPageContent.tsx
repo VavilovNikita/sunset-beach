@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import UploadedImage from "@/components/UploadedImage";
 import BookingBar from "@/components/BookingBar";
 import Horizon from "@/components/Horizon";
 import ArtBlock from "@/components/ArtBlock";
@@ -114,7 +114,8 @@ export default function RoomsPageContent({ rooms }: { rooms: Room[] }) {
                       className="group relative aspect-[4/3] rounded-lg overflow-hidden block w-full cursor-pointer"
                       aria-label={`View photos of ${room.name}`}
                     >
-                      <Image
+                      <UploadedImage
+                        label="Photo unavailable"
                         src={img.src}
                         alt={`${room.name} — additional view`}
                         fill

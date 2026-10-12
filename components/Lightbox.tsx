@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Image from "next/image";
+import UploadedImage from "@/components/UploadedImage";
 
 export type LightboxImage = { src: string; unoptimized?: boolean };
 
@@ -102,7 +102,8 @@ export default function Lightbox({ images, alt, index, onIndexChange, onClose }:
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <Image
+        <UploadedImage
+          label="Photo unavailable"
           src={images[index].src}
           alt={alt}
           fill

@@ -9,6 +9,7 @@ import {
 } from "@/lib/maintenanceTaskClient";
 import type { MaintenanceTask, MaintenanceTaskBlockResult, MaintenanceTaskStatus, RoomUnit } from "@/lib/types";
 import { formatDateRange, formatTimestamp } from "@/lib/formatDate";
+import UploadedImage from "@/components/UploadedImage";
 
 const STATUS_LABEL: Record<MaintenanceTaskStatus, string> = { OPEN: "Open", IN_PROGRESS: "In progress", DONE: "Done" };
 const STATUS_CLASS: Record<MaintenanceTaskStatus, string> = {
@@ -276,8 +277,7 @@ function TaskCard({
             <div className="grid grid-cols-3 gap-2">
               {task.photos.map((path) => (
                 <a key={path} href={`/api/admin-proxy${path}`} target="_blank" rel="noreferrer" className="block aspect-square rounded-lg overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- staff-only, backend-served photo, not eligible for next/image's public-asset optimization */}
-                  <img src={`/api/admin-proxy${path}`} alt="" className="w-full h-full object-cover" />
+                  <UploadedImage src={`/api/admin-proxy${path}`} alt="" className="w-full h-full object-cover" />
                 </a>
               ))}
             </div>

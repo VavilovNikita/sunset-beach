@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Image from "next/image";
+import UploadedImage from "@/components/UploadedImage";
 import { useRouter } from "next/navigation";
 import { ADMIN_API_URL, resolveImageUrl } from "@/lib/backend";
 import { extractApiError } from "@/lib/apiError";
@@ -73,7 +73,7 @@ export default function RoomImageUploader({
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mb-4">
         {images.map((src) => (
           <div key={src} className="relative aspect-[4/3] rounded-lg overflow-hidden">
-            <Image
+            <UploadedImage
               src={resolveImageUrl(src)!}
               alt=""
               fill
