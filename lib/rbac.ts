@@ -31,16 +31,13 @@ export async function requireAdminUser() {
   return user;
 }
 
-// For POS pages gated at "MANAGER or above" (menu/printer management) where,
-// unlike requireAdminUser, the fallback route varies by caller — bouncing a
-// WAITER off /admin/pos/printers should land them back on /admin/pos, not
-// on the dashboard root. The default only fires for a call site that skips
-// redirectTo entirely (only /admin/history does, today) - it used to be a
-// bare "/admin", which is a real dashboard for CASHIER+ but an empty shell
-// for a WAITER (every figure there needs CASHIER+ reads); the access-denied
-// page explains the block instead of landing on something that looks broken.
-export async function requireRoleAtLeast(minimum: Role, redirectTo = "/admin/access-denied") {
+// Every gate sends a signed-in user who is below the required role to the same place,
+// /admin/access-denied, which says why and links to the page that role does have. It used to take a
+// per-page fallback (/admin/pos, /admin/rooms, ...), so the same mistake landed on a different
+// screen depending on the page - and some of those looked like a working page that silently
+// did nothing. Don't add a redirect parameter back.
+export async function requireRoleAtLeast(minimum: Role) {
   const user = await requireSessionUser();
-  if (!hasRoleAtLeast(user.role, minimum)) redirect(redirectTo);
+  if (!hasRoleAtLeast(user.role, minimum)) redirect("/admin/access-denied");
   return user;
 }

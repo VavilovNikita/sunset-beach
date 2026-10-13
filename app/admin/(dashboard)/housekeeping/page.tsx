@@ -10,7 +10,7 @@ import type { PropertyMap, Room, RoomUnit } from "@/lib/types";
 // Occupancy (the V/O half of VC/VD/OC/OD) comes from GET /property-map, also CASHIER+; if that read
 // fails the board still works and shows clean/dirty only, saying occupancy is unavailable.
 export default async function HousekeepingPage() {
-  await requireRoleAtLeast("CASHIER", "/admin/pos");
+  await requireRoleAtLeast("CASHIER");
 
   const [rooms, units, propertyMap] = await Promise.all([
     backendJson<Room[]>("/rooms", { auth: true }),

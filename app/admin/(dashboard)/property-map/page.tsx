@@ -6,7 +6,7 @@ import type { PropertyMap } from "@/lib/types";
 export default async function AdminPropertyMapPage() {
   // GET /property-map is CASHIER+ on the backend, same floor as GET /bookings/today - this is
   // the front desk's own screen. Placing rooms and replacing the background image are MANAGER+.
-  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+  const user = await requireRoleAtLeast("CASHIER");
   const canManage = hasRoleAtLeast(user.role, "MANAGER");
 
   const map = await backendJson<PropertyMap>("/property-map", { auth: true });

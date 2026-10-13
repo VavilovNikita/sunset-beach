@@ -22,7 +22,7 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
   // navigating here directly (the sidebar itself no longer links to it —
   // see AdminSidebar's CASHIER_PLUS_LINKS) would otherwise crash the page
   // on the fetch below.
-  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+  const user = await requireRoleAtLeast("CASHIER");
   const params = parseBookingListParams(searchParams);
 
   // Searched, sorted and paged by the server - the list used to load every booking ever made and

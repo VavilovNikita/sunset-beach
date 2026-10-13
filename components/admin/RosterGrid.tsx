@@ -171,7 +171,10 @@ export default function RosterGrid({
   // until confirmed beats guessing. Guarded by employeeIds so a since-deactivated employee's old
   // entry (still in data.entries, no longer in data.employees) can't inflate "working"/"absent" or
   // produce a negative "off".
-  const employeeIds = new Set(data.employees.map((e) => e.id));
+  // Active employees only: GET /roster also lists a deactivated one who still has entries or punches
+  // that month (greyed out below, same people as the exports), but they are not part of the day's
+  // headcount - the backend's coverage figures leave them out too.
+  const employeeIds = new Set(data.employees.filter((e) => e.active).map((e) => e.id));
   const workingByDate = new Map<string, number>();
   const absentByDate = new Map<string, number>();
   const presentByDate = new Map<string, number>();
@@ -551,8 +554,8 @@ export default function RosterGrid({
                   </tr>
                 )}
                 {group.employees.map((emp) => (
-                  <tr key={emp.id}>
-                    <td className="sticky left-0 bg-ink px-3 py-2 truncate max-w-[180px]">
+                  <tr key={emp.id} className={emp.active ? undefined : "opacity-60"}>
+                    <td className="sticky left-0 bg-ink px-3 py-2 truncate max-w-[180px]" title={emp.active ? undefined : "Deactivated - shifts can't be assigned"}>
                       {group.area === null && isAdmin && (
                         <input
                           type="checkbox"
@@ -563,8 +566,13 @@ export default function RosterGrid({
                         />
                       )}
                       {emp.name}
+                      {!emp.active && <span className="ml-1.5 text-xs italic text-cream/50">(deactivated)</span>}
                     </td>
                     {dates.map((d) => {
+                      // A deactivated employee keeps the shifts they worked this month, greyed out and
+                      // read-only: no new shift by clicking an empty day, and none of their cells is a
+                      // drag source or drop target (the server refuses to assign them anything). A
+                      // click on one of their shifts still opens it - it can be deleted.
                       const isToday = d === todayKey;
                       const isWeekend = isWeekendDate(d);
                       const entry = entriesByKey.get(`${emp.id}|${d}`);
@@ -577,6 +585,10 @@ export default function RosterGrid({
                       const dropIsSwap = isDropTarget && dragState!.targetEntry !== null && !dropInvalid;
 
                       const borderClass = isToday ? "border-l-2 border-l-cream" : "border-cream/10";
+
+                      if (!entry && !emp.active) {
+                        return <td key={d} className={`h-11 border-l ${borderClass} ${isWeekend ? "bg-ink3/20" : ""}`} />;
+                      }
 
                       if (!entry) {
                         return (
@@ -598,18 +610,23 @@ export default function RosterGrid({
 
                       const tapHandlers = bindTapOrDoubleClick(() => setSelectedEntry(entry));
                       const appearance = chipAppearanceFor(entry.shiftCode);
+                      const dragProps = emp.active
+                        ? {
+                            "data-cell": true,
+                            "data-entry-id": entry.id,
+                            "data-employee-user-id": emp.id,
+                            "data-date": d,
+                            "data-locked": entry.locked,
+                            onPointerDown: (e: React.PointerEvent<HTMLTableCellElement>) => onChipPointerDown(e, entry),
+                            onPointerMove: onDragPointerMove,
+                            onPointerUp: onDragPointerUp,
+                            onPointerCancel: onDragPointerCancel,
+                          }
+                        : {};
                       return (
                         <td
                           key={d}
-                          data-cell
-                          data-entry-id={entry.id}
-                          data-employee-user-id={emp.id}
-                          data-date={d}
-                          data-locked={entry.locked}
-                          onPointerDown={(e) => onChipPointerDown(e, entry)}
-                          onPointerMove={onDragPointerMove}
-                          onPointerUp={onDragPointerUp}
-                          onPointerCancel={onDragPointerCancel}
+                          {...dragProps}
                           onClick={tapHandlers.onClick}
                           onDoubleClick={tapHandlers.onDoubleClick}
                           title={`${entry.shiftCode.code} · ${describeShiftHours(entry.shiftCode)}${entry.note ? ` · ${entry.note}` : ""}`}
@@ -617,7 +634,7 @@ export default function RosterGrid({
                             // touch-none on every draggable chip, set statically (never inside
                             // onChipPointerDown): without it a finger drag pans the grid and fires
                             // pointercancel on the first move. Same as PropertyMapView's tiles.
-                            entry.locked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing touch-none"
+                            !emp.active ? "cursor-pointer" : entry.locked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing touch-none"
                           } ${isDragSource ? "opacity-40" : ""} ${dropIsSwap ? "ring-2 ring-sea" : ""} ${dropInvalid ? "ring-2 ring-coral" : ""}`}
                         >
                           <span

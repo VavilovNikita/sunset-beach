@@ -11,6 +11,8 @@ import { hotelDateKey } from "@/lib/hotelDate";
 // left on and reception had to press Today every time. Prev/Next/Today, the quick-pick buttons and
 // the from/to form always include both params explicitly, so an explicit navigation (and a reload
 // of one) is never second-guessed here. Renders nothing; the redirect happens once, on mount.
+// The page shows no grid (and fetches nothing) for a bare visit, so the range the user sees is the
+// final one - it used to draw a 31-day default first and then jump to the stored 91 days.
 // Density has no equivalent of this: it never touches the URL, so it can just read localStorage
 // directly in BookingCalendarGrid.
 export default function CalendarPeriodPersistence({
@@ -29,10 +31,10 @@ export default function CalendarPeriodPersistence({
       saveStoredPeriod({ from: currentFrom, to: currentTo });
       return;
     }
+    // Always replaces, even when the target happens to equal the page's own default: the page
+    // renders no grid for a bare visit (see the calendar page), so this redirect is what opens it.
     const target = periodFromToday(hotelDateKey(new Date()), loadStoredPeriod());
-    if (target.from !== currentFrom || target.to !== currentTo) {
-      router.replace(`/admin/bookings/calendar?from=${target.from}&to=${target.to}`);
-    }
+    router.replace(`/admin/bookings/calendar?from=${target.from}&to=${target.to}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasExplicitParams, currentFrom, currentTo]);
 

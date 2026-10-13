@@ -4,18 +4,9 @@ import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getLastEmail, setLastEmail } from "@/lib/pos/lastUser";
+import { staffLanding } from "@/lib/staffLanding";
 
-// WAITER works the floor, not the back office — lands on the touch-first
-// /pos section. CASHIER *is* front desk (unlike WAITER, already reads
-// /rooms/bookings/etc. — see AdminSidebar's CASHIER_PLUS_LINKS) and lands on
-// /admin/today instead: who's arriving, leaving, and already here is the
-// actual daily job, ahead of both /pos (a WAITER's floor) and the dashboard's
-// aggregate figures. MANAGER/ADMIN keep landing on /admin (they can still
-// reach /pos or /admin/today directly when covering the floor/desk — see
-// app/pos/layout.tsx's guard, which only requires being logged in, not a
-// specific role).
-const ROLE_LANDING: Record<string, string> = { WAITER: "/pos", CASHIER: "/admin/today" };
-const DEFAULT_LANDING = "/admin";
+// Where each role / job function lands is lib/staffLanding.ts.
 
 function LoginForm() {
   const router = useRouter();
@@ -59,8 +50,7 @@ function LoginForm() {
     }
 
     setLastEmail(email);
-    const role = typeof data?.role === "string" ? data.role : null;
-    const destination = callbackUrl ?? (role && ROLE_LANDING[role]) ?? DEFAULT_LANDING;
+    const destination = callbackUrl ?? staffLanding(data?.role, data?.functions);
     router.push(destination);
     router.refresh();
   }
@@ -79,6 +69,7 @@ function LoginForm() {
             <label className="eyebrow text-cream/60 block mb-1">Email</label>
             <input
               type="email"
+              autoComplete="username"
               required
               autoFocus
               value={email}
@@ -90,6 +81,7 @@ function LoginForm() {
             <label className="eyebrow text-cream/60 block mb-1">Password</label>
             <input
               type="password"
+              autoComplete="current-password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}

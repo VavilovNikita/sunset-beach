@@ -11,7 +11,7 @@ export default async function EditRoomPage({ params }: { params: { id: string } 
   // Every write on this page (room fields, photos, physical rooms) is
   // MANAGER+ on the backend — the list page no longer links here for
   // anyone else, this is the direct-URL backstop.
-  await requireRoleAtLeast("MANAGER", "/admin/rooms");
+  await requireRoleAtLeast("MANAGER");
 
   let room: Room;
   try {

@@ -1207,6 +1207,7 @@ export default function BookingCalendarGrid({
         <BookingCardPanel
           bookingId={selectedBookingId}
           canManage={canManage}
+          onChanged={() => router.refresh()}
           onClose={() => {
             setSelectedBookingId(null);
             router.refresh();

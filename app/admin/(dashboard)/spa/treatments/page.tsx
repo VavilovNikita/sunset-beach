@@ -12,7 +12,7 @@ import type { MenuItem } from "@/lib/posTypes";
 // (/admin/pos/menu) does the mirror-image filter to exclude these.
 export default async function AdminSpaTreatmentsPage() {
   // Same CASHIER+ floor as the spa hub itself.
-  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+  const user = await requireRoleAtLeast("CASHIER");
   const canManage = hasRoleAtLeast(user.role, "MANAGER");
 
   const items = await backendJson<MenuItem[]>("/menu", { auth: true });

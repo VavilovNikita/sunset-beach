@@ -10,7 +10,7 @@ import { shiftOpeningFacts } from "@/lib/shiftReconciliation";
 
 export default async function ShiftReportPage({ params }: { params: { id: string } }) {
   // GET /shifts/{id} is CASHIER+ on the backend.
-  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+  const user = await requireRoleAtLeast("CASHIER");
 
   let shift: ShiftSummary;
   try {

@@ -5,7 +5,7 @@ import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 export default async function AdminShiftsPage() {
   // Opening/viewing/closing a shift is CASHIER+ on the backend — a WAITER
   // has no legitimate use for this page (same treatment as Printers).
-  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+  const user = await requireRoleAtLeast("CASHIER");
   const canExport = hasRoleAtLeast(user.role, "MANAGER");
   // GET /shifts (the till-reconciliation overview across staff/period) is MANAGER+, stricter
   // than this page's own CASHIER+ floor - same reasoning as canExport above.

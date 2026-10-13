@@ -8,7 +8,7 @@ import type { TodayBoard } from "@/lib/types";
 // still needs doing (no room assigned, room not clean, balance still owed). GET /bookings/today
 // is CASHIER+ on the backend, matching every other front-desk read in this app.
 export default async function TodayPage() {
-  await requireRoleAtLeast("CASHIER", "/admin/pos");
+  await requireRoleAtLeast("CASHIER");
 
   const board = await backendJson<TodayBoard>("/bookings/today", { auth: true });
 

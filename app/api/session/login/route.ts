@@ -38,8 +38,10 @@ export async function POST(req: Request) {
   // landing page (a WAITER has no use for the dashboard's booking/occupancy
   // cards — see AdminSidebar's own role split) without a second round trip.
   const role = typeof data?.user?.role === "string" ? data.user.role : null;
+  // Job functions pick a start page for roles that have none of their own (lib/staffLanding.ts).
+  const functions = Array.isArray(data?.user?.functions) ? data.user.functions.filter((f: unknown) => typeof f === "string") : [];
 
-  const res = NextResponse.json({ success: true, role });
+  const res = NextResponse.json({ success: true, role, functions });
   res.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
   return res;
 }

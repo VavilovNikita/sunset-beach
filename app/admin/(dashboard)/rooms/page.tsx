@@ -10,7 +10,7 @@ export default async function AdminRoomsPage() {
   // GET /rooms is CASHIER+ on the backend; writing (create/edit/delete a
   // room type) is MANAGER+ — canManage below gates those, this gates the
   // page itself so a WAITER's fetch doesn't throw an uncaught 403.
-  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+  const user = await requireRoleAtLeast("CASHIER");
   const canManage = hasRoleAtLeast(user.role, "MANAGER");
   const rooms = await backendJson<Room[]>("/rooms", { auth: true });
 

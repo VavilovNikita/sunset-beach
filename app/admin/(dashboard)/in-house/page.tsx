@@ -12,7 +12,7 @@ import type { InHouseReport } from "@/lib/types";
 // With no ?date= the server picks tonight (hotel-local); the date picker just navigates to ?date=.
 // Same param handling as the night-audit page.
 export default async function InHousePage({ searchParams }: { searchParams: { date?: string } }) {
-  await requireRoleAtLeast("CASHIER", "/admin/pos");
+  await requireRoleAtLeast("CASHIER");
 
   const date = parseNightAuditDateParam(searchParams.date);
   const report = await backendJson<InHouseReport>(date ? `/reports/in-house?date=${date}` : "/reports/in-house", { auth: true });

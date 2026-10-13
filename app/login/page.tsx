@@ -47,7 +47,7 @@ export default function LoginPage() {
     const staffOutcome = decideAfterStaffLogin(staffRes.ok, staffRes.status, staffData);
 
     if (staffOutcome.action === "redirect-admin") {
-      router.push("/admin");
+      router.push(staffOutcome.destination);
       router.refresh();
       return;
     }
@@ -113,6 +113,7 @@ export default function LoginPage() {
             <label className="eyebrow text-cream/60 block mb-1">Email</label>
             <input
               type="email"
+              autoComplete="username"
               required
               autoFocus
               value={email}
@@ -124,6 +125,7 @@ export default function LoginPage() {
             <label className="eyebrow text-cream/60 block mb-1">Password</label>
             <input
               type="password"
+              autoComplete="current-password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}

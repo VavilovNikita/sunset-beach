@@ -10,7 +10,7 @@ import { formatTimestamp } from "@/lib/formatDate";
 // shift, not to run a manager-style review across staff and weeks. shiftId in the URL (from
 // PosShiftPanel's "Orders in this shift" link) covers a past shift too, not just the current one.
 export default async function PosOrderHistoryPage({ searchParams }: { searchParams: { shiftId?: string } }) {
-  await requireRoleAtLeast("CASHIER", "/pos");
+  await requireRoleAtLeast("CASHIER");
 
   let shiftId = searchParams.shiftId ?? null;
   if (!shiftId) {

@@ -7,7 +7,7 @@ import MenuItemForm from "@/components/admin/pos/MenuItemForm";
 import type { MenuItem } from "@/lib/posTypes";
 
 export default async function EditMenuItemPage({ params }: { params: { id: string } }) {
-  await requireRoleAtLeast("MANAGER", "/admin/pos/menu");
+  await requireRoleAtLeast("MANAGER");
 
   let item: MenuItem;
   try {

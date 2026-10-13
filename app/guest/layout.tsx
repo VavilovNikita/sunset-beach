@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { fraunces, worksans } from "@/lib/fonts";
+import HydrationGate from "@/components/HydrationGate";
 import "../globals.css";
 
 // This app has no app/layout.tsx — each top-level segment renders its own <html>/<body> instead
@@ -16,7 +17,10 @@ export const metadata: Metadata = {
 export default function GuestAccountLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${fraunces.variable} ${worksans.variable}`}>
-      <body className="font-body bg-ink text-cream antialiased min-h-screen">{children}</body>
+      <body className="font-body bg-ink text-cream antialiased min-h-screen">
+        <HydrationGate />
+        {children}
+      </body>
     </html>
   );
 }

@@ -5,7 +5,7 @@ export default async function NewRoomPage() {
   // POST /rooms is MANAGER+ on the backend; the list page no longer links
   // here for anyone else, but a direct URL still shouldn't reach a form
   // whose submit would just come back 403.
-  await requireRoleAtLeast("MANAGER", "/admin/rooms");
+  await requireRoleAtLeast("MANAGER");
 
   return (
     <div>

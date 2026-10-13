@@ -3,6 +3,7 @@ import { fraunces, worksans } from "@/lib/fonts";
 import { requireSessionUser } from "@/lib/rbac";
 import PosTopBar from "@/components/pos/PosTopBar";
 import PosIdleLogout from "@/components/pos/PosIdleLogout";
+import HydrationGate from "@/components/HydrationGate";
 import "../globals.css";
 
 // A separate root segment (sibling to app/admin and app/(site), same pattern both already use —
@@ -36,13 +37,14 @@ export const viewport: Viewport = {
 export default async function PosRootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   // Floor access starts at WAITER, the floor of the role hierarchy - there's no role below it to
   // exclude, so "logged in" already is "WAITER or above". CASHIER-only sections (payment, shifts)
-  // add their own requireRoleAtLeast("CASHIER", "/pos") on top of this, same pattern already used
+  // add their own requireRoleAtLeast("CASHIER") on top of this, same pattern already used
   // by /admin/pos/shifts.
   const user = await requireSessionUser();
 
   return (
     <html lang="en" className={`${fraunces.variable} ${worksans.variable}`}>
       <body className="font-body bg-ink text-cream antialiased min-h-screen">
+        <HydrationGate />
         <PosIdleLogout />
         {/* A no-login account (see lib/types.ts's UserCreateInput) can never reach requireSessionUser -
             signing in at all requires an email - so this fallback is type-safety only, never real. */}

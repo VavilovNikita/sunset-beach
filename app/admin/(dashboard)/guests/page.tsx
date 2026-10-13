@@ -5,7 +5,7 @@ import type { Guest } from "@/lib/types";
 
 export default async function AdminGuestsPage() {
   // GET /guests is CASHIER+ on the backend, same front-desk floor as GET /bookings.
-  await requireRoleAtLeast("CASHIER", "/admin/pos");
+  await requireRoleAtLeast("CASHIER");
 
   const guests = await backendJson<Guest[]>(`/guests`, { auth: true });
 

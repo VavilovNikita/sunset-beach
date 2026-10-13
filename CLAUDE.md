@@ -72,7 +72,11 @@ Any action that can fail shows its failure next to the control that triggered it
 
 Hide actions a role cannot perform — do not show a working form that fails on save. Guard the page itself too, not only the link: a hidden link is not access control.
 
-Landing after sign-in depends on role. Nav grouping and visibility live in `lib/adminNav.ts` — `NAV_GROUPS` data plus `isNavLinkVisible`/`visibleNavGroups`, both pure and tested in `adminNav.test.ts` (including "no group ever renders empty"); keep new links there rather than scattering role checks through JSX. Five collapsible groups (Front desk, Restaurant, Spa, Reports, Staff) - put a new link in the group of the people who use it, not a catch-all "Setup". Which link is highlighted and which group is forced open are `activeNavHref`/`activeNavGroupTitle`, also tested there.
+Landing after sign-in depends on role, then job function (`lib/staffLanding.ts`): WAITER `/pos`, CASHIER `/admin/today`; MANAGER/ADMIN open on the dashboard unless they hold ENGINEER (maintenance tasks) or THERAPIST (spa schedule). A role's own page outranks a function; a deep-link `callbackUrl` outranks both.
+
+**Every role gate sends to `/admin/access-denied`.** `requireRoleAtLeast` takes no redirect parameter any more: the same mistake used to land on `/admin/pos`, `/admin/rooms` or the access-denied page depending on the page, and some of those looked like a working page that did nothing. Don't add one back.
+
+Nav grouping and visibility live in `lib/adminNav.ts` — `NAV_GROUPS` data plus `isNavLinkVisible`/`visibleNavGroups`, both pure and tested in `adminNav.test.ts` (including "no group ever renders empty"); keep new links there rather than scattering role checks through JSX. Five collapsible groups (Front desk, Restaurant, Spa, Reports, Staff) - put a new link in the group of the people who use it, not a catch-all "Setup". Which link is highlighted and which group is forced open are `activeNavHref`/`activeNavGroupTitle`, also tested there.
 
 **An audit log row's `actorRole` can be `null` — that means a system-initiated action (a scheduled sweep), not missing data.** The History page renders a `null` actorRole as "System" rather than blank or an error. See the backend's own CLAUDE.md, "Audit log", for what produces one.
 
@@ -109,6 +113,10 @@ Extract logic out of fetch-bound functions so it can be tested; `computeRoomStat
 **Before pushing, `npm run build` must pass on a clean tree - no uncommitted and no untracked files - not only `npm run check`.** Production builds from `origin/main` (`.github/workflows/deploy.yml`), and a working copy that still holds an uncommitted file hides an import of a file the push deleted: typecheck and tests pass locally while `next build` on the server dies with "Module not found" (it happened: a commit that carried only the deletion of `RoomChargeDebtBadge` went out while its replacement sat unstaged, and that deploy failed). `git status --short` must be empty, then build - or clone `origin/main` into a temp folder and run `npm ci && npm run build` there. After the push, check the deploy run actually succeeded (GitHub Actions), not just that the push went through.
 
 Components are not covered by tests. Restructuring them is verified in the browser or not at all — say so when a change needs a live check you cannot perform.
+
+## Before JavaScript has loaded
+
+The admin, POS, login and guest-account layouts render `HydrationGate`: until React has taken over, buttons are dimmed and inert and a submit or button click is swallowed by a tiny inline script. Without it a click on server-rendered HTML went nowhere, and a form submitted natively (a GET with the typed fields - a password included - in the address). Links are untouched. The public site doesn't use it. A data-entry modal that the browser's Back button would walk away from uses `lib/useCloseOnBrowserBack.ts` (Back closes the modal and keeps the page) - read its comment before adding it to a modal that contains a link.
 
 ## Two POS surfaces
 

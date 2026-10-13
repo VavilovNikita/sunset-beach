@@ -7,7 +7,7 @@ import TreatmentForm from "@/components/admin/spa/TreatmentForm";
 import type { MenuItem } from "@/lib/posTypes";
 
 export default async function EditTreatmentPage({ params }: { params: { id: string } }) {
-  await requireRoleAtLeast("MANAGER", "/admin/spa/treatments");
+  await requireRoleAtLeast("MANAGER");
 
   let item: MenuItem;
   try {

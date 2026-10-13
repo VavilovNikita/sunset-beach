@@ -7,6 +7,7 @@ import { createRoomUnitBlock, deleteRoomUnitBlock, listRoomUnitBlocks } from "@/
 import { isAutoMigrated, weekdayOf } from "@/lib/ratesGrid";
 import type { AvailabilityDay, AvailabilityUnitDay, RoomUnitBlock, RoomUnitBlockResult } from "@/lib/types";
 import { formatDate, formatDateRange } from "@/lib/formatDate";
+import { hotelDateKey } from "@/lib/hotelDate";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 
 const MONTH_FORMAT = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
@@ -90,8 +91,10 @@ export default function RoomUnitBlocksPanel({
   const [blocks, setBlocks] = useState<RoomUnitBlock[]>([]);
   const [blocksLoading, setBlocksLoading] = useState(false);
   const [blocksError, setBlocksError] = useState<string | null>(null);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  // A block opens on today, one night - the usual case (a room that broke today) - and the form goes
+  // back to that after each block. Both dates are inclusive, like the block itself.
+  const [from, setFrom] = useState(() => hotelDateKey(new Date()));
+  const [to, setTo] = useState(() => hotelDateKey(new Date()));
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -138,8 +141,8 @@ export default function RoomUnitBlocksPanel({
     // The block is already created at this point - this is a warning after the fact, not a
     // confirmation to ask before creating it.
     if (result.result.warning) setBlockWarning(result.result);
-    setFrom("");
-    setTo("");
+    setFrom(hotelDateKey(new Date()));
+    setTo(hotelDateKey(new Date()));
     setReason("");
     await refetchBlocks();
     onChanged();
@@ -213,7 +216,11 @@ export default function RoomUnitBlocksPanel({
                 <input
                   type="date"
                   value={from}
-                  onChange={(e) => setFrom(e.target.value)}
+                  onChange={(e) => {
+                    setFrom(e.target.value);
+                    // A "To" before the new "From" can only be a mistake; carry it along.
+                    if (e.target.value && to < e.target.value) setTo(e.target.value);
+                  }}
                   className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
                 />
               </div>
@@ -222,6 +229,7 @@ export default function RoomUnitBlocksPanel({
                 <input
                   type="date"
                   value={to}
+                  min={from || undefined}
                   onChange={(e) => setTo(e.target.value)}
                   className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
                 />

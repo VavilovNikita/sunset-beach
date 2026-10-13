@@ -6,6 +6,8 @@ import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import BookingStatusForm from "@/components/admin/BookingStatusForm";
 import BookingOccupancyPanel from "@/components/admin/BookingOccupancyPanel";
 import BookingScheduleForm from "@/components/admin/BookingScheduleForm";
+import BookingRoomsCard from "@/components/admin/BookingRoomsCard";
+import { sortUnitsByLabel } from "@/lib/sortRooms";
 import FolioPaymentPanel from "@/components/admin/FolioPaymentPanel";
 import OwesBadge from "@/components/admin/OwesBadge";
 import BookingGuestLinkSection from "@/components/admin/BookingGuestLinkSection";
@@ -19,7 +21,7 @@ import type { BookingPosOrder, Folio, FolioPayment } from "@/lib/posTypes";
 export default async function AdminBookingDetailPage({ params }: { params: { id: string } }) {
   // GET /bookings/{id} is CASHIER+ on the backend — guard the whole page
   // rather than let a WAITER's fetch below throw an uncaught 403.
-  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+  const user = await requireRoleAtLeast("CASHIER");
 
   let booking: Booking;
   try {
@@ -46,7 +48,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
   const roomUnits = canListUnits
     ? await backendJson<RoomUnit[]>(`/room-units?roomId=${booking.roomId}`, { auth: true }).catch(() => [])
     : [];
-  const assignableUnits = roomUnits.filter((u) => u.isActive);
+  const assignableUnits = sortUnitsByLabel(roomUnits.filter((u) => u.isActive));
 
   // GET /audit-log is MANAGER+, same gate as GET /room-units above (canListUnits) - reused here
   // rather than a second identically-scoped check.
@@ -179,6 +181,9 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             canEdit={canEditSchedule}
             canListUnits={canListUnits}
           />
+          {/* The calendar panel's relocation and per-segment actions - the page had only the dates
+              form, so a stay could be moved to another room from the calendar but not from here. */}
+          <BookingRoomsCard booking={booking} canEdit={canEditSchedule} canManage={canListUnits} />
           <BookingStatusForm
             // The form seeds its fields from these props once. A folio payment (or check-out)
             // elsewhere on this page changes them through router.refresh() - e.g. NEW -> PAID -

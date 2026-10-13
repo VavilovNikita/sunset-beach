@@ -25,7 +25,7 @@ function parseDateParam(value: string | undefined): string {
 export default async function AdminSpaPage({ searchParams }: { searchParams: { date?: string } }) {
   // GET /spa-appointments is CASHIER+ on the backend, same floor as the rest of front-desk work -
   // reception is the only surface in v1 (no therapist self-service, see JobFunction.THERAPIST).
-  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+  const user = await requireRoleAtLeast("CASHIER");
   const canManageTables = hasRoleAtLeast(user.role, "MANAGER");
 
   const date = parseDateParam(searchParams.date);

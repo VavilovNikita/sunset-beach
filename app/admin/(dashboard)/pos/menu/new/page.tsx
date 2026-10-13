@@ -5,7 +5,7 @@ import { menuCategoryTabs } from "@/lib/menuCategories";
 import type { MenuItem } from "@/lib/posTypes";
 
 export default async function NewMenuItemPage() {
-  await requireRoleAtLeast("MANAGER", "/admin/pos/menu");
+  await requireRoleAtLeast("MANAGER");
   // Only for the category suggestions - a failed load just means no suggestions (the server still
   // refuses a near-duplicate category on save).
   const menu = await backendJsonOrDefault<MenuItem[]>("/menu", [], { auth: true });

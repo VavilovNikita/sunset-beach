@@ -3,7 +3,7 @@ import SubpageBackLink from "@/components/admin/SubpageBackLink";
 import { requireRoleAtLeast } from "@/lib/rbac";
 
 export default async function NewTreatmentPage() {
-  await requireRoleAtLeast("MANAGER", "/admin/spa/treatments");
+  await requireRoleAtLeast("MANAGER");
 
   return (
     <div>

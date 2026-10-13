@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { fraunces, worksans } from "@/lib/fonts";
+import HydrationGate from "@/components/HydrationGate";
 import "../globals.css";
 
 export const metadata: Metadata = {
@@ -18,6 +19,7 @@ export default function AdminRootLayout({
   return (
     <html lang="en" className={`${fraunces.variable} ${worksans.variable}`}>
       <body className="font-body bg-ink text-cream antialiased min-h-screen">
+        <HydrationGate />
         {children}
       </body>
     </html>

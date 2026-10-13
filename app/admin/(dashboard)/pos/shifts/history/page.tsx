@@ -7,7 +7,7 @@ import type { ShiftListItem } from "@/lib/posTypes";
 export default async function ShiftHistoryPage({ searchParams }: { searchParams: { from?: string; to?: string } }) {
   // GET /shifts is MANAGER+ on the backend - a CASHIER's own current shift (ShiftPanel, one
   // level down at /admin/pos/shifts) is a different screen with a different purpose.
-  await requireRoleAtLeast("MANAGER", "/admin/pos/shifts");
+  await requireRoleAtLeast("MANAGER");
   const { from, to } = searchParams;
 
   const query = new URLSearchParams();

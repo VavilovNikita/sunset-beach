@@ -9,7 +9,7 @@ export default async function AdminRatesPage({ searchParams }: { searchParams: {
   // GET /rooms, GET /pricing/{roomId} and GET /availability/{roomId} are all CASHIER+ - a CASHIER
   // quoting a walk-in needs both the price and whether a room is left. Setting a price
   // (PATCH /pricing/{roomId}) and the room block list are MANAGER+, gated inside the grid.
-  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+  const user = await requireRoleAtLeast("CASHIER");
   const canManage = hasRoleAtLeast(user.role, "MANAGER");
   const rooms = await backendJson<Room[]>("/rooms", { auth: true });
 

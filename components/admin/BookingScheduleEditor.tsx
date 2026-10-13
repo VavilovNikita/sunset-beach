@@ -1,5 +1,6 @@
 "use client";
 
+import { sortUnitsByLabel } from "@/lib/sortRooms";
 import { useEffect, useState } from "react";
 import { dateOnlyUTC, toDateKey } from "@/lib/bookings";
 import { quoteBookingSchedule, applyBookingSchedule } from "@/lib/bookingScheduleClient";
@@ -212,7 +213,7 @@ export function RoomUnitAssignmentEditor({
           className="flex-1 bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
         >
           <option value="">Unassigned</option>
-          {roomUnits.map((u) => (
+          {sortUnitsByLabel(roomUnits).map((u) => (
             <option key={u.id} value={u.id}>
               {u.label}
             </option>

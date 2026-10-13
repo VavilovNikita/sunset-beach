@@ -9,7 +9,7 @@ import type { SpaMap } from "@/lib/posTypes";
 // carrying busy/free/next-appointment state, not the exception this page used to assume didn't
 // exist. Placing tables and replacing the background image stay MANAGER+.
 export default async function AdminSpaMapPage() {
-  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+  const user = await requireRoleAtLeast("CASHIER");
   const canManage = hasRoleAtLeast(user.role, "MANAGER");
 
   // Every SPA-zone table, already enriched with today's occupancy - see SpaMapTable's own

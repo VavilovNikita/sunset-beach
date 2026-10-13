@@ -1,7 +1,8 @@
 import { extractApiError } from "@/lib/apiError";
+import { staffLanding } from "@/lib/staffLanding";
 
 export type StaffLoginOutcome =
-  | { action: "redirect-admin" }
+  | { action: "redirect-admin"; destination: string }
   | { action: "try-guest" }
   | { action: "error"; message: string };
 
@@ -12,7 +13,13 @@ export type StaffLoginOutcome =
  * malformed body) stops here with its own message instead of falling through to a second call.
  */
 export function decideAfterStaffLogin(ok: boolean, status: number, body: unknown): StaffLoginOutcome {
-  if (ok) return { action: "redirect-admin" };
+  if (ok) {
+    const b = body as { role?: unknown; functions?: unknown } | null;
+    return {
+      action: "redirect-admin",
+      destination: staffLanding(typeof b?.role === "string" ? b.role : null, Array.isArray(b?.functions) ? (b.functions as string[]) : []),
+    };
+  }
   if (status === 401) return { action: "try-guest" };
   if (status === 429) {
     return { action: "error", message: extractApiError(body, "Too many attempts. Please try again later.") };

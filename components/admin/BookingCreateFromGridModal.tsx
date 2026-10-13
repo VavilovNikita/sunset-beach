@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { getNights } from "@/lib/bookings";
 import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS } from "@/lib/bookingChannel";
@@ -72,19 +73,34 @@ export default function BookingCreateFromGridModal({
   // value would get submitted unread just the same as a silent server-side default.
   const [channel, setChannel] = useState<BookingChannel | "">("");
   const [purpose, setPurpose] = useState<BookingPurpose>("STANDARD");
-  // Adults starts empty for the same reason channel does: the backend requires it with no
-  // default, so a prefilled 1 would be sent unread. Children genuinely defaults to 0.
-  const [adults, setAdults] = useState("");
+  // Adults starts at 1, the smallest party a booking can be, so a default left unread can never put
+  // a booking over the room's capacity (2 would, in a single). The field is empty-able and still
+  // validated. Children defaults to 0.
+  const [adults, setAdults] = useState("1");
   const [children, setChildren] = useState("0");
-  const [fieldErrors, setFieldErrors] = useState<StaffBookingFormErrors>({});
+  // Validation runs on submit and then follows every edit, so an error goes away the moment its field
+  // is fixed - not at the next submit, which used to leave a corrected field red until it was pressed.
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<Booking | null>(null);
+  // Back closes this form instead of leaving the calendar; off once the booking exists, because the
+  // "Open booking" link then navigates and must not be undone by giving the history entry back.
+  useCloseOnBrowserBack(!created, onClose);
 
   const [quote, setQuote] = useState<BookingScheduleQuote | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const quoteSeq = useRef(0);
+
+  const fieldErrors: StaffBookingFormErrors = useMemo(
+    () =>
+      submitAttempted
+        ? validateStaffBookingForm({ guestName, guestEmail, guestPhone, checkIn, checkOut, channel, adults, children })
+        : {},
+    [submitAttempted, guestName, guestEmail, guestPhone, checkIn, checkOut, channel, adults, children],
+  );
+  const hasFieldErrors = Object.keys(fieldErrors).length > 0;
 
   const datesValid = staffBookingDatesValid(checkIn, checkOut);
   const nights = datesValid ? getNights(checkIn, checkOut).length : 0;
@@ -119,17 +135,14 @@ export default function BookingCreateFromGridModal({
     setGuestName(prefill.guestName);
     setGuestEmail(prefill.guestEmail);
     setGuestPhone(prefill.guestPhone);
-    setFieldErrors((prev) => ({ ...prev, guestName: undefined, guestEmail: undefined, guestPhone: undefined }));
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    setSubmitAttempted(true);
+    setError(null);
     const errors = validateStaffBookingForm({ guestName, guestEmail, guestPhone, checkIn, checkOut, channel, adults, children });
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0 || !channel) {
-      setError("Fix the highlighted fields.");
-      return;
-    }
+    if (Object.keys(errors).length > 0 || !channel) return;
     const party = parsePartySize(adults, children);
     if ("error" in party) return; // already reported by validateStaffBookingForm
     setSaving(true);
@@ -317,6 +330,7 @@ export default function BookingCreateFromGridModal({
               childrenError={fieldErrors.children}
             />
 
+            {hasFieldErrors && <p className="text-sm text-coral">Fix the highlighted fields.</p>}
             {error && <p className="text-sm text-coral">{error}</p>}
 
             <div className="flex gap-3">

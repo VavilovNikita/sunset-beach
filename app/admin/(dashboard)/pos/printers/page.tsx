@@ -9,7 +9,7 @@ import type { Printer } from "@/lib/posTypes";
 // lower-privilege read to fall back to, so the whole page redirects rather
 // than rendering a degraded view.
 export default async function AdminPrintersPage() {
-  await requireRoleAtLeast("MANAGER", "/admin/pos");
+  await requireRoleAtLeast("MANAGER");
 
   const printers = await backendJson<Printer[]>("/printers", { auth: true });
 

@@ -28,10 +28,18 @@ function validateRange(from: Date, to: Date): string | null {
 // to be owned by it before density became independent: the visible period decides how much data
 // the page fetches, which only the page's own server-side render can do - a client-only period
 // toggle would be stuck re-rendering whatever range it already has.
+//
+// `to` in the URL is exclusive (the same convention as a stay's check-out), but the "To" field and
+// the label beside it both show the last day on screen - the field used to hold the exclusive date
+// while the label said the day before, two different dates for one boundary.
+function lastVisibleDayKey(toExclusive: string): string {
+  return toDateKey(addDaysUTC(parseDateKey(toExclusive), -1));
+}
+
 export default function CalendarPeriodControls({ from, to }: { from: string; to: string }) {
   const router = useRouter();
   const [fromInput, setFromInput] = useState(from);
-  const [toInput, setToInput] = useState(to);
+  const [toInput, setToInput] = useState(lastVisibleDayKey(to));
   const [error, setError] = useState<string | null>(null);
 
   // Prev/Next/Today/quick-picks all navigate via the URL (see navigateTo) - when that lands, the
@@ -39,7 +47,7 @@ export default function CalendarPeriodControls({ from, to }: { from: string; to:
   // whatever the user last typed instead of the range actually on screen.
   useEffect(() => {
     setFromInput(from);
-    setToInput(to);
+    setToInput(lastVisibleDayKey(to));
     setError(null);
   }, [from, to]);
 
@@ -62,7 +70,7 @@ export default function CalendarPeriodControls({ from, to }: { from: string; to:
     let parsedTo: Date;
     try {
       parsedFrom = parseDateKey(fromInput);
-      parsedTo = parseDateKey(toInput);
+      parsedTo = addDaysUTC(parseDateKey(toInput), 1); // the field holds the last day shown; the range ends the day after
     } catch {
       setError("Enter valid dates.");
       return;

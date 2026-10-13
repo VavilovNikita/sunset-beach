@@ -16,7 +16,7 @@ import { formatDateRange } from "@/lib/formatDate";
 // With no ?date= the server picks today (hotel-local), so this page never has to work out "today"
 // itself; the date picker below just navigates to ?date=.
 export default async function NightAuditPage({ searchParams }: { searchParams: { date?: string } }) {
-  await requireRoleAtLeast("CASHIER", "/admin/pos");
+  await requireRoleAtLeast("CASHIER");
 
   const date = parseNightAuditDateParam(searchParams.date);
   const audit = await backendJson<NightAudit>(date ? `/night-audit?date=${date}` : "/night-audit", { auth: true });

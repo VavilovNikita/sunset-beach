@@ -2,7 +2,7 @@ import { requireRoleAtLeast } from "@/lib/rbac";
 import PosShiftPanel from "@/components/pos/PosShiftPanel";
 
 export default async function PosShiftsPage() {
-  const user = await requireRoleAtLeast("CASHIER", "/pos");
+  const user = await requireRoleAtLeast("CASHIER");
 
   return (
     <div>

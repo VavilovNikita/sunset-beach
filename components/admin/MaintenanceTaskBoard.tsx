@@ -1,5 +1,6 @@
 "use client";
 
+import { sortUnitsByLabel } from "@/lib/sortRooms";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -155,7 +156,7 @@ function FileTaskForm({ roomUnits, onFiled, onCancel }: { roomUnits: RoomUnit[];
           <option value="" disabled>
             Choose a room…
           </option>
-          {roomUnits.map((u) => (
+          {sortUnitsByLabel(roomUnits).map((u) => (
             <option key={u.id} value={u.id}>
               {u.label}
             </option>

@@ -1,5 +1,6 @@
 "use client";
 
+import { sortRoomsByName } from "@/lib/sortRooms";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -229,7 +230,7 @@ export default function RatesAvailabilityGrid({
             className="bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
           >
             <option value="">All room types</option>
-            {rooms.map((r) => (
+            {sortRoomsByName(rooms).map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
               </option>
@@ -583,7 +584,7 @@ function PriceRangeForm({
               onChange={(e) => setRoomId(e.target.value)}
               className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
             >
-              {rooms.map((r) => (
+              {sortRoomsByName(rooms).map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
                 </option>

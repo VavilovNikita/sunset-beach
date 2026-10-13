@@ -64,6 +64,8 @@ export default function GuestRegisterPage() {
               <label className="eyebrow text-cream/60 block mb-1">Name (optional)</label>
               <input
                 type="text"
+                name="name"
+                autoComplete="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full bg-transparent border-b border-cream/25 py-2 text-cream focus:outline-none focus:border-coral"
@@ -73,6 +75,8 @@ export default function GuestRegisterPage() {
               <label className="eyebrow text-cream/60 block mb-1">Email</label>
               <input
                 type="email"
+                name="email"
+                autoComplete="email"
                 required
                 autoFocus
                 value={email}
@@ -84,6 +88,8 @@ export default function GuestRegisterPage() {
               <label className="eyebrow text-cream/60 block mb-1">Password</label>
               <input
                 type="password"
+                name="new-password"
+                autoComplete="new-password"
                 required
                 minLength={8}
                 value={password}

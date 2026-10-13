@@ -8,7 +8,7 @@ import type { Table } from "@/lib/posTypes";
 // it carries live busy/free state), this is a bare label/capacity CRUD list with no read-only
 // value to front desk, so there's no CASHIER view-only mode to build here.
 export default async function AdminSpaTablesPage() {
-  await requireRoleAtLeast("MANAGER", "/admin/pos");
+  await requireRoleAtLeast("MANAGER");
 
   const tables = await backendJsonOrDefault<Table[]>("/tables", [], { auth: true });
   const spaTables = tables.filter((t) => t.zone === "SPA");

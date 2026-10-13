@@ -15,7 +15,7 @@ export default async function OrderHistoryPage({
   // every status including OPEN/SENT, a staff filter - is the till-reconciliation/dispute-review
   // tool a manager reaches for, not something a WAITER/CASHIER needs a link to. The live floor
   // board (/admin/pos) already covers "what's open right now" for everyone.
-  await requireRoleAtLeast("MANAGER", "/admin/pos");
+  await requireRoleAtLeast("MANAGER");
 
   // The hotel's days, not the server's or the browser's (a UTC server is still on yesterday until 07:00 here).
   const today = hotelDateKey(new Date());

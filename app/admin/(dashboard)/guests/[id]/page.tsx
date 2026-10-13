@@ -8,7 +8,7 @@ import type { GuestDetail } from "@/lib/types";
 export default async function AdminGuestDetailPage({ params }: { params: { id: string } }) {
   // GET /guests/{id} is CASHIER+ on the backend — guard the whole page rather than let a WAITER's
   // fetch below throw an uncaught 403.
-  await requireRoleAtLeast("CASHIER", "/admin/pos");
+  await requireRoleAtLeast("CASHIER");
 
   let guest: GuestDetail;
   try {

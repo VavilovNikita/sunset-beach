@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { createSpaAppointment } from "@/lib/spaClient";
 import { tableClash, therapistClash, therapistDay } from "@/lib/spaAvailability";
 import type { MenuItem, SpaAppointment, SpaTherapist } from "@/lib/posTypes";
@@ -56,6 +57,7 @@ export default function SpaAppointmentCreateModal({
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  useCloseOnBrowserBack(true, onClose); // Back closes the form instead of leaving the schedule
   // Read once when the modal opens - the cell was clicked "now".
   const [startsInPast] = useState(() => isSpaStartInPast(date, startTime, new Date()));
   const [pastConfirmed, setPastConfirmed] = useState(false);

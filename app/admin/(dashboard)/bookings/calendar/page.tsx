@@ -39,7 +39,7 @@ export default async function AdminBookingCalendarPage({
   searchParams: { from?: string; to?: string };
 }) {
   // GET /bookings/calendar is CASHIER+ on the backend (matches GET /bookings/*).
-  const user = await requireRoleAtLeast("CASHIER", "/admin/pos");
+  const user = await requireRoleAtLeast("CASHIER");
   const canManage = hasRoleAtLeast(user.role, "MANAGER");
 
   const { from: fromDate, to: toDate } = parsePeriodParams(searchParams.from, searchParams.to);
@@ -55,9 +55,14 @@ export default async function AdminBookingCalendarPage({
   // bookmark from before this constant last changed, localStorage from a much older session).
   const rangeTooLarge = rangeDays > MAX_CALENDAR_RANGE_DAYS;
 
+  // A bare visit has no range yet: the stored width lives in this browser's localStorage, which only
+  // CalendarPeriodPersistence can read, and it replaces the URL at once. Fetching and drawing a default
+  // month here first made the calendar visibly switch from 31 to 91 days after loading.
+  const bareVisit = !searchParams.from && !searchParams.to;
+
   let data: BookingCalendarResponse | null = null;
   let loadError: string | null = null;
-  if (!rangeTooLarge) {
+  if (!rangeTooLarge && !bareVisit) {
     try {
       data = await backendJson<BookingCalendarResponse>(`/bookings/calendar?from=${from}&to=${to}`, { auth: true });
     } catch (e) {
@@ -82,7 +87,11 @@ export default async function AdminBookingCalendarPage({
         <h1 className="font-display italic text-3xl mb-6">Calendar</h1>
       </div>
 
-      <CalendarPeriodControls from={from} to={to} />
+      {bareVisit ? (
+        <p className="text-sm text-cream/50">Opening the calendar…</p>
+      ) : (
+        <CalendarPeriodControls from={from} to={to} />
+      )}
 
       <p className="text-xs text-cream/40 mb-4">
         Drag across free nights on a room's row to create a booking. Drag a booking's edge to change dates, or drag the
@@ -96,7 +105,7 @@ export default async function AdminBookingCalendarPage({
         .
       </p>
 
-      {rangeTooLarge ? (
+      {bareVisit ? null : rangeTooLarge ? (
         <p className="text-sm text-coral bg-coral/10 border border-coral/30 rounded-xl px-4 py-3">
           That range is {rangeDays} days — the calendar can show at most {MAX_CALENDAR_RANGE_DAYS} days (about a year)
           at once. Pick a shorter period above.
