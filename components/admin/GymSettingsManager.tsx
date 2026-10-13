@@ -235,6 +235,27 @@ function AddFromTuya({
     setCodes(null);
     setCheckError(null);
     setError(null);
+    if (t === "AC_IR") {
+      // An air conditioner is a remote under exactly one IR hub, and Tuya says which by listing the
+      // hub's remotes - so find the hub that holds this remote instead of asking a person to guess.
+      setChecking(true);
+      let found = "";
+      let lastError: string | null = null;
+      for (const h of hubs) {
+        const result = await loadTuyaRemotes(h.id);
+        if (!result.ok) {
+          lastError = result.error;
+          break;
+        }
+        if (result.data.some((r) => r.remoteId === device.id)) {
+          found = h.id;
+          break;
+        }
+      }
+      setChecking(false);
+      if (found) setHub(found);
+      else setCheckError(lastError ?? "Не нашли хаб, под которым стоит этот кондиционер, — выберите его вручную.");
+    }
     if (t === "RELAY") {
       setChecking(true);
       const result = await loadTuyaSwitchCodes(device.id);
@@ -337,6 +358,7 @@ function AddFromTuya({
             <div className="space-y-3">
               <div>
                 <label className="eyebrow text-cream/60 block mb-1">ИК-хаб, под которым стоит кондиционер</label>
+                {checking && <p className="text-xs text-cream/50 mb-1">Ищем хаб по списку пультов…</p>}
                 <select required value={hub} onChange={(e) => setHub(e.target.value)} className={`${INPUT} bg-ink`}>
                   {hubs.length === 0 && <option value="">В проекте нет ИК-хабов</option>}
                   {hubs.map((h) => (
