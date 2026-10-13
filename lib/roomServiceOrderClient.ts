@@ -12,7 +12,7 @@ import type { GuestOrderView } from "@/lib/guestOrderTypes";
 
 export type GuestResult<T> = { ok: true; data: T } | { ok: false; error: string; status: number };
 
-async function guestProxyRequest<T>(path: string, init: RequestInit | undefined, fallbackError: string): Promise<GuestResult<T>> {
+export async function guestProxyRequest<T>(path: string, init: RequestInit | undefined, fallbackError: string): Promise<GuestResult<T>> {
   let res: Response;
   try {
     res = await fetch(`/api/guest-proxy${path}`, { credentials: "include", cache: "no-store", ...init });

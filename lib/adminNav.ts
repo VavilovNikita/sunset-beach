@@ -54,6 +54,9 @@ export const NAV_GROUPS: NavGroup[] = [
       // front-desk work); the device list under /gym/settings is ADMIN-only like every settings route, and
       // longest-href matching keeps just one of the two highlighted.
       { href: "/admin/gym", label: "Gym", minRole: "CASHIER" },
+      // The reservation schedule (GET/POST /gym/reservations*) is CASHIER+ like the equipment page; the hall
+      // hours and the automation's parameters sit on the ADMIN-only "Gym devices" page.
+      { href: "/admin/gym/schedule", label: "Gym schedule", minRole: "CASHIER" },
       { href: "/admin/gym/settings", label: "Gym devices", minRole: "ADMIN" },
       // Room tasks (a broken air conditioner, a leak) - about the rooms, so it sits beside
       // Housekeeping rather than under Staff. Any authenticated staff role, including WAITER:

@@ -1820,6 +1820,8 @@ export type GymDeviceConfig = {
   switchCode?: string | null;
   sortOrder: number;
   active: boolean;
+  // Whether the reservation automation switches this device (backend default: true for every device).
+  inBookings: boolean;
 };
 
 export type GymDeviceConfigInput = {
@@ -1830,6 +1832,8 @@ export type GymDeviceConfigInput = {
   remoteId?: string;
   switchCode?: string;
   active?: boolean;
+  // Omitted: kept on update, true on create.
+  inBookings?: boolean;
 };
 
 export type TuyaDiscoveredDevice = {
@@ -1844,3 +1848,108 @@ export type TuyaDiscoveredDevice = {
 export type TuyaRemote = { remoteId: string; name?: string | null };
 
 export type GymTuyaUsage = { month: string; calls: number; quotaHint: number };
+
+// ---- Gym reservations (GET /gym/reservations, /guest/gym/**) ----
+// A hotel booking reserves the exclusive gym for a 30-minute-grid slot; the equipment is switched
+// around it by the backend's automation (GymAutomation says what it did).
+export type GymReservationStatus = "BOOKED" | "COMPLETED" | "CANCELLED";
+
+export type GymAutomationDeviceResult = {
+  deviceName: string;
+  status: "PENDING" | "OK" | "FAILED" | "SKIPPED";
+  skipReason?: "COVERED_BY_PREVIOUS" | "NEXT_BOOKING_SOON" | "MISSED" | "CANCELLED" | "DEVICE_REMOVED" | null;
+  error?: string | null;
+  attempts: number;
+};
+
+export type GymAutomationPhase = {
+  state: "PENDING" | "OK" | "PARTIAL" | "FAILED" | "SKIPPED";
+  at?: string | null;
+  results: GymAutomationDeviceResult[];
+};
+
+// A phase is absent until the automation reaches it.
+export type GymAutomation = { switchOn?: GymAutomationPhase | null; switchOff?: GymAutomationPhase | null };
+
+export type GymReservation = {
+  id: string;
+  bookingId: string;
+  guestName: string;
+  roomLabel?: string | null;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  durationMinutes: number;
+  status: GymReservationStatus;
+  createdByType: "GUEST" | "STAFF";
+  createdByName: string;
+  cancelledBy?: string | null;
+  cancelReason?: string | null;
+  automation: GymAutomation;
+  createdAt: string;
+};
+
+export type GymSchedule = {
+  from: string;
+  to: string;
+  openTime: string;
+  closeTime: string;
+  stepMinutes: number;
+  minDurationMinutes: number;
+  maxDurationMinutes: number;
+  maxDailyMinutes: number;
+  reservations: GymReservation[];
+};
+
+export type GymReservationCreateInput = { bookingId: string; date: string; startTime: string; durationMinutes: number };
+export type GymReservationScheduleInput = { date: string; startTime: string; durationMinutes: number };
+
+export type GymHallSettings = {
+  openTime: string;
+  closeTime: string;
+  leadMinutes: number;
+  acMode: number; // 0 cool, 1 heat, 2 auto, 3 fan, 4 dry
+  acTemp: number; // 16..30
+  acWind: number; // 0 auto, 1..3
+};
+
+export type GymGuestStay = { bookingId: string; roomLabel: string | null; checkIn: string; checkOut: string };
+
+export type GymGuestInfo = {
+  eligible: boolean;
+  message?: string | null;
+  stays: GymGuestStay[];
+  openTime: string;
+  closeTime: string;
+  stepMinutes: number;
+  minDurationMinutes: number;
+  maxDurationMinutes: number;
+  maxDailyMinutes: number;
+};
+
+export type GymSlot = {
+  startTime: string;
+  status: "FREE" | "TAKEN" | "PAST" | "DAILY_LIMIT";
+  maxDurationMinutes: number; // 0 unless FREE
+};
+
+export type GymSlotDay = {
+  date: string;
+  bookingId: string;
+  openTime: string;
+  closeTime: string;
+  stepMinutes: number;
+  remainingMinutes: number;
+  slots: GymSlot[];
+};
+
+export type GymGuestReservation = {
+  id: string;
+  bookingId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  status: GymReservationStatus;
+  canCancel: boolean;
+};

@@ -48,7 +48,7 @@ describe("visibleNavGroups", () => {
 
     const byTitle = Object.fromEntries(groups.map((g) => [g.title, g.links.map((l) => l.label)]));
     expect(byTitle["Front desk"]).toEqual([
-      "Today", "Calendar", "Bookings", "Guests", "Property map", "Housekeeping", "Gym", "Maintenance",
+      "Today", "Calendar", "Bookings", "Guests", "Property map", "Housekeeping", "Gym", "Gym schedule", "Maintenance",
       "Night audit", "In house", "Rates & availability", "Rooms",
     ]); // no Guest emails - ADMIN only
     expect(byTitle["Restaurant"]).toEqual(["POS", "Print queue", "Shifts", "Menu"]); // no Printers - MANAGER+
@@ -111,6 +111,15 @@ describe("visibleNavGroups", () => {
     const links = visibleNavGroups("ADMIN").flatMap((g) => g.links);
     expect(activeNavHref(links, "/admin/gym")).toBe("/admin/gym");
     expect(activeNavHref(links, "/admin/gym/settings")).toBe("/admin/gym/settings");
+  });
+
+  it("the Gym schedule sits next to Gym for CASHIER+ and highlights its own link", () => {
+    const labels = (role: "WAITER" | "CASHIER") => visibleNavGroups(role).flatMap((g) => g.links.map((l) => l.label));
+    expect(labels("WAITER")).not.toContain("Gym schedule");
+    expect(labels("CASHIER")).toContain("Gym schedule");
+    const links = visibleNavGroups("ADMIN").flatMap((g) => g.links);
+    expect(activeNavHref(links, "/admin/gym/schedule")).toBe("/admin/gym/schedule");
+    expect(activeNavHref(links, "/admin/gym")).toBe("/admin/gym");
   });
 
   it("no href appears twice - one page, one place in the menu", () => {

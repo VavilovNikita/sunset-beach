@@ -38,12 +38,21 @@ export default async function GuestAccountPage() {
         </div>
 
         {canOrderRoomService && (
-          <Link
-            href="/guest/room-service"
-            className="block mb-10 rounded-xl bg-coral hover:bg-coraldeep transition-colors px-5 py-4 text-center font-medium"
-          >
-            Order room service
-          </Link>
+          <div className="mb-10 space-y-3">
+            <Link
+              href="/guest/room-service"
+              className="block rounded-xl bg-coral hover:bg-coraldeep transition-colors px-5 py-4 text-center font-medium"
+            >
+              Order room service
+            </Link>
+            {/* The gym is bookable once checked in - the same condition as room service; the server re-checks it. */}
+            <Link
+              href="/guest/gym"
+              className="block rounded-xl border border-cream/25 hover:border-coral transition-colors px-5 py-4 text-center font-medium"
+            >
+              Book the gym
+            </Link>
+          </div>
         )}
 
         <section className="mb-10">

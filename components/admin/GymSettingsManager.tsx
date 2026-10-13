@@ -32,6 +32,7 @@ function toInput(c: GymDeviceConfig, patch: Partial<GymDeviceConfigInput> = {}):
     remoteId: c.remoteId ?? undefined,
     switchCode: c.switchCode ?? undefined,
     active: c.active,
+    inBookings: c.inBookings,
     ...patch,
   };
 }
@@ -127,6 +128,15 @@ function ConfigRow({
           <input type="checkbox" checked={values.active ?? true} onChange={(e) => setValues({ ...values, active: e.target.checked })} className="accent-coral w-5 h-5" />
           Show on the Gym page
         </label>
+        <label className={`${TOUCH} flex items-center gap-2 text-sm text-cream/70`}>
+          <input
+            type="checkbox"
+            checked={values.inBookings ?? true}
+            onChange={(e) => setValues({ ...values, inBookings: e.target.checked })}
+            className="accent-coral w-5 h-5"
+          />
+          Switched on and off by gym reservations
+        </label>
         <div className="flex gap-3 items-center">
           <button type="button" disabled={saving} onClick={() => save(values)} className={PRIMARY}>
             {saving ? "Saving…" : "Save"}
@@ -156,6 +166,7 @@ function ConfigRow({
           <p className="font-display text-lg break-words">
             {config.name}
             {!config.active && <span className="ml-2 text-xs text-cream/40">· hidden</span>}
+            {!config.inBookings && <span className="ml-2 text-xs text-amber-400">· not switched by reservations</span>}
           </p>
           <p className="text-xs text-cream/50 break-all">
             {TYPE_LABEL[config.type]} · {config.tuyaDeviceId}
@@ -172,6 +183,16 @@ function ConfigRow({
           </button>
           <button type="button" disabled={busy || saving} onClick={() => save(toInput(config, { active: !config.active }))} className={LINK}>
             {config.active ? "Hide" : "Show"}
+          </button>
+          <button
+            type="button"
+            disabled={busy || saving}
+            aria-pressed={config.inBookings}
+            title="Whether gym reservations switch this device on before a session and off after it"
+            onClick={() => save(toInput(config, { inBookings: !config.inBookings }))}
+            className={LINK}
+          >
+            {config.inBookings ? "Auto: on" : "Auto: off"}
           </button>
           <button type="button" disabled={busy} onClick={() => setEditing(true)} className={LINK}>
             Edit
