@@ -59,17 +59,17 @@ describe("lastKnownOn / sameSetting", () => {
 
 describe("describeCommand / lastCommandCaption", () => {
   it("says what was sent in words", () => {
-    expect(describeCommand(COMMAND)).toBe("включён, охлаждение, 24°, обдув 2");
-    expect(describeCommand({ ...COMMAND, wind: 0 })).toBe("включён, охлаждение, 24°, обдув авто");
-    expect(describeCommand({ ...COMMAND, power: 0 })).toBe("выключен");
+    expect(describeCommand(COMMAND)).toBe("on, cool, 24°, fan 2");
+    expect(describeCommand({ ...COMMAND, wind: 0 })).toBe("on, cool, 24°, fan auto");
+    expect(describeCommand({ ...COMMAND, power: 0 })).toBe("off");
   });
 
   it("names when and by whom, in hotel time", () => {
-    expect(lastCommandCaption(COMMAND)).toBe("последняя команда: включён, охлаждение, 24°, обдув 2 (13 Oct 2026, 07:05, Nok)");
+    expect(lastCommandCaption(COMMAND)).toBe("last command: on, cool, 24°, fan 2 (13 Oct 2026, 07:05, Nok)");
   });
 
   it("says plainly that nothing was sent yet", () => {
-    expect(lastCommandCaption(null)).toBe("последняя команда: ещё не отправлялась");
+    expect(lastCommandCaption(null)).toBe("last command: none sent yet");
   });
 });
 

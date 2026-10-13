@@ -18,9 +18,9 @@ export default async function AdminGymSettingsPage() {
     <div>
       <SubpageBackLink href="/admin/gym" label="Gym" />
       <p className="eyebrow text-sea mb-2">Front desk</p>
-      <h1 className="font-display italic text-3xl mb-4">Gym: устройства</h1>
+      <h1 className="font-display italic text-3xl mb-4">Gym devices</h1>
       <p className="text-sm text-cream/60 mb-6 max-w-2xl">
-        Какие устройства Tuya показываются на странице Gym, в каком порядке, и расход квоты вызовов Tuya за месяц.
+        Which Tuya devices appear on the Gym page and in what order, and this month's Tuya call count.
       </p>
       <GymSettingsManager initialConfigs={configs} usage={usage} />
     </div>

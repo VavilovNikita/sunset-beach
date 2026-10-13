@@ -21,7 +21,7 @@ const INPUT = "w-full min-h-[44px] bg-transparent border-b border-cream/25 py-2 
 const PRIMARY = `${TOUCH} rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 text-sm font-medium disabled:opacity-60`;
 const LINK = `${TOUCH} min-w-[44px] px-2 text-sm text-sea hover:text-coral transition-colors disabled:opacity-40`;
 
-const TYPE_LABEL: Record<GymDeviceType, string> = { RELAY: "Реле (вентилятор)", AC_IR: "Кондиционер (ИК)" };
+const TYPE_LABEL: Record<GymDeviceType, string> = { RELAY: "Relay (fan)", AC_IR: "Air conditioner (IR)" };
 
 function toInput(c: GymDeviceConfig, patch: Partial<GymDeviceConfigInput> = {}): GymDeviceConfigInput {
   return {
@@ -37,16 +37,16 @@ function toInput(c: GymDeviceConfig, patch: Partial<GymDeviceConfigInput> = {}):
 }
 
 function UsageCard({ usage }: { usage: GymTuyaUsage | null }) {
-  if (!usage) return <p className="text-sm text-amber-400 mb-6">Счётчик вызовов Tuya сейчас недоступен.</p>;
+  if (!usage) return <p className="text-sm text-amber-400 mb-6">The Tuya call counter is unavailable right now.</p>;
   return (
     <div className={`${CARD} mb-6`}>
-      <p className="eyebrow text-cream/60 mb-1">Вызовы Tuya в этом месяце ({usage.month})</p>
+      <p className="eyebrow text-cream/60 mb-1">Tuya calls this month ({usage.month})</p>
       <p className="font-display text-2xl">
-        {formatCalls(usage.calls)} <span className="text-base text-cream/50">из ~{formatCalls(usage.quotaHint)}</span>
+        {formatCalls(usage.calls)} <span className="text-base text-cream/50">of ~{formatCalls(usage.quotaHint)}</span>
       </p>
       <p className="text-xs text-cream/50 mt-1">
-        Пробная версия Tuya отключается до конца месяца, когда квота исчерпана. Автоматического опроса нет: вызовы тратятся только при открытии страницы,
-        нажатии «Обновить» и отправке команд. Счётчик обновляется при загрузке этой страницы.
+        The Tuya trial stops until the end of the month once the quota is used up. Nothing polls: calls are spent only when the page is opened,
+        when Refresh is pressed and when commands are sent. The counter updates when this page loads.
       </p>
     </div>
   );
@@ -103,33 +103,33 @@ function ConfigRow({
     return (
       <div className={`${CARD} space-y-3`}>
         <div>
-          <label className="eyebrow text-cream/60 block mb-1">Название</label>
+          <label className="eyebrow text-cream/60 block mb-1">Name</label>
           <input type="text" required maxLength={120} value={values.name} onChange={(e) => setValues({ ...values, name: e.target.value })} className={INPUT} />
         </div>
         {config.type === "RELAY" ? (
           <div>
-            <label className="eyebrow text-cream/60 block mb-1">Код переключателя</label>
+            <label className="eyebrow text-cream/60 block mb-1">Switch code</label>
             <input type="text" required maxLength={64} value={values.switchCode ?? ""} onChange={(e) => setValues({ ...values, switchCode: e.target.value })} className={INPUT} />
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 gap-3">
             <div>
-              <label className="eyebrow text-cream/60 block mb-1">ИК-хаб (id)</label>
+              <label className="eyebrow text-cream/60 block mb-1">IR hub (id)</label>
               <input type="text" required maxLength={64} value={values.infraredId ?? ""} onChange={(e) => setValues({ ...values, infraredId: e.target.value })} className={INPUT} />
             </div>
             <div>
-              <label className="eyebrow text-cream/60 block mb-1">Пульт (id)</label>
+              <label className="eyebrow text-cream/60 block mb-1">Remote (id)</label>
               <input type="text" maxLength={64} value={values.remoteId ?? ""} onChange={(e) => setValues({ ...values, remoteId: e.target.value })} className={INPUT} />
             </div>
           </div>
         )}
         <label className={`${TOUCH} flex items-center gap-2 text-sm text-cream/70`}>
           <input type="checkbox" checked={values.active ?? true} onChange={(e) => setValues({ ...values, active: e.target.checked })} className="accent-coral w-5 h-5" />
-          Показывать на странице Gym
+          Show on the Gym page
         </label>
         <div className="flex gap-3 items-center">
           <button type="button" disabled={saving} onClick={() => save(values)} className={PRIMARY}>
-            {saving ? "Сохраняем…" : "Сохранить"}
+            {saving ? "Saving…" : "Save"}
           </button>
           <button
             type="button"
@@ -141,7 +141,7 @@ function ConfigRow({
             }}
             className={`${TOUCH} px-3 text-sm text-cream/50 hover:text-cream transition-colors`}
           >
-            Отмена
+            Cancel
           </button>
         </div>
         {error && <p className="text-sm text-coral">{error}</p>}
@@ -155,40 +155,40 @@ function ConfigRow({
         <div className="flex-1 min-w-[12rem]">
           <p className="font-display text-lg break-words">
             {config.name}
-            {!config.active && <span className="ml-2 text-xs text-cream/40">· скрыто</span>}
+            {!config.active && <span className="ml-2 text-xs text-cream/40">· hidden</span>}
           </p>
           <p className="text-xs text-cream/50 break-all">
             {TYPE_LABEL[config.type]} · {config.tuyaDeviceId}
             {config.type === "RELAY" && config.switchCode ? ` · ${config.switchCode}` : ""}
-            {config.type === "AC_IR" && config.infraredId ? ` · хаб ${config.infraredId}` : ""}
+            {config.type === "AC_IR" && config.infraredId ? ` · hub ${config.infraredId}` : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-1">
-          <button type="button" aria-label="Выше" disabled={busy || index === 0} onClick={() => onMove(-1)} className={LINK}>
+          <button type="button" aria-label="Move up" disabled={busy || index === 0} onClick={() => onMove(-1)} className={LINK}>
             ↑
           </button>
-          <button type="button" aria-label="Ниже" disabled={busy || index === total - 1} onClick={() => onMove(1)} className={LINK}>
+          <button type="button" aria-label="Move down" disabled={busy || index === total - 1} onClick={() => onMove(1)} className={LINK}>
             ↓
           </button>
           <button type="button" disabled={busy || saving} onClick={() => save(toInput(config, { active: !config.active }))} className={LINK}>
-            {config.active ? "Скрыть" : "Показать"}
+            {config.active ? "Hide" : "Show"}
           </button>
           <button type="button" disabled={busy} onClick={() => setEditing(true)} className={LINK}>
-            Изменить
+            Edit
           </button>
           <button type="button" disabled={busy} onClick={() => setConfirmingDelete(true)} className={`${LINK} text-coral`}>
-            Удалить
+            Delete
           </button>
         </div>
       </div>
       {error && <p className="text-sm text-coral mt-2">{error}</p>}
       {confirmingDelete && (
         <ConfirmDialog
-          eyebrow="Удаление"
-          title={`Удалить «${config.name}» со страницы Gym? Записи в журнале останутся.`}
-          confirmLabel="Удалить"
-          busyLabel="Удаляем…"
-          backLabel="Отмена"
+          eyebrow="Delete"
+          title={`Delete "${config.name}" from the Gym page? Its audit-log entries stay.`}
+          confirmLabel="Delete"
+          busyLabel="Deleting…"
+          backLabel="Cancel"
           busy={deleting}
           error={deleteError}
           onConfirm={remove}
@@ -254,7 +254,7 @@ function AddFromTuya({
       }
       setChecking(false);
       if (found) setHub(found);
-      else setCheckError(lastError ?? "Не нашли хаб, под которым стоит этот кондиционер, — выберите его вручную.");
+      else setCheckError(lastError ?? "Could not find the hub this air conditioner is under — choose it manually.");
     }
     if (t === "RELAY") {
       setChecking(true);
@@ -301,7 +301,7 @@ function AddFromTuya({
   return (
     <div>
       {candidates.length === 0 ? (
-        <p className="text-sm text-cream/60">В проекте Tuya нет не добавленных реле и кондиционеров.</p>
+        <p className="text-sm text-cream/60">There are no relays or air conditioners left to add in the Tuya project.</p>
       ) : (
         <ul className="grid sm:grid-cols-2 gap-2">
           {candidates.map((d) => (
@@ -315,7 +315,7 @@ function AddFromTuya({
               >
                 <span className="block">{d.name}</span>
                 <span className="block text-xs text-cream/50">
-                  {defaultTypeForCategory(d.category) === "AC_IR" ? "ИК-пульт (кондиционер)" : "Реле"} · {d.online ? "в сети" : "не в сети"}
+                  {defaultTypeForCategory(d.category) === "AC_IR" ? "IR remote (air conditioner)" : "Relay"} · {d.online ? "online" : "offline"}
                 </span>
               </button>
             </li>
@@ -325,13 +325,13 @@ function AddFromTuya({
 
       {picked && (
         <form onSubmit={submit} className={`${CARD} space-y-3 mt-4`}>
-          <p className="eyebrow text-cream/60">Новое устройство</p>
+          <p className="eyebrow text-cream/60">New device</p>
           <div>
-            <label className="eyebrow text-cream/60 block mb-1">Название на странице</label>
+            <label className="eyebrow text-cream/60 block mb-1">Name on the page</label>
             <input type="text" required maxLength={120} value={name} onChange={(e) => setName(e.target.value)} className={INPUT} />
           </div>
           <div>
-            <label className="eyebrow text-cream/60 block mb-1">Тип</label>
+            <label className="eyebrow text-cream/60 block mb-1">Type</label>
             <select value={type} onChange={(e) => setType(e.target.value as GymDeviceType)} className={`${INPUT} bg-ink`}>
               <option value="RELAY">{TYPE_LABEL.RELAY}</option>
               <option value="AC_IR">{TYPE_LABEL.AC_IR}</option>
@@ -340,7 +340,7 @@ function AddFromTuya({
 
           {type === "RELAY" ? (
             <div>
-              <label className="eyebrow text-cream/60 block mb-1">Код переключателя</label>
+              <label className="eyebrow text-cream/60 block mb-1">Switch code</label>
               {codes && codes.length > 0 ? (
                 <select value={switchCode} onChange={(e) => setSwitchCode(e.target.value)} className={`${INPUT} bg-ink`}>
                   {codes.map((c) => (
@@ -352,15 +352,15 @@ function AddFromTuya({
               ) : (
                 <input type="text" required maxLength={64} value={switchCode} onChange={(e) => setSwitchCode(e.target.value)} className={INPUT} />
               )}
-              <p className="text-xs text-cream/50 mt-1">{checking ? "Читаем коды устройства…" : "Код определяется по состоянию устройства в Tuya."}</p>
+              <p className="text-xs text-cream/50 mt-1">{checking ? "Reading the device's codes…" : "The code comes from the device's state in Tuya."}</p>
             </div>
           ) : (
             <div className="space-y-3">
               <div>
-                <label className="eyebrow text-cream/60 block mb-1">ИК-хаб, под которым стоит кондиционер</label>
-                {checking && <p className="text-xs text-cream/50 mb-1">Ищем хаб по списку пультов…</p>}
+                <label className="eyebrow text-cream/60 block mb-1">IR hub the air conditioner is under</label>
+                {checking && <p className="text-xs text-cream/50 mb-1">Looking for the hub in the hubs' remote lists…</p>}
                 <select required value={hub} onChange={(e) => setHub(e.target.value)} className={`${INPUT} bg-ink`}>
-                  {hubs.length === 0 && <option value="">В проекте нет ИК-хабов</option>}
+                  {hubs.length === 0 && <option value="">No IR hubs in the project</option>}
                   {hubs.map((h) => (
                     <option key={h.id} value={h.id}>
                       {h.name}
@@ -369,20 +369,20 @@ function AddFromTuya({
                 </select>
               </div>
               <div>
-                <label className="eyebrow text-cream/60 block mb-1">Пульт (remote_id)</label>
+                <label className="eyebrow text-cream/60 block mb-1">Remote (remote_id)</label>
                 <input type="text" maxLength={64} value={remoteId} onChange={(e) => setRemoteId(e.target.value)} className={INPUT} />
-                <p className="text-xs text-cream/50 mt-1">По умолчанию — id самого устройства. Проверьте по списку пультов хаба.</p>
+                <p className="text-xs text-cream/50 mt-1">Defaults to the device's own id. Check it against the hub's remote list.</p>
               </div>
               <button type="button" disabled={checking || !hub} onClick={checkRemotes} className={`${TOUCH} rounded-full border border-cream/25 hover:border-coral px-5 text-sm transition-colors disabled:opacity-50`}>
-                {checking ? "Проверяем…" : "Показать пульты хаба"}
+                {checking ? "Checking…" : "Show the hub's remotes"}
               </button>
               {remotes && (
                 <ul className="text-sm text-cream/70 space-y-1">
-                  {remotes.length === 0 && <li>У хаба нет пультов.</li>}
+                  {remotes.length === 0 && <li>The hub has no remotes.</li>}
                   {remotes.map((r) => (
                     <li key={r.remoteId}>
                       <button type="button" onClick={() => setRemoteId(r.remoteId)} className={`${TOUCH} text-left text-sea hover:text-coral transition-colors break-all`}>
-                        {r.name ?? "Без названия"} · {r.remoteId}
+                        {r.name ?? "Unnamed"} · {r.remoteId}
                       </button>
                     </li>
                   ))}
@@ -394,10 +394,10 @@ function AddFromTuya({
 
           <div className="flex gap-3 items-center">
             <button type="submit" disabled={submitting || (type === "AC_IR" && !hub)} className={PRIMARY}>
-              {submitting ? "Добавляем…" : "Добавить"}
+              {submitting ? "Adding…" : "Add"}
             </button>
             <button type="button" onClick={() => setPicked(null)} className={`${TOUCH} px-3 text-sm text-cream/50 hover:text-cream transition-colors`}>
-              Отмена
+              Cancel
             </button>
           </div>
           {error && <p className="text-sm text-coral">{error}</p>}
@@ -455,8 +455,8 @@ export default function GymSettingsManager({ initialConfigs, usage }: { initialC
     <div className="max-w-4xl">
       <UsageCard usage={usage} />
 
-      <h2 className="eyebrow text-cream/60 mb-3">Устройства на странице Gym</h2>
-      {configs.length === 0 && <p className="text-sm text-cream/60 mb-3">Пока ничего не добавлено — загрузите список из Tuya ниже.</p>}
+      <h2 className="eyebrow text-cream/60 mb-3">Devices on the Gym page</h2>
+      {configs.length === 0 && <p className="text-sm text-cream/60 mb-3">Nothing added yet — load the list from Tuya below.</p>}
       <div className="space-y-2">
         {configs.map((c, i) => (
           <ConfigRow
@@ -473,13 +473,13 @@ export default function GymSettingsManager({ initialConfigs, usage }: { initialC
       </div>
       {error && <p className="text-sm text-coral mt-2">{error}</p>}
 
-      <h2 className="eyebrow text-cream/60 mt-8 mb-3">Добавить из проекта Tuya</h2>
+      <h2 className="eyebrow text-cream/60 mt-8 mb-3">Add from the Tuya project</h2>
       {tuyaDevices === null ? (
         <div>
           <button type="button" onClick={handleLoadTuya} disabled={loadingTuya} className={PRIMARY}>
-            {loadingTuya ? "Загружаем…" : "Загрузить список из Tuya"}
+            {loadingTuya ? "Loading…" : "Load the list from Tuya"}
           </button>
-          <p className="text-xs text-cream/50 mt-2">Список запрашивается у Tuya только по этой кнопке: это расходует вызовы квоты.</p>
+          <p className="text-xs text-cream/50 mt-2">The list is requested from Tuya only by this button: it spends quota calls.</p>
         </div>
       ) : (
         <AddFromTuya candidates={candidates} hubs={hubs} onAdded={(c) => setConfigs((prev) => [...prev, c])} />

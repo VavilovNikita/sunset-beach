@@ -9,15 +9,15 @@ export const AC_TEMP_MAX = 30;
 
 // Values are the Tuya IR scene command's own (openapi.yaml GymAcCommandInput).
 export const AC_MODES: { value: number; label: string }[] = [
-  { value: 0, label: "Охлаждение" },
-  { value: 1, label: "Обогрев" },
-  { value: 2, label: "Авто" },
-  { value: 3, label: "Вентиляция" },
-  { value: 4, label: "Осушение" },
+  { value: 0, label: "Cool" },
+  { value: 1, label: "Heat" },
+  { value: 2, label: "Auto" },
+  { value: 3, label: "Fan" },
+  { value: 4, label: "Dry" },
 ];
 
 export const AC_WINDS: { value: number; label: string }[] = [
-  { value: 0, label: "Авто" },
+  { value: 0, label: "Auto" },
   { value: 1, label: "1" },
   { value: 2, label: "2" },
   { value: 3, label: "3" },
@@ -50,30 +50,30 @@ export function sameSetting(a: AcSetting, b: AcSetting): boolean {
 }
 
 // True when the last command switched the unit on - the only case in which changing a setting can be
-// sent as it is (otherwise the change waits for the next "Включить").
+// sent as it is (otherwise the change waits for the next "Turn on").
 export function lastKnownOn(device: Pick<GymDevice, "lastCommand">): boolean {
   return device.lastCommand?.power === 1;
 }
 
 export function modeLabel(mode: number): string {
-  return AC_MODES.find((m) => m.value === mode)?.label ?? `режим ${mode}`;
+  return AC_MODES.find((m) => m.value === mode)?.label ?? `mode ${mode}`;
 }
 
 export function windLabel(wind: number): string {
-  return wind === 0 ? "обдув авто" : `обдув ${wind}`;
+  return wind === 0 ? "fan auto" : `fan ${wind}`;
 }
 
 export function describeCommand(cmd: Pick<GymAcCommand, "power" | "mode" | "temp" | "wind">): string {
-  if (cmd.power === 0) return "выключен";
-  return `включён, ${modeLabel(cmd.mode).toLowerCase()}, ${cmd.temp}°, ${windLabel(cmd.wind)}`;
+  if (cmd.power === 0) return "off";
+  return `on, ${modeLabel(cmd.mode).toLowerCase()}, ${cmd.temp}°, ${windLabel(cmd.wind)}`;
 }
 
-// "последняя команда: включён, охлаждение, 24°, обдув авто (13 Oct 2026, 14:05, Nok)" - or that none
+// "last command: on, cool, 24°, fan auto (13 Oct 2026, 14:05, Nok)" - or that none
 // was sent yet. The caption is the honest part of the card: it is what was sent, not what the unit does.
 export function lastCommandCaption(cmd: GymAcCommand | null | undefined): string {
-  if (!cmd) return "последняя команда: ещё не отправлялась";
+  if (!cmd) return "last command: none sent yet";
   const who = cmd.sentBy ? `, ${cmd.sentBy}` : "";
-  return `последняя команда: ${describeCommand(cmd)} (${formatTimestamp(cmd.sentAt)}${who})`;
+  return `last command: ${describeCommand(cmd)} (${formatTimestamp(cmd.sentAt)}${who})`;
 }
 
 // Moves one id a step up (-1) or down (+1); out of range leaves the list as it is.
@@ -99,5 +99,5 @@ export function isIrHub(category: string): boolean {
 }
 
 export function formatCalls(n: number): string {
-  return n.toLocaleString("ru-RU");
+  return n.toLocaleString("en-US");
 }
