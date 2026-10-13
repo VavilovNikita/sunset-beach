@@ -72,7 +72,7 @@ Any action that can fail shows its failure next to the control that triggered it
 
 Hide actions a role cannot perform — do not show a working form that fails on save. Guard the page itself too, not only the link: a hidden link is not access control.
 
-Landing after sign-in depends on role, then job function (`lib/staffLanding.ts`): WAITER `/pos`, CASHIER `/admin/today`; MANAGER/ADMIN open on the dashboard unless they hold ENGINEER (maintenance tasks) or THERAPIST (spa schedule). A role's own page outranks a function; a deep-link `callbackUrl` outranks both.
+Landing after sign-in (`lib/staffLanding.ts`): for WAITER and CASHIER a job function wins - ENGINEER opens the maintenance tasks, THERAPIST the spa schedule, ENGINEER first if both; without one WAITER lands on `/pos` and CASHIER on `/admin/today`. MANAGER and ADMIN always open the dashboard. A deep-link `callbackUrl` outranks all of it.
 
 **Every role gate sends to `/admin/access-denied`.** `requireRoleAtLeast` takes no redirect parameter any more: the same mistake used to land on `/admin/pos`, `/admin/rooms` or the access-denied page depending on the page, and some of those looked like a working page that did nothing. Don't add one back.
 
@@ -116,7 +116,7 @@ Components are not covered by tests. Restructuring them is verified in the brows
 
 ## Before JavaScript has loaded
 
-The admin, POS, login and guest-account layouts render `HydrationGate`: until React has taken over, buttons are dimmed and inert and a submit or button click is swallowed by a tiny inline script. Without it a click on server-rendered HTML went nowhere, and a form submitted natively (a GET with the typed fields - a password included - in the address). Links are untouched. The public site doesn't use it. A data-entry modal that the browser's Back button would walk away from uses `lib/useCloseOnBrowserBack.ts` (Back closes the modal and keeps the page) - read its comment before adding it to a modal that contains a link.
+The admin, POS, login and guest-account layouts render `HydrationGate`: until React has taken over, buttons are dimmed and inert and a submit or button click is swallowed by a tiny inline script. Without it a click on server-rendered HTML went nowhere, and a form submitted natively (a GET with the typed fields - a password included - in the address). Links are untouched. The public site doesn't use it. Every modal, dialog and side panel uses `lib/useCloseOnBrowserBack.ts` (Back closes it and keeps the page; `ConfirmDialog` and `PosAttributedConfirm` carry it, so everything built on them does too) - a new overlay calls it, and its comment says what to check before one that contains a link.
 
 ## Two POS surfaces
 

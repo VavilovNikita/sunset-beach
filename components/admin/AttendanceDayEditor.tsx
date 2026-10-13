@@ -1,5 +1,6 @@
 "use client";
 
+import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { useEffect, useState } from "react";
 import { correctAttendanceDay, listAttendancePunches } from "@/lib/rosterClient";
 import { livePunches, punchTimes, replacedVersions, sameTimes, validateTimes } from "@/lib/attendanceDay";
@@ -24,6 +25,7 @@ export default function AttendanceDayEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  useCloseOnBrowserBack(true, onClose); // Back closes the panel instead of leaving the page
   const [history, setHistory] = useState<AttendancePunch[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [times, setTimes] = useState<string[]>([]);

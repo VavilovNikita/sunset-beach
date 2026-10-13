@@ -1,5 +1,7 @@
 "use client";
 
+import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
+
 // Shared confirmation UI for a money-affecting action (closing an order with payment, closing a
 // shift) — deliberately not a silent one-tap action for either of these, unlike everything else
 // in this section. The backend has no concept of "acting as" separate from "logged in as" (every
@@ -54,6 +56,9 @@ export default function PosAttributedConfirm({
   confirmDisabledReason?: string;
   children?: React.ReactNode;
 }) {
+  useCloseOnBrowserBack(true, () => {
+    if (!busy) onCancel();
+  });
   return (
     <div className="bg-ink2 border border-coral/50 rounded-2xl p-4 space-y-3">
       <p className="eyebrow text-cream/60">{title}</p>

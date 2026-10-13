@@ -1,5 +1,6 @@
 "use client";
 
+import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import Link from "next/link";
 import { hotelDateKey } from "@/lib/hotelDate";
 import type { SpaMapTable } from "@/lib/posTypes";
@@ -11,6 +12,7 @@ import type { SpaMapTable } from "@/lib/posTypes";
 // schedule grid, which is exactly what "Open in schedule" below leads to. Doesn't refetch its own
 // data - the parent already has the full SpaMapTable from GET /spa-map.
 export default function SpaTableMapPanel({ table, onClose }: { table: SpaMapTable; onClose: () => void }) {
+  useCloseOnBrowserBack(true, onClose); // Back closes the panel instead of leaving the page
   const today = hotelDateKey(new Date());
 
   return (

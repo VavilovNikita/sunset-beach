@@ -1,5 +1,6 @@
 "use client";
 
+import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addDaysUTC, dateOnlyUTC, parseDateKey, toDateKey } from "@/lib/bookings";
@@ -1006,6 +1007,10 @@ export default function BookingCalendarGrid({
       return (b.roomUnitId ?? "") === roomUnitId;
     });
   }
+
+  // Back closes an open confirmation instead of leaving the calendar.
+  useCloseOnBrowserBack(scheduleConfirm !== null, () => setScheduleConfirm(null));
+  useCloseOnBrowserBack(swapConfirm !== null, () => setSwapConfirm(null));
 
   return (
     <div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { hotelDateKey } from "@/lib/hotelDate";
@@ -424,6 +425,19 @@ export default function RosterGrid({
     setCreateTarget(null);
     router.refresh();
   }
+
+  // Back closes an open dialog instead of leaving the roster; a running request keeps its confirm open.
+  useCloseOnBrowserBack(selectedEntry !== null, () => setSelectedEntry(null));
+  useCloseOnBrowserBack(createTarget !== null, () => setCreateTarget(null));
+  useCloseOnBrowserBack(moveConfirm !== null, () => {
+    if (moveConfirm?.status !== "loading") setMoveConfirm(null);
+  });
+  useCloseOnBrowserBack(reassignConfirm !== null, () => {
+    if (reassignConfirm?.status !== "loading") setReassignConfirm(null);
+  });
+  useCloseOnBrowserBack(swapConfirm !== null, () => {
+    if (swapConfirm?.status !== "loading") setSwapConfirm(null);
+  });
 
   return (
     <div>

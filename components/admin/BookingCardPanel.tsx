@@ -1,5 +1,6 @@
 "use client";
 
+import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ADMIN_API_URL } from "@/lib/backend";
@@ -49,6 +50,7 @@ export default function BookingCardPanel({
   /** After any change saved from the panel - the grid behind it re-reads, instead of waiting for the panel to close. */
   onChanged?: () => void;
 }) {
+  useCloseOnBrowserBack(true, onClose); // Back closes the panel instead of leaving the page
   const [booking, setBooking] = useState<Booking | null>(null);
   const [posOrders, setPosOrders] = useState<BookingPosOrder[]>([]);
   const [folio, setFolio] = useState<Folio | null>(null);

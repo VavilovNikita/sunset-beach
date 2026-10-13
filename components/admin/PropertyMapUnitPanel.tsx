@@ -1,5 +1,6 @@
 "use client";
 
+import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { useState } from "react";
 import Link from "next/link";
 import CheckInDialog from "@/components/admin/CheckInDialog";
@@ -24,6 +25,7 @@ export default function PropertyMapUnitPanel({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  useCloseOnBrowserBack(true, onClose); // Back closes the panel instead of leaving the page
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);

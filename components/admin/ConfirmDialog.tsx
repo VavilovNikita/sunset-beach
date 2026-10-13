@@ -1,5 +1,7 @@
 "use client";
 
+import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
+
 // The admin's confirmation dialog - the modal CancelBookingDialog introduced, extracted so every
 // "are you sure?" in the office admin looks and behaves the same instead of falling back to the
 // browser's own window.confirm() (unstyled, can't show a failure, blocked by some browsers once
@@ -32,6 +34,10 @@ export default function ConfirmDialog({
   onConfirm: () => void;
   onBack: () => void;
 }) {
+  // Back backs out like the backdrop does - and, like it, not while the request is running.
+  useCloseOnBrowserBack(true, () => {
+    if (!busy) onBack();
+  });
   return (
     <div className="fixed inset-0 z-[60] bg-ink/80 flex items-center justify-center p-4" onClick={busy ? undefined : onBack}>
       <div

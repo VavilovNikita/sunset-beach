@@ -1,5 +1,6 @@
 "use client";
 
+import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { useState } from "react";
 import Link from "next/link";
 import { deleteRoomUnitBlock } from "@/lib/roomUnitBlockClient";
@@ -36,6 +37,7 @@ export default function RoomUnitBlockPanel({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  useCloseOnBrowserBack(true, onClose); // Back closes the panel instead of leaving the page
   return (
     <div className="fixed inset-0 z-40 pointer-events-none">
       <div className="absolute inset-0 pointer-events-auto" onClick={onClose} />

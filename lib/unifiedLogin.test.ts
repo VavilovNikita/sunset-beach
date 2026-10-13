@@ -4,7 +4,7 @@ import { decideAfterGuestLogin, decideAfterStaffLogin } from "./unifiedLogin";
 describe("decideAfterStaffLogin", () => {
   it("valid staff creds redirect to /admin", () => {
     expect(decideAfterStaffLogin(true, 200, { token: "t", role: "MANAGER" })).toEqual({ action: "redirect-admin", destination: "/admin" });
-    expect(decideAfterStaffLogin(true, 200, { role: "MANAGER", functions: ["ENGINEER"] })).toEqual({
+    expect(decideAfterStaffLogin(true, 200, { role: "CASHIER", functions: ["ENGINEER"] })).toEqual({
       action: "redirect-admin",
       destination: "/admin/maintenance",
     });

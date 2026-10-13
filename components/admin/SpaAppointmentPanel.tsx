@@ -1,5 +1,6 @@
 "use client";
 
+import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -54,6 +55,7 @@ export default function SpaAppointmentPanel({
   onClose: () => void;
   onUpdated: () => void;
 }) {
+  useCloseOnBrowserBack(true, onClose); // Back closes the panel instead of leaving the page
   const router = useRouter();
   const [current, setCurrent] = useState(appointment);
   const [cancelReason, setCancelReason] = useState("");

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addDaysUTC, dateOnlyUTC, toDateKey } from "@/lib/bookings";
@@ -328,6 +329,12 @@ export default function SpaScheduleGrid({
 
   const selectedAppointment = schedule.appointments.find((a) => a.id === selectedAppointmentId) ?? null;
   const treatments = menuItems.filter((m) => m.department === "SPA" && m.durationMinutes != null);
+
+  // Back closes an open confirmation instead of leaving the schedule.
+  useCloseOnBrowserBack(moveConfirm !== null, () => {
+    if (moveConfirm?.status !== "loading") setMoveConfirm(null);
+  });
+  useCloseOnBrowserBack(swapConfirm !== null, () => setSwapConfirm(null));
 
   return (
     <div>

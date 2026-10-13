@@ -1,5 +1,6 @@
 "use client";
 
+import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -88,6 +89,8 @@ export default function RestaurantTableMapView({ initialMap, canManage }: { init
     shape: t.shape,
     capacity: t.capacity,
   }));
+
+  useCloseOnBrowserBack(pickerTable !== null, () => setPickerTable(null)); // Back closes the picker, not the page
 
   return (
     <>
