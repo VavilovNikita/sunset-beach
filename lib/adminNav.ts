@@ -50,6 +50,11 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/guests", label: "Guests", minRole: "CASHIER" },
       { href: "/admin/property-map", label: "Property map", minRole: "CASHIER" },
       { href: "/admin/housekeeping", label: "Housekeeping", minRole: "CASHIER" },
+      // Fans and air conditioners over the Tuya cloud. GET/POST /gym/devices* is CASHIER+ (switching them is
+      // front-desk work); the device list under /gym/settings is ADMIN-only like every settings route, and
+      // longest-href matching keeps just one of the two highlighted.
+      { href: "/admin/gym", label: "Gym", minRole: "CASHIER" },
+      { href: "/admin/gym/settings", label: "Gym devices", minRole: "ADMIN" },
       // Room tasks (a broken air conditioner, a leak) - about the rooms, so it sits beside
       // Housekeeping rather than under Staff. Any authenticated staff role, including WAITER:
       // GET/POST /maintenance-tasks have no role floor on the backend, and the whole point is

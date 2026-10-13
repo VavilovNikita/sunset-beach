@@ -1781,3 +1781,66 @@ export type EmployeePayRateCreateInput = {
   dailyRate: string;
   effectiveFrom: string;
 };
+
+// Gym equipment over the Tuya cloud (GET /gym/devices and friends). A relay (a fan) reports its real
+// state; an air conditioner behind an IR hub cannot, so it only carries the last command this server
+// sent. isOn/online/stateReadAt/stateError are absent or null when unknown.
+export type GymDeviceType = "RELAY" | "AC_IR";
+
+export type GymAcCommandInput = {
+  power: number; // 0 off, 1 on
+  mode: number; // 0 cool, 1 heat, 2 auto, 3 fan, 4 dry
+  temp: number; // 16..30
+  wind: number; // 0 auto, 1..3
+};
+
+export type GymAcCommand = GymAcCommandInput & { sentAt: string; sentBy: string };
+
+export type GymDevice = {
+  id: string;
+  name: string;
+  type: GymDeviceType;
+  sortOrder: number;
+  isOn?: boolean | null;
+  online?: boolean | null;
+  stateReadAt?: string | null;
+  stateError?: string | null;
+  lastCommand?: GymAcCommand | null;
+};
+
+export type GymDeviceList = { devices: GymDevice[]; fetchedAt: string };
+
+export type GymDeviceConfig = {
+  id: string;
+  name: string;
+  type: GymDeviceType;
+  tuyaDeviceId: string;
+  infraredId?: string | null;
+  remoteId?: string | null;
+  switchCode?: string | null;
+  sortOrder: number;
+  active: boolean;
+};
+
+export type GymDeviceConfigInput = {
+  name: string;
+  type: GymDeviceType;
+  tuyaDeviceId: string;
+  infraredId?: string;
+  remoteId?: string;
+  switchCode?: string;
+  active?: boolean;
+};
+
+export type TuyaDiscoveredDevice = {
+  id: string;
+  name: string;
+  category: string; // kg switch, wnykq IR hub, qt IR remote
+  productName?: string | null;
+  online: boolean;
+  sub: boolean;
+};
+
+export type TuyaRemote = { remoteId: string; name?: string | null };
+
+export type GymTuyaUsage = { month: string; calls: number; quotaHint: number };

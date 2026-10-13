@@ -48,7 +48,7 @@ describe("visibleNavGroups", () => {
 
     const byTitle = Object.fromEntries(groups.map((g) => [g.title, g.links.map((l) => l.label)]));
     expect(byTitle["Front desk"]).toEqual([
-      "Today", "Calendar", "Bookings", "Guests", "Property map", "Housekeeping", "Maintenance",
+      "Today", "Calendar", "Bookings", "Guests", "Property map", "Housekeeping", "Gym", "Maintenance",
       "Night audit", "In house", "Rates & availability", "Rooms",
     ]); // no Guest emails - ADMIN only
     expect(byTitle["Restaurant"]).toEqual(["POS", "Print queue", "Shifts", "Menu"]); // no Printers - MANAGER+
@@ -96,6 +96,21 @@ describe("visibleNavGroups", () => {
     for (const role of ["WAITER", "CASHIER", "MANAGER", "ADMIN"] as const) {
       expect(visibleNavGroups(role).flatMap((g) => g.links.map((l) => l.label))).toContain("Maintenance");
     }
+  });
+
+  it("Gym is CASHIER+ and its device list ADMIN-only - a WAITER sees neither", () => {
+    const labels = (role: "WAITER" | "CASHIER" | "MANAGER" | "ADMIN") => visibleNavGroups(role).flatMap((g) => g.links.map((l) => l.label));
+    expect(labels("WAITER")).not.toContain("Gym");
+    expect(labels("CASHIER")).toContain("Gym");
+    expect(labels("CASHIER")).not.toContain("Gym devices");
+    expect(labels("MANAGER")).not.toContain("Gym devices");
+    expect(labels("ADMIN")).toEqual(expect.arrayContaining(["Gym", "Gym devices"]));
+  });
+
+  it("the Gym settings page highlights its own link, not the Gym board's", () => {
+    const links = visibleNavGroups("ADMIN").flatMap((g) => g.links);
+    expect(activeNavHref(links, "/admin/gym")).toBe("/admin/gym");
+    expect(activeNavHref(links, "/admin/gym/settings")).toBe("/admin/gym/settings");
   });
 
   it("no href appears twice - one page, one place in the menu", () => {

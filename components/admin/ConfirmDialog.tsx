@@ -57,11 +57,11 @@ export default function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2.5 text-sm font-medium disabled:opacity-60"
+            className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2.5 min-h-[44px] text-sm font-medium disabled:opacity-60"
           >
             {busy ? (busyLabel ?? "…") : confirmLabel}
           </button>
-          <button type="button" onClick={onBack} disabled={busy} className="text-sm text-cream/60 hover:text-cream transition-colors">
+          <button type="button" onClick={onBack} disabled={busy} className="text-sm text-cream/60 hover:text-cream transition-colors min-h-[44px] px-2">
             {backLabel}
           </button>
         </div>

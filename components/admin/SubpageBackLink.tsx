@@ -4,7 +4,7 @@ import Link from "next/link";
 // eyebrow, so it's in the same place on every one of them.
 export default function SubpageBackLink({ href, label }: { href: string; label: string }) {
   return (
-    <Link href={href} className="inline-block text-sm text-cream/50 hover:text-coral transition-colors mb-3">
+    <Link href={href} className="inline-flex items-center min-h-[44px] text-sm text-cream/50 hover:text-coral transition-colors mb-1">
       ← {label}
     </Link>
   );
