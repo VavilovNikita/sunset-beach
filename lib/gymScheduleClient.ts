@@ -6,6 +6,7 @@ import { addDaysToDateKey } from "@/lib/hotelDate";
 import type {
   Booking,
   GymHallSettings,
+  GymHallSettingsResult,
   GymReservation,
   GymReservationCreateInput,
   GymReservationScheduleInput,
@@ -62,6 +63,8 @@ export function loadGymHallSettings() {
   return call<GymHallSettings>("/gym/settings/hall", undefined, "Could not load the gym settings.");
 }
 
-export function saveGymHallSettings(input: GymHallSettings) {
-  return call<GymHallSettings>("/gym/settings/hall", adminJsonInit("PUT", input), "Could not save the gym settings.");
+// Without `force`, hours that would leave future reservations outside them are not saved: the answer has
+// saved=false and the reservations, for the owner to confirm (then the same call with force=true).
+export function saveGymHallSettings(input: GymHallSettings, force = false) {
+  return call<GymHallSettingsResult>(`/gym/settings/hall${force ? "?force=true" : ""}`, adminJsonInit("PUT", input), "Could not save the gym settings.");
 }

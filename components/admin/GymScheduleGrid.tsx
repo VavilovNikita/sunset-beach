@@ -8,8 +8,10 @@ import { usePolling } from "@/lib/usePolling";
 import {
   automationSummary,
   buildSlots,
+  gridRange,
   holdsSlot,
   isSlotBookableByStaff,
+  isSlotWithinHours,
   shiftDate,
   slotIndexOf,
   spanOf,
@@ -58,7 +60,9 @@ export default function GymScheduleGrid({
   showCancelled: boolean;
 }) {
   const router = useRouter();
-  const slots = buildSlots(schedule.openTime, schedule.closeTime, schedule.stepMinutes);
+  // Wider than the opening hours when narrowed hours left a reservation outside them - it stays visible.
+  const range = gridRange(schedule);
+  const slots = buildSlots(range.open, range.close, schedule.stepMinutes);
   const days = visibleDays(date, view);
   const rowHeight = view === "day" ? 96 : 56;
   const todayKey = hotelDateKey(new Date());
@@ -71,13 +75,6 @@ export default function GymScheduleGrid({
   // a retry), so the schedule refetches itself now and then - and when the tab comes back. Not while
   // a form is open: a refresh must never pull the slot out from under a half-filled booking.
   usePolling(() => router.refresh(), 60_000, createTarget === null);
-
-  // A closing overlay (useCloseOnBrowserBack) gives back its history entry with history.back() one tick after it
-  // goes; the router restores the older page state on that popstate and a refresh already in flight is lost with it
-  // (the new reservation did not show until the next navigation). So the refresh waits until that has settled.
-  function refreshAfterOverlay() {
-    window.setTimeout(() => router.refresh(), 150);
-  }
 
   function go(next: { date?: string; view?: "day" | "week"; cancelled?: boolean }) {
     const params = new URLSearchParams({ date: next.date ?? date, view: next.view ?? view });
@@ -149,7 +146,7 @@ export default function GymScheduleGrid({
             const occupied = new Set<number>();
             for (const r of dayReservations) {
               if (!holdsSlot(r)) continue;
-              const start = slotIndexOf(r.startTime, schedule.openTime, schedule.stepMinutes);
+              const start = slotIndexOf(r.startTime, range.open, schedule.stepMinutes);
               const span = spanOf(r.durationMinutes, schedule.stepMinutes);
               for (let i = start; i < start + span; i++) occupied.add(i);
             }
@@ -167,14 +164,16 @@ export default function GymScheduleGrid({
                 </div>
                 <div className="relative shrink-0" style={{ width: slots.length * COL_WIDTH, height: rowHeight }}>
                   {slots.map((c, i) => {
-                    const bookable = !occupied.has(i) && isSlotBookableByStaff(day, c, schedule.stepMinutes, new Date());
+                    const inHours = isSlotWithinHours(c, schedule.stepMinutes, schedule.openTime, schedule.closeTime);
+                    const bookable = inHours && !occupied.has(i) && isSlotBookableByStaff(day, c, schedule.stepMinutes, new Date());
                     return (
                       <button
                         key={c}
                         type="button"
                         disabled={!bookable}
                         onClick={() => setCreateTarget({ date: day, startTime: c })}
-                        className={`absolute top-0 bottom-0 border-r border-cream/5 ${bookable ? "hover:bg-cream/5 cursor-cell" : ""}`}
+                        className={`absolute top-0 bottom-0 border-r border-cream/5 ${bookable ? "hover:bg-cream/5 cursor-cell" : ""} ${inHours ? "" : "bg-ink/60"}`}
+                        title={inHours ? undefined : "Outside the opening hours"}
                         style={{ left: i * COL_WIDTH, width: COL_WIDTH }}
                         aria-label={`Reserve ${formatDate(day)} at ${c}`}
                       />
@@ -182,7 +181,7 @@ export default function GymScheduleGrid({
                   })}
 
                   {ordered.map((r) => {
-                    const start = slotIndexOf(r.startTime, schedule.openTime, schedule.stepMinutes);
+                    const start = slotIndexOf(r.startTime, range.open, schedule.stepMinutes);
                     const span = spanOf(r.durationMinutes, schedule.stepMinutes);
                     const summary = automationSummary(r);
                     const mark = r.status === "CANCELLED" ? null : TONE_MARK[summary.tone];
@@ -232,6 +231,11 @@ export default function GymScheduleGrid({
         </div>
       </div>
 
+      {range.open !== schedule.openTime || range.close !== schedule.closeTime ? (
+        <p className="text-xs text-amber-400 mt-3">
+          The gym is open {schedule.openTime}–{schedule.closeTime}. The shaded columns are outside those hours - a reservation made earlier still stands there.
+        </p>
+      ) : null}
       <p className="text-xs text-cream/40 mt-3">
         Marks on a reservation: ⚡ equipment switched on · ⚠ partly (some device failed) · ✕ error · … in progress. Open a reservation for details.
       </p>
@@ -244,7 +248,7 @@ export default function GymScheduleGrid({
           onClose={() => setCreateTarget(null)}
           onCreated={() => {
             setCreateTarget(null);
-            refreshAfterOverlay();
+            router.refresh();
           }}
         />
       )}
@@ -256,7 +260,7 @@ export default function GymScheduleGrid({
           onClose={() => setSelectedId(null)}
           onUpdated={() => {
             setSelectedId(null);
-            refreshAfterOverlay();
+            router.refresh();
           }}
         />
       )}

@@ -4,7 +4,9 @@ import { useState } from "react";
 import { saveGymHallSettings } from "@/lib/gymScheduleClient";
 import { hallSettingsProblem } from "@/lib/gymSchedule";
 import { AC_MODES, AC_TEMP_MAX, AC_TEMP_MIN, AC_WINDS } from "@/lib/gym";
-import type { GymHallSettings } from "@/lib/types";
+import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
+import { formatDate } from "@/lib/formatDate";
+import type { GymHallSettings, GymReservation } from "@/lib/types";
 
 const FIELD = "w-full min-h-[44px] bg-ink border border-cream/20 rounded-lg px-3 text-sm";
 
@@ -17,6 +19,8 @@ export default function GymHallSettingsForm({ initial }: { initial: GymHallSetti
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Set when the server would not save the narrowed hours without a yes: the reservations they leave outside.
+  const [outside, setOutside] = useState<GymReservation[] | null>(null);
 
   const dirty = JSON.stringify(saved) !== JSON.stringify(values);
   const problem = hallSettingsProblem(values);
@@ -46,9 +50,25 @@ export default function GymHallSettingsForm({ initial }: { initial: GymHallSetti
       setError(result.error);
       return;
     }
-    setSaved(result.data);
-    setValues(result.data);
-    setNotice("Saved.");
+    if (!result.data.saved) {
+      setOutside(result.data.outsideHours);
+      return;
+    }
+    applySaved(result.data.settings, result.data.outsideHours.length);
+  }
+
+  function applySaved(settings: GymHallSettings, left: number) {
+    setSaved(settings);
+    setValues(settings);
+    setNotice(left > 0 ? `Saved. ${left} existing reservation${left === 1 ? " is" : "s are"} outside the new hours and ${left === 1 ? "stays" : "stay"} in place.` : "Saved.");
+  }
+
+  // "Save anyway": the same request, forced. Nothing is cancelled - the reservations stay where they are.
+  async function saveAnyway(): Promise<string | null> {
+    const result = await saveGymHallSettings(values, true);
+    if (!result.ok) return result.error;
+    applySaved(result.data.settings, result.data.outsideHours.length);
+    return null;
   }
 
   return (
@@ -149,6 +169,31 @@ export default function GymHallSettingsForm({ initial }: { initial: GymHallSetti
       >
         {busy ? "Saving…" : "Save"}
       </button>
+      {outside && (
+        <ConfirmActionDialog
+          eyebrow="Reservations outside the new hours"
+          title={`${outside.length} upcoming reservation${outside.length === 1 ? " does" : "s do"} not fit ${values.openTime}–${values.closeTime}.`}
+          confirmLabel="Save anyway"
+          busyLabel="Saving…"
+          backLabel="Don't save"
+          action={saveAnyway}
+          onDone={() => setOutside(null)}
+          onBack={() => setOutside(null)}
+        >
+          <p className="text-sm text-cream/70">
+            Nothing is cancelled: these reservations stay and the schedule keeps showing them outside the hours. Contact the guests or move them
+            by hand.
+          </p>
+          <ul className="text-sm space-y-1 max-h-56 overflow-y-auto">
+            {outside.map((r) => (
+              <li key={r.id} className="text-cream/80">
+                {formatDate(r.date)} · {r.startTime}–{r.endTime} · {r.guestName}
+                {r.roomLabel ? ` (room ${r.roomLabel})` : ""}
+              </li>
+            ))}
+          </ul>
+        </ConfirmActionDialog>
+      )}
     </form>
   );
 }

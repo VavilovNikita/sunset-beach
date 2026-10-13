@@ -1913,6 +1913,10 @@ export type GymHallSettings = {
   acWind: number; // 0 auto, 1..3
 };
 
+// PUT /gym/settings/hall: `saved` is false (nothing written) when the new hours would leave reservations
+// outside them and the request was not forced; `outsideHours` lists them either way.
+export type GymHallSettingsResult = { settings: GymHallSettings; saved: boolean; outsideHours: GymReservation[] };
+
 export type GymGuestStay = { bookingId: string; roomLabel: string | null; checkIn: string; checkOut: string };
 
 export type GymGuestInfo = {

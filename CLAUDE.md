@@ -150,6 +150,10 @@ Show an order by `orderNumberLabel` ("#1234", `lib/posOrders.ts`) with `orderRef
 
 **The staff grid is rows = days, columns = half-hour slots** (one row in the day view, seven in the week view), so a reservation block spans columns like a spa appointment. It has no drag: a move is a form in the panel (date, start, length), because once the equipment has been switched on the server only lets the length change - a drag would promise what the server refuses. The mark on each block (`automationSummary`: ⚡ on, ⚠ partly with the failed devices named in the panel, ✕ error, … in progress) is the automation's result read from the reservation; the schedule refetches itself every minute (`usePolling`) because the sweep changes it behind the screen's back - except while the create form is open.
 
+**Narrowing the hours asks first.** `PUT /gym/settings/hall` answers `saved: false` with the reservations the new hours would leave outside; the form shows them in a dialog ("Save anyway" repeats the call with `force=true`, "Don't save" writes nothing). Nothing is cancelled, and the grid widens (`gridRange`) so those reservations stay visible, the columns outside the hours shaded and not bookable.
+
+**`router.refresh()` right after an overlay closes works because the hook keeps its own `history.back()` away from the router** (`lib/useCloseOnBrowserBack.ts`; the swallowing listener is an inline script in `HydrationGate`, ahead of the router's own listener - read the hook's comment before touching either). Do not add a `setTimeout` before a refresh to "let the overlay settle": that was the workaround this replaced.
+
 **Hall hours and the automation's parameters live on the ADMIN-only `/admin/gym/settings`**, next to each device's "Auto: on/off" (does a reservation switch it). Not on the schedule page.
 
 ## Print layouts (`/admin/settings/print-layouts`, ADMIN)

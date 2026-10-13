@@ -249,3 +249,26 @@ export function clampGuestDate(date: string, bounds: { min: string; max: string 
   if (date > bounds.max) return bounds.max;
   return date;
 }
+
+// The columns the schedule shows: the opening hours, widened to take in any reservation outside them
+// (the owner narrowed the hours over existing bookings - they must stay visible, not vanish off the
+// edge of the grid). Rounded outwards to the step. Cancelled ones count too when they are shown.
+export function gridRange(schedule: { openTime: string; closeTime: string; stepMinutes: number; reservations: Pick<GymReservation, "startTime" | "endTime">[] }): {
+  open: string;
+  close: string;
+} {
+  const step = schedule.stepMinutes;
+  let open = toMinutes(schedule.openTime);
+  let close = toMinutes(schedule.closeTime);
+  for (const r of schedule.reservations) {
+    open = Math.min(open, Math.floor(toMinutes(r.startTime) / step) * step);
+    close = Math.max(close, Math.ceil(toMinutes(r.endTime) / step) * step);
+  }
+  return { open: toHHMM(open), close: toHHMM(close) };
+}
+
+// Whether a slot lies inside the opening hours (outside ones are shown but cannot be booked).
+export function isSlotWithinHours(slot: string, step: number, openTime: string, closeTime: string): boolean {
+  const start = toMinutes(slot);
+  return start >= toMinutes(openTime) && start + step <= toMinutes(closeTime);
+}

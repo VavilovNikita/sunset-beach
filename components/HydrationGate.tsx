@@ -12,7 +12,10 @@ const CSS =
 
 const SCRIPT =
   'function g(e){if(!document.documentElement.hasAttribute("data-hydrated")){if(e.type==="submit"||e.target.closest&&e.target.closest("button:not([data-hydration-exempt]),input[type=submit],input[type=button]")){e.preventDefault();e.stopPropagation()}}}' +
-  'document.addEventListener("submit",g,true);document.addEventListener("click",g,true);';
+  'document.addEventListener("submit",g,true);document.addEventListener("click",g,true);' +
+  // The popstate of an overlay's own history.back() must not reach the router (lib/useCloseOnBrowserBack.ts says why);
+  // listeners on window run in registration order, so this has to be added before React's router adds its own.
+  'window.__overlayOwnBacks=window.__overlayOwnBacks||0;window.addEventListener("popstate",function(e){if(window.__overlayOwnBacks>0){window.__overlayOwnBacks--;e.stopImmediatePropagation()}},true);';
 
 export default function HydrationGate() {
   return (

@@ -4,7 +4,9 @@ import {
   buildSlots,
   clampGuestDate,
   durationOptions,
+  gridRange,
   guestDateBounds,
+  isSlotWithinHours,
   hallSettingsProblem,
   hotelNow,
   isSlotBookableByStaff,
@@ -243,5 +245,26 @@ describe("a guest's dates", () => {
     expect(clampGuestDate("2031-06-01", bounds)).toBe("2031-06-16");
     expect(clampGuestDate("2031-07-01", bounds)).toBe("2031-06-18");
     expect(clampGuestDate("2031-06-17", bounds)).toBe("2031-06-17");
+  });
+});
+
+describe("the grid's range", () => {
+  const base = { openTime: "08:00", closeTime: "20:00", stepMinutes: 30 };
+  const r = (startTime: string, endTime: string) => ({ startTime, endTime });
+
+  it("is the opening hours when every reservation fits", () => {
+    expect(gridRange({ ...base, reservations: [r("09:00", "10:00")] })).toEqual({ open: "08:00", close: "20:00" });
+  });
+
+  it("widens to show a reservation left outside narrowed hours, rounded to the step", () => {
+    expect(gridRange({ ...base, reservations: [r("06:00", "07:00"), r("19:30", "21:00")] })).toEqual({ open: "06:00", close: "21:00" });
+    expect(gridRange({ ...base, reservations: [r("07:45", "08:30")] }).open).toBe("07:30");
+  });
+
+  it("knows which slots are inside the hours", () => {
+    expect(isSlotWithinHours("08:00", 30, "08:00", "20:00")).toBe(true);
+    expect(isSlotWithinHours("19:30", 30, "08:00", "20:00")).toBe(true);
+    expect(isSlotWithinHours("07:30", 30, "08:00", "20:00")).toBe(false);
+    expect(isSlotWithinHours("20:00", 30, "08:00", "20:00")).toBe(false);
   });
 });
