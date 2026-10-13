@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getCurrentUser, SESSION_COOKIE_NAME, type Role } from "@/lib/session";
+import { getCurrentUser, SESSION_COOKIE_NAME, type JobFunction, type Role } from "@/lib/session";
 
 // Mirrors the backend's RoleHierarchy (ADMIN > MANAGER > CASHIER > WAITER —
 // see openapi.yaml's Role schema). Several POS endpoints are gated at
@@ -39,5 +39,13 @@ export async function requireAdminUser() {
 export async function requireRoleAtLeast(minimum: Role) {
   const user = await requireSessionUser();
   if (!hasRoleAtLeast(user.role, minimum)) redirect("/admin/access-denied");
+  return user;
+}
+
+// A page that a role floor OR a job function opens (the spa schedule: CASHIER+ or THERAPIST). The page
+// then decides what the person may do - a function below the floor is read-only.
+export async function requireRoleAtLeastOrFunction(minimum: Role, fn: JobFunction) {
+  const user = await requireSessionUser();
+  if (!hasRoleAtLeast(user.role, minimum) && !user.functions.includes(fn)) redirect("/admin/access-denied");
   return user;
 }

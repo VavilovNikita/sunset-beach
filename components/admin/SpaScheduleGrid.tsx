@@ -47,12 +47,19 @@ export default function SpaScheduleGrid({
   bookings,
   therapists,
   date,
+  readOnly = false,
+  currentUserId,
 }: {
   schedule: SpaSchedule;
   menuItems: MenuItem[];
   bookings: Booking[];
   therapists: SpaTherapist[];
   date: string;
+  // A therapist below CASHIER reads the schedule: free slots book nothing, appointments can't be
+  // picked up, and the details panel offers no action. The server refuses every one of those too.
+  readOnly?: boolean;
+  // The signed-in user, so a therapist's own appointments are outlined.
+  currentUserId?: string;
 }) {
   const router = useRouter();
   const gridRef = useRef<HTMLDivElement>(null);
@@ -177,7 +184,7 @@ export default function SpaScheduleGrid({
 
   function onAppointmentPointerDown(e: React.PointerEvent<HTMLButtonElement>, a: SpaAppointment) {
     notePointerType(e);
-    if (a.status !== "BOOKED") return;
+    if (readOnly || a.status !== "BOOKED") return;
     e.currentTarget.setPointerCapture(e.pointerId);
     setTouchActionNone(true);
     setDragState({
@@ -431,13 +438,13 @@ export default function SpaScheduleGrid({
                         data-spa-cell
                         data-table-id={table.id}
                         data-start-time={c}
-                        disabled={occupiedCols.has(i)}
-                        onClick={() => setCreateTarget({ tableId: table.id, tableLabel: table.label, startTime: c })}
+                        disabled={readOnly || occupiedCols.has(i)}
+                        onClick={readOnly ? undefined : () => setCreateTarget({ tableId: table.id, tableLabel: table.label, startTime: c })}
                         className={`absolute top-0 bottom-0 border-r border-cream/5 ${
-                          occupiedCols.has(i) ? "" : "hover:bg-cream/5 cursor-cell"
+                          readOnly || occupiedCols.has(i) ? "" : "hover:bg-cream/5 cursor-cell"
                         }`}
                         style={{ left: i * colWidth, width: colWidth }}
-                        aria-label={`Book ${table.label} at ${c}`}
+                        aria-label={readOnly ? `${table.label} at ${c}` : `Book ${table.label} at ${c}`}
                       />
                     ))}
 
@@ -466,11 +473,14 @@ export default function SpaScheduleGrid({
                           className={`absolute rounded-md flex items-center gap-1 px-2 text-xs truncate ${STATUS_STYLES[a.status]} ${
                             dragging ? "opacity-50 ring-2 ring-dashed ring-cream" : ""
                           } ${isSwapTarget ? "ring-2 ring-sea" : ""} ${
+                            // The therapist's own appointment: a cream outline (a shape - the palette is full).
+                            currentUserId && a.therapistUserId === currentUserId ? "outline outline-2 outline-offset-1 outline-cream font-semibold" : ""
+                          } ${
                             // touch-none is static, not left to onAppointmentPointerDown's
                             // setTouchActionNone: a browser fixes a touch gesture's touch-action
                             // when the finger lands, so setting it inside pointerdown is too late -
                             // the first move pans and fires pointercancel. Same as PropertyMapView.
-                            a.status === "BOOKED" ? "cursor-grab active:cursor-grabbing touch-none" : ""
+                            !readOnly && a.status === "BOOKED" ? "cursor-grab active:cursor-grabbing touch-none" : ""
                           }`}
                           // pointerEvents: "none" while dragging - same as BookingCalendarGrid's own
                           // dragged bar. Pointer capture (set in onAppointmentPointerDown) still
@@ -547,6 +557,7 @@ export default function SpaScheduleGrid({
         <SpaAppointmentPanel
           appointment={selectedAppointment}
           treatments={treatments}
+          readOnly={readOnly}
           onClose={() => setSelectedAppointmentId(null)}
           onUpdated={() => {
             setSelectedAppointmentId(null);

@@ -1,7 +1,7 @@
 // The admin sidebar's link structure, as data + a pure filter - kept out of AdminSidebar.tsx so
 // "does each role see the right groups, and never an empty group header" is a testable rule
 // (adminNav.test.ts), not something only checked by eye in four separate browser logins.
-import type { Role } from "@/lib/session";
+import type { JobFunction, Role } from "@/lib/session";
 
 export type NavLink = {
   href: string;
@@ -18,6 +18,10 @@ export type NavLink = {
   // a role floor alone would hide) the day a link actually needs it, rather than carrying it
   // unused until then.
   minRole?: Exclude<Role, "WAITER">;
+  // A job function that unlocks the link whatever the role - OR'd with minRole, never ANDed (a
+  // function opens a link a role floor alone would hide). Mirrors a backend gate of the form
+  // "CASHIER+ or FUNCTION_<name>"; today only THERAPIST reading the spa schedule.
+  orFunction?: JobFunction;
 };
 
 export type NavGroup = {
@@ -94,11 +98,12 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     title: "Spa",
-    // GET /spa-appointments, the live table map and the treatment list are CASHIER+ - reception is
-    // the only spa surface in v1 (no therapist self-service, see JobFunction.THERAPIST). Tables
-    // (the raw CRUD list, no live-occupancy value) is MANAGER+, matching its page's own gate.
+    // The live table map and the treatment list are CASHIER+. GET /spa-appointments is CASHIER+ or
+    // the THERAPIST function (read only: the page opens in a read-only mode for a therapist below
+    // CASHIER), so Appointments is the one Spa link a therapist sees. Tables (the raw CRUD list, no
+    // live-occupancy value) is MANAGER+, matching its page's own gate.
     links: [
-      { href: "/admin/spa", label: "Appointments", minRole: "CASHIER" },
+      { href: "/admin/spa", label: "Appointments", minRole: "CASHIER", orFunction: "THERAPIST" },
       { href: "/admin/spa/map", label: "Table map", minRole: "CASHIER" },
       { href: "/admin/spa/treatments", label: "Treatments", minRole: "CASHIER" },
       { href: "/admin/spa/tables", label: "Tables", minRole: "MANAGER" },
@@ -147,14 +152,15 @@ function meetsMinRole(minRole: Exclude<Role, "WAITER">, role: Role): boolean {
   return role === "ADMIN";
 }
 
-export function isNavLinkVisible(link: NavLink, role: Role): boolean {
-  return !link.minRole || meetsMinRole(link.minRole, role);
+export function isNavLinkVisible(link: NavLink, role: Role, functions: readonly JobFunction[] = []): boolean {
+  if (!link.minRole || meetsMinRole(link.minRole, role)) return true;
+  return link.orFunction !== undefined && functions.includes(link.orFunction);
 }
 
 // Every group's links filtered to what this role may see, with any group left with zero links
 // dropped entirely - a group header must never render with nothing under it.
-export function visibleNavGroups(role: Role): NavGroup[] {
-  return NAV_GROUPS.map((g) => ({ ...g, links: g.links.filter((l) => isNavLinkVisible(l, role)) })).filter(
+export function visibleNavGroups(role: Role, functions: readonly JobFunction[] = []): NavGroup[] {
+  return NAV_GROUPS.map((g) => ({ ...g, links: g.links.filter((l) => isNavLinkVisible(l, role, functions)) })).filter(
     (g) => g.links.length > 0
   );
 }

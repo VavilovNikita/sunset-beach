@@ -47,11 +47,15 @@ import { formatDate } from "@/lib/formatDate";
 export default function SpaAppointmentPanel({
   appointment,
   treatments: availableTreatments,
+  readOnly = false,
   onClose,
   onUpdated,
 }: {
   appointment: SpaAppointment;
   treatments: MenuItem[];
+  // Details only - no add/remove treatment, billing, completing or cancelling (a THERAPIST below
+  // CASHIER; the server refuses all of it as well). The linked order isn't fetched either.
+  readOnly?: boolean;
   onClose: () => void;
   onUpdated: () => void;
 }) {
@@ -171,7 +175,7 @@ export default function SpaAppointmentPanel({
   const linkedOrderCancelled = linkedOrder?.id === orderId && linkedOrder.status === "CANCELLED";
 
   useEffect(() => {
-    if (!orderId) return;
+    if (!orderId || readOnly) return;
     let stale = false;
     adminRequest<Order>(`/orders/${orderId}`, undefined, "Could not load the linked order.").then((result) => {
       if (!stale && result.ok) setLinkedOrder({ id: result.data.id, status: result.data.status, number: result.data.number });
@@ -179,14 +183,14 @@ export default function SpaAppointmentPanel({
     return () => {
       stale = true;
     };
-  }, [orderId]);
+  }, [orderId, readOnly]);
   // Growing is only offered while BOOKED (a COMPLETED appointment is a record of what happened,
   // not a plan still being negotiated - see the backend CLAUDE.md's Naming section); shrinking
   // (below) stays available through COMPLETED too, to correct an over-count, since it can never
   // collide with anything.
-  const canAddTreatment = isBooked;
+  const canAddTreatment = isBooked && !readOnly;
   // Not once the linked order is paid - see canRemoveTreatmentFrom (the server refuses it too).
-  const canRemoveTreatment = (isBooked || isCompleted) && canRemoveTreatmentFrom(linkedOrder?.id === orderId ? linkedOrder.status : null);
+  const canRemoveTreatment = !readOnly && (isBooked || isCompleted) && canRemoveTreatmentFrom(linkedOrder?.id === orderId ? linkedOrder.status : null);
   const totalCurrentPrice = sumTreatmentPrices(current.treatments.map((t) => t.currentPrice));
 
   return (
@@ -207,7 +211,7 @@ export default function SpaAppointmentPanel({
         </div>
 
         <div className="p-5 space-y-4">
-          {isSpaOverdue(current, new Date()) && (
+          {!readOnly && isSpaOverdue(current, new Date()) && (
             <p className="text-sm text-amber-400">
               This appointment&rsquo;s time has passed and it&rsquo;s still marked Booked — mark it completed (and bill it) or a no-show.
             </p>
@@ -291,7 +295,7 @@ export default function SpaAppointmentPanel({
             {addTreatmentError && <p className="text-sm text-coral">{addTreatmentError}</p>}
           </div>
 
-          {orderId && linkedOrderCancelled ? (
+          {readOnly ? null : orderId && linkedOrderCancelled ? (
             <div className="space-y-2">
               <p className="text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2">
                 The linked order {orderNumberLabel(linkedOrder!)} was cancelled — nothing has been charged for this appointment.
@@ -345,7 +349,7 @@ export default function SpaAppointmentPanel({
             )
           )}
 
-          {current.status === "COMPLETED" && orderId && current.missingTreatmentNames.length > 0 && (
+          {!readOnly && current.status === "COMPLETED" && orderId && current.missingTreatmentNames.length > 0 && (
             <div className="space-y-2">
               <p className="text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2">
                 Linked order doesn&apos;t carry: {current.missingTreatmentNames.join(", ")}.
@@ -373,7 +377,7 @@ export default function SpaAppointmentPanel({
 
           {error && <p className="text-sm text-coral">{error}</p>}
 
-          {isBooked && !showCancelForm && (
+          {!readOnly && isBooked && !showCancelForm && (
             <div className="flex flex-wrap gap-2 pt-2 border-t border-cream/10">
               <button
                 type="button"
@@ -402,7 +406,7 @@ export default function SpaAppointmentPanel({
             </div>
           )}
 
-          {isBooked && showCancelForm && (
+          {!readOnly && isBooked && showCancelForm && (
             <div className="space-y-2 pt-2 border-t border-cream/10">
               <label className="eyebrow text-cream/60 block">Cancel reason (optional)</label>
               <textarea

@@ -172,6 +172,8 @@ Spa tables are ordinary POS `Table` rows (`zone: "SPA"`), and a spa appointment 
 
 **A booking whose guest has arrived has no "Cancelled" in its status dropdown** (`selectableStatuses`), with the reason under it; the server answers 409 regardless. After a cancellation the booking page shows `Booking.warning` (a paid spa appointment the cancellation left alone) until it is dealt with.
 
+**A THERAPIST below CASHIER reads the spa schedule, and only that** (owner's decision; the server's gate is CASHIER+ or `FUNCTION_THERAPIST` on `GET /spa-appointments` and `/spa-appointments/therapists`, every write stays CASHIER+). `/admin/spa` opens for them read only (`readOnly` on `SpaScheduleGrid`/`SpaAppointmentPanel`): free slots book nothing, appointments can't be dragged, the details panel has no action, no guest list or linked order is fetched, and the header links to CASHIER+ pages are gone. Their own appointments are outlined. The sidebar shows them Appointments only (`NavLink.orFunction`, OR'd with `minRole`). Don't widen a function's reach by hiding a role check in a page - add the matching backend gate first.
+
 ## Public site
 
 Guest-facing pages and the booking flow are not to be touched unless the task is about them. They are the only part real guests see, and they are the least covered by tests.

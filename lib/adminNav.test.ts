@@ -11,6 +11,23 @@ function assertNoEmptyGroups(groups: ReturnType<typeof visibleNavGroups>) {
 
 const FULL_ORDER = ["Front desk", "Restaurant", "Spa", "Reports", "Staff"];
 
+describe("visibleNavGroups with a job function", () => {
+  it("shows a WAITER who is a THERAPIST the Appointments link and nothing else of Spa", () => {
+    const groups = visibleNavGroups("WAITER", ["THERAPIST"]);
+    assertNoEmptyGroups(groups);
+    const spa = groups.find((g) => g.title === "Spa");
+    expect(spa?.links.map((l) => l.label)).toEqual(["Appointments"]);
+    // The function opens that one link, not the rest of what a CASHIER sees.
+    expect(groups.map((g) => g.title)).toEqual(["Front desk", "Restaurant", "Spa", "Staff"]);
+    expect(groups[0].links.map((l) => l.label)).toEqual(["Maintenance"]);
+  });
+
+  it("does not show Spa to a WAITER with another function, or none", () => {
+    expect(visibleNavGroups("WAITER", ["ENGINEER", "HOUSEKEEPER"]).map((g) => g.title)).not.toContain("Spa");
+    expect(visibleNavGroups("WAITER").map((g) => g.title)).not.toContain("Spa");
+  });
+});
+
 describe("visibleNavGroups", () => {
   it("WAITER sees Front desk (Maintenance only), Restaurant (POS/Print queue/Menu), and Staff (My schedule only)", () => {
     const groups = visibleNavGroups("WAITER");

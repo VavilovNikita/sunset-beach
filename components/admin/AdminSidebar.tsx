@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { Role } from "@/lib/session";
+import type { JobFunction, Role } from "@/lib/session";
 import {
   activeNavGroupTitle,
   activeNavHref,
@@ -13,7 +13,7 @@ import {
   visibleNavGroups,
 } from "@/lib/adminNav";
 
-export default function AdminSidebar({ email, role }: { email: string; role: Role }) {
+export default function AdminSidebar({ email, role, functions }: { email: string; role: Role; functions: JobFunction[] }) {
   // A spa ticket lives under /admin/pos/orders but belongs to Spa - see lib/adminNav.ts#navPathname.
   const pathname = navPathname(usePathname(), useSearchParams().get("section"));
   const router = useRouter();
@@ -29,7 +29,7 @@ export default function AdminSidebar({ email, role }: { email: string; role: Rol
   // not just something eyeballed across four logins). allLinks (group boundaries dropped) is
   // only for the two things below that need one flat list: which link is "active", and where the
   // brand mark links a WAITER (who has no /admin landing of their own - see homeHref).
-  const groups = visibleNavGroups(role);
+  const groups = visibleNavGroups(role, functions);
   const allLinks = groups.flatMap((g) => g.links);
   const activeHref = activeNavHref(allLinks, pathname);
   const activeGroup = activeNavGroupTitle(groups, pathname);

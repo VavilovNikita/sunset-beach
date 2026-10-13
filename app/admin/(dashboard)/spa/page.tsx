@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
-import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
+import { requireRoleAtLeastOrFunction, hasRoleAtLeast } from "@/lib/rbac";
 import { addDaysUTC, dateOnlyUTC, parseDateKey, toDateKey } from "@/lib/bookings";
 import { hotelDateKey } from "@/lib/hotelDate";
 import SpaScheduleGrid from "@/components/admin/SpaScheduleGrid";
@@ -23,9 +23,11 @@ function parseDateParam(value: string | undefined): string {
 }
 
 export default async function AdminSpaPage({ searchParams }: { searchParams: { date?: string } }) {
-  // GET /spa-appointments is CASHIER+ on the backend, same floor as the rest of front-desk work -
-  // reception is the only surface in v1 (no therapist self-service, see JobFunction.THERAPIST).
-  const user = await requireRoleAtLeast("CASHIER");
+  // GET /spa-appointments is CASHIER+ or the THERAPIST function on the backend. Below CASHIER the
+  // schedule is read only: no booking, moving, cancelling or billing (all CASHIER+ on the server too),
+  // and none of the data those need - the guest list is CASHIER+, so it isn't even requested.
+  const user = await requireRoleAtLeastOrFunction("CASHIER", "THERAPIST");
+  const readOnly = !hasRoleAtLeast(user.role, "CASHIER");
   const canManageTables = hasRoleAtLeast(user.role, "MANAGER");
 
   const date = parseDateParam(searchParams.date);
@@ -40,7 +42,7 @@ export default async function AdminSpaPage({ searchParams }: { searchParams: { d
     // Every menu item, not just SPA ones, so the create modal can say clearly why a non-treatment
     // item isn't offered rather than silently omitting it - see SpaScheduleGrid.
     backendJsonOrDefault<MenuItem[]>("/menu", [], { auth: true }),
-    backendJsonOrDefault<Booking[]>(`/bookings?from=${dayBefore}&to=${date}`, [], { auth: true }),
+    readOnly ? Promise.resolve([] as Booking[]) : backendJsonOrDefault<Booking[]>(`/bookings?from=${dayBefore}&to=${date}`, [], { auth: true }),
     backendJsonOrDefault<SpaTherapist[]>("/spa-appointments/therapists", [], { auth: true }),
   ]);
 
@@ -53,6 +55,7 @@ export default async function AdminSpaPage({ searchParams }: { searchParams: { d
         </div>
         {/* The sidebar's Spa group lists these too; they stay on the hub's own header as well,
             one tap away from the schedule they're used alongside. */}
+        {!readOnly && (
         <div className="flex items-center gap-4 mt-1 flex-wrap justify-end">
           <Link href="/admin/spa/treatments" className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4">
             Treatments
@@ -69,14 +72,31 @@ export default async function AdminSpaPage({ searchParams }: { searchParams: { d
             Table map
           </Link>
         </div>
+        )}
       </div>
-      <p className="text-xs text-cream/40 mb-6 max-w-2xl">
-        Rows are spa tables, columns are {schedule.slotMinutes}-minute slots from {schedule.openingTime} to{" "}
-        {schedule.closingTime}. Click a free slot to book a treatment; double-click a booked one (tap once on a
-        touchscreen) to cancel, mark no-show, or complete it — or drag it to another table or time to reschedule.
-      </p>
+      {readOnly ? (
+        <p className="text-xs text-cream/40 mb-6 max-w-2xl">
+          Read only. Rows are spa tables, columns are {schedule.slotMinutes}-minute slots from {schedule.openingTime} to{" "}
+          {schedule.closingTime}. Double-click an appointment (tap once on a touchscreen) to see its details. Your own
+          appointments are outlined.
+        </p>
+      ) : (
+        <p className="text-xs text-cream/40 mb-6 max-w-2xl">
+          Rows are spa tables, columns are {schedule.slotMinutes}-minute slots from {schedule.openingTime} to{" "}
+          {schedule.closingTime}. Click a free slot to book a treatment; double-click a booked one (tap once on a
+          touchscreen) to cancel, mark no-show, or complete it — or drag it to another table or time to reschedule.
+        </p>
+      )}
 
-      <SpaScheduleGrid schedule={schedule} menuItems={menuItems} bookings={bookings} therapists={therapists} date={date} />
+      <SpaScheduleGrid
+        schedule={schedule}
+        menuItems={menuItems}
+        bookings={bookings}
+        therapists={therapists}
+        date={date}
+        readOnly={readOnly}
+        currentUserId={user.id}
+      />
     </div>
   );
 }
