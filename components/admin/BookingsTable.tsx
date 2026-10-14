@@ -135,7 +135,7 @@ export default function BookingsTable({
                       </span>
                     )}
                     {/* Any status: the balance is the server's (Booking.balanceDue), not a PAID-only hint. */}
-                    <OwesBadge balanceDue={b.balanceDue} />
+                    <OwesBadge balanceDue={b.balanceDue} owes={b.owes} />
                   </div>
                 </td>
                 <td className="py-3 pr-4 text-cream/40 text-xs whitespace-nowrap">{formatTimestampDate(b.createdAt)}</td>

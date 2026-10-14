@@ -14,9 +14,9 @@ const METHODS: { value: FolioPaymentMethod; label: string }[] = [
 // Asked before a booking is saved as PAID while money is still owed, from either booking edit form.
 // PAID never writes money off on its own: the payment collected here travels with the status
 // change (BookingStatusInput.payment) and the backend records both in one transaction, or neither.
-// The amount is pre-filled with the server's figure (`amountDue`) - the guest-facing balance is
-// never worked out on this side; if the desk types a different amount the server refuses it and
-// says what is owed.
+// The amount is the server's figure (`amountDue`) and is shown read-only - the balance is never
+// worked out or typed on this side. A guest who pays only part of it is recorded from the folio
+// payment form, which takes any amount up to the balance; this dialog settles the booking in full.
 export default function MarkPaidDialog({
   guestName,
   amountDue,
@@ -34,7 +34,7 @@ export default function MarkPaidDialog({
   onBack: () => void;
 }) {
   const [method, setMethod] = useState<FolioPaymentMethod | "">("");
-  const [amount, setAmount] = useState(amountDue);
+  const amount = amountDue;
   const [problem, setProblem] = useState<string | null>(null);
 
   function handleConfirm() {
@@ -66,12 +66,12 @@ export default function MarkPaidDialog({
             Amount collected <span className="text-coral">*</span>
           </label>
           <input
-            type="number"
-            step="0.01"
-            min="0.01"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-32 bg-ink border border-cream/20 rounded-lg px-3 py-2 text-sm"
+            type="text"
+            readOnly
+            aria-readonly="true"
+            value={`฿${Number(amount).toLocaleString("en-US")}`}
+            title="The amount owed, as the server worked it out"
+            className="w-32 bg-ink/60 border border-cream/10 rounded-lg px-3 py-2 text-sm text-cream/80 cursor-default"
           />
         </div>
         <div className="flex-1 min-w-[10rem]">

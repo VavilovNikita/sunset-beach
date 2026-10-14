@@ -182,7 +182,7 @@ export default function GuestOrderClient({ orderId, token }: { orderId: string; 
                       aria-label={`One fewer ${item?.name ?? ""}`}
                       disabled={sending}
                       onClick={() => setCart((c) => removeOneFromCart(c, line.menuItemId))}
-                      className="w-9 h-9 rounded-full bg-ink text-cream active:bg-cream/10 disabled:opacity-50"
+                      className="w-11 h-11 rounded-full bg-ink text-cream active:bg-cream/10 disabled:opacity-50"
                     >
                       −
                     </button>
@@ -192,7 +192,7 @@ export default function GuestOrderClient({ orderId, token }: { orderId: string; 
                       aria-label={`One more ${item?.name ?? ""}`}
                       disabled={sending || !canAddOne(line.quantity)}
                       onClick={() => setCart((c) => addToCart(c, line.menuItemId))}
-                      className="w-9 h-9 rounded-full bg-ink text-cream active:bg-cream/10 disabled:opacity-50"
+                      className="w-11 h-11 rounded-full bg-ink text-cream active:bg-cream/10 disabled:opacity-50"
                     >
                       +
                     </button>
@@ -200,7 +200,7 @@ export default function GuestOrderClient({ orderId, token }: { orderId: string; 
                       type="button"
                       disabled={sending}
                       onClick={() => setCart((c) => removeFromCart(c, line.menuItemId))}
-                      className="ml-1 text-xs text-cream/50 active:text-coral px-1 py-2 disabled:opacity-50"
+                      className="ml-1 min-h-[44px] min-w-[44px] text-xs text-cream/50 active:text-coral px-2 py-2 disabled:opacity-50"
                     >
                       Remove
                     </button>
@@ -232,7 +232,7 @@ export default function GuestOrderClient({ orderId, token }: { orderId: string; 
                   key={c}
                   type="button"
                   onClick={() => setCategory(c)}
-                  className={`shrink-0 text-sm rounded-full px-4 py-2.5 font-medium transition-colors ${
+                  className={`shrink-0 min-h-[44px] text-sm rounded-full px-4 py-2.5 font-medium transition-colors ${
                     category === c ? "bg-coral text-ink" : "bg-ink2 text-cream/60"
                   }`}
                 >
@@ -249,7 +249,7 @@ export default function GuestOrderClient({ orderId, token }: { orderId: string; 
                 type="button"
                 disabled={sending}
                 onClick={() => setCart((c) => addToCart(c, item.id))}
-                className="rounded-xl bg-ink2 border border-cream/10 active:bg-sea/15 active:border-sea/40 transition-colors px-3 py-2.5 text-left disabled:opacity-50"
+                className="rounded-xl bg-ink2 border border-cream/10 active:bg-sea/15 active:border-sea/40 transition-colors min-h-[44px] px-3 py-2.5 text-left disabled:opacity-50"
               >
                 <p className="text-cream text-sm leading-snug">{item.name}</p>
                 <p className="text-cream/50 text-xs mt-0.5">฿{Number(item.price).toLocaleString("en-US")}</p>

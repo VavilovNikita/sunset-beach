@@ -46,6 +46,12 @@ Do not add a date library. Local-time parsing shifts date-only values by a day i
 
 Gate on amounts, not counts. A count of past charges never returns to zero, so a badge keyed on it stays lit forever — this exact bug appeared in three places.
 
+**The "Owes" badge needs both `Booking.balanceDue > 0` and `Booking.owes` (`OwesBadge`).** `owes` is the server's word that the debt has already fallen due (a guest in the house or gone, a cancelled booking with charges, a stay whose dates are over); a future booking that is merely unpaid is money still to collect, not owed, and gets no badge. A no-show's room is not owed at all. Don't show the badge from `balanceDue` alone again, and don't re-derive "has the debt fallen due" from dates and statuses on a screen.
+
+**The `MarkPaidDialog` amount is the server's figure, read-only.** Part-payments are recorded from the folio payment form (any amount up to the balance); marking `PAID` settles in full.
+
+**A drawer that doesn't match is closed with a note** (`lib/shiftReconciliation.ts#closeNoteRequired/closeNoteMissing`, both shift panels): the server answers 400 on `notes` otherwise. The check on screen only spares the round trip.
+
 ## Requests and failures
 
 Authorized calls go through the same-origin proxy (`/api/admin-proxy/...`). The public site uses `/api/public-proxy/...`, which has a strict allowlist — it is unauthenticated, so it must never forward arbitrary paths to the backend.
@@ -63,6 +69,14 @@ Any action that can fail shows its failure next to the control that triggered it
 **"Not printed" is FAILED + PENDING, and every print counter uses that one rule (`lib/printQueue.ts`).** The /pos banner, the admin POS badge and both print queues' default tab once counted only `FAILED` - but a job turns `FAILED` only after its last automatic retry (~4 minutes by default), so a kitchen ticket that never printed was invisible everywhere until then, and two screens looked at a minute apart disagreed. A `PENDING` job has already failed an attempt (a successful first attempt goes straight to `SENT`). Don't add a counter that asks for `status=FAILED` alone.
 
 **`COOKIE_SECURE` (`lib/session.ts`, shared by the staff and guest session cookies) must be `true` in production.** This site is HTTPS-only in production (nginx terminates TLS, port 80 only redirects) — `COOKIE_SECURE=false` was found still set in `.env.production` on the live server, dropping both session cookies without the `Secure` attribute. It's environment-specific, not a constant: keep it `false` for local plain-HTTP development, `true` wherever the site is actually served over HTTPS. Don't "fix" it back to `false` because an old comment or `.env.production.example` default says to — check how the site is actually being served first.
+
+## Calendar address
+
+**`?to=` in the booking calendar's address is the LAST day shown**, the same day the "To" field and the caption show (`?from=2026-10-14&to=2026-10-20` is seven days). Inside the app a period is still `[from, to)` like a stay; `lib/calendarRange.ts#calendarHref` and `toExclusiveFromParam` are the only places that cross that line - build and read the address with them, never by adding or subtracting a day inline. The stored period (localStorage) stays `[from, to)`.
+
+## Spa and gym screens
+
+**A spa treatment never starts in the past** (the server refuses it): the grid disables past cells, and the slot that is under way is still bookable (`isSpaStartInPast` with the slot grid). A therapist's read-only grid does not list cancelled appointments; whoever manages the grid still sees them. **The gym pages ask `GET /gym/status` (no Tuya call)** and show `GymSetupBanner` when Tuya has no keys; a reservation's equipment line says "Automation not set up" when Tuya is unconfigured or no device takes part in bookings (`automationNotSetUp`). A rejected gym move shows one message: the on-screen "slot taken" hint when the schedule already shows it, otherwise the server's answer - never both.
 
 ## Roles
 

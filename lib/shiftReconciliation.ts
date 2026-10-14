@@ -26,6 +26,18 @@ export function reconcileCash(shift: ShiftSummary, countedInput: string): Reconc
   return { expectedCash, counted, discrepancy };
 }
 
+// A drawer that does not match the books is closed only with a note saying why (the server answers
+// 400 on `notes` without one - ShiftService#close). Whether it matches is the arithmetic above; the
+// note counts as written when anything visible is left after trimming. The server is the judge
+// (it also ignores no-break spaces and zero-width characters); this only spares the round trip.
+export function closeNoteRequired(discrepancy: number | null): boolean {
+  return discrepancy !== null && discrepancy !== 0;
+}
+
+export function closeNoteMissing(discrepancy: number | null, notes: string): boolean {
+  return closeNoteRequired(discrepancy) && notes.replace(/[\s\u200B-\u200D\u2060\uFEFF]/g, "") === "";
+}
+
 // The "who opened this drawer, when, with how much" facts shown at the top of an open or closed
 // shift on every shift screen (admin panel, phone panel, shift report). Display only - the float
 // is the server's own figure, never re-derived.

@@ -1,10 +1,12 @@
-// "Owes ฿X" - shown for ANY booking whose server-computed balance (Booking.balanceDue, the folio's
-// single balance) is above zero, whatever its status: a checked-out guest who left without paying,
-// a NEW booking whose dates have passed, a CANCELLED one that still carries POS charges. A PAID
-// status says the room is settled, not that nothing is owed, and a status badge alone used to hide
-// all of these. Gated on the amount, never a count of charges (a count never goes back down).
-// `balanceDue` comes from the server as sent; nothing is worked out here.
-export default function OwesBadge({ balanceDue }: { balanceDue: string | number | null | undefined }) {
+// "Owes ฿X" - shown when the server says the debt has already fallen due (Booking.owes) AND the
+// balance (Booking.balanceDue, the folio's single balance) is above zero: a guest in the house or
+// gone who has not paid, a CANCELLED booking that still carries charges, a stay whose dates are over.
+// A future booking that is merely unpaid shows no badge - that money is still to be collected, not
+// owed. Gated on the amount, never a count of charges (a count never goes back down).
+// Both values come from the server as sent; nothing is worked out here. `owes` is left out only by
+// a caller whose rows are due by definition (the night audit's unpaid balances).
+export default function OwesBadge({ balanceDue, owes = true }: { balanceDue: string | number | null | undefined; owes?: boolean | null }) {
+  if (owes === false) return null;
   if (!(Number(balanceDue) > 0)) return null;
 
   const amount = `฿${Number(balanceDue).toLocaleString("en-US")}`;

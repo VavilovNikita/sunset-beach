@@ -71,6 +71,7 @@ function CalendarLegend() {
 // for fixing an auto-migrated block (delete the wrong one, add a correct one).
 export default function RoomUnitBlocksPanel({
   roomUnitId,
+  initialDate,
   label,
   month,
   days,
@@ -80,6 +81,8 @@ export default function RoomUnitBlocksPanel({
   onChanged,
 }: {
   roomUnitId: string;
+  // The day picked in the grid before "Manage" - the block form opens on it (today when absent).
+  initialDate?: string;
   label: string;
   month: string; // YYYY-MM, the grid's month
   days: AvailabilityDay[]; // this unit's room type, that month
@@ -91,10 +94,12 @@ export default function RoomUnitBlocksPanel({
   const [blocks, setBlocks] = useState<RoomUnitBlock[]>([]);
   const [blocksLoading, setBlocksLoading] = useState(false);
   const [blocksError, setBlocksError] = useState<string | null>(null);
-  // A block opens on today, one night - the usual case (a room that broke today) - and the form goes
-  // back to that after each block. Both dates are inclusive, like the block itself.
-  const [from, setFrom] = useState(() => hotelDateKey(new Date()));
-  const [to, setTo] = useState(() => hotelDateKey(new Date()));
+  // A block opens on the day that was selected in the grid (today when none), one night - the usual
+  // case (a room that broke that day) - and the form goes back to that after each block. Both dates
+  // are inclusive, like the block itself.
+  const defaultDay = () => initialDate ?? hotelDateKey(new Date());
+  const [from, setFrom] = useState(defaultDay);
+  const [to, setTo] = useState(defaultDay);
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,8 +146,8 @@ export default function RoomUnitBlocksPanel({
     // The block is already created at this point - this is a warning after the fact, not a
     // confirmation to ask before creating it.
     if (result.result.warning) setBlockWarning(result.result);
-    setFrom(hotelDateKey(new Date()));
-    setTo(hotelDateKey(new Date()));
+    setFrom(defaultDay());
+    setTo(defaultDay());
     setReason("");
     await refetchBlocks();
     onChanged();

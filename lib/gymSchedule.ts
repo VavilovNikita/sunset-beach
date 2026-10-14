@@ -125,6 +125,15 @@ export function durationLabel(minutes: number): string {
 
 // ---- what the automation did, in words ----
 
+// What GET /gym/status says about the equipment side. With no Tuya keys, or no device that bookings
+// switch, a reservation's equipment is never touched - a screen says the automation is not set up
+// rather than "not switched on yet", which reads like something that is still going to happen.
+export type GymSetup = { tuyaConfigured: boolean; automatedDeviceCount: number };
+
+export function automationNotSetUp(setup: GymSetup | null | undefined): boolean {
+  return setup != null && (!setup.tuyaConfigured || setup.automatedDeviceCount === 0);
+}
+
 export type AutomationTone = "neutral" | "pending" | "ok" | "warn" | "bad";
 
 export type AutomationSummary = {
@@ -165,14 +174,21 @@ function skippedReason(phase: GymAutomationPhase): string | null {
 
 // The headline for a reservation's block and panel: switched on / partly (with who failed) / error,
 // then the switch-off once it has happened. The tone is the worst of both phases, the label the latest.
-export function automationSummary(r: Pick<GymReservation, "status" | "automation">): AutomationSummary {
+export function automationSummary(r: Pick<GymReservation, "status" | "automation">, setup?: GymSetup | null): AutomationSummary {
   const { switchOn, switchOff } = r.automation as GymAutomation;
   const problems = [...failedLines(switchOn), ...failedLines(switchOff)];
   let tone: AutomationTone = "neutral";
   let label: string;
 
   if (!switchOn) {
-    label = r.status === "CANCELLED" ? "Cancelled — equipment untouched" : r.status === "COMPLETED" ? "No equipment switched" : "Equipment not switched on yet";
+    label =
+      r.status === "CANCELLED"
+        ? "Cancelled — equipment untouched"
+        : r.status === "COMPLETED"
+          ? "No equipment switched"
+          : automationNotSetUp(setup)
+            ? "Automation not set up"
+            : "Equipment not switched on yet";
     return { tone, label, problems };
   }
 

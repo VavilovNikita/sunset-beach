@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { cancelGymReservation, moveGymReservation } from "@/lib/gymScheduleClient";
-import { automationSummary, buildSlots, durationLabel, durationOptions, maxDurationAt, type AutomationTone } from "@/lib/gymSchedule";
+import { automationSummary, buildSlots, durationLabel, durationOptions, maxDurationAt, type AutomationTone, type GymSetup } from "@/lib/gymSchedule";
 import { formatDate, formatTimestamp } from "@/lib/formatDate";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 import type { GymAutomationDeviceResult, GymAutomationPhase, GymReservation, GymSchedule } from "@/lib/types";
@@ -69,16 +69,19 @@ function Phase({ title, phase }: { title: string; phase: GymAutomationPhase | nu
 export default function GymReservationPanel({
   reservation,
   schedule,
+  setup,
   onClose,
   onUpdated,
 }: {
   reservation: GymReservation;
   schedule: GymSchedule;
+  // GET /gym/status, when it could be read - decides "Automation not set up".
+  setup?: GymSetup | null;
   onClose: () => void;
   onUpdated: () => void;
 }) {
   useCloseOnBrowserBack(true, onClose);
-  const summary = automationSummary(reservation);
+  const summary = automationSummary(reservation, setup);
   const booked = reservation.status === "BOOKED";
   const started = Boolean(reservation.automation.switchOn);
 
@@ -121,6 +124,11 @@ export default function GymReservationPanel({
   }
 
   const field = "w-full bg-ink border border-cream/20 rounded-lg px-3 min-h-[44px] text-sm";
+  // One message about a slot that cannot be had, never two. When the schedule on screen already shows
+  // there is no room (max === 0) the hint is the message and Save stays off - the server is not asked.
+  // When the screen could not know (a date outside the view) or the server still refuses (someone booked
+  // it a moment ago), the server's answer is the message and replaces the hint.
+  const slotTakenHint = !dateOutsideView && max === 0 && !moveError;
 
   return (
     <div className="fixed inset-0 z-40 pointer-events-none">
@@ -205,13 +213,32 @@ export default function GymReservationPanel({
                 <label htmlFor="gym-move-date" className="text-xs text-cream/60 block mb-1">
                   Date
                 </label>
-                <input id="gym-move-date" type="date" value={date} disabled={started} onChange={(e) => e.target.value && setDate(e.target.value)} className={field} />
+                <input
+                  id="gym-move-date"
+                  type="date"
+                  value={date}
+                  disabled={started}
+                  onChange={(e) => {
+                    setMoveError(null);
+                    if (e.target.value) setDate(e.target.value);
+                  }}
+                  className={field}
+                />
               </div>
               <div>
                 <label htmlFor="gym-move-start" className="text-xs text-cream/60 block mb-1">
                   Start
                 </label>
-                <select id="gym-move-start" value={startTime} disabled={started} onChange={(e) => setStartTime(e.target.value)} className={field}>
+                <select
+                  id="gym-move-start"
+                  value={startTime}
+                  disabled={started}
+                  onChange={(e) => {
+                    setMoveError(null);
+                    setStartTime(e.target.value);
+                  }}
+                  className={field}
+                >
                   {startOptions.map((s) => (
                     <option key={s} value={s}>
                       {s}
@@ -223,7 +250,15 @@ export default function GymReservationPanel({
                 <label htmlFor="gym-move-duration" className="text-xs text-cream/60 block mb-1">
                   Length
                 </label>
-                <select id="gym-move-duration" value={duration} onChange={(e) => setDuration(Number(e.target.value))} className={field}>
+                <select
+                  id="gym-move-duration"
+                  value={duration}
+                  onChange={(e) => {
+                    setMoveError(null);
+                    setDuration(Number(e.target.value));
+                  }}
+                  className={field}
+                >
                   {[...new Set([...options, duration])]
                     .sort((a, b) => a - b)
                     .map((d) => (
@@ -232,13 +267,13 @@ export default function GymReservationPanel({
                       </option>
                     ))}
                 </select>
-                {!dateOutsideView && max === 0 && <p className="text-xs text-coral mt-1">That slot is taken or the booking has no time left that day.</p>}
+                {slotTakenHint && <p className="text-xs text-coral mt-1">That slot is taken or the booking has no time left that day.</p>}
               </div>
               {moveError && <p className="text-sm text-coral">{moveError}</p>}
               <div className="flex gap-3">
                 <button
                   type="submit"
-                  disabled={moveBusy}
+                  disabled={moveBusy || slotTakenHint}
                   className="flex-1 rounded-full bg-coral hover:bg-coraldeep transition-colors min-h-[44px] text-sm font-medium disabled:opacity-60"
                 >
                   {moveBusy ? "Saving…" : "Save"}

@@ -343,6 +343,7 @@ export default function RatesAvailabilityGrid({
           <RoomUnitBlocksPanel
             key={selectedUnit.roomUnitId}
             roomUnitId={selectedUnit.roomUnitId}
+            initialDate={selectedDay?.date}
             label={unitLabel}
             month={month}
             days={unitRoomDays}
@@ -509,7 +510,9 @@ function DayBreakdown({
                   }`}
                 >
                   {u.isBooked ? "Booked" : u.isBlocked ? "Blocked" : "Free"}
-                  {u.isBlocked && u.blockReason && ` — ${u.blockReason}`}
+                  {/* A day with a booking names the guest; the block's reason shows only on a day nobody is in. */}
+                  {u.isBooked && u.guestName && ` — ${u.guestName}`}
+                  {!u.isBooked && u.isBlocked && u.blockReason && ` — ${u.blockReason}`}
                   {u.isBooked && u.bookingId && (
                     <>
                       {" — "}

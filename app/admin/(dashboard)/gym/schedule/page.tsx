@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { backendJson } from "@/lib/backendServer";
+import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { requireRoleAtLeast } from "@/lib/rbac";
 import { parseDateKey } from "@/lib/bookings";
 import { hotelDateKey } from "@/lib/hotelDate";
 import { visibleDays } from "@/lib/gymSchedule";
 import GymScheduleGrid from "@/components/admin/GymScheduleGrid";
-import type { GymSchedule } from "@/lib/types";
+import GymSetupBanner from "@/components/admin/GymSetupBanner";
+import type { GymSchedule, GymStatus } from "@/lib/types";
 
 // A lone bad ?date= (hand-edited URL, a stale link) falls back to today rather than 500ing - the
 // same "malformed param treated as absent" convention as the spa schedule's.
@@ -35,10 +36,14 @@ export default async function AdminGymSchedulePage({
   const showCancelled = searchParams.cancelled === "1";
   const days = visibleDays(date, view);
 
-  const schedule = await backendJson<GymSchedule>(
-    `/gym/reservations?from=${days[0]}&to=${days[days.length - 1]}${showCancelled ? "&includeCancelled=true" : ""}`,
-    { auth: true }
-  );
+  const [schedule, status] = await Promise.all([
+    backendJson<GymSchedule>(
+      `/gym/reservations?from=${days[0]}&to=${days[days.length - 1]}${showCancelled ? "&includeCancelled=true" : ""}`,
+      { auth: true }
+    ),
+    // The server's own configuration - no Tuya call. Secondary: the page works without it.
+    backendJsonOrDefault<GymStatus | null>("/gym/status", null, { auth: true }),
+  ]);
 
   return (
     <div>
@@ -62,7 +67,8 @@ export default async function AdminGymSchedulePage({
         One guest at a time — the gym is exclusive. Click a free slot to reserve it for a hotel booking, click a reservation to see what the
         equipment did, move it or cancel it. The fans and air conditioners are switched on before the start and off at the end by themselves.
       </p>
-      <GymScheduleGrid schedule={schedule} date={date} view={view} showCancelled={showCancelled} />
+      <GymSetupBanner status={status} isAdmin={user.role === "ADMIN"} />
+      <GymScheduleGrid schedule={schedule} setup={status} date={date} view={view} showCancelled={showCancelled} />
     </div>
   );
 }

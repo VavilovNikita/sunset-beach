@@ -8,7 +8,7 @@ import { usePolling } from "@/lib/usePolling";
 import UnsettledOrdersNotice, { useUnsettledOrders } from "@/components/pos/UnsettledOrdersNotice";
 import { splitUnsettledOrders } from "@/lib/shiftOrders";
 import StatCard from "@/components/admin/StatCard";
-import { isLongOpenShift, reconcileCash, shiftOpeningFacts } from "@/lib/shiftReconciliation";
+import { closeNoteMissing, closeNoteRequired, isLongOpenShift, reconcileCash, shiftOpeningFacts } from "@/lib/shiftReconciliation";
 import { longOpenLabel } from "@/lib/posOrders";
 import type { ShiftSummary } from "@/lib/posTypes";
 
@@ -143,6 +143,10 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
   async function handleClose(e: React.FormEvent) {
     e.preventDefault();
     if (!shift) return;
+    if (closeNoteMissing(reconcileCash(shift, closingCounted).discrepancy, notes)) {
+      setError("The counted cash differs from the expected amount - write a note saying why before closing the shift.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     setBlockedMessage(null);
@@ -250,9 +254,13 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
               open, not after reading it back from the audit log. */}
           <DiscrepancyBlock {...reconciled} />
           <div>
-            <label className="eyebrow text-cream/60 block mb-1">Notes</label>
+            <label className="eyebrow text-cream/60 block mb-1">
+              Notes{closeNoteRequired(reconciled.discrepancy) && <span className="text-coral"> * required - the drawer does not match</span>}
+            </label>
             <textarea
               rows={2}
+              required={closeNoteRequired(reconciled.discrepancy)}
+              aria-required={closeNoteRequired(reconciled.discrepancy)}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral resize-none"

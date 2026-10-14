@@ -7,6 +7,7 @@ import { hotelDateKey } from "@/lib/hotelDate";
 import { usePolling } from "@/lib/usePolling";
 import {
   automationSummary,
+  type GymSetup,
   buildSlots,
   gridRange,
   holdsSlot,
@@ -50,11 +51,14 @@ function weekdayShort(day: string): string {
 
 export default function GymScheduleGrid({
   schedule,
+  setup,
   date,
   view,
   showCancelled,
 }: {
   schedule: GymSchedule;
+  // GET /gym/status, when it could be read.
+  setup?: GymSetup | null;
   date: string;
   view: "day" | "week";
   showCancelled: boolean;
@@ -183,7 +187,7 @@ export default function GymScheduleGrid({
                   {ordered.map((r) => {
                     const start = slotIndexOf(r.startTime, range.open, schedule.stepMinutes);
                     const span = spanOf(r.durationMinutes, schedule.stepMinutes);
-                    const summary = automationSummary(r);
+                    const summary = automationSummary(r, setup);
                     const mark = r.status === "CANCELLED" ? null : TONE_MARK[summary.tone];
                     const cancelled = r.status === "CANCELLED";
                     return (
@@ -255,6 +259,7 @@ export default function GymScheduleGrid({
 
       {selected && (
         <GymReservationPanel
+          setup={setup}
           reservation={selected}
           schedule={schedule}
           onClose={() => setSelectedId(null)}

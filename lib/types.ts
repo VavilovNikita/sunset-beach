@@ -751,8 +751,12 @@ export type Booking = {
   earlyDepartureFee?: string;
   // What the guest still owes on this booking right now - the server's single folio balance
   // (BookingFolio.balanceDue), sent on every booking whatever its status or occupancy. The "Owes"
-  // badge reads this and nothing else; never work a balance out from totalPrice and payments here.
+  // badge reads this and `owes` and nothing else; never work a balance out from totalPrice and payments here.
   balanceDue: string;
+  // True when balanceDue is a debt that has already fallen due (guest in the house or gone,
+  // cancelled with charges, stay over) - false for a future unpaid booking. The "Owes" badge shows
+  // only when this is true. Optional only for older payloads.
+  owes?: boolean;
   status: BookingStatus;
   channel: BookingChannel;
   purpose: BookingPurpose;
@@ -883,6 +887,9 @@ export type AvailabilityUnitDay = {
   isAvailable: boolean;
   bookingId: string | null;
   blockReason: string | null;
+  // The name on the booking that holds the room that day (set when isBooked). A day with a booking
+  // shows this, never the reason of a block laid over it.
+  guestName?: string | null;
 };
 // availableCount is the server's remainder (unitCount - blockedCount - bookedCount), the same
 // InventoryMath figure GET /bookings/calendar's dailyAvailable carries - never re-derive it from
@@ -1809,6 +1816,14 @@ export type GymDevice = {
 };
 
 export type GymDeviceList = { devices: GymDevice[]; fetchedAt: string };
+
+// GET /gym/status - answered from the server's own configuration, never by calling Tuya.
+export type GymStatus = {
+  // The server has Tuya keys (says nothing about whether Tuya is reachable).
+  tuyaConfigured: boolean;
+  // Active devices the reservation automation switches (inBookings).
+  automatedDeviceCount: number;
+};
 
 export type GymDeviceConfig = {
   id: string;

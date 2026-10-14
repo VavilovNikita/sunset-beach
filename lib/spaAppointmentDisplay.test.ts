@@ -99,6 +99,20 @@ describe("isSpaStartInPast", () => {
     // 18:00 UTC is 01:00 the next day in Bangkok, so a 23:00 slot on the UTC date is already over.
     expect(isSpaStartInPast("2026-10-04", "23:00", new Date("2026-10-04T18:00:00Z"))).toBe(true);
   });
+
+  it("lets the slot under way be booked when given the grid", () => {
+    const grid = { openingTime: "09:00", slotMinutes: 30 };
+    // 03:20 UTC = 10:20 in Bangkok: the 10:00 slot is current, 09:30 is over.
+    const tenTwenty = new Date("2026-10-04T03:20:00Z");
+    expect(isSpaStartInPast("2026-10-04", "10:00", tenTwenty, grid)).toBe(false);
+    expect(isSpaStartInPast("2026-10-04", "09:30", tenTwenty, grid)).toBe(true);
+    expect(isSpaStartInPast("2026-10-04", "10:30", tenTwenty, grid)).toBe(false);
+    // Without the grid the same 10:00 is behind the clock.
+    expect(isSpaStartInPast("2026-10-04", "10:00", tenTwenty)).toBe(true);
+    // Before opening nothing today has passed yet; yesterday always has.
+    expect(isSpaStartInPast("2026-10-04", "09:00", new Date("2026-10-04T00:30:00Z"), grid)).toBe(false);
+    expect(isSpaStartInPast("2026-10-03", "20:00", tenTwenty, grid)).toBe(true);
+  });
 });
 
 describe("canRemoveTreatmentFrom", () => {

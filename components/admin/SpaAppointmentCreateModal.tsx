@@ -7,7 +7,7 @@ import { tableClash, therapistClash, therapistDay } from "@/lib/spaAvailability"
 import type { MenuItem, SpaAppointment, SpaTherapist } from "@/lib/posTypes";
 import type { Booking } from "@/lib/types";
 import { formatDate, formatDateRange } from "@/lib/formatDate";
-import { isSpaStartInPast } from "@/lib/spaAppointmentDisplay";
+import { isSpaStartInPast, type SpaSlotGrid } from "@/lib/spaAppointmentDisplay";
 
 // Opened from a click on a free grid cell (components/admin/SpaScheduleGrid.tsx) - date/tableId/
 // startTime arrive pre-filled and fixed; only the booking/therapist/treatment are picked here.
@@ -28,6 +28,7 @@ export default function SpaAppointmentCreateModal({
   therapists,
   treatments,
   dayAppointments,
+  slotGrid,
   onClose,
   onCreated,
 }: {
@@ -39,6 +40,8 @@ export default function SpaAppointmentCreateModal({
   therapists: SpaTherapist[];
   treatments: MenuItem[];
   dayAppointments: SpaAppointment[];
+  // Opening time and slot length - the slot under way still counts as "now", not as the past.
+  slotGrid: SpaSlotGrid;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -58,12 +61,12 @@ export default function SpaAppointmentCreateModal({
   const [warning, setWarning] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   useCloseOnBrowserBack(true, onClose); // Back closes the form instead of leaving the schedule
-  // Read once when the modal opens - the cell was clicked "now".
-  const [startsInPast] = useState(() => isSpaStartInPast(date, startTime, new Date()));
-  const [pastConfirmed, setPastConfirmed] = useState(false);
+  // Read once when the modal opens - the cell was clicked "now". The grid does not offer past cells at
+  // all (and the server refuses them), so this is only the last guard, not a choice to confirm.
+  const [startsInPast] = useState(() => isSpaStartInPast(date, startTime, new Date(), slotGrid));
 
   const canSubmit =
-    bookingId && therapistUserId && treatmentMenuItemId && !selectedTherapistClash && !tableConflict && (!startsInPast || pastConfirmed);
+    bookingId && therapistUserId && treatmentMenuItemId && !selectedTherapistClash && !tableConflict && !startsInPast;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -192,13 +195,9 @@ export default function SpaAppointmentCreateModal({
             </div>
 
             {startsInPast && (
-              <label className="flex items-start gap-2 text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2 cursor-pointer">
-                <input type="checkbox" className="mt-1" checked={pastConfirmed} onChange={(e) => setPastConfirmed(e.target.checked)} />
-                <span>
-                  {formatDate(date)} {startTime} has already passed. Book it anyway (e.g. recording a treatment that already
-                  happened)?
-                </span>
-              </label>
+              <p className="text-sm text-coral bg-coral/10 border border-coral/30 rounded-lg px-3 py-2">
+                {formatDate(date)} {startTime} has already passed - a treatment can&rsquo;t be booked in the past. Pick a later time.
+              </p>
             )}
 
             {error && <p className="text-sm text-coral">{error}</p>}

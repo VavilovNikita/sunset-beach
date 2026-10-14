@@ -67,13 +67,23 @@ export function isSpaOverdue(a: Pick<SpaAppointment, "status" | "date" | "startT
   return current.minutes >= endMinutes;
 }
 
-// A start time already behind the hotel's clock - booking it is allowed (recording a walk-in after
-// the fact is real), but it's usually a mis-click on the grid, so the create form asks first.
-export function isSpaStartInPast(date: string, startTime: string, now: Date): boolean {
+// A start time already behind the hotel's clock. The server refuses one (400): a treatment never
+// starts in the past, but the slot that is under way can still be booked - it is 10:20 and the 10:00
+// slot is open. Pass the grid (opening time + slot length) to get that rule; without it the check
+// is the bare clock.
+export type SpaSlotGrid = { openingTime: string; slotMinutes: number };
+
+export function isSpaStartInPast(date: string, startTime: string, now: Date, grid?: SpaSlotGrid): boolean {
   const [h, m] = startTime.split(":").map(Number);
   const current = hotelNow(now);
   if (current.date !== date) return current.date > date;
-  return h * 60 + m < current.minutes;
+  let nowMinutes = current.minutes;
+  if (grid) {
+    const [oh, om] = grid.openingTime.split(":").map(Number);
+    const opening = oh * 60 + om;
+    if (nowMinutes >= opening) nowMinutes = opening + Math.floor((nowMinutes - opening) / grid.slotMinutes) * grid.slotMinutes;
+  }
+  return h * 60 + m < nowMinutes;
 }
 
 // What the panel offers for the linked order, decided from the order's status (read separately by

@@ -332,7 +332,7 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
       <div>
         <div className="flex items-center justify-between mb-1">
           <label className="eyebrow text-cream/60">Status</label>
-          <OwesBadge balanceDue={booking.balanceDue} />
+          <OwesBadge balanceDue={booking.balanceDue} owes={booking.owes} />
         </div>
         <select
           value={status}

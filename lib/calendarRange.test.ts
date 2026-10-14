@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { periodFromToday } from "@/lib/calendarRange";
+import { toDateKey } from "@/lib/bookings";
+import { calendarHref, periodFromToday, toExclusiveFromParam } from "@/lib/calendarRange";
 
 describe("periodFromToday", () => {
   it("opens on today, a month wide, with nothing remembered", () => {
@@ -13,5 +14,19 @@ describe("periodFromToday", () => {
 
   it("ignores a remembered width outside what the calendar can show", () => {
     expect(periodFromToday("2026-10-03", { from: "2020-01-01", to: "2026-01-01" })).toEqual({ from: "2026-10-03", to: "2026-11-03" });
+  });
+});
+
+describe("calendar address", () => {
+  it("writes the last day on screen as `to`", () => {
+    expect(calendarHref("2026-10-14", "2026-10-21")).toBe("/admin/bookings/calendar?from=2026-10-14&to=2026-10-20");
+  });
+
+  it("reads `to` back as the exclusive end the app works with", () => {
+    expect(toDateKey(toExclusiveFromParam("2026-10-20"))).toBe("2026-10-21");
+  });
+
+  it("a one-day period has the same from and to", () => {
+    expect(calendarHref("2026-10-14", "2026-10-15")).toBe("/admin/bookings/calendar?from=2026-10-14&to=2026-10-14");
   });
 });

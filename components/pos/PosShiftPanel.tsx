@@ -7,7 +7,7 @@ import { posRequest } from "@/lib/pos/posFetch";
 import UnsettledOrdersNotice, { useUnsettledOrders } from "@/components/pos/UnsettledOrdersNotice";
 import { splitUnsettledOrders } from "@/lib/shiftOrders";
 import { fetchCurrentShift, fetchShift, openShift, closeShift } from "@/lib/pos/shiftsClient";
-import { isLongOpenShift, reconcileCash, shiftOpeningFacts } from "@/lib/shiftReconciliation";
+import { closeNoteMissing, closeNoteRequired, isLongOpenShift, reconcileCash, shiftOpeningFacts } from "@/lib/shiftReconciliation";
 import { longOpenLabel } from "@/lib/posOrders";
 import PosAttributedConfirm from "@/components/pos/PosAttributedConfirm";
 import type { Role } from "@/lib/session";
@@ -149,6 +149,10 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
     e.preventDefault();
     setError(null);
     setBlockedMessage(null);
+    if (shift && closeNoteMissing(reconcileCash(shift, closingCounted).discrepancy, notes)) {
+      setError("The counted cash differs from the expected amount - write a note saying why before closing the shift.");
+      return;
+    }
     setReviewingClose(true);
   }
 
@@ -270,9 +274,13 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
                 here means it's caught while the drawer is still open, not after. */}
             <DiscrepancyBlock {...reconciled} />
             <div>
-              <label className="eyebrow text-cream/60 block mb-1">Notes</label>
+              <label className="eyebrow text-cream/60 block mb-1">
+                Notes{closeNoteRequired(reconciled.discrepancy) && <span className="text-coral"> * required - the drawer does not match</span>}
+              </label>
               <textarea
                 rows={2}
+                required={closeNoteRequired(reconciled.discrepancy)}
+                aria-required={closeNoteRequired(reconciled.discrepancy)}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="w-full bg-ink2 border border-cream/20 rounded-xl px-4 py-3 text-cream text-base focus:outline-none focus:border-coral resize-none"

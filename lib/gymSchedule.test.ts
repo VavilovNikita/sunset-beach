@@ -139,6 +139,17 @@ describe("automationSummary", () => {
     expect(s.label).toMatch(/not switched on yet/i);
   });
 
+  it("says the automation is not set up when Tuya has no keys or no device takes part in bookings", () => {
+    const noKeys = automationSummary({ status: "BOOKED", automation: {} }, { tuyaConfigured: false, automatedDeviceCount: 3 });
+    expect(noKeys.label).toBe("Automation not set up");
+    const noDevices = automationSummary({ status: "BOOKED", automation: {} }, { tuyaConfigured: true, automatedDeviceCount: 0 });
+    expect(noDevices.label).toBe("Automation not set up");
+    // Set up: the wording is the old one; unknown status changes nothing; a cancelled one is still untouched.
+    expect(automationSummary({ status: "BOOKED", automation: {} }, { tuyaConfigured: true, automatedDeviceCount: 2 }).label).toMatch(/not switched on yet/i);
+    expect(automationSummary({ status: "BOOKED", automation: {} }, null).label).toMatch(/not switched on yet/i);
+    expect(automationSummary({ status: "CANCELLED", automation: {} }, { tuyaConfigured: false, automatedDeviceCount: 0 }).label).toMatch(/untouched/i);
+  });
+
   it("all devices on: ok", () => {
     const s = automationSummary({ status: "BOOKED", automation: { switchOn: phase("OK", [result("Fan 1", "OK"), result("Air 1", "OK")]) } });
     expect(s).toEqual({ tone: "ok", label: "Equipment on", problems: [] });

@@ -83,7 +83,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
       <p className="eyebrow text-sea mb-2">Reservation</p>
       <div className="flex flex-wrap items-center gap-3 mb-8">
         <h1 className="font-display italic text-3xl">{booking.guestName}</h1>
-        <OwesBadge balanceDue={booking.balanceDue} />
+        <OwesBadge balanceDue={booking.balanceDue} owes={booking.owes} />
       </div>
 
       {/* Cancelling cleaned up the guest's spa, but anything already paid is left for a person

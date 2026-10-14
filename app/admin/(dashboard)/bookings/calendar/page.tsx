@@ -3,7 +3,7 @@ import { backendJson } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import { daysBetweenUTC, parseDateKey, toDateKey } from "@/lib/bookings";
-import { MAX_CALENDAR_RANGE_DAYS, periodFromToday } from "@/lib/calendarRange";
+import { MAX_CALENDAR_RANGE_DAYS, periodFromToday, toExclusiveFromParam } from "@/lib/calendarRange";
 import { hotelDateKey } from "@/lib/hotelDate";
 import BookingCalendarGrid from "@/components/admin/BookingCalendarGrid";
 import CalendarPeriodPersistence from "@/components/admin/CalendarPeriodPersistence";
@@ -24,7 +24,8 @@ function parsePeriodParams(from: string | undefined, to: string | undefined) {
   if (from && to) {
     try {
       const parsedFrom = parseDateKey(from);
-      const parsedTo = parseDateKey(to);
+      // The address' `to` is the last day shown; the page works with the exclusive end.
+      const parsedTo = toExclusiveFromParam(to);
       if (parsedFrom.getTime() < parsedTo.getTime()) return { from: parsedFrom, to: parsedTo };
     } catch {
       // fall through to default

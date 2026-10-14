@@ -14,7 +14,7 @@ import type { MenuItem, SpaAppointment, SpaSchedule, SpaTherapist } from "@/lib/
 import type { Booking } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
 import { hotelDateKey } from "@/lib/hotelDate";
-import { isSpaOverdue, spaBlockMark, spaBlockTitle } from "@/lib/spaAppointmentDisplay";
+import { isSpaOverdue, isSpaStartInPast, spaBlockMark, spaBlockTitle } from "@/lib/spaAppointmentDisplay";
 
 const ROW_HEIGHT = 44;
 const LABEL_WIDTH = 160;
@@ -315,7 +315,11 @@ export default function SpaScheduleGrid({
   // dialog open on top, until confirmMove resolves. A plain array map, not a second appointments
   // list, so every other read (occupiedCols, the bar itself) stays in sync with exactly one
   // appointment's position at a time.
-  const effectiveAppointments = schedule.appointments.map((a) => {
+  //
+  // The read-only view (a therapist below CASHIER) does not list cancelled appointments: they are
+  // not that person's work, and a hatched "cancelled" bar between real treatments reads as clutter.
+  // Whoever manages the grid keeps seeing them (a receptionist needs to see that a cancellation happened).
+  const effectiveAppointments = schedule.appointments.filter((a) => !(readOnly && a.status === "CANCELLED")).map((a) => {
     if (dragState && dragState.appointmentId === a.id) return { ...a, tableId: dragState.tableId, startTime: dragState.startTime };
     return a;
   });
@@ -333,6 +337,9 @@ export default function SpaScheduleGrid({
   }
   // The hotel's date, not UTC's or the browser's - same rule as the booking calendar's Today.
   const todayKey = hotelDateKey(new Date());
+  // A treatment never starts in the past (the server refuses it); the slot under way still can.
+  const slotGrid = { openingTime: schedule.openingTime, slotMinutes: schedule.slotMinutes };
+  const startsInPast = (startTime: string) => isSpaStartInPast(date, startTime, new Date(), slotGrid);
 
   const selectedAppointment = schedule.appointments.find((a) => a.id === selectedAppointmentId) ?? null;
   const treatments = menuItems.filter((m) => m.department === "SPA" && m.durationMinutes != null);
@@ -438,12 +445,13 @@ export default function SpaScheduleGrid({
                         data-spa-cell
                         data-table-id={table.id}
                         data-start-time={c}
-                        disabled={readOnly || occupiedCols.has(i)}
+                        disabled={readOnly || occupiedCols.has(i) || startsInPast(c)}
                         onClick={readOnly ? undefined : () => setCreateTarget({ tableId: table.id, tableLabel: table.label, startTime: c })}
                         className={`absolute top-0 bottom-0 border-r border-cream/5 ${
-                          readOnly || occupiedCols.has(i) ? "" : "hover:bg-cream/5 cursor-cell"
+                          readOnly || occupiedCols.has(i) || startsInPast(c) ? "" : "hover:bg-cream/5 cursor-cell"
                         }`}
                         style={{ left: i * colWidth, width: colWidth }}
+                        title={startsInPast(c) ? "Already passed" : undefined}
                         aria-label={readOnly ? `${table.label} at ${c}` : `Book ${table.label} at ${c}`}
                       />
                     ))}
@@ -545,6 +553,7 @@ export default function SpaScheduleGrid({
           therapists={therapists}
           treatments={treatments}
           dayAppointments={schedule.appointments}
+          slotGrid={slotGrid}
           onClose={() => setCreateTarget(null)}
           onCreated={() => {
             setCreateTarget(null);

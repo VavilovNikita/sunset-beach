@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addDaysUTC, addMonthsUTC, daysBetweenUTC, parseDateKey, startOfMonthUTC, toDateKey } from "@/lib/bookings";
-import { MAX_CALENDAR_RANGE_DAYS, saveStoredPeriod } from "@/lib/calendarRange";
+import { MAX_CALENDAR_RANGE_DAYS, calendarHref, saveStoredPeriod } from "@/lib/calendarRange";
 import { formatDateRange } from "@/lib/formatDate";
 import { hotelDateKey } from "@/lib/hotelDate";
 
@@ -29,9 +29,8 @@ function validateRange(from: Date, to: Date): string | null {
 // the page fetches, which only the page's own server-side render can do - a client-only period
 // toggle would be stuck re-rendering whatever range it already has.
 //
-// `to` in the URL is exclusive (the same convention as a stay's check-out), but the "To" field and
-// the label beside it both show the last day on screen - the field used to hold the exclusive date
-// while the label said the day before, two different dates for one boundary.
+// The URL's `to` is the last day on screen (lib/calendarRange.ts#calendarHref), the same day the "To"
+// field and the label beside it show. The `to` prop here is the app's own exclusive end.
 function lastVisibleDayKey(toExclusive: string): string {
   return toDateKey(addDaysUTC(parseDateKey(toExclusive), -1));
 }
@@ -61,7 +60,7 @@ export default function CalendarPeriodControls({ from, to }: { from: string; to:
     const nextFromKey = toDateKey(nextFrom);
     const nextToKey = toDateKey(nextTo);
     saveStoredPeriod({ from: nextFromKey, to: nextToKey });
-    router.push(`/admin/bookings/calendar?from=${nextFromKey}&to=${nextToKey}`);
+    router.push(calendarHref(nextFromKey, nextToKey));
   }
 
   function handleApply(e: React.FormEvent) {

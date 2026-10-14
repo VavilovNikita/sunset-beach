@@ -38,6 +38,20 @@ export function periodFromToday(todayKey: string, stored: StoredPeriod | null): 
   return { from: toDateKey(from), to: toDateKey(to) };
 }
 
+// The calendar's address names the period the way its caption does: `from` and `to` are both days
+// on screen, `to` the LAST one (?from=2026-10-14&to=2026-10-20 shows seven days). Everywhere inside
+// the app a period is still [from, to) like a stay - only the URL is inclusive. The two converters
+// below are the only places that cross that line.
+export function calendarHref(fromKey: string, toExclusiveKey: string): string {
+  const lastDay = toDateKey(addDaysUTC(parseDateKey(toExclusiveKey), -1));
+  return `/admin/bookings/calendar?from=${fromKey}&to=${lastDay}`;
+}
+
+// The URL's inclusive `to` as the exclusive end the app works with.
+export function toExclusiveFromParam(toParam: string): Date {
+  return addDaysUTC(parseDateKey(toParam), 1);
+}
+
 const PERIOD_STORAGE_KEY = "sunset-beach:admin:calendar:range";
 const DENSITY_STORAGE_KEY = "sunset-beach:admin:calendar:density";
 

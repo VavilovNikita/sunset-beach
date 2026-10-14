@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { loadStoredPeriod, periodFromToday, saveStoredPeriod } from "@/lib/calendarRange";
+import { calendarHref, loadStoredPeriod, periodFromToday, saveStoredPeriod } from "@/lib/calendarRange";
 import { hotelDateKey } from "@/lib/hotelDate";
 
 // A bare visit (the sidebar's "Calendar" link, or a bare bookmark - no query params) always
@@ -34,7 +34,7 @@ export default function CalendarPeriodPersistence({
     // Always replaces, even when the target happens to equal the page's own default: the page
     // renders no grid for a bare visit (see the calendar page), so this redirect is what opens it.
     const target = periodFromToday(hotelDateKey(new Date()), loadStoredPeriod());
-    router.replace(`/admin/bookings/calendar?from=${target.from}&to=${target.to}`);
+    router.replace(calendarHref(target.from, target.to));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasExplicitParams, currentFrom, currentTo]);
 

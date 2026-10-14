@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isLongOpenShift, reconcileCash, shiftOpeningFacts } from "./shiftReconciliation";
+import { closeNoteMissing, closeNoteRequired, isLongOpenShift, reconcileCash, shiftOpeningFacts } from "./shiftReconciliation";
 import type { ShiftSummary } from "./posTypes";
 
 function shift(overrides: Partial<ShiftSummary>): ShiftSummary {
@@ -109,5 +109,21 @@ describe("isLongOpenShift", () => {
 
   it("never flags a closed shift, however old", () => {
     expect(isLongOpenShift({ status: "CLOSED", openedAt: "2026-09-02T01:00:00Z" }, now)).toBe(false);
+  });
+});
+
+describe("closeNote", () => {
+  it("is needed whenever the counted cash differs from the expected cash, over or short", () => {
+    expect(closeNoteRequired(-50)).toBe(true);
+    expect(closeNoteRequired(20)).toBe(true);
+    expect(closeNoteRequired(0)).toBe(false);
+    expect(closeNoteRequired(null)).toBe(false);
+  });
+
+  it("is missing when empty or only invisible characters, present with any text", () => {
+    expect(closeNoteMissing(-50, "")).toBe(true);
+    expect(closeNoteMissing(-50, "  \u00a0\u200b ")).toBe(true);
+    expect(closeNoteMissing(-50, "paid the delivery from the drawer")).toBe(false);
+    expect(closeNoteMissing(0, "")).toBe(false);
   });
 });
