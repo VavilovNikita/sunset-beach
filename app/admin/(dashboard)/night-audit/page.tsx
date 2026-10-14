@@ -76,6 +76,14 @@ export default async function NightAuditPage({ searchParams }: { searchParams: {
         reviewedDate={audit.date}
       />
       <BookingList
+        title="Not arrived — mark no-show or cancel"
+        empty="No past booking is waiting to be settled."
+        hint="The dates have passed and the guest never checked in. The room is not counted as owed; open each booking and mark it no-show or cancel it. Any other charges on it are still listed under Unpaid balances."
+        bookings={audit.notArrived}
+        dueDate={(b) => b.checkOut}
+        reviewedDate={audit.date}
+      />
+      <BookingList
         title="Missed departures"
         empty="No checked-in guest is past their check-out."
         hint="Still checked in, with a check-out on or before this date - the room stays held for them until they're checked out. Check the guest out from the booking, or extend the stay there if they're still here. “Staying unpaid” counts the nights past check-out with nothing agreed or charged - agree a rate with the guest and extend the stay, which prices them."

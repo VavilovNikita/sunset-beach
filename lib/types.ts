@@ -560,6 +560,9 @@ export type MarketSegmentReport = {
 export type NightAudit = {
   date: string;
   missedArrivals: NightAuditBooking[];
+  // Stays whose dates have passed and whose guest never checked in (still EXPECTED, not NO_SHOW, not
+  // cancelled). The room is not a debt for them; the desk marks each no-show or cancels it.
+  notArrived: NightAuditBooking[];
   missedDepartures: NightAuditBooking[];
   // Stays that are over (checked out, past their check-out and not in the house, or cancelled) and
   // still owe money, whatever their status. Each row carries balanceDue.
