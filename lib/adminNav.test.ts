@@ -107,6 +107,29 @@ describe("visibleNavGroups", () => {
     expect(labels("ADMIN")).toEqual(expect.arrayContaining(["Gym", "Gym devices"]));
   });
 
+  it("Lighting is MANAGER+ and its controller list ADMIN-only - a CASHIER sees neither", () => {
+    const labels = (role: "WAITER" | "CASHIER" | "MANAGER" | "ADMIN") => visibleNavGroups(role).flatMap((g) => g.links.map((l) => l.label));
+    for (const role of ["WAITER", "CASHIER"] as const) {
+      expect(labels(role)).not.toContain("Lighting");
+      expect(labels(role)).not.toContain("Lighting devices");
+    }
+    expect(labels("MANAGER")).toContain("Lighting");
+    expect(labels("MANAGER")).not.toContain("Lighting devices");
+    expect(labels("ADMIN")).toEqual(expect.arrayContaining(["Lighting", "Lighting devices"]));
+  });
+
+  it("the lighting links sit in Front desk next to the gym ones", () => {
+    const frontDesk = visibleNavGroups("ADMIN").find((g) => g.title === "Front desk")!.links.map((l) => l.label);
+    expect(frontDesk.indexOf("Lighting")).toBe(frontDesk.indexOf("Gym devices") + 1);
+    expect(frontDesk.indexOf("Lighting devices")).toBe(frontDesk.indexOf("Lighting") + 1);
+  });
+
+  it("the Lighting settings page highlights its own link, not the board's", () => {
+    const links = visibleNavGroups("ADMIN").flatMap((g) => g.links);
+    expect(activeNavHref(links, "/admin/lighting")).toBe("/admin/lighting");
+    expect(activeNavHref(links, "/admin/lighting/settings")).toBe("/admin/lighting/settings");
+  });
+
   it("the Gym settings page highlights its own link, not the Gym board's", () => {
     const links = visibleNavGroups("ADMIN").flatMap((g) => g.links);
     expect(activeNavHref(links, "/admin/gym")).toBe("/admin/gym");

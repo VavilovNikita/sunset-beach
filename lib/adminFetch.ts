@@ -15,7 +15,9 @@
 import { ADMIN_API_URL } from "@/lib/backend";
 import { extractApiError } from "@/lib/apiError";
 
-export type AdminResult<T> = { ok: true; data: T; status: number } | { ok: false; error: string; status: number };
+// `body` on a failure is the parsed error response (null when there was none) - for the few forms that put
+// a field error under its field instead of only showing the joined text (the lighting settings).
+export type AdminResult<T> = { ok: true; data: T; status: number } | { ok: false; error: string; status: number; body?: unknown };
 
 export async function adminRequest<T>(path: string, init: RequestInit | undefined, fallbackError: string): Promise<AdminResult<T>> {
   let res: Response;
@@ -32,7 +34,7 @@ export async function adminRequest<T>(path: string, init: RequestInit | undefine
     if (!res.ok) return { ok: false, error: fallbackError, status: res.status };
   }
 
-  if (!res.ok) return { ok: false, error: extractApiError(body, fallbackError), status: res.status };
+  if (!res.ok) return { ok: false, error: extractApiError(body, fallbackError), status: res.status, body };
   return { ok: true, data: body as T, status: res.status };
 }
 

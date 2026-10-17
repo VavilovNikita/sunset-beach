@@ -15,6 +15,8 @@ import { useEffect, useRef } from "react";
 // fire together; only the first within MIN_GAP_MS runs.
 const MIN_GAP_MS = 300;
 
+// intervalMs 0 means no timer at all - only the "page came back" refetch (the Lighting board: a controller on a
+// wireless link is asked when someone looks, not on a schedule).
 export function usePolling(callback: () => void, intervalMs: number, enabled = true) {
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
@@ -38,12 +40,12 @@ export function usePolling(callback: () => void, intervalMs: number, enabled = t
       if (e.persisted) run();
     }
 
-    const id = setInterval(run, intervalMs);
+    const id = intervalMs > 0 ? setInterval(run, intervalMs) : undefined;
     document.addEventListener("visibilitychange", onReturn);
     window.addEventListener("focus", onReturn);
     window.addEventListener("pageshow", onPageShow);
     return () => {
-      clearInterval(id);
+      if (id !== undefined) clearInterval(id);
       document.removeEventListener("visibilitychange", onReturn);
       window.removeEventListener("focus", onReturn);
       window.removeEventListener("pageshow", onPageShow);

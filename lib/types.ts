@@ -1975,3 +1975,59 @@ export type GymGuestReservation = {
   status: GymReservationStatus;
   canCancel: boolean;
 };
+
+// ---- Lighting (WLED controllers, GET /lighting/devices and friends) ----
+// Mirrors the backend's openapi.yaml, tag Lighting. When a controller does not answer it is
+// online:false with stateError, and isOn/brightness/presetId are absent.
+
+// GET /lighting/status - the server's own configuration, never a call to a controller.
+export type LightingStatus = {
+  // False until the server has LIGHTING_ALLOWED_CIDRS: lighting is then off (409 on the calls that
+  // would send a request to a controller, an empty device list).
+  configured: boolean;
+};
+
+export type LightingPreset = { id: number; name: string };
+
+export type LightingDevice = {
+  id: string;
+  name: string;
+  location?: string | null;
+  sortOrder?: number;
+  online: boolean;
+  isOn?: boolean;
+  // WLED's bri: 0-255, the last brightness while the lights are off.
+  brightness?: number;
+  // null = no preset applied (WLED clears it when the look is changed by hand).
+  presetId?: number | null;
+  // This controller's own presets.
+  presets: LightingPreset[];
+  stateReadAt?: string;
+  stateError?: string;
+};
+
+export type LightingDeviceList = { configured: boolean; devices: LightingDevice[]; fetchedAt: string };
+
+// At least one field. brightness 0 means off to WLED.
+export type LightingStateInput = { isOn?: boolean; brightness?: number; presetId?: number };
+
+export type LightingDeviceConfig = {
+  id: string;
+  name: string;
+  host: string;
+  port: number;
+  location?: string | null;
+  active: boolean;
+  sortOrder: number;
+};
+
+export type LightingDeviceCreateInput = { name: string; host: string; port?: number; location?: string; active?: boolean };
+
+// Partial: only the fields present change; location "" clears it.
+export type LightingDeviceUpdateInput = { name?: string; host?: string; port?: number; location?: string; active?: boolean };
+
+export type LightingDeviceCheckInput = { host: string; port?: number };
+
+export type LightingDeviceInfo = { name: string; version: string; ledCount: number; mac: string };
+
+export type LightingDeviceCheckResult = { reachable: boolean; error?: string; info?: LightingDeviceInfo };

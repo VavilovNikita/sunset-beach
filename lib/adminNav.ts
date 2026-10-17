@@ -58,6 +58,12 @@ export const NAV_GROUPS: NavGroup[] = [
       // hours and the automation's parameters sit on the ADMIN-only "Gym devices" page.
       { href: "/admin/gym/schedule", label: "Gym schedule", minRole: "CASHIER" },
       { href: "/admin/gym/settings", label: "Gym devices", minRole: "ADMIN" },
+      // WLED lighting controllers on the hotel LAN. Reading the state and sending a command (GET /lighting/devices,
+      // POST /lighting/devices/{id}/state) is MANAGER+ on the backend (SecurityConfig.LIGHTING_CONTROL_ROLE - if the
+      // owner picks another role, change it there and here together); the controller list and the address test
+      // under /lighting/settings are ADMIN-only. Longest-href matching keeps just one of the two highlighted.
+      { href: "/admin/lighting", label: "Lighting", minRole: "MANAGER" },
+      { href: "/admin/lighting/settings", label: "Lighting devices", minRole: "ADMIN" },
       // Room tasks (a broken air conditioner, a leak) - about the rooms, so it sits beside
       // Housekeeping rather than under Staff. Any authenticated staff role, including WAITER:
       // GET/POST /maintenance-tasks have no role floor on the backend, and the whole point is
