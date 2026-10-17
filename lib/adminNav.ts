@@ -8,15 +8,6 @@ export type NavLink = {
   label: string;
   // Undefined = any authenticated staff role, including WAITER (matches a backend endpoint with
   // no lower-privilege read). Otherwise the minimum role the backend actually requires.
-  //
-  // A job function (JobFunction, in lib/session.ts) is a second, independent axis from role, and
-  // a link visible only to a function - not any role tier - is a real shape this file will need
-  // again (see SecurityConfig's FUNCTION_<name>-or-role gate on the backend). No link currently
-  // needs it: Maintenance turned out to belong to every authenticated role instead (any staff
-  // member may file a task, not just an ENGINEER), so there is nothing here to gate on a function
-  // right now. Add the field back (OR'd with minRole, not ANDed - a function should unlock a link
-  // a role floor alone would hide) the day a link actually needs it, rather than carrying it
-  // unused until then.
   minRole?: Exclude<Role, "WAITER">;
   // A job function that unlocks the link whatever the role - OR'd with minRole, never ANDed (a
   // function opens a link a role floor alone would hide). Mirrors a backend gate of the form
@@ -26,44 +17,52 @@ export type NavLink = {
 
 export type NavGroup = {
   title: string;
+  // Everyday work, shown first.
   links: NavLink[];
+  // The configuration of this area (devices, layouts, users), shown under a divider. Still part
+  // of the group, not a catch-all "Setup" group - see the comment on NAV_GROUPS.
+  setup: NavLink[];
 };
 
-// Grouped by what someone is actually doing, not by when the feature was built - within a group,
+// Grouped by what someone is actually doing, not by when the feature was built - within a section,
 // most-frequent-first. Today and POS lead their groups on purpose: they're the two roles' actual
 // entry points (see ROLE_LANDING in app/admin/login/page.tsx), so the sidebar should already be
-// pointing at them. One group per area of the hotel, plus Reports - there used to be a catch-all
-// "Setup" group and a one-link "Maintenance" group, which put links next to things they had
-// nothing to do with (the POS printers beside room types); every link now sits with the people
-// who actually use it.
+// pointing at them. One group per area of the hotel, plus Reports. Each group has everyday links
+// and, under a divider, `setup` links - the configuration of that same area. There used to be a
+// catch-all "Setup" group, which put links next to things they had nothing to do with (the POS
+// printers beside room types), so configuration stays beside the people who use what it configures.
 export const NAV_GROUPS: NavGroup[] = [
   {
     title: "Front desk",
-    // GET /bookings, /bookings/calendar, /property-map, /room-units (housekeeping) are all
-    // CASHIER+ on the backend with no lower-privilege read - a WAITER hitting any of these would
-    // get a 403 (or, before an earlier regression fix, a crashed page), so these links are
-    // CASHIER+ rather than shown and gated client-side. Maintenance is the one exception, below.
+    // GET /bookings, /bookings/calendar, /property-map are CASHIER+ on the backend with no
+    // lower-privilege read - a WAITER hitting any of these would get a 403 (or, before an earlier
+    // regression fix, a crashed page), so these links are CASHIER+ rather than shown and gated
+    // client-side.
     links: [
       { href: "/admin/today", label: "Today", minRole: "CASHIER" },
       { href: "/admin/bookings/calendar", label: "Calendar", minRole: "CASHIER" },
       { href: "/admin/bookings", label: "Bookings", minRole: "CASHIER" },
       { href: "/admin/guests", label: "Guests", minRole: "CASHIER" },
       { href: "/admin/property-map", label: "Property map", minRole: "CASHIER" },
+      // GET /reports/in-house is the one CASHIER+ report - the daily list of who is in which room.
+      { href: "/admin/in-house", label: "In house", minRole: "CASHIER" },
+      // GET /night-audit and POST /night-audit/close are CASHIER+ - the daily close is routine
+      // front-desk work, not a MANAGER+ report.
+      { href: "/admin/night-audit", label: "Night audit", minRole: "CASHIER" },
+    ],
+    setup: [
+      // Automated pre-arrival/post-stay/win-back emails to guests with a verified account - about
+      // the guest's stay, nothing to do with the restaurant. ADMIN-only: GET/PUT
+      // /settings/lifecycle-emails has no lower-privilege read, since it decides what automated
+      // email reaches every eligible guest.
+      { href: "/admin/settings/lifecycle-emails", label: "Guest emails", minRole: "ADMIN" },
+    ],
+  },
+  {
+    title: "Rooms",
+    links: [
+      // GET /room-units (housekeeping) is CASHIER+ with no lower-privilege read.
       { href: "/admin/housekeeping", label: "Housekeeping", minRole: "CASHIER" },
-      // Fans and air conditioners over the Tuya cloud. GET/POST /gym/devices* is CASHIER+ (switching them is
-      // front-desk work); the device list under /gym/settings is ADMIN-only like every settings route, and
-      // longest-href matching keeps just one of the two highlighted.
-      { href: "/admin/gym", label: "Gym", minRole: "CASHIER" },
-      // The reservation schedule (GET/POST /gym/reservations*) is CASHIER+ like the equipment page; the hall
-      // hours and the automation's parameters sit on the ADMIN-only "Gym devices" page.
-      { href: "/admin/gym/schedule", label: "Gym schedule", minRole: "CASHIER" },
-      { href: "/admin/gym/settings", label: "Gym devices", minRole: "ADMIN" },
-      // WLED lighting controllers on the hotel LAN. Reading the state and sending a command (GET /lighting/devices,
-      // POST /lighting/devices/{id}/state) is MANAGER+ on the backend (SecurityConfig.LIGHTING_CONTROL_ROLE - if the
-      // owner picks another role, change it there and here together); the controller list and the address test
-      // under /lighting/settings are ADMIN-only. Longest-href matching keeps just one of the two highlighted.
-      { href: "/admin/lighting", label: "Lighting", minRole: "MANAGER" },
-      { href: "/admin/lighting/settings", label: "Lighting devices", minRole: "ADMIN" },
       // Room tasks (a broken air conditioner, a leak) - about the rooms, so it sits beside
       // Housekeeping rather than under Staff. Any authenticated staff role, including WAITER:
       // GET/POST /maintenance-tasks have no role floor on the backend, and the whole point is
@@ -71,24 +70,16 @@ export const NAV_GROUPS: NavGroup[] = [
       // link would mean a waiter who spots a broken air conditioner - the actual common case - has
       // no way to reach the one screen that lets them say so. (Blocking a room and moving a task
       // through its statuses stay MANAGER+ / the ENGINEER function respectively - gated inside the
-      // page itself, per action, not by hiding the page.) The only Front desk link a WAITER sees.
+      // page itself, per action, not by hiding the page.) The only Rooms link a WAITER sees.
       { href: "/admin/maintenance", label: "Maintenance" },
-      // GET /night-audit and POST /night-audit/close are CASHIER+ - the daily close is routine
-      // front-desk work, not a MANAGER+ report.
-      { href: "/admin/night-audit", label: "Night audit", minRole: "CASHIER" },
-      // GET /reports/in-house is the one CASHIER+ report - the daily list of who is in which room.
-      { href: "/admin/in-house", label: "In house", minRole: "CASHIER" },
-      // Configuring what's for sale - prices and RoomUnitBlocks (the merged Pricing + Availability
-      // month table; /admin/pricing and /admin/availability redirect to it), then the room types
-      // themselves. Not per-guest work, so they come after it, but it's the front desk that sells
-      // these rooms, on the same CASHIER+ floor - their per-booking view is Calendar.
+      // Prices and RoomUnitBlocks (the merged Pricing + Availability month table; /admin/pricing
+      // and /admin/availability redirect to it). It's the front desk that sells these rooms, on
+      // the same CASHIER+ floor - their per-booking view is Calendar.
       { href: "/admin/rates", label: "Rates & availability", minRole: "CASHIER" },
+    ],
+    setup: [
+      // The room types themselves, on the same CASHIER+ floor as the rest.
       { href: "/admin/rooms", label: "Rooms", minRole: "CASHIER" },
-      // Automated pre-arrival/post-stay/win-back emails to guests with a verified account - about
-      // the guest's stay, nothing to do with the restaurant. ADMIN-only: GET/PUT
-      // /settings/lifecycle-emails has no lower-privilege read, since it decides what automated
-      // email reaches every eligible guest.
-      { href: "/admin/settings/lifecycle-emails", label: "Guest emails", minRole: "ADMIN" },
     ],
   },
   {
@@ -98,12 +89,14 @@ export const NAV_GROUPS: NavGroup[] = [
     // look up a menu item), even though only a MANAGER can edit the menu itself. Shifts is
     // CASHIER+ (cash-drawer open/close), matching GET /shifts/current. Printers is MANAGER+
     // (registering/editing physical hardware) - the kitchen/bar/receipt printers the POS prints
-    // to, so it lives beside Print queue.
+    // to, so it lives in the same group as the Print queue.
     links: [
       { href: "/admin/pos", label: "POS" },
       { href: "/admin/pos/print-jobs", label: "Print queue" },
       { href: "/admin/pos/shifts", label: "Shifts", minRole: "CASHIER" },
       { href: "/admin/pos/menu", label: "Menu" },
+    ],
+    setup: [
       { href: "/admin/pos/printers", label: "Printers", minRole: "MANAGER" },
       // How the receipt, pre-bill, kitchen/bar tickets and Z-report look. ADMIN-only:
       // GET/PUT /settings/print-layouts has no lower-privilege read, like every /settings route.
@@ -120,7 +113,55 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/spa", label: "Appointments", minRole: "CASHIER", orFunction: "THERAPIST" },
       { href: "/admin/spa/map", label: "Table map", minRole: "CASHIER" },
       { href: "/admin/spa/treatments", label: "Treatments", minRole: "CASHIER" },
-      { href: "/admin/spa/tables", label: "Tables", minRole: "MANAGER" },
+    ],
+    setup: [{ href: "/admin/spa/tables", label: "Tables", minRole: "MANAGER" }],
+  },
+  {
+    title: "Gym & lighting",
+    links: [
+      // The reservation schedule (GET/POST /gym/reservations*) is CASHIER+ like the equipment page; the hall
+      // hours and the automation's parameters sit on the ADMIN-only "Gym devices" page.
+      { href: "/admin/gym/schedule", label: "Gym schedule", minRole: "CASHIER" },
+      // Fans and air conditioners over the Tuya cloud. GET/POST /gym/devices* is CASHIER+ (switching them is
+      // front-desk work); the device list under /gym/settings is ADMIN-only like every settings route, and
+      // longest-href matching keeps just one of the two highlighted.
+      { href: "/admin/gym", label: "Gym", minRole: "CASHIER" },
+      // WLED lighting controllers on the hotel LAN. Reading the state and sending a command (GET /lighting/devices,
+      // POST /lighting/devices/{id}/state) is MANAGER+ on the backend (SecurityConfig.LIGHTING_CONTROL_ROLE - if the
+      // owner picks another role, change it there and here together); the controller list and the address test
+      // under /lighting/settings are ADMIN-only. Longest-href matching keeps just one of the two highlighted.
+      { href: "/admin/lighting", label: "Lighting", minRole: "MANAGER" },
+    ],
+    setup: [
+      { href: "/admin/gym/settings", label: "Gym devices", minRole: "ADMIN" },
+      { href: "/admin/lighting/settings", label: "Lighting devices", minRole: "ADMIN" },
+    ],
+  },
+  {
+    title: "Staff",
+    // GET /roster, /attendance, /employee-pay-rates and friends are all MANAGER+ on the backend
+    // (see openapi.yaml's Roster tag) - same floor as pay itself, since attendance is the data
+    // pay depends on. "My schedule" is the one exception: GET /roster/me has no role floor at
+    // all, matching the module's own "own schedule visible to each employee" decision - it needs
+    // no minRole here for exactly that reason. GET /attendance/devices is MANAGER+, same floor as
+    // the rest of this group - registering/editing physical hardware, same reasoning as Printers
+    // under Restaurant. GET /users and POST /roster/import/* are both ADMIN-only, hard-restricted
+    // regardless of the role hierarchy - the importer can create User accounts on the spot, the
+    // same reason it needs the same floor as Users itself.
+    links: [
+      { href: "/admin/schedule", label: "My schedule" },
+      { href: "/admin/roster", label: "Roster", minRole: "MANAGER" },
+      // Messages to staff over Telegram. The log and the channel list (linking a chat needs no login, so managers
+      // do it; GET /notifications/** is MANAGER+) sit with the people who read them; the settings are ADMIN-only
+      // like every /settings route. Longest-href matching keeps just one of the three highlighted.
+      { href: "/admin/notifications", label: "Notifications", minRole: "MANAGER" },
+      { href: "/admin/notifications/staff", label: "Notification channels", minRole: "MANAGER" },
+    ],
+    setup: [
+      { href: "/admin/attendance-devices", label: "Fingerprint terminals", minRole: "MANAGER" },
+      { href: "/admin/roster/import", label: "Import schedule", minRole: "ADMIN" },
+      { href: "/admin/users", label: "Users", minRole: "ADMIN" },
+      { href: "/admin/settings/notifications", label: "Notification settings", minRole: "ADMIN" },
     ],
   },
   {
@@ -138,31 +179,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/manager-report", label: "Manager report", minRole: "MANAGER" },
       { href: "/admin/history", label: "History", minRole: "MANAGER" },
     ],
-  },
-  {
-    title: "Staff",
-    // GET /roster, /attendance, /employee-pay-rates and friends are all MANAGER+ on the backend
-    // (see openapi.yaml's Roster tag) - same floor as pay itself, since attendance is the data
-    // pay depends on. "My schedule" is the one exception: GET /roster/me has no role floor at
-    // all, matching the module's own "own schedule visible to each employee" decision - it needs
-    // no minRole here for exactly that reason. GET /attendance/devices is MANAGER+, same floor as
-    // the rest of this group - registering/editing physical hardware, same reasoning as Printers
-    // under Restaurant. GET /users and POST /roster/import/* are both ADMIN-only, hard-restricted
-    // regardless of the role hierarchy - the importer can create User accounts on the spot, the
-    // same reason it needs the same floor as Users itself.
-    links: [
-      { href: "/admin/roster", label: "Roster", minRole: "MANAGER" },
-      { href: "/admin/schedule", label: "My schedule" },
-      { href: "/admin/attendance-devices", label: "Fingerprint terminals", minRole: "MANAGER" },
-      { href: "/admin/roster/import", label: "Import schedule", minRole: "ADMIN" },
-      { href: "/admin/users", label: "Users", minRole: "ADMIN" },
-      // Messages to staff over Telegram. The log and the channel list (linking a chat needs no login, so managers
-      // do it; GET /notifications/** is MANAGER+) sit with the people who read them; the settings are ADMIN-only
-      // like every /settings route. Longest-href matching keeps just one of the three highlighted.
-      { href: "/admin/notifications", label: "Notifications", minRole: "MANAGER" },
-      { href: "/admin/notifications/staff", label: "Notification channels", minRole: "MANAGER" },
-      { href: "/admin/settings/notifications", label: "Notification settings", minRole: "ADMIN" },
-    ],
+    setup: [],
   },
 ];
 
@@ -177,12 +194,27 @@ export function isNavLinkVisible(link: NavLink, role: Role, functions: readonly 
   return link.orFunction !== undefined && functions.includes(link.orFunction);
 }
 
-// Every group's links filtered to what this role may see, with any group left with zero links
-// dropped entirely - a group header must never render with nothing under it.
+// Both sections of a group filtered to what this role may see, with any group left with no link
+// at all dropped entirely - a group header must never render with nothing under it.
 export function visibleNavGroups(role: Role, functions: readonly JobFunction[] = []): NavGroup[] {
-  return NAV_GROUPS.map((g) => ({ ...g, links: g.links.filter((l) => isNavLinkVisible(l, role, functions)) })).filter(
-    (g) => g.links.length > 0
-  );
+  return NAV_GROUPS.map((g) => ({
+    ...g,
+    links: g.links.filter((l) => isNavLinkVisible(l, role, functions)),
+    setup: g.setup.filter((l) => isNavLinkVisible(l, role, functions)),
+  })).filter((g) => g.links.length + g.setup.length > 0);
+}
+
+// Every link of a group in display order, everyday section first.
+export function groupLinks(group: NavGroup): NavLink[] {
+  return [...group.links, ...group.setup];
+}
+
+// What a group draws: its sections, and whether a divider (with the "Settings" caption) goes between
+// them. A divider separates two things, so it is drawn only when both sections have links - a group
+// left with only its setup links (or only everyday ones) shows one plain list.
+export function navSections(group: NavGroup): { sections: NavLink[][]; divider: boolean } {
+  const sections = [group.links, group.setup].filter((s) => s.length > 0);
+  return { sections, divider: sections.length === 2 };
 }
 
 // A page that belongs to one section but lives under another's URL (a spa treatment is billed on the
@@ -206,14 +238,15 @@ export function activeNavHref(links: NavLink[], pathname: string): string | unde
   return matching.sort((a, b) => b.href.length - a.href.length)[0]?.href;
 }
 
-// The group holding the active link - the sidebar always opens it, so the highlighted link is
-// never hidden inside a group the viewer collapsed earlier.
+// The group holding the active link - the sidebar highlights it (and the accordion always opens
+// it), so the current page is never hidden inside a group the viewer collapsed earlier.
 export function activeNavGroupTitle(groups: NavGroup[], pathname: string): string | undefined {
-  const href = activeNavHref(groups.flatMap((g) => g.links), pathname);
-  return groups.find((g) => g.links.some((l) => l.href === href))?.title;
+  const href = activeNavHref(groups.flatMap(groupLinks), pathname);
+  return groups.find((g) => groupLinks(g).some((l) => l.href === href))?.title;
 }
 
-// Which groups this viewer left open, remembered per browser - a convenience only, so any
+// Which groups this viewer left open in the accordion (touch / narrow screens only - the desktop
+// flyout has no open state worth remembering), remembered per browser - a convenience only, so any
 // storage failure (private window, blocked site data) just falls back to "only the active group".
 const OPEN_GROUPS_STORAGE_KEY = "sunset-beach:admin:nav:open-groups";
 
