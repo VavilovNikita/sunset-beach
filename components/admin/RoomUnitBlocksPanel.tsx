@@ -5,10 +5,12 @@ import Link from "next/link";
 import PriceCalendar, { type CalendarCell } from "@/components/admin/PriceCalendar";
 import { createRoomUnitBlock, deleteRoomUnitBlock, listRoomUnitBlocks } from "@/lib/roomUnitBlockClient";
 import { isAutoMigrated, weekdayOf } from "@/lib/ratesGrid";
-import type { AvailabilityDay, AvailabilityUnitDay, RoomUnitBlock, RoomUnitBlockResult } from "@/lib/types";
+import type { AvailabilityDay, AvailabilityUnitDay, BlockResponsibleFunction, RoomUnitBlock, RoomUnitBlockResult } from "@/lib/types";
 import { formatDate, formatDateRange } from "@/lib/formatDate";
 import { hotelDateKey } from "@/lib/hotelDate";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
+import BlockFunctionSelect from "@/components/admin/BlockFunctionSelect";
+import { blockFunctionLabel } from "@/lib/notifications";
 
 const MONTH_FORMAT = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 
@@ -101,6 +103,8 @@ export default function RoomUnitBlocksPanel({
   const [from, setFrom] = useState(defaultDay);
   const [to, setTo] = useState(defaultDay);
   const [reason, setReason] = useState("");
+  // Engineer unless the block is for housekeeping - the server defaults to it as well.
+  const [responsibleFunction, setResponsibleFunction] = useState<BlockResponsibleFunction>("ENGINEER");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Set only when the block just created overlaps a booking - cleared by the manager dismissing it,
@@ -135,7 +139,7 @@ export default function RoomUnitBlocksPanel({
     setError(null);
     setBlockWarning(null);
 
-    const result = await createRoomUnitBlock(roomUnitId, { fromDate: from, toDate: to, reason: reason.trim() });
+    const result = await createRoomUnitBlock(roomUnitId, { fromDate: from, toDate: to, reason: reason.trim(), responsibleFunction });
 
     setSaving(false);
 
@@ -149,6 +153,7 @@ export default function RoomUnitBlocksPanel({
     setFrom(defaultDay());
     setTo(defaultDay());
     setReason("");
+    setResponsibleFunction("ENGINEER");
     await refetchBlocks();
     onChanged();
   }
@@ -250,6 +255,7 @@ export default function RoomUnitBlocksPanel({
                   className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm placeholder:text-cream/30 focus:outline-none focus:border-coral"
                 />
               </div>
+              <BlockFunctionSelect id="block-function" value={responsibleFunction} onChange={setResponsibleFunction} disabled={saving} />
 
               {error && <p className="text-sm text-coral">{error}</p>}
 
@@ -355,6 +361,7 @@ export default function RoomUnitBlocksPanel({
                         {flagged && "⚠ Needs review — "}
                         {b.reason}
                       </p>
+                      <p className="text-xs mt-1 text-cream/40">Closes it: {blockFunctionLabel(b.responsibleFunction)}</p>
                     </div>
                   );
                 })}

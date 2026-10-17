@@ -208,6 +208,18 @@ Spa tables are ordinary POS `Table` rows (`zone: "SPA"`), and a spa appointment 
 
 **A THERAPIST below CASHIER reads the spa schedule, and only that** (owner's decision; the server's gate is CASHIER+ or `FUNCTION_THERAPIST` on `GET /spa-appointments` and `/spa-appointments/therapists`, every write stays CASHIER+). `/admin/spa` opens for them read only (`readOnly` on `SpaScheduleGrid`/`SpaAppointmentPanel`): free slots book nothing, appointments can't be dragged, the details panel has no action, no guest list or linked order is fetched, and the header links to CASHIER+ pages are gone. Their own appointments are outlined. The sidebar shows them Appointments only (`NavLink.orFunction`, OR'd with `minRole`). Don't widen a function's reach by hiding a role check in a page - add the matching backend gate first.
 
+## Staff notifications (`/admin/notifications` MANAGER+, `/admin/notifications/staff` MANAGER+, `/admin/settings/notifications` ADMIN)
+
+**The pages ask `GET /notifications/status` first** (the server's own configuration plus the bot name it cached - no call to Telegram) and show `TelegramSetupBanner`: not configured, bot name not known yet, or status unreadable. Those are three different sentences; an unreadable status is never shown as "not configured". `botUsername` is optional in the API (absent until the server has asked Telegram once), so `NotificationStatus.botUsername` is `string | null | undefined` - test it for falsy, not for `null`.
+
+**Linking needs no login on the employee's side, so managers do it, and managers cannot read `GET /users`** - the staff list comes from `GET /notifications/staff` (also the settings page's recipient picker). Link Telegram opens `LinkDialog`: it creates the code on open, draws the QR with the `qrcode` package already used for the guest order QR (no new dependency), counts the 15 minutes down (`lib/notifications.ts#secondsLeft`) and, once they are over, offers "New link" instead of leaving a dead code on screen. A new code makes the previous one stop working on the server. Unlink and the dialogs are `ConfirmActionDialog`/`ConfirmDialog`; a failed language change or refresh is shown on its row / above the list, never swallowed.
+
+**The settings form validates what the server validates, beside the control** (`validateSettingsForm`: grace not below the terminal poll interval the server reports as `minLateGraceMinutes`, absence not shorter than the grace, quiet hours not starting and ending together while on, `HH:mm` times) and puts a 400 on the field the server names (`settingsServerError`, reading `{ error: { fieldErrors } }`). Save is enabled only for a real change (`settingsFormDirty`, numbers compared as numbers, recipient order ignored). The page shows what the server answered after a save. Times are hotel times; the browser's `<input type="time">` gives `HH:mm` and is sent as is.
+
+**A room block names who closes it** (`BlockFunctionSelect`, ENGINEER by default, in both places a block is made: the room's Blocks panel and a maintenance task's Block room form). A block from before the field existed shows "Not set (directors are told)".
+
+**The log's dates are hotel days** (sent as `from`/`to`; the server converts to UTC) and timestamps go through `lib/formatDate.ts`. A failed reload keeps the previous rows on screen but says they are not the ones asked for.
+
 ## Public site
 
 Guest-facing pages and the booking flow are not to be touched unless the task is about them. They are the only part real guests see, and they are the least covered by tests.

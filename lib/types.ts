@@ -141,7 +141,13 @@ export type RoomUnitBlock = {
   createdAt: string;
   createdByEmail: string | null; // null for blocks created before this was tracked
   maintenanceTask: RoomUnitBlockMaintenanceTask | null;
+  // Who must close the block (the notification centre tells whoever is on shift with this function).
+  // Absent on a block created before the field existed.
+  responsibleFunction?: BlockResponsibleFunction;
 };
+
+// A subset of JobFunction: the two jobs a room block can be waiting on.
+export type BlockResponsibleFunction = "ENGINEER" | "HOUSEKEEPER";
 
 // The maintenance task this block exists to cover, if any — a block can also be raised directly
 // (RoomUnitBlocksPanel.tsx), with no task behind it, which is the null case.
@@ -157,6 +163,8 @@ export type RoomUnitBlockInput = {
   fromDate: string;
   toDate: string;
   reason: string;
+  // Omitted = ENGINEER (the server's default).
+  responsibleFunction?: BlockResponsibleFunction;
 };
 
 // One booking whose stay overlaps a block being created on this unit — enough to name the guest
@@ -2031,3 +2039,86 @@ export type LightingDeviceCheckInput = { host: string; port?: number };
 export type LightingDeviceInfo = { name: string; version: string; ledCount: number; mac: string };
 
 export type LightingDeviceCheckResult = { reachable: boolean; error?: string; info?: LightingDeviceInfo };
+
+// ---- Staff notification centre (backend: Notifications tag, /settings/notifications) -------------------
+
+export type NotificationChannel = "TELEGRAM";
+
+export type NotificationLanguage = "EN" | "TH" | "RU";
+
+export type NotificationType =
+  | "LATE"
+  | "ABSENT"
+  | "BLOCK_CREATED"
+  | "BLOCK_LAST_DAY"
+  | "BLOCK_EXPIRED_OPEN"
+  | "TERMINAL_OFFLINE"
+  | "TERMINAL_ONLINE";
+
+// NO_CHANNEL: the recipient had no linked chat when the message was raised.
+export type NotificationDeliveryStatus = "PENDING" | "SENT" | "FAILED" | "NO_CHANNEL";
+
+// GET /notifications/status - the server's own configuration, no call to Telegram. botUsername is
+// absent until the server has asked Telegram for it once.
+export type NotificationStatus = {
+  telegramConfigured: boolean;
+  botUsername?: string | null;
+};
+
+// GET/PUT /settings/notifications (ADMIN). Times are hotel (Asia/Bangkok) "HH:mm".
+export type NotificationSettings = {
+  lateEnabled: boolean;
+  lateGraceMinutes: number;
+  minLateGraceMinutes: number; // read only: the terminal's poll interval in minutes
+  absenceEnabled: boolean;
+  absenceMinutes: number;
+  blockCreatedEnabled: boolean;
+  blockLastDayEnabled: boolean;
+  blockExpiredEnabled: boolean;
+  terminalAlertsEnabled: boolean;
+  terminalSilenceMinutes: number;
+  quietHoursEnabled: boolean;
+  quietStart: string;
+  quietEnd: string;
+  morningTime: string;
+  defaultLanguage: NotificationLanguage;
+  lateRecipientUserIds: string[];
+  directorUserIds: string[];
+  updatedAt: string;
+};
+
+export type NotificationSettingsUpdateInput = Omit<NotificationSettings, "minLateGraceMinutes" | "updatedAt">;
+
+// GET /notifications/staff (MANAGER+)
+export type NotificationStaffMember = {
+  userId: string;
+  name: string;
+  role: Role;
+  isActive: boolean;
+  language?: NotificationLanguage; // absent = the settings' default
+  telegramLinked: boolean;
+  telegramLinkedAt?: string;
+};
+
+// POST /notifications/links/code
+export type NotificationLinkCode = {
+  userId: string;
+  url: string; // https://t.me/<bot>?start=<code>
+  expiresAt: string;
+};
+
+// GET /notifications/log (MANAGER+)
+export type NotificationLogEntry = {
+  id: string;
+  type: NotificationType;
+  recipientUserId: string;
+  recipientName: string;
+  language: NotificationLanguage;
+  text: string;
+  createdAt: string;
+  deliveryStatus: NotificationDeliveryStatus;
+  attempts: number;
+  sendAfter?: string; // while PENDING: the earliest moment it will be sent
+  sentAt?: string;
+  error?: string;
+};

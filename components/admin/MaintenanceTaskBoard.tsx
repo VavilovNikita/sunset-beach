@@ -8,10 +8,11 @@ import {
   createMaintenanceTask,
   updateMaintenanceTaskStatus,
 } from "@/lib/maintenanceTaskClient";
-import type { MaintenanceTask, MaintenanceTaskBlockResult, MaintenanceTaskStatus, RoomUnit } from "@/lib/types";
+import type { BlockResponsibleFunction, MaintenanceTask, MaintenanceTaskBlockResult, MaintenanceTaskStatus, RoomUnit } from "@/lib/types";
 import { formatDateRange, formatTimestamp } from "@/lib/formatDate";
 import UploadedImage from "@/components/UploadedImage";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
+import BlockFunctionSelect from "@/components/admin/BlockFunctionSelect";
 
 const STATUS_LABEL: Record<MaintenanceTaskStatus, string> = { OPEN: "Open", IN_PROGRESS: "In progress", DONE: "Done" };
 const STATUS_CLASS: Record<MaintenanceTaskStatus, string> = {
@@ -378,6 +379,8 @@ function BlockRoomForm({
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [reason, setReason] = useState("");
+  // A block made from a maintenance task is an engineer's by default.
+  const [responsibleFunction, setResponsibleFunction] = useState<BlockResponsibleFunction>("ENGINEER");
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -386,7 +389,7 @@ function BlockRoomForm({
     setSaving(true);
     onError("");
 
-    const result = await addMaintenanceTaskBlock(taskId, { fromDate, toDate, reason: reason.trim() });
+    const result = await addMaintenanceTaskBlock(taskId, { fromDate, toDate, reason: reason.trim(), responsibleFunction });
 
     setSaving(false);
     if (!result.ok) {
@@ -428,6 +431,7 @@ function BlockRoomForm({
           className="w-full bg-transparent border-b border-cream/25 py-2 text-sm placeholder:text-cream/30 focus:outline-none focus:border-coral"
         />
       </div>
+      <BlockFunctionSelect id={`block-function-${taskId}`} value={responsibleFunction} onChange={setResponsibleFunction} disabled={saving} />
       <button
         type="submit"
         disabled={saving || !fromDate || !toDate || !reason.trim()}

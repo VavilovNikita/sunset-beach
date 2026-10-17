@@ -68,7 +68,7 @@ describe("visibleNavGroups", () => {
     expect(byTitle["Restaurant"]).toEqual(["POS", "Print queue", "Shifts", "Menu", "Printers"]);
     expect(byTitle["Spa"]).toEqual(["Appointments", "Table map", "Treatments", "Tables"]);
     expect(byTitle["Reports"]).toEqual(["Dashboard", "Room production", "Manager report", "History"]);
-    expect(byTitle["Staff"]).toEqual(["Roster", "My schedule", "Fingerprint terminals"]); // no Import schedule/Users - ADMIN only
+    expect(byTitle["Staff"]).toEqual(["Roster", "My schedule", "Fingerprint terminals", "Notifications", "Notification channels"]); // no Import schedule/Users/Notification settings - ADMIN only
   });
 
   it("ADMIN sees everything, including Guest emails, Import schedule and Users", () => {
@@ -76,11 +76,18 @@ describe("visibleNavGroups", () => {
     assertNoEmptyGroups(groups);
     expect(groups.map((g) => g.title)).toEqual(FULL_ORDER);
     expect(groups.find((g) => g.title === "Staff")?.links.map((l) => l.label)).toEqual([
-      "Roster", "My schedule", "Fingerprint terminals", "Import schedule", "Users",
+      "Roster", "My schedule", "Fingerprint terminals", "Import schedule", "Users", "Notifications", "Notification channels", "Notification settings",
     ]);
     expect(groups.find((g) => g.title === "Front desk")?.links.map((l) => l.label)).toContain("Guest emails");
     expect(groups.find((g) => g.title === "Restaurant")?.links.map((l) => l.label)).toContain("Print layouts");
     expect(groups.flatMap((g) => g.links)).toHaveLength(NAV_GROUPS.flatMap((g) => g.links).length);
+  });
+
+  it("the notification pages each highlight their own link, not their parent's", () => {
+    const links = visibleNavGroups("ADMIN").flatMap((g) => g.links);
+    expect(activeNavHref(links, "/admin/notifications")).toBe("/admin/notifications");
+    expect(activeNavHref(links, "/admin/notifications/staff")).toBe("/admin/notifications/staff");
+    expect(activeNavHref(links, "/admin/settings/notifications")).toBe("/admin/settings/notifications");
   });
 
   it("every role's group list is a subsequence of the full five in the same relative order", () => {

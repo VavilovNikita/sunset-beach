@@ -156,6 +156,12 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/attendance-devices", label: "Fingerprint terminals", minRole: "MANAGER" },
       { href: "/admin/roster/import", label: "Import schedule", minRole: "ADMIN" },
       { href: "/admin/users", label: "Users", minRole: "ADMIN" },
+      // Messages to staff over Telegram. The log and the channel list (linking a chat needs no login, so managers
+      // do it; GET /notifications/** is MANAGER+) sit with the people who read them; the settings are ADMIN-only
+      // like every /settings route. Longest-href matching keeps just one of the three highlighted.
+      { href: "/admin/notifications", label: "Notifications", minRole: "MANAGER" },
+      { href: "/admin/notifications/staff", label: "Notification channels", minRole: "MANAGER" },
+      { href: "/admin/settings/notifications", label: "Notification settings", minRole: "ADMIN" },
     ],
   },
 ];
