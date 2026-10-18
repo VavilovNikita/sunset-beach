@@ -79,14 +79,14 @@
 | **Spa** | Appointments, Table map, Treatments (CASHIER+; Appointments также для функции THERAPIST) | Tables (MANAGER+) |
 | **Gym & lighting** | Gym schedule, Gym (CASHIER+) · Lighting (MANAGER+) | Gym devices, Lighting devices (ADMIN) |
 | **Staff** | My schedule (все) · Roster, Notifications, Notification channels (MANAGER+) | Fingerprint terminals (MANAGER+) · Import schedule, Users, Notification settings (ADMIN) |
-| **Reports** | Dashboard (CASHIER+) · Room production, Manager report, History (MANAGER+) | — |
+| **Reports** | Dashboard (CASHIER+) · Reports, History (MANAGER+) | — |
 
 Что видит каждая роль (роли накапливаются: MANAGER видит всё, что CASHIER, ADMIN — всё, что MANAGER):
 
 | Роль | Видит |
 |---|---|
 | **CASHIER** | Все семь групп, но только ссылки «все» и «CASHIER+»: Gym & lighting — Gym schedule, Gym; Staff — только My schedule; Reports — только Dashboard. Из Settings — только Rooms. |
-| **MANAGER** | Дополнительно к CASHIER: Lighting; Notifications, Notification channels, Roster; Room production, Manager report, History. В Settings: Tables, Printers, Fingerprint terminals. |
+| **MANAGER** | Дополнительно к CASHIER: Lighting; Notifications, Notification channels, Roster; Reports, History. В Settings: Tables, Printers, Fingerprint terminals. |
 | **ADMIN** | Всё меню. Дополнительно к MANAGER в Settings: Guest emails, Print layouts, Gym devices, Lighting devices, Import schedule, Users, Notification settings. |
 
 **WAITER** видит: Rooms (только Maintenance), Restaurant (POS, Print queue, Menu), Staff (My schedule). Ссылок Settings у WAITER нет.

@@ -111,7 +111,7 @@ describe("visibleNavGroups", () => {
     expect(t["Spa"]).toEqual(["Appointments", "Table map", "Treatments", "Tables"]);
     expect(t["Gym & lighting"]).toEqual(["Gym schedule", "Gym", "Lighting"]);
     expect(t["Staff"]).toEqual(["My schedule", "Roster", "Notifications", "Notification channels", "Fingerprint terminals"]);
-    expect(t["Reports"]).toEqual(["Dashboard", "Room production", "Manager report", "History"]);
+    expect(t["Reports"]).toEqual(["Dashboard", "Reports", "History"]);
   });
 
   it("ADMIN sees everything, everyday links first and setup links after them", () => {
@@ -219,6 +219,7 @@ describe("activeNavHref / activeNavGroupTitle", () => {
     ["/admin/settings/lifecycle-emails", "/admin/settings/lifecycle-emails", "Front desk"],
     ["/admin/settings/print-layouts", "/admin/settings/print-layouts", "Restaurant"],
     ["/admin/rooms/7/edit", "/admin/rooms", "Rooms"],
+    ["/admin/reports", "/admin/reports", "Reports"],
   ])("%s highlights %s in %s", (pathname, href, group) => {
     expect(activeNavHref(links, pathname)).toBe(href);
     expect(activeNavGroupTitle(groups, pathname)).toBe(group);
