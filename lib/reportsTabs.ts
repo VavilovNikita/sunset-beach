@@ -3,6 +3,8 @@
 // LTV), and switching tabs or submitting one tab's form must not reset the others - same idea as
 // the roster page's year/month surviving a tab change.
 
+import { MANAGER_REPORT_SECTIONS, type ManagerReportSection } from "./managerReport";
+
 export const REPORT_TABS = [
   { key: "manager", label: "Manager report" },
   { key: "occupancy", label: "Occupancy" },
@@ -11,6 +13,12 @@ export const REPORT_TABS = [
   { key: "sales", label: "Sales mix" },
   { key: "guests", label: "Guest LTV" },
 ] as const;
+
+export type ManagerSectionKey = ManagerReportSection["key"];
+
+export function parseManagerSection(raw: string | undefined): ManagerSectionKey {
+  return MANAGER_REPORT_SECTIONS.find((s) => s.key === raw)?.key ?? MANAGER_REPORT_SECTIONS[0].key;
+}
 
 export type ReportTabKey = (typeof REPORT_TABS)[number]["key"];
 
@@ -23,14 +31,15 @@ export function parseReportTab(raw: string | undefined): ReportTabKey {
 export type ReportsState = {
   tab: ReportTabKey;
   date?: string;
+  section?: ManagerSectionKey;
   from?: string;
   to?: string;
   limit?: string;
 };
 
-export type ReportsParamName = "date" | "from" | "to" | "limit";
+export type ReportsParamName = "date" | "section" | "from" | "to" | "limit";
 
-const ORDER: ReportsParamName[] = ["date", "from", "to", "limit"];
+const ORDER: ReportsParamName[] = ["date", "section", "from", "to", "limit"];
 
 function entries(state: ReportsState, omit: ReportsParamName[]): [string, string][] {
   const out: [string, string][] = [["tab", state.tab]];

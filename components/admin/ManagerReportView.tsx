@@ -1,14 +1,15 @@
 import { formatDate } from "@/lib/formatDate";
 import { MANAGER_REPORT_LEFT_OUT, MANAGER_REPORT_SECTIONS } from "@/lib/managerReport";
+import type { ManagerSectionKey } from "@/lib/reportsTabs";
 import type { ManagerReport } from "@/lib/types";
 
-// The five manager-report sections, each a table of tonight vs. the same night last year, with
+// One manager-report section (the page's sub-tab picks it): a table of tonight vs. the same night last year, with
 // the endpoint's own documented limitations as captions underneath. Kept apart from the page so
 // ManagerReportView.test.tsx can render it without a session or a backend.
-export default function ManagerReportView({ report }: { report: ManagerReport }) {
+export default function ManagerReportView({ report, section: sectionKey }: { report: ManagerReport; section: ManagerSectionKey }) {
   return (
     <>
-      {MANAGER_REPORT_SECTIONS.map((section) => (
+      {MANAGER_REPORT_SECTIONS.filter((section) => section.key === sectionKey).map((section) => (
         <section key={section.key} className="mb-8" data-section={section.key}>
           <h2 className="font-display italic text-xl mb-3">{section.title}</h2>
           <div className="border border-cream/10 rounded-xl overflow-x-auto">
@@ -43,15 +44,17 @@ export default function ManagerReportView({ report }: { report: ManagerReport })
         </section>
       ))}
 
-      <section className="mb-8" data-section="left-out">
-        <h2 className="font-display italic text-xl mb-1">Not in this report</h2>
+      <details className="mb-8" data-section="left-out">
+        <summary className="cursor-pointer text-sm text-sea hover:text-coral transition-colors mb-2">
+          Not in this report
+        </summary>
         <p className="text-xs text-cream/40 mb-2">This report deliberately leaves out:</p>
         <ul className="text-xs text-cream/40 space-y-1 list-disc pl-5">
           {MANAGER_REPORT_LEFT_OUT.map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ul>
-      </section>
+      </details>
     </>
   );
 }

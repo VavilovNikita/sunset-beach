@@ -9,8 +9,10 @@ import {
   parseReportRange,
   type ReportRange,
 } from "@/lib/reports";
+import { MANAGER_REPORT_SECTIONS } from "@/lib/managerReport";
 import {
   REPORT_TABS,
+  parseManagerSection,
   parseReportTab,
   reportsHiddenFields,
   reportsHref,
@@ -44,12 +46,13 @@ import type {
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: { tab?: string; date?: string; from?: string; to?: string; limit?: string };
+  searchParams: { tab?: string; section?: string; date?: string; from?: string; to?: string; limit?: string };
 }) {
   await requireRoleAtLeast("MANAGER");
 
   const tab = parseReportTab(searchParams.tab);
   const date = parseNightAuditDateParam(searchParams.date);
+  const section = parseManagerSection(searchParams.section);
   const range = parseReportRange(searchParams.from, searchParams.to, hotelDateKey(new Date()));
   const limit = parseGuestLtvLimit(searchParams.limit);
 
@@ -57,6 +60,7 @@ export default async function ReportsPage({
   const state: ReportsState = {
     tab,
     date: date ?? undefined,
+    section: MANAGER_REPORT_SECTIONS.some((x) => x.key === searchParams.section) ? section : undefined,
     from: searchParams.from && searchParams.to ? range.from : undefined,
     to: searchParams.from && searchParams.to ? range.to : undefined,
     limit: searchParams.limit ? String(limit) : undefined,
@@ -92,7 +96,22 @@ export default async function ReportsPage({
           )}
         </form>
         {report.ok ? (
-          <ManagerReportView report={report.data} />
+          <>
+            <div className="flex flex-wrap gap-1 border-b border-cream/10 mb-6">
+              {MANAGER_REPORT_SECTIONS.map((x) => (
+                <Link
+                  key={x.key}
+                  href={reportsHref(state, { section: x.key })}
+                  className={`px-3 py-1.5 text-xs rounded-t-md transition-colors ${
+                    section === x.key ? "bg-ink2/60 text-coral" : "text-cream/50 hover:text-cream"
+                  }`}
+                >
+                  {x.title}
+                </Link>
+              ))}
+            </div>
+            <ManagerReportView report={report.data} section={section} />
+          </>
         ) : (
           <p className="text-sm text-coral">Couldn&apos;t load the manager report: {report.error}</p>
         )}

@@ -41,13 +41,24 @@ const report: ManagerReport = {
   lastYear: { ...day({ occupancyPercent: null, roomRevenue: "800.00" }), tomorrow: { ...day().tomorrow, date: "2032-11-11" } },
 };
 
-describe("ManagerReportView", () => {
-  const html = renderToStaticMarkup(<ManagerReportView report={report} />);
+const KEYS = MANAGER_REPORT_SECTIONS.map((section) => section.key);
+const renderAll = () => KEYS.map((key) => renderToStaticMarkup(<ManagerReportView report={report} section={key} />)).join("\n");
 
-  it("renders all five sections", () => {
-    for (const key of ["rooms", "guests", "accounts", "revenue", "tomorrow"]) {
-      expect(html).toContain(`data-section="${key}"`);
+describe("ManagerReportView", () => {
+  const html = renderAll();
+
+  it.each(KEYS)("renders only the %s section, plus a collapsed 'Not in this report'", (key) => {
+    const one = renderToStaticMarkup(<ManagerReportView report={report} section={key} />);
+    for (const other of KEYS) {
+      expect(one.includes(`data-section="${other}"`)).toBe(other === key);
     }
+    expect(one).toContain("<details");
+    expect(one).not.toContain("<details open");
+    expect(one).toContain("Not in this report");
+    expect(one.match(/data-section="left-out"/g)).toHaveLength(1);
+  });
+
+  it("titles every section", () => {
     for (const title of ["Room statistic", "Guest statistic", "Account count", "Revenue", "Tomorrow&#x27;s forecast"]) {
       expect(html).toContain(title);
     }
