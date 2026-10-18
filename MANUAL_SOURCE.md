@@ -63,19 +63,37 @@
 
 ### 1.4 Состав бокового меню админки по ролям
 
-Источник: `lib/adminNav.ts` (`NAV_GROUPS`), отрисовка — `components/admin/AdminSidebar.tsx`. Порядок разделов и пунктов — как в коде. Разделы сворачиваются по клику на заголовок; при открытии страницы раздел с текущим пунктом раскрыт, остальные — как пользователь оставил их в прошлый раз (запоминается в браузере). Раздел, в котором для роли нет ни одного пункта, не показывается.
+Источник: `lib/adminNav.ts` (`NAV_GROUPS`, `minRole`, `orFunction`), отрисовка — `components/admin/AdminSidebar.tsx`. Групп семь, порядок групп и ссылок — как в коде. В каждой группе сверху обычные ссылки, ниже — ссылки секции **Settings** (настройка той же области: устройства, шаблоны, пользователи). Подпись «Settings» с разделителем рисуется, только если у роли в группе есть и обычные ссылки, и ссылки секции Settings; иначе список идёт одним блоком. Группа, в которой для роли нет ни одной ссылки, не показывается.
 
-| Раздел | Пункты (минимальная роль, если выше WAITER) |
+Как ведут себя группы:
+- **Компьютер** (экран от 768 px, мышь): группа открывается справа при наведении курсора или по клику на заголовок; Escape закрывает её.
+- **Телефон и планшет** (узкий экран или касание): группы раскрываются нажатием на заголовок. Группа с текущей страницей раскрыта при открытии страницы, остальные — как пользователь оставил их в прошлый раз (запоминается в браузере).
+
+Минимальная роль указана для каждой ссылки; «все» — любая авторизованная роль, включая WAITER. Ссылки Settings помечены отдельно.
+
+| Группа | Ссылки | Ссылки секции Settings |
+|---|---|---|
+| **Front desk** | Today, Calendar, Bookings, Guests, Property map, In house, Night audit (CASHIER+) | Guest emails (ADMIN) |
+| **Rooms** | Housekeeping (CASHIER+) · Maintenance (все) · Rates & availability (CASHIER+) | Rooms (CASHIER+) |
+| **Restaurant** | POS, Print queue (все) · Shifts (CASHIER+) · Menu (все) | Printers (MANAGER+) · Print layouts (ADMIN) |
+| **Spa** | Appointments, Table map, Treatments (CASHIER+; Appointments также для функции THERAPIST) | Tables (MANAGER+) |
+| **Gym & lighting** | Gym schedule, Gym (CASHIER+) · Lighting (MANAGER+) | Gym devices, Lighting devices (ADMIN) |
+| **Staff** | My schedule (все) · Roster, Notifications, Notification channels (MANAGER+) | Fingerprint terminals (MANAGER+) · Import schedule, Users, Notification settings (ADMIN) |
+| **Reports** | Dashboard (CASHIER+) · Room production, Manager report, History (MANAGER+) | — |
+
+Что видит каждая роль (роли накапливаются: MANAGER видит всё, что CASHIER, ADMIN — всё, что MANAGER):
+
+| Роль | Видит |
 |---|---|
-| **Front desk** | Today, Calendar, Bookings, Guests, Property map, Housekeeping (CASHIER+) · Maintenance (все) · Night audit, In house, Rates & availability, Rooms (CASHIER+) · Guest emails (ADMIN) |
-| **Restaurant** | POS, Print queue (все) · Shifts (CASHIER+) · Menu (все) · Printers (MANAGER+) |
-| **Spa** | Appointments, Table map, Treatments (CASHIER+) · Tables (MANAGER+) |
-| **Reports** | Dashboard (CASHIER+) · Room production, Manager report, History (MANAGER+) |
-| **Staff** | Roster (MANAGER+) · My schedule (все) · Fingerprint terminals (MANAGER+) · Import schedule, Users (ADMIN) |
+| **CASHIER** | Все семь групп, но только ссылки «все» и «CASHIER+»: Gym & lighting — Gym schedule, Gym; Staff — только My schedule; Reports — только Dashboard. Из Settings — только Rooms. |
+| **MANAGER** | Дополнительно к CASHIER: Lighting; Notifications, Notification channels, Roster; Room production, Manager report, History. В Settings: Tables, Printers, Fingerprint terminals. |
+| **ADMIN** | Всё меню. Дополнительно к MANAGER в Settings: Guest emails, Print layouts, Gym devices, Lighting devices, Import schedule, Users, Notification settings. |
 
-**WAITER** видит: Front desk (только Maintenance), Restaurant (POS, Print queue, Menu), Staff (только My schedule).
+**WAITER** видит: Rooms (только Maintenance), Restaurant (POS, Print queue, Menu), Staff (My schedule). Ссылок Settings у WAITER нет.
 
-Логотип-ссылка «The Sunset Beach» ведёт на `/admin` для CASHIER+ и на первый доступный пункт (`/admin/pos`) для WAITER — у WAITER пункта «Dashboard» в меню нет вовсе (для него это была бы пустая страница с редиректом).
+Сотрудник с функцией **THERAPIST** (любая роль, в том числе WAITER) дополнительно видит Spa → Appointments; страница открывается только для чтения. Остальные ссылки Spa ему остаются недоступны.
+
+Логотип-ссылка «The Sunset Beach» ведёт на `/admin` для CASHIER+ и на первую доступную ссылку меню для WAITER — это `/admin/maintenance` (Rooms → Maintenance; Dashboard у WAITER в меню нет — для него это была бы пустая страница с редиректом).
 
 ---
 
