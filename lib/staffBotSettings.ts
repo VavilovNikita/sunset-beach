@@ -49,11 +49,25 @@ type Toggle = { key: BotToggleKey; label: string; hint?: string };
 // also carry numbers/times, listed in GROUP_NUMBERS / GROUP_TIMES below.
 export type BotGroupId = "personal" | "requests" | "engineer" | "housekeeping" | "spa" | "managers" | "summary";
 
-export const BOT_GROUPS: { id: BotGroupId; title: string; note?: string; toggles: Toggle[]; numbers: BotNumberKey[]; times: BotTimeKey[] }[] = [
+// `short` is the one line under the card's title; `note` is the rest, behind "More". `master` is the toggle that
+// switches the whole card (the page shows it in the card's header and folds the card's other fields away while it is off).
+export type BotGroup = {
+  id: BotGroupId;
+  title: string;
+  short: string;
+  note?: string;
+  master?: BotToggleKey;
+  toggles: Toggle[];
+  numbers: BotNumberKey[];
+  times: BotTimeKey[];
+};
+
+export const BOT_GROUPS: BotGroup[] = [
   {
     id: "personal",
     title: "Personal screens and messages",
-    note: "What the bot shows an employee about their own schedule. Each can be switched off; the menu then leaves it out.",
+    short: "What the bot shows an employee about their own schedule.",
+    note: "Each can be switched off; the menu then leaves it out.",
     toggles: [
       { key: "myShiftsEnabled", label: "My shifts" },
       { key: "myDayEnabled", label: "My day (today's shift and own punches)" },
@@ -74,6 +88,8 @@ export const BOT_GROUPS: { id: BotGroupId; title: string; note?: string; toggles
   {
     id: "requests",
     title: "Requests",
+    short: "An employee can ask to move a shift or take it off; the HR director decides.",
+    master: "requestsEnabled",
     toggles: [
       { key: "requestsEnabled", label: "Shift requests", hint: "Master switch: filing, the deciders' list and the messages about them." },
       { key: "moveRequestsEnabled", label: "Requests to move a shift" },
@@ -93,7 +109,9 @@ export const BOT_GROUPS: { id: BotGroupId; title: string; note?: string; toggles
   {
     id: "engineer",
     title: "Engineer",
-    note: "Open maintenance tasks with Start and Done, for the Engineer function (managers as the fallback). Done shortens the room's block exactly as on the Maintenance page.",
+    short: "Open maintenance tasks with Start and Done.",
+    note: "For the Engineer function (managers as the fallback). Done shortens the room's block exactly as on the Maintenance page.",
+    master: "engineerTasksEnabled",
     toggles: [{ key: "engineerTasksEnabled", label: "Tasks" }],
     numbers: [],
     times: [],
@@ -101,7 +119,8 @@ export const BOT_GROUPS: { id: BotGroupId; title: string; note?: string; toggles
   {
     id: "housekeeping",
     title: "Housekeeping",
-    note: "Read only: the blocks the Housekeeper function answers for.",
+    short: "Read only: the blocks the Housekeeper function answers for.",
+    master: "housekeeperBlocksEnabled",
     toggles: [{ key: "housekeeperBlocksEnabled", label: "Room blocks" }],
     numbers: ["housekeeperBlocksDays"],
     times: [],
@@ -109,7 +128,8 @@ export const BOT_GROUPS: { id: BotGroupId; title: string; note?: string; toggles
   {
     id: "spa",
     title: "Spa",
-    note: "For the Therapist function. Never shows the guest's name.",
+    short: "For the Therapist function.",
+    note: "Never shows the guest's name.",
     toggles: [
       { key: "therapistScheduleEnabled", label: "My procedures" },
       { key: "therapistMorningEnabled", label: "Morning message “N procedures today, the first at 10:00”", hint: "Sent only to a therapist who switched it on in the bot's Settings, and only on a day with procedures." },
@@ -121,7 +141,7 @@ export const BOT_GROUPS: { id: BotGroupId; title: string; note?: string; toggles
   {
     id: "managers",
     title: "Managers",
-    note: "For MANAGER and above.",
+    short: "For MANAGER and above.",
     toggles: [
       { key: "whoIsOnShiftEnabled", label: "Who is on shift", hint: "The attendance board in words. When a terminal is not responding it says so first and shows only the roster." },
       { key: "whoIsOnShiftForHr", label: "Also for the HR director", hint: "They can already read attendance." },
@@ -133,7 +153,8 @@ export const BOT_GROUPS: { id: BotGroupId; title: string; note?: string; toggles
   {
     id: "summary",
     title: "Morning summary",
-    note: "Sent to the director recipients of the alerts above, once a day. Every figure is read from the same screens the admin uses.",
+    short: "Sent to the director recipients once a day.",
+    note: "Every figure is read from the same screens the admin uses.",
     toggles: [
       { key: "morningSummaryEnabled", label: "Send the morning summary to the directors" },
       { key: "summaryArrivals", label: "Arrivals" },
@@ -182,19 +203,25 @@ export function validateBotSettingsForm(form: BotSettingsForm): BotSettingsValid
   return { ok: true, input: input as StaffBotSettingsUpdateInput };
 }
 
-// Compared as the server will see it (numbers parsed), so Save is enabled by a real change only.
-export function botSettingsFormDirty(form: BotSettingsForm, saved: StaffBotSettings): boolean {
+// Which fields differ from what the server holds, compared as the server will see it (numbers parsed).
+export function dirtyBotSettingsFields(form: BotSettingsForm, saved: StaffBotSettings): (keyof BotSettingsForm)[] {
   const base = toBotSettingsForm(saved);
   const numberKeys = new Set<string>(BOT_NUMBER_FIELDS.map((f) => f.key));
+  const changed: (keyof BotSettingsForm)[] = [];
   for (const key of Object.keys(base) as (keyof BotSettingsForm)[]) {
     if (numberKeys.has(key)) {
       const typed = String(form[key]).trim();
-      if (typed === "" || Number(typed) !== Number(base[key])) return true;
+      if (typed === "" || Number(typed) !== Number(base[key])) changed.push(key);
     } else if (form[key] !== base[key]) {
-      return true;
+      changed.push(key);
     }
   }
-  return false;
+  return changed;
+}
+
+// So Save is enabled by a real change only.
+export function botSettingsFormDirty(form: BotSettingsForm, saved: StaffBotSettings): boolean {
+  return dirtyBotSettingsFields(form, saved).length > 0;
 }
 
 const FIELDS: BotSettingsField[] = [...BOT_NUMBER_FIELDS.map((f) => f.key as BotSettingsField), ...BOT_TIME_FIELDS.map((t) => t.key as BotSettingsField)];
@@ -226,7 +253,7 @@ export function directorsTelegramSummary(directorUserIds: readonly string[], sta
   const linked = active.filter((id) => byId.get(id)?.telegramLinked).length;
   const people = (n: number) => `${n} ${n === 1 ? "director" : "directors"}`;
   if (selected === 0) {
-    return { selected, linked, text: "No directors are selected in the alert settings above, so nobody will receive the summary." };
+    return { selected, linked, text: "No directors are selected on the Recipients & delivery tab, so nobody will receive the summary." };
   }
   if (linked === 0) {
     return {

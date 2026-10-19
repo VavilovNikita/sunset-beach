@@ -1,7 +1,7 @@
+import { Suspense } from "react";
 import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { requireAdminUser } from "@/lib/rbac";
-import NotificationSettingsForm from "@/components/admin/NotificationSettingsForm";
-import StaffBotSettingsForm from "@/components/admin/StaffBotSettingsForm";
+import NotificationSettingsWorkspace from "@/components/admin/notificationSettings/NotificationSettingsWorkspace";
 import TelegramSetupBanner from "@/components/admin/TelegramSetupBanner";
 import type { NotificationSettings, NotificationStaffMember, NotificationStatus, ShiftRequestDeciders, StaffBotSettings } from "@/lib/types";
 
@@ -20,28 +20,27 @@ export default async function NotificationSettingsPage() {
   ]);
 
   return (
-    <div className="max-w-2xl">
-      <div className="mb-8">
+    <div className="max-w-5xl">
+      <div className="mb-6 max-w-2xl">
         <p className="eyebrow text-sea mb-2">Staff</p>
         <h1 className="font-display italic text-3xl">Notification settings</h1>
         <p className="text-sm text-cream/60 mt-3">
-          Messages to staff over Telegram: who is late, who has not come, a silent attendance terminal, a room block that needs closing. The wording is fixed
-          (English, Thai and Russian); these settings control whether, when and to whom each one is sent.
+          Telegram messages to staff and what the staff bot offers each employee. The wording is fixed (English, Thai and Russian); these settings
+          control whether, when and to whom each one is sent.
         </p>
       </div>
 
       <TelegramSetupBanner status={status} isAdmin />
-      <NotificationSettingsForm initial={settings} staff={staff} />
-
-      <div className="mt-12">
-        <h2 className="font-display italic text-2xl">Staff bot and shift requests</h2>
-        <p className="text-sm text-cream/60 mt-3 mb-6">
-          The same Telegram bot is each employee&rsquo;s own window onto their schedule (shifts, today, the month, requests), the HR director&rsquo;s place to
-          decide requests to move or remove a shift, and a screen of its own for engineers, housekeepers, therapists and managers, with a morning summary
-          for the directors. These settings are saved separately from the alerts above.
-        </p>
-        <StaffBotSettingsForm initial={botSettings} deciders={deciders} directorUserIds={settings.directorUserIds} staff={staff} />
-      </div>
+      {/* The tab is `?tab=` of the address, which the workspace reads (useSearchParams needs a Suspense boundary). */}
+      <Suspense fallback={null}>
+        <NotificationSettingsWorkspace
+          initialAlerts={settings}
+          initialBot={botSettings}
+          initialDeciders={deciders}
+          staff={staff}
+          status={status}
+        />
+      </Suspense>
     </div>
   );
 }

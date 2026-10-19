@@ -187,22 +187,28 @@ export function validateSettingsForm(form: SettingsForm, minGrace: number): Sett
   };
 }
 
-// Compared as the server will see it (numbers parsed, recipient order irrelevant), so "Save" is
-// enabled by a real change only.
-export function settingsFormDirty(form: SettingsForm, saved: NotificationSettings): boolean {
+// Which fields differ from what the server holds, compared as the server will see it (numbers parsed,
+// recipient order irrelevant). The page says which tab holds an unsaved edit from this.
+export function dirtySettingsFields(form: SettingsForm, saved: NotificationSettings): (keyof SettingsForm)[] {
   const a = toSettingsForm(saved);
   const sameSet = (x: string[], y: string[]) => x.length === y.length && [...x].sort().join("\u0000") === [...y].sort().join("\u0000");
   const numbers: (keyof SettingsForm)[] = ["lateGraceMinutes", "absenceMinutes", "terminalSilenceMinutes"];
+  const changed: (keyof SettingsForm)[] = [];
   for (const key of Object.keys(a) as (keyof SettingsForm)[]) {
     if (key === "lateRecipientUserIds" || key === "directorUserIds") {
-      if (!sameSet(form[key], a[key])) return true;
+      if (!sameSet(form[key], a[key])) changed.push(key);
     } else if (numbers.includes(key)) {
-      if (Number(String(form[key]).trim()) !== Number(a[key]) || String(form[key]).trim() === "") return true;
+      if (Number(String(form[key]).trim()) !== Number(a[key]) || String(form[key]).trim() === "") changed.push(key);
     } else if (form[key] !== a[key]) {
-      return true;
+      changed.push(key);
     }
   }
-  return false;
+  return changed;
+}
+
+// "Save" is enabled by a real change only.
+export function settingsFormDirty(form: SettingsForm, saved: NotificationSettings): boolean {
+  return dirtySettingsFields(form, saved).length > 0;
 }
 
 const SETTINGS_FIELDS: SettingsField[] = [
