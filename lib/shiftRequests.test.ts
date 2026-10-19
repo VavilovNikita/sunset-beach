@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  administratorNote,
   canReadShiftRequests,
   coverageSentences,
   decidersSummary,
@@ -7,6 +8,7 @@ import {
   decisionLine,
   defaultRequestFilters,
   isValidDateKey,
+  requestEmployeeOptions,
   requestFiltersError,
   requestHeadline,
   requestStatusClass,
@@ -31,6 +33,7 @@ const request = (over: Partial<ShiftChangeRequest> = {}): ShiftChangeRequest => 
   shiftTimes: "09:00-18:00",
   createdAt: "2026-10-30T03:00:00Z",
   callerMayDecide: true,
+  requiresAdministrator: false,
   ...over,
 });
 
@@ -120,14 +123,43 @@ describe("what a request says", () => {
 describe("filters", () => {
   it("opens on the waiting requests and sends only what is set", () => {
     expect(requestsQueryString(defaultRequestFilters())).toBe("status=PENDING");
-    expect(requestsQueryString({ status: "", from: "2026-11-01", to: "2026-11-30" })).toBe("from=2026-11-01&to=2026-11-30");
-    expect(requestsQueryString({ status: "EXPIRED", from: "", to: "" })).toBe("status=EXPIRED");
+    expect(requestsQueryString({ status: "", from: "2026-11-01", to: "2026-11-30", employeeUserId: "" })).toBe("from=2026-11-01&to=2026-11-30");
+    expect(requestsQueryString({ status: "EXPIRED", from: "", to: "", employeeUserId: "" })).toBe("status=EXPIRED");
+    // The employee filter is the server's own parameter.
+    expect(requestsQueryString({ status: "PENDING", from: "", to: "", employeeUserId: "u 1" })).toBe("status=PENDING&employeeUserId=u+1");
   });
 
   it("refuses a backwards range before asking", () => {
-    expect(requestFiltersError({ status: "", from: "2026-11-05", to: "2026-11-01" })).toContain("on or before");
-    expect(requestFiltersError({ status: "", from: "2026-11-01", to: "2026-11-01" })).toBeNull();
-    expect(requestFiltersError({ status: "", from: "", to: "2026-11-01" })).toBeNull();
+    expect(requestFiltersError({ status: "", from: "2026-11-05", to: "2026-11-01", employeeUserId: "" })).toContain("on or before");
+    expect(requestFiltersError({ status: "", from: "2026-11-01", to: "2026-11-01", employeeUserId: "" })).toBeNull();
+    expect(requestFiltersError({ status: "", from: "", to: "2026-11-01", employeeUserId: "" })).toBeNull();
+  });
+
+  it("says on a waiting request of the HR director that an administrator decides it, and nowhere else", () => {
+    expect(administratorNote(request({ requiresAdministrator: true }))).toContain("administrator decides");
+    expect(administratorNote(request({ requiresAdministrator: false }))).toBeNull();
+    // Once settled the card's own decision line says who decided.
+    expect(administratorNote(request({ requiresAdministrator: true, status: "APPROVED" }))).toBeNull();
+    // The HR director gets no buttons for it: the server says callerMayDecide false, and the buttons follow that alone.
+    expect(showDecisionButtons(request({ requiresAdministrator: true, callerMayDecide: false }))).toBe(false);
+  });
+
+  it("offers the roster's employees and anyone on screen for the employee filter, by name", () => {
+    const options = requestEmployeeOptions(
+      [
+        { id: "b", name: "Zoe" },
+        { id: "a", name: "Anna" },
+      ],
+      [
+        { employeeUserId: "a", employeeName: "Anna" },
+        { employeeUserId: "gone", employeeName: "Former Employee" },
+      ]
+    );
+    expect(options).toEqual([
+      { id: "a", name: "Anna" },
+      { id: "gone", name: "Former Employee" },
+      { id: "b", name: "Zoe" },
+    ]);
   });
 
   it("bounds the decision comment like the server (300)", () => {

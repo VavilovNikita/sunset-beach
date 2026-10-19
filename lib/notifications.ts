@@ -43,6 +43,8 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   SHIFT_REQUEST_REMINDER: "Request reminder",
   SHIFT_EVE_REMINDER: "Evening reminder",
   ROSTER_CHANGED: "Schedule changed",
+  MORNING_SUMMARY: "Morning summary",
+  THERAPIST_MORNING: "Therapist morning message",
 };
 
 export const NOTIFICATION_TYPES = Object.keys(NOTIFICATION_TYPE_LABELS) as NotificationType[];

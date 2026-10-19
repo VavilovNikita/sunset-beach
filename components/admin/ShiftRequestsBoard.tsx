@@ -7,6 +7,8 @@ import HrVacationForm from "@/components/admin/HrVacationForm";
 import { decideShiftRequest, fetchShiftRequests } from "@/lib/shiftRequestClient";
 import {
   REQUEST_STATUSES,
+  administratorNote,
+  requestEmployeeOptions,
   REQUEST_STATUS_LABELS,
   REQUEST_TYPE_LABELS,
   coverageSentences,
@@ -37,12 +39,15 @@ export default function ShiftRequestsBoard({
   initialRequests,
   initialFilters,
   initialDeciders,
+  employees,
   canSetLeave,
   highlightId,
 }: {
   initialRequests: ShiftChangeRequest[];
   initialFilters: RequestFilters;
   initialDeciders: ShiftRequestDeciders;
+  // The roster's employees (the filter's choices); the board adds anyone who appears in a row.
+  employees: { id: string; name: string }[];
   // The HR holder (for themselves) or an administrator.
   canSetLeave: boolean;
   highlightId?: string;
@@ -105,6 +110,13 @@ export default function ShiftRequestsBoard({
   }
 
   const commentProblem = decisionCommentError(comment);
+  const employeeOptions = requestEmployeeOptions(
+    employees,
+    // What is on screen plus the chosen one, so a filter that matches nothing still shows who it is for.
+    filters.employeeUserId && !requests.some((r) => r.employeeUserId === filters.employeeUserId) && !employees.some((e) => e.id === filters.employeeUserId)
+      ? [...requests, { employeeUserId: filters.employeeUserId, employeeName: "Selected employee" }]
+      : requests
+  );
 
   return (
     <div>
@@ -132,6 +144,17 @@ export default function ShiftRequestsBoard({
             {REQUEST_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {REQUEST_STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm">
+          <span className="block text-cream/60 mb-1">Employee</span>
+          <select value={filters.employeeUserId} onChange={(e) => applyFilters({ ...filters, employeeUserId: e.target.value })} className={INPUT}>
+            <option value="">Everybody</option>
+            {employeeOptions.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
               </option>
             ))}
           </select>
@@ -166,6 +189,7 @@ export default function ShiftRequestsBoard({
           {requests.map((r) => {
             const coverage = coverageSentences(r.coverage, (area) => STAFF_AREA_LABELS[area]);
             const settled = decisionLine(r, formatTimestamp);
+            const adminNote = administratorNote(r);
             const highlighted = r.id === highlightId;
             return (
               <li
@@ -200,6 +224,7 @@ export default function ShiftRequestsBoard({
                   {settled && <> · {settled}</>}
                   {r.decisionComment && <> · “{r.decisionComment}”</>}
                 </p>
+                {adminNote && <p className="text-xs text-amber-400 mt-2">{adminNote}</p>}
                 {showDecisionButtons(r) && (
                   <div className="flex flex-wrap gap-3 mt-3">
                     <button

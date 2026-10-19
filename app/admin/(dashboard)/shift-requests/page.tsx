@@ -1,8 +1,8 @@
-import { backendJson } from "@/lib/backendServer";
+import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
 import { requireRoleAtLeastOrFunction } from "@/lib/rbac";
 import ShiftRequestsBoard from "@/components/admin/ShiftRequestsBoard";
 import { defaultRequestFilters, requestsQueryString } from "@/lib/shiftRequests";
-import type { ShiftChangeRequest, ShiftRequestDeciders } from "@/lib/types";
+import type { RosterEmployee, ShiftChangeRequest, ShiftRequestDeciders } from "@/lib/types";
 
 // GET /shift-change-requests and /deciders are MANAGER+ or the HR function on the backend (a read); deciding is
 // the HR director's (or an administrator's while nobody holds HR / they are away) - the server says per request
@@ -15,9 +15,12 @@ export default async function ShiftRequestsPage({ searchParams }: { searchParams
   const highlight = searchParams.highlight?.trim() || undefined;
   const filters = highlight ? { ...defaultRequestFilters(), status: "" as const } : defaultRequestFilters();
 
-  const [requests, deciders] = await Promise.all([
+  // GET /roster/employees is readable by the HR function as well as MANAGER+ (the page's own gate); it feeds the employee filter.
+  // A failure here costs only the filter's choices, never the page.
+  const [requests, deciders, employees] = await Promise.all([
     backendJson<ShiftChangeRequest[]>(`/shift-change-requests?${requestsQueryString(filters)}`, { auth: true }),
     backendJson<ShiftRequestDeciders>("/shift-change-requests/deciders", { auth: true }),
+    backendJsonOrDefault<RosterEmployee[]>("/roster/employees", [], { auth: true }),
   ]);
 
   // The HR holder sets their own leave; an administrator sets it for them.
@@ -36,6 +39,7 @@ export default async function ShiftRequestsPage({ searchParams }: { searchParams
         initialRequests={requests}
         initialFilters={filters}
         initialDeciders={deciders}
+        employees={employees.map((e) => ({ id: e.id, name: e.name }))}
         canSetLeave={canSetLeave}
         highlightId={highlight}
       />

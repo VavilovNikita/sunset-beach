@@ -2065,7 +2065,9 @@ export type NotificationType =
   | "SHIFT_REQUEST_EXPIRED"
   | "SHIFT_REQUEST_REMINDER"
   | "SHIFT_EVE_REMINDER"
-  | "ROSTER_CHANGED";
+  | "ROSTER_CHANGED"
+  | "MORNING_SUMMARY"
+  | "THERAPIST_MORNING";
 
 // NO_CHANNEL: the recipient had no linked chat when the message was raised.
 export type NotificationDeliveryStatus = "PENDING" | "SENT" | "FAILED" | "NO_CHANNEL";
@@ -2174,8 +2176,10 @@ export type ShiftChangeRequest = {
   decidedAt?: string;
   decisionComment?: string;
   expiredReason?: string;
-  // The caller is one of today's deciders and the request is still PENDING.
+  // The caller is one of today's deciders for THIS request and it is still PENDING.
   callerMayDecide: boolean;
+  // Filed by the HR director: they never decide their own, an administrator does (even with the fallback off).
+  requiresAdministrator: boolean;
 };
 
 export type ShiftChangeDecisionInput = { decision: "APPROVE" | "REJECT"; comment?: string };
@@ -2217,6 +2221,27 @@ export type StaffBotSettings = {
   rosterChangeEnabled: boolean;
   rosterChangeHorizonDays: number;
   rosterChangeDelayMinutes: number;
+  // Part two: role screens, the managers' summary and the morning messages (hotel times are "HH:mm").
+  engineerTasksEnabled: boolean;
+  housekeeperBlocksEnabled: boolean;
+  housekeeperBlocksDays: number;
+  therapistScheduleEnabled: boolean;
+  therapistScheduleDays: number;
+  therapistMorningEnabled: boolean;
+  therapistMorningTime: string;
+  therapistMorningDefaultOn: boolean;
+  whoIsOnShiftEnabled: boolean;
+  whoIsOnShiftForHr: boolean;
+  summaryCommandEnabled: boolean;
+  morningSummaryEnabled: boolean;
+  morningSummaryTime: string;
+  summaryArrivals: boolean;
+  summaryDepartures: boolean;
+  summaryInHouse: boolean;
+  summaryOccupancy: boolean;
+  summaryRooms: boolean;
+  summaryStaff: boolean;
+  summaryRequests: boolean;
   updatedAt: string;
 };
 

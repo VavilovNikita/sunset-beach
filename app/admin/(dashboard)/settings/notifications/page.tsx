@@ -36,10 +36,11 @@ export default async function NotificationSettingsPage() {
       <div className="mt-12">
         <h2 className="font-display italic text-2xl">Staff bot and shift requests</h2>
         <p className="text-sm text-cream/60 mt-3 mb-6">
-          The same Telegram bot is each employee&rsquo;s own window onto their schedule (shifts, today, the month, requests) and the HR director&rsquo;s place to
-          decide requests to move or remove a shift. These settings are saved separately from the alerts above.
+          The same Telegram bot is each employee&rsquo;s own window onto their schedule (shifts, today, the month, requests), the HR director&rsquo;s place to
+          decide requests to move or remove a shift, and a screen of its own for engineers, housekeepers, therapists and managers, with a morning summary
+          for the directors. These settings are saved separately from the alerts above.
         </p>
-        <StaffBotSettingsForm initial={botSettings} deciders={deciders} />
+        <StaffBotSettingsForm initial={botSettings} deciders={deciders} directorUserIds={settings.directorUserIds} staff={staff} />
       </div>
     </div>
   );

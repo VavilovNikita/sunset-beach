@@ -1,6 +1,6 @@
 import { parseWholeNumberInRange } from "@/lib/lifecycleEmails";
 import { isHourMinute } from "@/lib/notifications";
-import type { StaffBotSettings, StaffBotSettingsUpdateInput } from "@/lib/types";
+import type { NotificationStaffMember, StaffBotSettings, StaffBotSettingsUpdateInput } from "@/lib/types";
 
 // Pure logic of the staff bot settings form (ADMIN, on the notification settings page). The server
 // validates every one of these; this only puts the message beside the control and enables Save for a
@@ -12,11 +12,15 @@ export type BotNumberKey =
   | "myShiftsDays"
   | "pendingReminderHours"
   | "rosterChangeHorizonDays"
-  | "rosterChangeDelayMinutes";
+  | "rosterChangeDelayMinutes"
+  | "housekeeperBlocksDays"
+  | "therapistScheduleDays";
 
-export type BotToggleKey = Exclude<keyof StaffBotSettingsUpdateInput, BotNumberKey | "eveReminderTime">;
+export type BotTimeKey = "eveReminderTime" | "therapistMorningTime" | "morningSummaryTime";
 
-export type BotSettingsForm = { [K in BotToggleKey]: boolean } & { [K in BotNumberKey]: string } & { eveReminderTime: string };
+export type BotToggleKey = Exclude<keyof StaffBotSettingsUpdateInput, BotNumberKey | BotTimeKey>;
+
+export type BotSettingsForm = { [K in BotToggleKey]: boolean } & { [K in BotNumberKey]: string } & { [K in BotTimeKey]: string };
 
 export type BotSettingsField = keyof BotSettingsForm | "form";
 export type BotSettingsFieldErrors = Partial<Record<BotSettingsField, string>>;
@@ -29,57 +33,130 @@ export const BOT_NUMBER_FIELDS: { key: BotNumberKey; label: string; min: number;
   { key: "pendingReminderHours", label: "Remind the deciders after", min: 1, max: 168, unit: "hours", hint: "A request waiting this long is mentioned again, at most once a day." },
   { key: "rosterChangeHorizonDays", label: "Roster changes announced up to", min: 1, max: 90, unit: "days ahead", hint: "Changes to a shift further away say nothing." },
   { key: "rosterChangeDelayMinutes", label: "Roster change message after", min: 1, max: 240, unit: "minutes", hint: "One message with the final state, this long after the last change to that person and day." },
+  { key: "housekeeperBlocksDays", label: "“Room blocks” shows blocks starting within", min: 1, max: 60, unit: "days", hint: "Blocks that are on now, or begin within this many days, are listed." },
+  { key: "therapistScheduleDays", label: "“My procedures” shows", min: 1, max: 14, unit: "days", hint: "Today included." },
 ];
 
-export const BOT_COMMAND_TOGGLES: { key: BotToggleKey; label: string }[] = [
-  { key: "myShiftsEnabled", label: "My shifts" },
-  { key: "myDayEnabled", label: "My day (today's shift and own punches)" },
-  { key: "myMonthEnabled", label: "My month (planned and worked)" },
-  { key: "myRequestsEnabled", label: "My requests" },
-  { key: "botSettingsEnabled", label: "Settings (language, evening reminder)" },
+export const BOT_TIME_FIELDS: { key: BotTimeKey; label: string; example: string }[] = [
+  { key: "eveReminderTime", label: "evening reminder at (hotel time)", example: "18:00" },
+  { key: "therapistMorningTime", label: "morning message to therapists from (hotel time)", example: "08:00" },
+  { key: "morningSummaryTime", label: "morning summary from (hotel time)", example: "08:00" },
 ];
 
-export const BOT_REQUEST_TOGGLES: { key: BotToggleKey; label: string; hint?: string }[] = [
-  { key: "requestsEnabled", label: "Shift requests", hint: "Master switch: filing, the deciders' list and the messages about them." },
-  { key: "moveRequestsEnabled", label: "Requests to move a shift" },
-  { key: "deleteRequestsEnabled", label: "Requests for a day off" },
-  { key: "allowTodayRequests", label: "Allow a request for today's shift", hint: "Still subject to the notice above." },
-  { key: "reasonRequired", label: "The employee must give a reason" },
-  { key: "fallbackToAdmin", label: "Administrators decide when nobody holds HR or the HR director is on leave" },
-  { key: "pendingReminderEnabled", label: "Remind the deciders of a waiting request" },
-];
+type Toggle = { key: BotToggleKey; label: string; hint?: string };
 
-export const BOT_MESSAGE_TOGGLES: { key: BotToggleKey; label: string; hint?: string }[] = [
-  { key: "eveReminderEnabled", label: "Evening-before reminder of tomorrow's shift", hint: "Each employee chooses in the bot." },
-  { key: "eveReminderDefaultOn", label: "On for employees who never chose", hint: "Off by default." },
-  { key: "rosterChangeEnabled", label: "Tell an employee when a manager changed their shift" },
+// The form is grouped by who the screen is for. Each group is a card on the page; "Requests" and "Morning summary"
+// also carry numbers/times, listed in GROUP_NUMBERS / GROUP_TIMES below.
+export type BotGroupId = "personal" | "requests" | "engineer" | "housekeeping" | "spa" | "managers" | "summary";
+
+export const BOT_GROUPS: { id: BotGroupId; title: string; note?: string; toggles: Toggle[]; numbers: BotNumberKey[]; times: BotTimeKey[] }[] = [
+  {
+    id: "personal",
+    title: "Personal screens and messages",
+    note: "What the bot shows an employee about their own schedule. Each can be switched off; the menu then leaves it out.",
+    toggles: [
+      { key: "myShiftsEnabled", label: "My shifts" },
+      { key: "myDayEnabled", label: "My day (today's shift and own punches)" },
+      { key: "myMonthEnabled", label: "My month (planned and worked)" },
+      { key: "myRequestsEnabled", label: "My requests" },
+      { key: "botSettingsEnabled", label: "Settings (language, evening reminder)" },
+      { key: "eveReminderEnabled", label: "Evening-before reminder of tomorrow's shift", hint: "Each employee chooses in the bot." },
+      { key: "eveReminderDefaultOn", label: "On for employees who never chose", hint: "Off by default." },
+      {
+        key: "rosterChangeEnabled",
+        label: "Tell an employee when a manager changed their shift",
+        hint: "Only changes made by hand in the roster grid are announced. The month generator, “copy a month” and the Excel imports are bulk set-up and send nothing.",
+      },
+    ],
+    numbers: ["myShiftsDays", "rosterChangeHorizonDays", "rosterChangeDelayMinutes"],
+    times: ["eveReminderTime"],
+  },
+  {
+    id: "requests",
+    title: "Requests",
+    toggles: [
+      { key: "requestsEnabled", label: "Shift requests", hint: "Master switch: filing, the deciders' list and the messages about them." },
+      { key: "moveRequestsEnabled", label: "Requests to move a shift" },
+      { key: "deleteRequestsEnabled", label: "Requests for a day off" },
+      { key: "allowTodayRequests", label: "Allow a request for today's shift", hint: "Still subject to the notice above." },
+      { key: "reasonRequired", label: "The employee must give a reason" },
+      {
+        key: "fallbackToAdmin",
+        label: "Administrators decide when nobody holds HR or the HR director is on leave",
+        hint: "With it off those requests wait. The HR director's own request is the exception: they never decide it themselves, so it always goes to the administrators.",
+      },
+      { key: "pendingReminderEnabled", label: "Remind the deciders of a waiting request" },
+    ],
+    numbers: ["requestMinHoursBefore", "moveWindowDays", "pendingReminderHours"],
+    times: [],
+  },
+  {
+    id: "engineer",
+    title: "Engineer",
+    note: "Open maintenance tasks with Start and Done, for the Engineer function (managers as the fallback). Done shortens the room's block exactly as on the Maintenance page.",
+    toggles: [{ key: "engineerTasksEnabled", label: "Tasks" }],
+    numbers: [],
+    times: [],
+  },
+  {
+    id: "housekeeping",
+    title: "Housekeeping",
+    note: "Read only: the blocks the Housekeeper function answers for.",
+    toggles: [{ key: "housekeeperBlocksEnabled", label: "Room blocks" }],
+    numbers: ["housekeeperBlocksDays"],
+    times: [],
+  },
+  {
+    id: "spa",
+    title: "Spa",
+    note: "For the Therapist function. Never shows the guest's name.",
+    toggles: [
+      { key: "therapistScheduleEnabled", label: "My procedures" },
+      { key: "therapistMorningEnabled", label: "Morning message “N procedures today, the first at 10:00”", hint: "Sent only to a therapist who switched it on in the bot's Settings, and only on a day with procedures." },
+      { key: "therapistMorningDefaultOn", label: "On for therapists who never chose", hint: "Off by default." },
+    ],
+    numbers: ["therapistScheduleDays"],
+    times: ["therapistMorningTime"],
+  },
+  {
+    id: "managers",
+    title: "Managers",
+    note: "For MANAGER and above.",
+    toggles: [
+      { key: "whoIsOnShiftEnabled", label: "Who is on shift", hint: "The attendance board in words. When a terminal is not responding it says so first and shows only the roster." },
+      { key: "whoIsOnShiftForHr", label: "Also for the HR director", hint: "They can already read attendance." },
+      { key: "summaryCommandEnabled", label: "Summary (on request)" },
+    ],
+    numbers: [],
+    times: [],
+  },
+  {
+    id: "summary",
+    title: "Morning summary",
+    note: "Sent to the director recipients of the alerts above, once a day. Every figure is read from the same screens the admin uses.",
+    toggles: [
+      { key: "morningSummaryEnabled", label: "Send the morning summary to the directors" },
+      { key: "summaryArrivals", label: "Arrivals" },
+      { key: "summaryDepartures", label: "Departures and overdue departures" },
+      { key: "summaryInHouse", label: "Rooms and guests in the house" },
+      { key: "summaryOccupancy", label: "Occupancy and rooms still free tonight" },
+      { key: "summaryRooms", label: "Rooms blocked and rooms to clean" },
+      { key: "summaryStaff", label: "Staff on the roster, on shift, absent" },
+      { key: "summaryRequests", label: "Shift requests waiting" },
+    ],
+    numbers: [],
+    times: ["morningSummaryTime"],
+  },
 ];
 
 export function toBotSettingsForm(s: StaffBotSettings): BotSettingsForm {
-  return {
-    myShiftsEnabled: s.myShiftsEnabled,
-    myDayEnabled: s.myDayEnabled,
-    myMonthEnabled: s.myMonthEnabled,
-    myRequestsEnabled: s.myRequestsEnabled,
-    botSettingsEnabled: s.botSettingsEnabled,
-    requestsEnabled: s.requestsEnabled,
-    moveRequestsEnabled: s.moveRequestsEnabled,
-    deleteRequestsEnabled: s.deleteRequestsEnabled,
-    requestMinHoursBefore: String(s.requestMinHoursBefore),
-    allowTodayRequests: s.allowTodayRequests,
-    moveWindowDays: String(s.moveWindowDays),
-    reasonRequired: s.reasonRequired,
-    myShiftsDays: String(s.myShiftsDays),
-    fallbackToAdmin: s.fallbackToAdmin,
-    pendingReminderEnabled: s.pendingReminderEnabled,
-    pendingReminderHours: String(s.pendingReminderHours),
-    eveReminderEnabled: s.eveReminderEnabled,
-    eveReminderTime: s.eveReminderTime,
-    eveReminderDefaultOn: s.eveReminderDefaultOn,
-    rosterChangeEnabled: s.rosterChangeEnabled,
-    rosterChangeHorizonDays: String(s.rosterChangeHorizonDays),
-    rosterChangeDelayMinutes: String(s.rosterChangeDelayMinutes),
-  };
+  const { updatedAt: _ignored, ...rest } = s;
+  const numberKeys = new Set<string>(BOT_NUMBER_FIELDS.map((f) => f.key));
+  const form: Record<string, boolean | string> = {};
+  for (const [key, value] of Object.entries(rest)) {
+    form[key] = numberKeys.has(key) ? String(value) : (value as boolean | string);
+  }
+  return form as BotSettingsForm;
 }
 
 export type BotSettingsValidation = { ok: true; input: StaffBotSettingsUpdateInput } | { ok: false; errors: BotSettingsFieldErrors };
@@ -87,42 +164,22 @@ export type BotSettingsValidation = { ok: true; input: StaffBotSettingsUpdateInp
 // Every rule the server enforces on PUT /settings/staff-bot, each message under its own control.
 export function validateBotSettingsForm(form: BotSettingsForm): BotSettingsValidation {
   const errors: BotSettingsFieldErrors = {};
-  const numbers = {} as Record<BotNumberKey, number>;
+  const numbers: Record<string, number> = {};
   for (const f of BOT_NUMBER_FIELDS) {
     const value = parseWholeNumberInRange(form[f.key], f.min, f.max);
     if (value === null) errors[f.key] = `A whole number from ${f.min} to ${f.max}.`;
     else numbers[f.key] = value;
   }
-  if (!isHourMinute(form.eveReminderTime)) errors.eveReminderTime = "A time like 18:00.";
+  for (const t of BOT_TIME_FIELDS) {
+    if (!isHourMinute(form[t.key])) errors[t.key] = `A time like ${t.example}.`;
+  }
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 
-  return {
-    ok: true,
-    input: {
-      myShiftsEnabled: form.myShiftsEnabled,
-      myDayEnabled: form.myDayEnabled,
-      myMonthEnabled: form.myMonthEnabled,
-      myRequestsEnabled: form.myRequestsEnabled,
-      botSettingsEnabled: form.botSettingsEnabled,
-      requestsEnabled: form.requestsEnabled,
-      moveRequestsEnabled: form.moveRequestsEnabled,
-      deleteRequestsEnabled: form.deleteRequestsEnabled,
-      requestMinHoursBefore: numbers.requestMinHoursBefore,
-      allowTodayRequests: form.allowTodayRequests,
-      moveWindowDays: numbers.moveWindowDays,
-      reasonRequired: form.reasonRequired,
-      myShiftsDays: numbers.myShiftsDays,
-      fallbackToAdmin: form.fallbackToAdmin,
-      pendingReminderEnabled: form.pendingReminderEnabled,
-      pendingReminderHours: numbers.pendingReminderHours,
-      eveReminderEnabled: form.eveReminderEnabled,
-      eveReminderTime: form.eveReminderTime,
-      eveReminderDefaultOn: form.eveReminderDefaultOn,
-      rosterChangeEnabled: form.rosterChangeEnabled,
-      rosterChangeHorizonDays: numbers.rosterChangeHorizonDays,
-      rosterChangeDelayMinutes: numbers.rosterChangeDelayMinutes,
-    },
-  };
+  const input: Record<string, boolean | string | number> = {};
+  for (const [key, value] of Object.entries(form)) {
+    input[key] = key in numbers ? numbers[key] : (value as boolean | string);
+  }
+  return { ok: true, input: input as StaffBotSettingsUpdateInput };
 }
 
 // Compared as the server will see it (numbers parsed), so Save is enabled by a real change only.
@@ -140,7 +197,7 @@ export function botSettingsFormDirty(form: BotSettingsForm, saved: StaffBotSetti
   return false;
 }
 
-const FIELDS: BotSettingsField[] = [...BOT_NUMBER_FIELDS.map((f) => f.key as BotSettingsField), "eveReminderTime"];
+const FIELDS: BotSettingsField[] = [...BOT_NUMBER_FIELDS.map((f) => f.key as BotSettingsField), ...BOT_TIME_FIELDS.map((t) => t.key as BotSettingsField)];
 
 // A rejected save, attributed: a 400 carries { error: { fieldErrors: { moveWindowDays: [...] } } }; anything else is
 // a message for the form as a whole.
@@ -156,4 +213,31 @@ export function botSettingsServerError(status: number, error: string, body: unkn
     }
   }
   return { field: "form", message: error };
+}
+
+// Who gets the morning summary, as the notification settings have it: the chosen director recipients, how many of
+// them (active staff) have a Telegram chat linked. A message to someone without a chat is only written to the log.
+export type DirectorsTelegram = { selected: number; linked: number; text: string };
+
+export function directorsTelegramSummary(directorUserIds: readonly string[], staff: readonly NotificationStaffMember[]): DirectorsTelegram {
+  const byId = new Map(staff.map((s) => [s.userId, s]));
+  const active = Array.from(new Set(directorUserIds)).filter((id) => byId.get(id)?.isActive);
+  const selected = active.length;
+  const linked = active.filter((id) => byId.get(id)?.telegramLinked).length;
+  const people = (n: number) => `${n} ${n === 1 ? "director" : "directors"}`;
+  if (selected === 0) {
+    return { selected, linked, text: "No directors are selected in the alert settings above, so nobody will receive the summary." };
+  }
+  if (linked === 0) {
+    return {
+      selected,
+      linked,
+      text: `${people(selected)} selected, none of them has Telegram linked: the summary will be written to the log but nobody will receive it.`,
+    };
+  }
+  return {
+    selected,
+    linked,
+    text: linked === selected ? `${people(selected)} selected, all with Telegram linked.` : `${people(selected)} selected, ${linked} with Telegram linked.`,
+  };
 }

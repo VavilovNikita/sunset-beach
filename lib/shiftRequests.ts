@@ -75,6 +75,23 @@ export function showDecisionButtons(r: Pick<ShiftChangeRequest, "status" | "call
   return r.status === "PENDING" && r.callerMayDecide;
 }
 
+// The HR director never decides their own request: an administrator does, even when the fallback is switched off.
+// Said on the card of a waiting one, so nobody looks for buttons the HR director will not get.
+export function administratorNote(r: Pick<ShiftChangeRequest, "status" | "requiresAdministrator">): string | null {
+  return r.status === "PENDING" && r.requiresAdministrator ? "The HR director's own request - an administrator decides it." : null;
+}
+
+// The employees to offer in the filter: those the roster knows plus anyone who appears in the rows on screen (a
+// deactivated employee's old request must stay findable), by name.
+export function requestEmployeeOptions(
+  employees: readonly { id: string; name: string }[],
+  requests: readonly Pick<ShiftChangeRequest, "employeeUserId" | "employeeName">[]
+): { id: string; name: string }[] {
+  const byId = new Map(employees.map((e) => [e.id, e.name]));
+  for (const r of requests) if (!byId.has(r.employeeUserId)) byId.set(r.employeeUserId, r.employeeName);
+  return Array.from(byId, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 // The line under a settled request: who and when, and the comment.
 export function decisionLine(r: ShiftChangeRequest, formatMoment: (iso: string) => string): string | null {
   if (r.status === "PENDING") return null;
@@ -95,10 +112,11 @@ export type RequestFilters = {
   status: ShiftChangeRequestStatus | "";
   from: string; // hotel day of the SHIFT, YYYY-MM-DD, or ""
   to: string;
+  employeeUserId: string; // "" = everybody
 };
 
 export function defaultRequestFilters(): RequestFilters {
-  return { status: "PENDING", from: "", to: "" };
+  return { status: "PENDING", from: "", to: "", employeeUserId: "" };
 }
 
 export function requestsQueryString(filters: RequestFilters): string {
@@ -106,6 +124,7 @@ export function requestsQueryString(filters: RequestFilters): string {
   if (filters.status) params.set("status", filters.status);
   if (filters.from) params.set("from", filters.from);
   if (filters.to) params.set("to", filters.to);
+  if (filters.employeeUserId) params.set("employeeUserId", filters.employeeUserId);
   return params.toString();
 }
 

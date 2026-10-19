@@ -4,21 +4,22 @@ import { useState } from "react";
 import HrVacationForm from "@/components/admin/HrVacationForm";
 import { saveStaffBotSettings } from "@/lib/shiftRequestClient";
 import {
-  BOT_COMMAND_TOGGLES,
-  BOT_MESSAGE_TOGGLES,
+  BOT_GROUPS,
   BOT_NUMBER_FIELDS,
-  BOT_REQUEST_TOGGLES,
+  BOT_TIME_FIELDS,
   botSettingsFormDirty,
   botSettingsServerError,
+  directorsTelegramSummary,
   toBotSettingsForm,
   validateBotSettingsForm,
   type BotNumberKey,
   type BotSettingsFieldErrors,
   type BotSettingsForm,
+  type BotTimeKey,
   type BotToggleKey,
 } from "@/lib/staffBotSettings";
 import { decidersSummary } from "@/lib/shiftRequests";
-import type { ShiftRequestDeciders, StaffBotSettings } from "@/lib/types";
+import type { NotificationStaffMember, ShiftRequestDeciders, StaffBotSettings } from "@/lib/types";
 
 const INPUT = "bg-ink border border-cream/20 rounded-lg px-3 py-2 min-h-[44px] text-sm";
 const PRIMARY = "min-h-[44px] rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 text-sm font-medium disabled:opacity-60";
@@ -28,10 +29,22 @@ function FieldError({ message }: { message?: string }) {
   return message ? <p className="text-xs text-coral mt-1">{message}</p> : null;
 }
 
-// ADMIN. What the staff Telegram bot offers and how shift requests behave: every threshold, time and switch is here,
-// none is fixed in code. Saved as a whole (PUT replaces every field); what the page shows afterwards is what the server
-// answered. The HR director's leave is edited here too (and by the HR director on the requests page).
-export default function StaffBotSettingsForm({ initial, deciders: initialDeciders }: { initial: StaffBotSettings; deciders: ShiftRequestDeciders }) {
+// ADMIN. What the staff Telegram bot offers and how shift requests behave: every screen, threshold, time and switch is here,
+// none is fixed in code, grouped by who the screen is for. Saved as a whole (PUT replaces every field); what the page
+// shows afterwards is what the server answered. The HR director's leave is edited here too (and by the HR director on
+// the requests page). `directorUserIds` and `staff` are the alert settings as saved: the morning summary goes to those
+// directors, and the note beside its switch says how many of them can actually receive it.
+export default function StaffBotSettingsForm({
+  initial,
+  deciders: initialDeciders,
+  directorUserIds,
+  staff,
+}: {
+  initial: StaffBotSettings;
+  deciders: ShiftRequestDeciders;
+  directorUserIds: string[];
+  staff: NotificationStaffMember[];
+}) {
   const [saved, setSaved] = useState(initial);
   const [form, setForm] = useState<BotSettingsForm>(() => toBotSettingsForm(initial));
   const [errors, setErrors] = useState<BotSettingsFieldErrors>({});
@@ -40,6 +53,7 @@ export default function StaffBotSettingsForm({ initial, deciders: initialDecider
   const [deciders, setDeciders] = useState(initialDeciders);
 
   const dirty = botSettingsFormDirty(form, saved);
+  const directors = directorsTelegramSummary(directorUserIds, staff);
 
   function set<K extends keyof BotSettingsForm>(key: K, value: BotSettingsForm[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -76,6 +90,9 @@ export default function StaffBotSettingsForm({ initial, deciders: initialDecider
         {label}
       </label>
       {hint && <p className="text-xs text-cream/40 ml-6">{hint}</p>}
+      {key === "morningSummaryEnabled" && (
+        <p className={`text-xs ml-6 mt-1 ${directors.selected === 0 || directors.linked === 0 ? "text-amber-400" : "text-cream/60"}`}>{directors.text}</p>
+      )}
     </div>
   );
 
@@ -99,49 +116,48 @@ export default function StaffBotSettingsForm({ initial, deciders: initialDecider
     );
   };
 
+  const time = (key: BotTimeKey) => {
+    const f = BOT_TIME_FIELDS.find((n) => n.key === key)!;
+    return (
+      <div key={key}>
+        <label className="flex items-center gap-3 text-sm text-cream">
+          <input
+            type="time"
+            value={form[key]}
+            onChange={(e) => set(key, e.target.value)}
+            aria-invalid={errors[key] ? true : undefined}
+            className={INPUT}
+          />
+          {f.label}
+        </label>
+        <FieldError message={errors[key]} />
+      </div>
+    );
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className={CARD}>
-        <p className="text-sm text-cream font-medium">What the bot shows an employee</p>
-        <p className="text-xs text-cream/50">Each command can be switched off; the menu then leaves it out.</p>
-        {BOT_COMMAND_TOGGLES.map((t) => toggle(t.key, t.label))}
-        {number("myShiftsDays")}
-      </div>
-
-      <div className={CARD}>
-        <p className="text-sm text-cream font-medium">Shift requests</p>
-        <p className="text-xs text-cream/50">
-          An employee can ask to move a shift to a free day or to take it off; the HR director decides in the bot or on the Shift requests page.
-          Approving changes the roster. {decidersSummary(deciders)}
-        </p>
-        {BOT_REQUEST_TOGGLES.map((t) => toggle(t.key, t.label, t.hint))}
-        {number("requestMinHoursBefore")}
-        {number("moveWindowDays")}
-        {number("pendingReminderHours")}
-        <div className="pt-2 border-t border-cream/10">
-          <HrVacationForm deciders={deciders} onSaved={setDeciders} />
+      {BOT_GROUPS.map((group) => (
+        <div key={group.id} className={CARD}>
+          <p className="text-sm text-cream font-medium">{group.title}</p>
+          {group.id === "requests" ? (
+            <p className="text-xs text-cream/50">
+              An employee can ask to move a shift to a free day or to take it off; the HR director decides in the bot or on the Shift requests page.
+              Approving changes the roster. {decidersSummary(deciders)}
+            </p>
+          ) : (
+            group.note && <p className="text-xs text-cream/50">{group.note}</p>
+          )}
+          {group.toggles.map((t) => toggle(t.key, t.label, t.hint))}
+          {group.numbers.map((key) => number(key))}
+          {group.times.map((key) => time(key))}
+          {group.id === "requests" && (
+            <div className="pt-2 border-t border-cream/10">
+              <HrVacationForm deciders={deciders} onSaved={setDeciders} />
+            </div>
+          )}
         </div>
-      </div>
-
-      <div className={CARD}>
-        <p className="text-sm text-cream font-medium">Messages to employees</p>
-        {BOT_MESSAGE_TOGGLES.map((t) => toggle(t.key, t.label, t.hint))}
-        <div>
-          <label className="flex items-center gap-3 text-sm text-cream">
-            <input
-              type="time"
-              value={form.eveReminderTime}
-              onChange={(e) => set("eveReminderTime", e.target.value)}
-              aria-invalid={errors.eveReminderTime ? true : undefined}
-              className={INPUT}
-            />
-            evening reminder at (hotel time)
-          </label>
-          <FieldError message={errors.eveReminderTime} />
-        </div>
-        {number("rosterChangeHorizonDays")}
-        {number("rosterChangeDelayMinutes")}
-      </div>
+      ))}
 
       {errors.form && <p className="text-sm text-coral">{errors.form}</p>}
       <div className="flex items-center gap-4">
