@@ -1086,6 +1086,7 @@ export default function BookingCalendarGrid({
           roomUnitLabel={createModal.roomUnitLabel}
           checkIn={createModal.checkIn}
           checkOut={createModal.checkOut}
+          canSetPrice={canManage}
           onClose={() => setCreateModal(null)}
           onCreated={() => {
             setCreateModal(null);

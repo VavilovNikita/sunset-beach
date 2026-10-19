@@ -7,6 +7,17 @@ import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { getNights } from "@/lib/bookings";
 import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS } from "@/lib/bookingChannel";
 import { parsePartySize } from "@/lib/bookingPurpose";
+import {
+  NO_MANUAL_PRICE,
+  agreedTotalForRequest,
+  agreedTotalServerError,
+  editManualPrice,
+  followCalculatedPrice,
+  startManualPrice,
+  useCalculatedPrice,
+  validateManualPrice,
+  type ManualPriceState,
+} from "@/lib/manualPrice";
 import { formatDateRange } from "@/lib/formatDate";
 import {
   prefillFromGuest,
@@ -42,6 +53,10 @@ const QUOTE_DEBOUNCE_MS = 300;
 // own name/email/phone snapshot from the card and links the booking to exactly that card
 // (guestId), instead of the server's find-or-create by email.
 //
+// A MANAGER+ can type the price of the whole stay instead of the calculated one ("Set price manually",
+// agreedTotal on POST /bookings/staff - the server spreads and freezes it per night; lib/manualPrice.ts
+// decides what is sent). The calculated price stays visible beside it. Off, agreedTotal is not sent.
+//
 // Validation is this form's own (lib/staffBookingForm.ts), in English, next to each field - the
 // form is noValidate, because the browser's own "required" bubble speaks the browser's language.
 export default function BookingCreateFromGridModal({
@@ -51,6 +66,7 @@ export default function BookingCreateFromGridModal({
   roomUnitLabel,
   checkIn: initialCheckIn,
   checkOut: initialCheckOut,
+  canSetPrice,
   onClose,
   onCreated,
 }: {
@@ -60,6 +76,8 @@ export default function BookingCreateFromGridModal({
   roomUnitLabel: string;
   checkIn: string;
   checkOut: string;
+  // MANAGER+ - the server refuses agreedTotal from anyone else (403); this only hides the button.
+  canSetPrice: boolean;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -92,6 +110,8 @@ export default function BookingCreateFromGridModal({
   const [quoting, setQuoting] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const quoteSeq = useRef(0);
+  const [price, setPrice] = useState<ManualPriceState>(NO_MANUAL_PRICE);
+  const [priceServerError, setPriceServerError] = useState<string | null>(null);
 
   const fieldErrors: StaffBookingFormErrors = useMemo(
     () =>
@@ -100,7 +120,10 @@ export default function BookingCreateFromGridModal({
         : {},
     [submitAttempted, guestName, guestEmail, guestPhone, checkIn, checkOut, channel, adults, children],
   );
-  const hasFieldErrors = Object.keys(fieldErrors).length > 0;
+  // Shown once the amount has been edited or a save was tried, so the box doesn't open already red.
+  const priceError =
+    price.manual && (submitAttempted || price.touched) ? (validateManualPrice(price.amount) ?? priceServerError) : null;
+  const hasFieldErrors = Object.keys(fieldErrors).length > 0 || priceError !== null;
 
   const datesValid = staffBookingDatesValid(checkIn, checkOut);
   const nights = datesValid ? getNights(checkIn, checkOut).length : 0;
@@ -125,6 +148,8 @@ export default function BookingCreateFromGridModal({
         return;
       }
       setQuote(result.data);
+      // An amount nobody typed in follows the new dates' price; one they typed stays.
+      setPrice((p) => followCalculatedPrice(p, result.data.totalPrice));
     }, QUOTE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [roomId, roomUnitId, checkIn, checkOut, datesValid]);
@@ -143,11 +168,14 @@ export default function BookingCreateFromGridModal({
     setError(null);
     const errors = validateStaffBookingForm({ guestName, guestEmail, guestPhone, checkIn, checkOut, channel, adults, children });
     if (Object.keys(errors).length > 0 || !channel) return;
+    if (price.manual && validateManualPrice(price.amount)) return; // shown under the amount
     const party = parsePartySize(adults, children);
     if ("error" in party) return; // already reported by validateStaffBookingForm
     setSaving(true);
     setError(null);
+    setPriceServerError(null);
 
+    const agreedTotal = agreedTotalForRequest(price);
     const body: StaffBookingCreateInput = {
       roomId,
       guestName: guestName.trim(),
@@ -161,12 +189,16 @@ export default function BookingCreateFromGridModal({
       adults: party.adults,
       children: party.children,
       guestId: pickedGuest?.id ?? null,
+      // Left out of the body entirely unless the price is set by hand.
+      ...(agreedTotal !== undefined ? { agreedTotal } : {}),
     };
 
     const result = await adminRequest<Booking>("/bookings/staff", adminJsonInit("POST", body), "Could not create this booking.");
     setSaving(false);
     if (!result.ok) {
-      setError(result.error);
+      const onPrice = agreedTotalServerError(result.status, result.body);
+      if (onPrice) setPriceServerError(onPrice);
+      else setError(result.error);
       return;
     }
     setCreated(result.data);
@@ -264,6 +296,44 @@ export default function BookingCreateFromGridModal({
                   {!quote.available && <p className="text-xs text-coral mt-1">{quote.reason ?? "This room isn't free for these dates."}</p>}
                 </div>
               ) : null}
+
+              {canSetPrice && datesValid && (
+                <div className="mt-2 pt-2 border-t border-cream/10">
+                  {price.manual ? (
+                    <div className="space-y-2">
+                      <div className="flex items-baseline justify-between gap-3 text-xs text-cream/50">
+                        <span>{quote ? `Calculated: ฿${Number(quote.totalPrice).toLocaleString("en-US")}` : "Calculated: …"}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPrice(useCalculatedPrice());
+                            setPriceServerError(null);
+                          }}
+                          className="text-sea hover:underline"
+                        >
+                          Use calculated price
+                        </button>
+                      </div>
+                      <label className="eyebrow text-cream/60 block">Price for the whole stay (฿)</label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={price.amount}
+                        onChange={(e) => {
+                          setPrice(editManualPrice(price, e.target.value));
+                          setPriceServerError(null);
+                        }}
+                        className={`w-full bg-ink border rounded-lg px-3 py-2 text-sm ${priceError ? "border-coral" : "border-cream/20"}`}
+                      />
+                      {priceError && <p className="text-xs text-coral">{priceError}</p>}
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => setPrice(startManualPrice(quote?.totalPrice ?? null))} className="text-xs text-sea hover:underline">
+                      Set price manually
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>

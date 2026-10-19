@@ -1086,6 +1086,9 @@ export type StaffBookingCreateInput = {
   // A Guest card picked in the form - links exactly that card instead of find-or-create by
   // guestEmail. 404 if it no longer exists.
   guestId?: string | null;
+  // MANAGER+ only (403 otherwise): the price of the whole stay typed by staff instead of the rate plan's.
+  // A decimal string, 0 or more, at most 2 decimals; left out of the body when the calculated price is used.
+  agreedTotal?: string | null;
 };
 
 // Body of POST /bookings/staff/quote - the price/availability preview the create form shows
