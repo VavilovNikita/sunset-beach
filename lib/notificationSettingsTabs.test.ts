@@ -7,6 +7,7 @@ import {
   parseSettingsTab,
   prepareSave,
   SETTINGS_TABS,
+  telegramRouteFact,
   settingsTabQuery,
   tabsWithEdits,
   tabsWithErrors,
@@ -312,7 +313,7 @@ describe("the Overview", () => {
 
   describe("facts", () => {
     const staff = [member("u1", { telegramLinked: true }), member("u2", { telegramLinked: true }), member("u3"), member("gone", { isActive: false, telegramLinked: true })];
-    const ready: NotificationStatus = { telegramConfigured: true, botUsername: "sunset_bot" };
+    const ready: NotificationStatus = { telegramConfigured: true, botUsername: "sunset_bot", telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0 };
     const text = (label: string, facts = overviewFacts(alerts, staff, deciders(), ready)) => facts.find((f) => f.label === label)!;
 
     it("counts linked employees among the active ones only", () => {
@@ -322,14 +323,34 @@ describe("the Overview", () => {
     it("tells the three states of Telegram apart", () => {
       expect(text("Telegram").text).toBe("Connected as @sunset_bot.");
       expect(text("Telegram").warn).toBe(false);
-      const off = overviewFacts(alerts, staff, deciders(), { telegramConfigured: false });
+      const off = overviewFacts(alerts, staff, deciders(), { telegramConfigured: false, telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0 });
       expect(text("Telegram", off)).toMatchObject({ warn: true });
       expect(text("Telegram", off).text).toContain("Not configured");
-      const noName = overviewFacts(alerts, staff, deciders(), { telegramConfigured: true, botUsername: null });
+      const noName = overviewFacts(alerts, staff, deciders(), { telegramConfigured: true, botUsername: null, telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0 });
       expect(text("Telegram", noName).text).toContain("name is not known");
       const unread = overviewFacts(alerts, staff, deciders(), null);
       expect(text("Telegram", unread).text).toContain("could not be read");
       expect(text("Telegram", unread).text).not.toContain("Not configured");
+    });
+
+    it("shows the way to Telegram: through the proxy, a proxy that stopped answering, or nothing", () => {
+      const status = (over: Partial<NotificationStatus>): NotificationStatus => ({ ...ready, ...over });
+      const routeOf = (st: NotificationStatus | null) => overviewFacts(alerts, staff, deciders(), st).find((f) => f.label === "Telegram route");
+
+      expect(routeOf(status({ telegramRoute: "PROXY", telegramProxyConfigured: true }))).toEqual({ label: "Telegram route", text: "Telegram via hotel proxy", warn: false });
+      expect(routeOf(status({ telegramRoute: "DIRECT", telegramProxyConfigured: true }))).toEqual({
+        label: "Telegram route",
+        text: "Telegram direct: hotel proxy not answering",
+        warn: true,
+      });
+      // The ordinary case, and the states where there is no route to speak of, say nothing.
+      expect(routeOf(status({ telegramRoute: "DIRECT", telegramProxyConfigured: false }))).toBeUndefined();
+      expect(routeOf(status({ telegramConfigured: false, telegramRoute: "DIRECT", telegramProxyConfigured: true }))).toBeUndefined();
+      expect(routeOf(null)).toBeUndefined();
+      expect(telegramRouteFact(null)).toBeNull();
+      // Existing rows keep their names and order: the route sits right after Telegram.
+      const labels = overviewFacts(alerts, staff, deciders(), status({ telegramRoute: "PROXY", telegramProxyConfigured: true })).map((f) => f.label);
+      expect(labels.slice(0, 3)).toEqual(["Telegram", "Telegram route", "Staff with Telegram linked"]);
     });
 
     it("says who decides and shows the leave", () => {

@@ -157,15 +157,15 @@ describe("toggleId", () => {
 });
 
 describe("linkAvailability", () => {
-  const ready: NotificationStatus = { telegramConfigured: true, botUsername: "sunset_bot" };
+  const ready: NotificationStatus = { telegramConfigured: true, botUsername: "sunset_bot", telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0 };
 
   it("allows an active employee when the bot is known", () => {
     expect(linkAvailability(member(), ready).allowed).toBe(true);
   });
 
   it("says why not", () => {
-    expect(linkAvailability(member(), { telegramConfigured: false })).toMatchObject({ allowed: false, reason: expect.stringMatching(/not configured/i) });
-    expect(linkAvailability(member(), { telegramConfigured: true, botUsername: null })).toMatchObject({ allowed: false, reason: expect.stringMatching(/name is not known/i) });
+    expect(linkAvailability(member(), { telegramConfigured: false, telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0 })).toMatchObject({ allowed: false, reason: expect.stringMatching(/not configured/i) });
+    expect(linkAvailability(member(), { telegramConfigured: true, botUsername: null, telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0 })).toMatchObject({ allowed: false, reason: expect.stringMatching(/name is not known/i) });
     expect(linkAvailability(member({ isActive: false }), ready)).toMatchObject({ allowed: false, reason: expect.stringMatching(/deactivated/i) });
   });
 });

@@ -2077,6 +2077,12 @@ export type NotificationDeliveryStatus = "PENDING" | "SENT" | "FAILED" | "NO_CHA
 export type NotificationStatus = {
   telegramConfigured: boolean;
   botUsername?: string | null;
+  lastSuccessAt?: string | null; // when Telegram last answered the poll; absent until the first answer since start
+  failingSince?: string | null; // start of the current series of failed polls; absent while Telegram answers
+  consecutiveFailures: number;
+  // How requests go out right now. With a proxy configured DIRECT means the server fell back and is probing again.
+  telegramRoute: "DIRECT" | "PROXY";
+  telegramProxyConfigured: boolean; // the address itself is never returned
 };
 
 // GET/PUT /settings/notifications (ADMIN). Times are hotel (Asia/Bangkok) "HH:mm".

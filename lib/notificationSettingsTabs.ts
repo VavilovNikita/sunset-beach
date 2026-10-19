@@ -216,6 +216,17 @@ function requestKinds(bot: StaffBotSettings): string {
 
 export type OverviewFact = { label: string; text: string; warn: boolean };
 
+// The way out to Telegram, from `telegramRoute` + `telegramProxyConfigured` of GET /notifications/status. Through the
+// hotel proxy: said plainly. Direct although a proxy is set: the server gave up on it after repeated failed polls and
+// keeps probing, so the proxy is down - a warning. Direct without a proxy is the ordinary case and says nothing; so
+// does an unconfigured Telegram (there is no route yet).
+export function telegramRouteFact(status: NotificationStatus | null): OverviewFact | null {
+  if (status === null || !status.telegramConfigured) return null;
+  if (status.telegramRoute === "PROXY") return { label: "Telegram route", text: "Telegram via hotel proxy", warn: false };
+  if (status.telegramProxyConfigured) return { label: "Telegram route", text: "Telegram direct: hotel proxy not answering", warn: true };
+  return null;
+}
+
 // The facts above the table, only from what the five endpoints already answer.
 export function overviewFacts(
   settings: NotificationSettings,
@@ -236,8 +247,11 @@ export function overviewFacts(
   const everyoneLinked = active.length > 0 && linked === active.length;
   const hrLeave = deciders.vacationFrom || deciders.vacationTo ? ` Leave: ${deciders.vacationFrom ?? "…"} to ${deciders.vacationTo ?? "…"}.` : "";
 
+  const route = telegramRouteFact(status);
+
   return [
     telegram,
+    ...(route ? [route] : []),
     { label: "Staff with Telegram linked", text: `${linked} of ${active.length} active employees.`, warn: active.length > 0 && !everyoneLinked && linked === 0 },
     { label: "HR director", text: `${decidersSummary(deciders)}${hrLeave}`, warn: deciders.effectiveDeciders.length === 0 },
     { label: "Directors", text: directors.text, warn: directors.selected === 0 || directors.linked === 0 },
