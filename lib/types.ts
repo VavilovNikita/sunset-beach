@@ -2210,6 +2210,7 @@ export type StaffBotSettings = {
   requestMinHoursBefore: number;
   allowTodayRequests: boolean;
   moveWindowDays: number;
+  moveMaxDaysAhead: number;
   reasonRequired: boolean;
   myShiftsDays: number;
   fallbackToAdmin: boolean;

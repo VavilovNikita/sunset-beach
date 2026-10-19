@@ -49,6 +49,7 @@ const bot: StaffBotSettings = {
   requestMinHoursBefore: 24,
   allowTodayRequests: false,
   moveWindowDays: 14,
+  moveMaxDaysAhead: 60,
   reasonRequired: true,
   myShiftsDays: 14,
   fallbackToAdmin: true,
@@ -136,6 +137,7 @@ describe("which tab holds a field", () => {
     expect(botFieldTab("myShiftsDays")).toBe("bot");
     expect(botFieldTab("rosterChangeEnabled")).toBe("bot");
     expect(botFieldTab("moveWindowDays")).toBe("requests");
+    expect(botFieldTab("moveMaxDaysAhead")).toBe("requests");
     expect(botFieldTab("fallbackToAdmin")).toBe("requests");
     expect(botFieldTab("engineerTasksEnabled")).toBe("roles");
     expect(botFieldTab("housekeeperBlocksDays")).toBe("roles");

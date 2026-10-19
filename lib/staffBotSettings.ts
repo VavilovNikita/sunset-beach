@@ -9,6 +9,7 @@ import type { NotificationStaffMember, StaffBotSettings, StaffBotSettingsUpdateI
 export type BotNumberKey =
   | "requestMinHoursBefore"
   | "moveWindowDays"
+  | "moveMaxDaysAhead"
   | "myShiftsDays"
   | "pendingReminderHours"
   | "rosterChangeHorizonDays"
@@ -28,7 +29,15 @@ export type BotSettingsFieldErrors = Partial<Record<BotSettingsField, string>>;
 // The ranges are the server's (openapi: StaffBotSettings).
 export const BOT_NUMBER_FIELDS: { key: BotNumberKey; label: string; min: number; max: number; unit: string; hint: string }[] = [
   { key: "requestMinHoursBefore", label: "Notice before the shift", min: 0, max: 720, unit: "hours", hint: "A request must be made at least this long before the shift starts." },
-  { key: "moveWindowDays", label: "Move window", min: 1, max: 90, unit: "days", hint: "A shift can be moved to a day at most this far ahead." },
+  { key: "moveWindowDays", label: "Move window", min: 1, max: 90, unit: "days", hint: "How many of the nearest days the bot offers as buttons when a shift is moved. It does not limit the move: see the next field." },
+  {
+    key: "moveMaxDaysAhead",
+    label: "Move at most this far ahead",
+    min: 1,
+    max: 180,
+    unit: "days",
+    hint: "How far ahead a shift can be moved at all. Days past the buttons are reached with “Other date…” (a calendar) or by typing a date. Not less than the move window.",
+  },
   { key: "myShiftsDays", label: "“My shifts” shows", min: 1, max: 60, unit: "days", hint: "How many days ahead the employee sees." },
   { key: "pendingReminderHours", label: "Remind the deciders after", min: 1, max: 168, unit: "hours", hint: "A request waiting this long is mentioned again, at most once a day." },
   { key: "rosterChangeHorizonDays", label: "Roster changes announced up to", min: 1, max: 90, unit: "days ahead", hint: "Changes to a shift further away say nothing." },
@@ -103,7 +112,7 @@ export const BOT_GROUPS: BotGroup[] = [
       },
       { key: "pendingReminderEnabled", label: "Remind the deciders of a waiting request" },
     ],
-    numbers: ["requestMinHoursBefore", "moveWindowDays", "pendingReminderHours"],
+    numbers: ["requestMinHoursBefore", "moveWindowDays", "moveMaxDaysAhead", "pendingReminderHours"],
     times: [],
   },
   {
@@ -193,6 +202,10 @@ export function validateBotSettingsForm(form: BotSettingsForm): BotSettingsValid
   }
   for (const t of BOT_TIME_FIELDS) {
     if (!isHourMinute(form[t.key])) errors[t.key] = `A time like ${t.example}.`;
+  }
+  // The horizon can't be shorter than the buttons' window (the server answers 400 on moveMaxDaysAhead).
+  if (!errors.moveWindowDays && !errors.moveMaxDaysAhead && numbers.moveMaxDaysAhead < numbers.moveWindowDays) {
+    errors.moveMaxDaysAhead = `Not less than the move window (${numbers.moveWindowDays} days).`;
   }
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 

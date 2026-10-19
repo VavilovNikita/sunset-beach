@@ -23,6 +23,7 @@ const saved: StaffBotSettings = {
   requestMinHoursBefore: 24,
   allowTodayRequests: false,
   moveWindowDays: 14,
+  moveMaxDaysAhead: 60,
   reasonRequired: true,
   myShiftsDays: 14,
   fallbackToAdmin: true,
@@ -78,6 +79,7 @@ describe("the bot settings form", () => {
       ...form,
       requestMinHoursBefore: "721",
       moveWindowDays: "0",
+      moveMaxDaysAhead: "181",
       myShiftsDays: "61",
       pendingReminderHours: "x",
       rosterChangeHorizonDays: "91",
@@ -91,6 +93,7 @@ describe("the bot settings form", () => {
       expect(Object.keys(result.errors).sort()).toEqual(
         [
           "housekeeperBlocksDays",
+          "moveMaxDaysAhead",
           "moveWindowDays",
           "myShiftsDays",
           "pendingReminderHours",
@@ -107,10 +110,33 @@ describe("the bot settings form", () => {
   it("allows the edges of every range", () => {
     for (const f of BOT_NUMBER_FIELDS) {
       for (const edge of [f.min, f.max]) {
-        const result = validateBotSettingsForm({ ...toBotSettingsForm(saved), [f.key]: String(edge) });
+        // The two move limits are tied (horizon >= window): move the partner out of the way for the edge being tried.
+        const partner = f.key === "moveWindowDays" ? { moveMaxDaysAhead: "180" } : f.key === "moveMaxDaysAhead" ? { moveWindowDays: "1" } : {};
+        const result = validateBotSettingsForm({ ...toBotSettingsForm(saved), ...partner, [f.key]: String(edge) });
         expect(result.ok, `${f.key}=${edge}`).toBe(true);
       }
     }
+  });
+
+  it("keeps the move horizon at least as long as the buttons' window, beside the horizon field", () => {
+    const form = toBotSettingsForm(saved);
+    expect(validateBotSettingsForm({ ...form, moveWindowDays: "30", moveMaxDaysAhead: "20" })).toEqual({
+      ok: false,
+      errors: { moveMaxDaysAhead: "Not less than the move window (30 days)." },
+    });
+    expect(validateBotSettingsForm({ ...form, moveWindowDays: "30", moveMaxDaysAhead: "30" }).ok).toBe(true);
+    // A malformed window is reported on the window, not turned into a second, confusing message on the horizon.
+    const both = validateBotSettingsForm({ ...form, moveWindowDays: "x", moveMaxDaysAhead: "20" });
+    expect(both.ok).toBe(false);
+    if (!both.ok) expect(Object.keys(both.errors)).toEqual(["moveWindowDays"]);
+  });
+
+  it("attributes the server's 400 on the horizon to its own field", () => {
+    const body = { error: { fieldErrors: { moveMaxDaysAhead: ["Must be at least the number of nearest days shown as buttons (14)"] } } };
+    expect(botSettingsServerError(400, "Validation failed", body)).toEqual({
+      field: "moveMaxDaysAhead",
+      message: "Must be at least the number of nearest days shown as buttons (14)",
+    });
   });
 
   it("wants every time as HH:mm, each message beside its own time", () => {
