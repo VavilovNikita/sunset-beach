@@ -26,7 +26,10 @@ const TONE_CLASS: Record<AttendanceCellTone, string> = {
 // blank the table. Click a cell to correct that day (AttendanceDayEditor): the old punches are
 // voided and kept as history, never deleted. "Today" and the opening month are the hotel's
 // (Asia/Bangkok), not this device's.
-export default function AttendancePanel({ employees }: { employees: RosterEmployee[] }) {
+//
+// `readOnly` (the HR director, who may read the summary but not correct a day): a cell shows the day and does not open
+// the editor.
+export default function AttendancePanel({ employees, readOnly = false }: { employees: RosterEmployee[]; readOnly?: boolean }) {
   const [initial] = useState(() => hotelYearMonth(new Date()));
   const [year, setYear] = useState(initial.year);
   const [month, setMonth] = useState(initial.month);
@@ -136,7 +139,13 @@ export default function AttendancePanel({ employees }: { employees: RosterEmploy
                         const cell = attendanceCell(byDate.get(key), today);
                         return (
                           <td key={key} className={`p-0 text-center tabular-nums whitespace-nowrap ${TONE_CLASS[cell.tone]}`}>
-                            {key <= today ? (
+                            {key <= today && readOnly ? (
+                              <div className="min-w-[3.25rem] px-1.5 py-1.5 min-h-[2rem]">
+                                {cell.lines.map((line, n) => (
+                                  <div key={n}>{line}</div>
+                                ))}
+                              </div>
+                            ) : key <= today ? (
                               <button
                                 type="button"
                                 onClick={() => setEditing({ employeeUserId: emp.id, employeeName: emp.name, date: key })}
@@ -161,10 +170,10 @@ export default function AttendancePanel({ employees }: { employees: RosterEmploy
         </table>
       </div>
       <p className="text-xs text-cream/40 mb-6">
-        Click a day to correct it - the old punches stay in its history. Time in – out per day. <span className="text-coral">–?</span> clock-out missing, <span className="text-coral italic">missed</span> scheduled but no punches. Today and future days are never flagged.
+        {readOnly ? "Read only. " : "Click a day to correct it - the old punches stay in its history. "}Time in – out per day. <span className="text-coral">–?</span> clock-out missing, <span className="text-coral italic">missed</span> scheduled but no punches. Today and future days are never flagged.
       </p>
 
-      {editing && (
+      {editing && !readOnly && (
         <AttendanceDayEditor
           employeeUserId={editing.employeeUserId}
           employeeName={editing.employeeName}

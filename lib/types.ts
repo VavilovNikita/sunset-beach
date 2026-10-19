@@ -1353,6 +1353,9 @@ export type RosterEntry = {
   shiftCode: ShiftCode;
   note: string | null;
   locked: boolean;
+  // A PENDING shift request on this entry (at most one); absent when there is none.
+  pendingShiftRequestId?: string;
+  pendingShiftRequestType?: ShiftChangeRequestType;
   createdAt: string;
   updatedAt: string;
 };
@@ -2056,7 +2059,13 @@ export type NotificationType =
   | "BLOCK_LAST_DAY"
   | "BLOCK_EXPIRED_OPEN"
   | "TERMINAL_OFFLINE"
-  | "TERMINAL_ONLINE";
+  | "TERMINAL_ONLINE"
+  | "SHIFT_REQUEST_NEW"
+  | "SHIFT_REQUEST_DECIDED"
+  | "SHIFT_REQUEST_EXPIRED"
+  | "SHIFT_REQUEST_REMINDER"
+  | "SHIFT_EVE_REMINDER"
+  | "ROSTER_CHANGED";
 
 // NO_CHANNEL: the recipient had no linked chat when the message was raised.
 export type NotificationDeliveryStatus = "PENDING" | "SENT" | "FAILED" | "NO_CHANNEL";
@@ -2125,3 +2134,90 @@ export type NotificationLogEntry = {
   sentAt?: string;
   error?: string;
 };
+
+// ---- Shift requests and the staff Telegram bot (backend: ShiftRequests tag, /settings/staff-bot) -------------
+
+export type ShiftChangeRequestType = "MOVE" | "DELETE";
+export type ShiftChangeRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "EXPIRED";
+export type ShiftChangeRequestChannel = "TELEGRAM" | "ADMIN_UI";
+
+// How many of the employee's department would still work on the day(s) concerned. Present only while the
+// request is PENDING and only when the department has a minimum. A warning, never a block.
+export type ShiftRequestCoverage = {
+  staffArea: StaffArea;
+  minimumWorking: number;
+  sourceDate: string;
+  sourceWorkingAfter: number;
+  targetDate?: string;
+  targetWorkingAfter?: number;
+  belowMinimum: boolean;
+};
+
+// GET /shift-change-requests. The shift fields are a snapshot from when the request was filed.
+export type ShiftChangeRequest = {
+  id: string;
+  employeeUserId: string;
+  employeeName: string;
+  rosterEntryId?: string; // absent once the entry was deleted
+  type: ShiftChangeRequestType;
+  status: ShiftChangeRequestStatus;
+  channel: ShiftChangeRequestChannel;
+  reason?: string;
+  shiftDate: string;
+  shiftCode: string;
+  shiftTimes?: string;
+  targetDate?: string;
+  coverage?: ShiftRequestCoverage;
+  createdAt: string;
+  decidedByUserId?: string;
+  decidedByName?: string;
+  decidedAt?: string;
+  decisionComment?: string;
+  expiredReason?: string;
+  // The caller is one of today's deciders and the request is still PENDING.
+  callerMayDecide: boolean;
+};
+
+export type ShiftChangeDecisionInput = { decision: "APPROVE" | "REJECT"; comment?: string };
+
+export type ShiftRequestDeciders = {
+  hrUserId?: string;
+  hrName?: string;
+  vacationFrom?: string;
+  vacationTo?: string;
+  onVacationToday: boolean;
+  fallbackToAdmin: boolean;
+  effectiveDeciders: string[];
+  callerMayDecide: boolean;
+};
+
+export type HrVacationInput = { from?: string; to?: string };
+
+// GET/PUT /settings/staff-bot (ADMIN). Times are hotel "HH:mm".
+export type StaffBotSettings = {
+  myShiftsEnabled: boolean;
+  myDayEnabled: boolean;
+  myMonthEnabled: boolean;
+  myRequestsEnabled: boolean;
+  botSettingsEnabled: boolean;
+  requestsEnabled: boolean;
+  moveRequestsEnabled: boolean;
+  deleteRequestsEnabled: boolean;
+  requestMinHoursBefore: number;
+  allowTodayRequests: boolean;
+  moveWindowDays: number;
+  reasonRequired: boolean;
+  myShiftsDays: number;
+  fallbackToAdmin: boolean;
+  pendingReminderEnabled: boolean;
+  pendingReminderHours: number;
+  eveReminderEnabled: boolean;
+  eveReminderTime: string;
+  eveReminderDefaultOn: boolean;
+  rosterChangeEnabled: boolean;
+  rosterChangeHorizonDays: number;
+  rosterChangeDelayMinutes: number;
+  updatedAt: string;
+};
+
+export type StaffBotSettingsUpdateInput = Omit<StaffBotSettings, "updatedAt">;

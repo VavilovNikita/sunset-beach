@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { backendJson } from "@/lib/backendServer";
-import { requireRoleAtLeast } from "@/lib/rbac";
+import { requireRoleAtLeastOrFunction } from "@/lib/rbac";
+import { canEditRoster, parseRosterTab, visibleRosterTabs } from "@/lib/rosterAccess";
 import RosterGrid from "@/components/admin/RosterGrid";
 import RosterToolbar from "@/components/admin/RosterToolbar";
 import ShiftCodeManager from "@/components/admin/ShiftCodeManager";
@@ -11,6 +12,7 @@ import TodayShiftBoard from "@/components/admin/TodayShiftBoard";
 import PayRateManager from "@/components/admin/PayRateManager";
 import type { EmployeePattern, RosterEmployee, RosterMonth, ServerTime, ShiftCode, StaffAreaCoverageRule, TodayShiftStatus } from "@/lib/types";
 import { hotelYearMonth } from "@/lib/hotelDate";
+import type { RosterTabKey } from "@/lib/rosterAccess";
 
 // Same "slice the ISO string, don't reformat through Date" convention TodayShiftBoard's own
 // timeLabel already uses - `serverTime.now` is already the backend clock's own zone, so parsing
@@ -23,36 +25,25 @@ function formatServerTime(serverTime: ServerTime): string {
   return `${Number(day)} ${MONTH_LABELS[Number(month) - 1]} ${year}, ${time} (${serverTime.zone})`;
 }
 
-const TABS = [
-  { key: "grid", label: "Grid" },
-  { key: "codes", label: "Shift codes" },
-  { key: "patterns", label: "Patterns" },
-  { key: "coverage", label: "Coverage" },
-  { key: "today", label: "Today" },
-  { key: "attendance", label: "Attendance" },
-  { key: "payrates", label: "Pay rates" },
-] as const;
-type TabKey = (typeof TABS)[number]["key"];
-
-function parseTab(raw: string | undefined): TabKey {
-  return (TABS.find((t) => t.key === raw)?.key ?? "grid") as TabKey;
-}
-
 export default async function AdminRosterPage({
   searchParams,
 }: {
   searchParams: { year?: string; month?: string; tab?: string };
 }) {
-  // Requires MANAGER or above on the backend for every read/write this page uses except
-  // GET /roster/me (a different page - see app/admin/(dashboard)/schedule/page.tsx).
-  const sessionUser = await requireRoleAtLeast("MANAGER");
+  // MANAGER or above for every tab. The HR director (the HR job function, below MANAGER) may open the grid and the
+  // attendance summary - the backend lets them READ GET /roster, /roster/employees and /attendance/summary and
+  // nothing else here - so for them the page is read only and shows just those two tabs (lib/rosterAccess.ts).
+  // GET /roster/me is a different page - see app/admin/(dashboard)/schedule/page.tsx.
+  const sessionUser = await requireRoleAtLeastOrFunction("MANAGER", "HR");
+  const canEdit = canEditRoster(sessionUser.role);
+  const tabs = visibleRosterTabs(sessionUser.role);
 
   const current = hotelYearMonth(new Date());
   const year = Number(searchParams.year) || current.year;
   const month = Number(searchParams.month) || current.month;
-  const tab = parseTab(searchParams.tab);
+  const tab = parseRosterTab(searchParams.tab, sessionUser.role);
 
-  const qs = (overrides: Partial<{ year: number; month: number; tab: TabKey }>) => {
+  const qs = (overrides: Partial<{ year: number; month: number; tab: RosterTabKey }>) => {
     const next = { year, month, tab, ...overrides };
     return `/admin/roster?year=${next.year}&month=${next.month}&tab=${next.tab}`;
   };
@@ -83,15 +74,14 @@ export default async function AdminRosterPage({
               Next →
             </Link>
           </div>
-          <RosterToolbar year={year} month={month} isAdmin={sessionUser.role === "ADMIN"} />
+          {canEdit && <RosterToolbar year={year} month={month} isAdmin={sessionUser.role === "ADMIN"} />}
         </div>
         <p className="print:hidden text-xs text-cream/40 mb-4 max-w-2xl">
-          Drag a shift onto an empty day for the same person to move it, onto an empty day for someone else to give it to
-          them, or onto another person&rsquo;s shift to swap. Click an empty day to assign a shift; click a shift to lock,
-          unlock, or remove it. A coral coverage figure means that area is below its minimum that day - a warning, not a
-          block.
+          {canEdit
+            ? "Drag a shift onto an empty day for the same person to move it, onto an empty day for someone else to give it to them, or onto another person’s shift to swap. Click an empty day to assign a shift; click a shift to lock, unlock, or remove it. A coral coverage figure means that area is below its minimum that day - a warning, not a block."
+            : "Read only: you can see the schedule and the waiting shift requests, not change it. A coral coverage figure means that area is below its minimum that day - a warning, not a block."}
         </p>
-        <RosterGrid data={rosterMonth} year={year} month={month} shiftCodes={shiftCodes} isAdmin={sessionUser.role === "ADMIN"} />
+        <RosterGrid data={rosterMonth} year={year} month={month} shiftCodes={shiftCodes} isAdmin={sessionUser.role === "ADMIN"} readOnly={!canEdit} />
       </>
     );
   } else if (tab === "codes") {
@@ -120,7 +110,7 @@ export default async function AdminRosterPage({
     );
   } else if (tab === "attendance") {
     const employees = await backendJson<RosterEmployee[]>("/roster/employees", { auth: true });
-    content = <AttendancePanel employees={employees} />;
+    content = <AttendancePanel employees={employees} readOnly={!canEdit} />;
   } else {
     const employees = await backendJson<RosterEmployee[]>("/roster/employees", { auth: true });
     content = <PayRateManager employees={employees} />;
@@ -132,7 +122,7 @@ export default async function AdminRosterPage({
       <h1 className="print:hidden font-display italic text-3xl mb-6">Roster</h1>
 
       <div className="print:hidden flex gap-1 border-b border-cream/10 mb-6">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <Link
             key={t.key}
             href={qs({ tab: t.key })}

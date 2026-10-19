@@ -9,6 +9,13 @@ describe("staffLanding", () => {
     expect(staffLanding("WAITER", ["THERAPIST"])).toBe("/admin/spa");
   });
 
+  it("lands an HR director on the shift requests, and ENGINEER or THERAPIST still come first", () => {
+    expect(staffLanding("WAITER", ["HR"])).toBe("/admin/shift-requests");
+    expect(staffLanding("CASHIER", ["HR"])).toBe("/admin/shift-requests");
+    expect(staffLanding("CASHIER", ["HR", "THERAPIST"])).toBe("/admin/spa");
+    expect(staffLanding("MANAGER", ["HR"])).toBe("/admin");
+  });
+
   it("puts ENGINEER first when a person holds two functions", () => {
     expect(staffLanding("CASHIER", ["THERAPIST", "ENGINEER"])).toBe("/admin/maintenance");
   });

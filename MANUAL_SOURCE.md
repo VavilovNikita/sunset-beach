@@ -78,7 +78,7 @@
 | **Restaurant** | POS, Print queue (все) · Shifts (CASHIER+) · Menu (все) | Printers (MANAGER+) · Print layouts (ADMIN) |
 | **Spa** | Appointments, Table map, Treatments (CASHIER+; Appointments также для функции THERAPIST) | Tables (MANAGER+) |
 | **Gym & lighting** | Gym schedule, Gym (CASHIER+) · Lighting (MANAGER+) | Gym devices, Lighting devices (ADMIN) |
-| **Staff** | My schedule (все) · Roster, Notifications, Notification channels (MANAGER+) | Fingerprint terminals (MANAGER+) · Import schedule, Users, Notification settings (ADMIN) |
+| **Staff** | My schedule (все) · Roster, Shift requests, Notifications, Notification channels (MANAGER+ или функция HR; Roster и Shift requests открываются для HR только на чтение/решение, см. 4.15) | Fingerprint terminals (MANAGER+) · Import schedule, Users, Notification settings (ADMIN) |
 | **Reports** | Dashboard (CASHIER+) · Reports, History (MANAGER+) | — |
 
 Что видит каждая роль (роли накапливаются: MANAGER видит всё, что CASHIER, ADMIN — всё, что MANAGER):
@@ -562,6 +562,24 @@
 4. Сброс пароля администратором — не требует знания старого пароля (в отличие от самостоятельной смены), вводится через системный диалог ввода.
 5. Смена роли, включение/выключение и сброс пароля — каждое из этих действий сразу делает недействительными все ранее выданные токены этого сотрудника (на всех устройствах), даже если срок их действия ещё не истёк.
 6. Самостоятельная смена пароля (`/admin/account`) требует ввода текущего пароля; после смены сессия обновляется автоматически, повторный вход не требуется.
+
+---
+
+### 4.15 Бот сотрудников в Telegram и заявки на смены
+
+**Кто:** сотрудник со ссылкой на Telegram (ссылку делает MANAGER+ на странице «Notification channels»); решает заявки директор по персоналу (job-функция **HR**, у одного активного сотрудника), а пока HR нет или он в отпуске — администраторы. Тексты бота на английском, тайском и русском (тайский ждёт проверки носителем).
+
+**Меню бота** (кнопки внизу и команды «/»): **My shifts** (ближайшие дни: дата, «today»/«tomorrow», код смены, время, отдел; под будущей сменой кнопки **Move {date}** и **Day off {date}**, у смены с заявкой — её статус и **Withdraw {date}**), **My day** (сегодняшняя смена, статус как на доске посещаемости и свои отметки терминала), **My month** (дни и часы по плану и по факту), **My requests** (последние заявки со статусами «waiting / approved / rejected / withdrawn / expired»), **Settings** (язык EN/TH/RU и вечернее напоминание). Директору добавляются **Requests** (ожидающие заявки с кнопками **Approve** / **Reject**) и **My leave** («Set leave» — две даты `YYYY-MM-DD`, «Clear leave»). Любая функция отключается в админке; выключенная пропадает из меню.
+
+**Как подать заявку:** My shifts → Move (выбрать новый день из предложенных) или Day off → написать причину (до 300 символов; «Skip», если причина не обязательна) → «Request sent». Правила, которые проверяет сервер и которые настраиваются: заявка не позже чем за N часов до начала смены (24), на сегодняшнюю смену — только если разрешено (нет), перенос на свободный день в пределах окна (14 дней), запертая смена («Lock») не меняется. Отказ приходит словами («Too late: a request must be made at least 24 h before the shift starts.» и т. п.). Сообщение незаконченного диалога живёт 15 минут; любая команда его сбрасывает.
+
+**Как решается:** директору приходит сообщение с именем, сменой, причиной и строкой о покрытии отдела («{area}: 1 would work on {date} (minimum 2)», с «!» если ниже минимума — это предупреждение, не запрет). **Approve** меняет график тем же кодом, что и сетка ростера (утверждённое «Day off» удаляет запись); если смену изменили после подачи, заявка становится «Expired» и ничего не меняется. После решения у всех получателей сообщение заменяется итогом («Approved by {name} at {time}»), сотрудник получает «Approved: …» или «Rejected: …». Повторное нажатие ничего не меняет. То же можно сделать на странице **Shift requests** (фильтры, снимок смены, покрытие, кнопки **Approve** / **Reject** с комментарием — только у тех, кто сегодня решает; остальным MANAGER+ видны заявки без кнопок). В сетке ростера смена с ожидающей заявкой помечена маленькими песочными часами.
+
+**Автоматические сообщения:** напоминание директору о заявке, ждущей дольше 12 часов (раз в день на заявку); «Reminder: tomorrow, {date}, you work {shift}.» накануне смены в 18:00 (каждый включает сам, по умолчанию выключено); «Your schedule for {date} was changed: … -> …» через 10 минут после того, как менеджер перестал менять график (одно сообщение на сотрудника и день, с итоговым состоянием; изменения, сделанные утверждением заявки, не дублируются).
+
+**Настройки** (ADMIN, «Notification settings» → «Staff bot and shift requests»): переключатели функций бота, уведомление за N часов, окно переноса, «Allow a request for today's shift», «The employee must give a reason», запасное правило «Administrators decide when nobody holds HR or the HR director is on leave», напоминания и время вечернего напоминания, задержка сообщения об изменении графика. Отпуск директора («Leave of …», «Save leave») редактирует он сам на странице Shift requests или администратор здесь же.
+
+**HR без роли MANAGER** видит в меню «Roster» (только «Grid» и «Attendance», без перетаскивания и правок: «Read only: you can see the schedule and the waiting shift requests, not change it.») и «Shift requests»; править график он не может.
 
 ---
 

@@ -2,6 +2,7 @@
 
 import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { Fragment, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { hotelDateKey } from "@/lib/hotelDate";
 import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
@@ -24,7 +25,7 @@ import {
   swapRosterEntries,
   updateUserStaffArea,
 } from "@/lib/rosterClient";
-import type { RosterCoverageWarning, RosterEmployee, RosterEntry, RosterMonth, ShiftCode, StaffArea } from "@/lib/types";
+import type { RosterCoverageWarning, RosterEmployee, RosterEntry, RosterMonth, ShiftChangeRequestType, ShiftCode, StaffArea } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
 
 const WEEKDAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -83,6 +84,28 @@ function entryUnderPointer(e: React.PointerEvent, excludeEntryId: string): { ent
   return { entryId: el.dataset.entryId, employeeUserId: el.dataset.employeeUserId, date: el.dataset.date, locked: el.dataset.locked === "true" };
 }
 
+// A shift with a waiting request carries this mark - a small hourglass drawn as a shape, not another colour (the
+// palette is full) - and it opens the request. It sits inside a draggable cell, so it must not start a drag or a
+// tap-to-open of its own.
+function PendingRequestMark({ requestId, type }: { requestId: string; type?: ShiftChangeRequestType }) {
+  const label = `A request to ${type === "MOVE" ? "move this shift" : "take this day off"} is waiting - open it`;
+  return (
+    <Link
+      href={`/admin/shift-requests?highlight=${encodeURIComponent(requestId)}`}
+      title={label}
+      aria-label={label}
+      onClick={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      className="inline-flex"
+    >
+      <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true" className="text-sea">
+        <path d="M2 1h8M2 11h8M3 1c0 3 2 3.5 3 5-1 1.5-3 2-3 5M9 1c0 3-2 3.5-3 5 1 1.5 3 2 3 5" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      </svg>
+    </Link>
+  );
+}
+
 function coverageWarningFor(warnings: RosterCoverageWarning[], staffArea: StaffArea, date: string) {
   return warnings.find((w) => w.staffArea === staffArea && w.date === date) ?? null;
 }
@@ -93,12 +116,16 @@ export default function RosterGrid({
   month,
   shiftCodes,
   isAdmin,
+  readOnly = false,
 }: {
   data: RosterMonth;
   year: number;
   month: number;
   shiftCodes: ShiftCode[];
   isAdmin: boolean;
+  // The HR director reads the grid but changes nothing (the backend gives them GET /roster only): no drag, no
+  // assigning by clicking an empty day, no Lock/Remove - a shift can still be opened to read it.
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const dates = datesOfMonth(year, month);
@@ -600,7 +627,7 @@ export default function RosterGrid({
 
                       const borderClass = isToday ? "border-l-2 border-l-cream" : "border-cream/10";
 
-                      if (!entry && !emp.active) {
+                      if (!entry && (!emp.active || readOnly)) {
                         return <td key={d} className={`h-11 border-l ${borderClass} ${isWeekend ? "bg-ink3/20" : ""}`} />;
                       }
 
@@ -624,7 +651,7 @@ export default function RosterGrid({
 
                       const tapHandlers = bindTapOrDoubleClick(() => setSelectedEntry(entry));
                       const appearance = chipAppearanceFor(entry.shiftCode);
-                      const dragProps = emp.active
+                      const dragProps = emp.active && !readOnly
                         ? {
                             "data-cell": true,
                             "data-entry-id": entry.id,
@@ -648,7 +675,7 @@ export default function RosterGrid({
                             // touch-none on every draggable chip, set statically (never inside
                             // onChipPointerDown): without it a finger drag pans the grid and fires
                             // pointercancel on the first move. Same as PropertyMapView's tiles.
-                            !emp.active ? "cursor-pointer" : entry.locked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing touch-none"
+                            !emp.active || readOnly ? "cursor-pointer" : entry.locked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing touch-none"
                           } ${isDragSource ? "opacity-40" : ""} ${dropIsSwap ? "ring-2 ring-sea" : ""} ${dropInvalid ? "ring-2 ring-coral" : ""}`}
                         >
                           <span
@@ -661,6 +688,9 @@ export default function RosterGrid({
                             {entry.shiftCode.code}
                             {entry.locked && <span title="Locked">🔒</span>}
                             {entry.note && <span className="text-sea" title={entry.note}>●</span>}
+                            {entry.pendingShiftRequestId && (
+                              <PendingRequestMark requestId={entry.pendingShiftRequestId} type={entry.pendingShiftRequestType} />
+                            )}
                           </span>
                         </td>
                       );
@@ -733,15 +763,25 @@ export default function RosterGrid({
                 : " (OP)"}
             </p>
             {selectedEntry.note && <p className="text-cream/50 text-sm mb-1">Note: {selectedEntry.note}</p>}
+            {selectedEntry.pendingShiftRequestId && (
+              <p className="text-sm text-cream/70 mb-1">
+                A request to {selectedEntry.pendingShiftRequestType === "MOVE" ? "move this shift" : "take this day off"} is waiting.{" "}
+                <Link href={`/admin/shift-requests?highlight=${encodeURIComponent(selectedEntry.pendingShiftRequestId)}`} className="text-sea hover:text-coral transition-colors underline underline-offset-4">
+                  Open it
+                </Link>
+              </p>
+            )}
             <div className="flex gap-3 mt-4">
-              <button
-                type="button"
-                onClick={() => handleToggleLock(selectedEntry)}
-                className="rounded-full bg-cream/10 hover:bg-cream/20 transition-colors px-4 py-2 text-sm"
-              >
-                {selectedEntry.locked ? "Unlock" : "Lock"}
-              </button>
-              {!selectedEntry.locked && (
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => handleToggleLock(selectedEntry)}
+                  className="rounded-full bg-cream/10 hover:bg-cream/20 transition-colors px-4 py-2 text-sm"
+                >
+                  {selectedEntry.locked ? "Unlock" : "Lock"}
+                </button>
+              )}
+              {!readOnly && !selectedEntry.locked && (
                 <button
                   type="button"
                   onClick={() => handleDelete(selectedEntry)}

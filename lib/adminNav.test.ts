@@ -12,7 +12,7 @@ import {
 import type { JobFunction, Role } from "./session";
 
 const ROLES = ["WAITER", "CASHIER", "MANAGER", "ADMIN"] as const;
-const FUNCTION_SETS: JobFunction[][] = [[], ["ENGINEER"], ["HOUSEKEEPER"], ["THERAPIST"], ["ENGINEER", "HOUSEKEEPER", "THERAPIST"]];
+const FUNCTION_SETS: JobFunction[][] = [[], ["ENGINEER"], ["HOUSEKEEPER"], ["THERAPIST"], ["HR"], ["ENGINEER", "HOUSEKEEPER", "THERAPIST", "HR"]];
 
 // No group and no section may ever render with zero links under it - a WAITER with an empty "Spa"
 // header would be the exact bug this test exists to catch.
@@ -68,6 +68,17 @@ describe("visibleNavGroups with a job function", () => {
     expect(labels(groups[0])).toEqual(["Maintenance"]);
   });
 
+  it("shows an HR director below MANAGER the roster to read and the shift requests - and none of the roster's write-side setup", () => {
+    for (const role of ["WAITER", "CASHIER"] as const) {
+      const groups = visibleNavGroups(role, ["HR"]);
+      assertNothingEmpty(groups);
+      expect(labels(groups.find((g) => g.title === "Staff"))).toEqual(["My schedule", "Roster", "Shift requests"]);
+    }
+    // The function opens those two links only: not the notification log, the terminals or the users.
+    expect(allLabels("WAITER")).not.toContain("Shift requests");
+    expect(byTitle("WAITER", ["HR"])["Staff"]).not.toContain("Notifications");
+  });
+
   it("does not show Spa to a WAITER with another function, or none", () => {
     expect(visibleNavGroups("WAITER", ["ENGINEER", "HOUSEKEEPER"]).map((g) => g.title)).not.toContain("Spa");
     expect(visibleNavGroups("WAITER").map((g) => g.title)).not.toContain("Spa");
@@ -110,7 +121,7 @@ describe("visibleNavGroups", () => {
     expect(t["Restaurant"]).toEqual(["POS", "Print queue", "Shifts", "Menu", "Printers"]); // no Print layouts - ADMIN
     expect(t["Spa"]).toEqual(["Appointments", "Table map", "Treatments", "Tables"]);
     expect(t["Gym & lighting"]).toEqual(["Gym schedule", "Gym", "Lighting"]);
-    expect(t["Staff"]).toEqual(["My schedule", "Roster", "Notifications", "Notification channels", "Fingerprint terminals"]);
+    expect(t["Staff"]).toEqual(["My schedule", "Roster", "Shift requests", "Notifications", "Notification channels", "Fingerprint terminals"]);
     expect(t["Reports"]).toEqual(["Dashboard", "Reports", "History"]);
   });
 
@@ -122,7 +133,7 @@ describe("visibleNavGroups", () => {
     expect(t["Front desk"]).toEqual(["Today", "Calendar", "Bookings", "Guests", "Property map", "In house", "Night audit", "Guest emails"]);
     expect(t["Gym & lighting"]).toEqual(["Gym schedule", "Gym", "Lighting", "Gym devices", "Lighting devices"]);
     expect(t["Staff"]).toEqual([
-      "My schedule", "Roster", "Notifications", "Notification channels",
+      "My schedule", "Roster", "Shift requests", "Notifications", "Notification channels",
       "Fingerprint terminals", "Import schedule", "Users", "Notification settings",
     ]);
     expect(t["Restaurant"]).toEqual(["POS", "Print queue", "Shifts", "Menu", "Printers", "Print layouts"]);

@@ -11,7 +11,8 @@ export type NavLink = {
   minRole?: Exclude<Role, "WAITER">;
   // A job function that unlocks the link whatever the role - OR'd with minRole, never ANDed (a
   // function opens a link a role floor alone would hide). Mirrors a backend gate of the form
-  // "CASHIER+ or FUNCTION_<name>"; today only THERAPIST reading the spa schedule.
+  // "CASHIER+ or FUNCTION_<name>" (or MANAGER+ ...): THERAPIST reading the spa schedule, HR reading the roster and the
+  // shift requests.
   orFunction?: JobFunction;
 };
 
@@ -150,7 +151,12 @@ export const NAV_GROUPS: NavGroup[] = [
     // same reason it needs the same floor as Users itself.
     links: [
       { href: "/admin/schedule", label: "My schedule" },
-      { href: "/admin/roster", label: "Roster", minRole: "MANAGER" },
+      // The HR director (the HR job function) READS the grid and the attendance summary: the page opens read only for
+      // them (lib/rosterAccess.ts) - GET /roster and /attendance/summary are "MANAGER+ or FUNCTION_HR" on the backend.
+      { href: "/admin/roster", label: "Roster", minRole: "MANAGER", orFunction: "HR" },
+      // Employees' requests to move a shift or take a day off (filed in the staff Telegram bot). Read: MANAGER+ or the HR
+      // function; the HR director (or an administrator on the fallback) decides - the page shows the buttons only to them.
+      { href: "/admin/shift-requests", label: "Shift requests", minRole: "MANAGER", orFunction: "HR" },
       // Messages to staff over Telegram. The log and the channel list (linking a chat needs no login, so managers
       // do it; GET /notifications/** is MANAGER+) sit with the people who read them; the settings are ADMIN-only
       // like every /settings route. Longest-href matching keeps just one of the three highlighted.

@@ -5,7 +5,7 @@ import type { JobFunction, Role } from "@/lib/session";
 //
 // For the floor and the desk (WAITER, CASHIER) the job function decides, because it says what the
 // person actually does: an ENGINEER opens on the maintenance tasks, a THERAPIST on the spa schedule;
-// holding both, ENGINEER first. Without a function, the role's own page: WAITER `/pos`, CASHIER
+// holding both, ENGINEER first; an HR director on the requests. Without a function, the role's own page: WAITER `/pos`, CASHIER
 // `/admin/today`. MANAGER and ADMIN always open the dashboard, whatever functions they hold.
 // (The spa schedule needs CASHIER+, so a WAITER therapist lands on the access-denied page.)
 const ROLE_LANDING: Partial<Record<Role, string>> = { WAITER: "/pos", CASHIER: "/admin/today" };
@@ -13,6 +13,8 @@ const ROLE_LANDING: Partial<Record<Role, string>> = { WAITER: "/pos", CASHIER: "
 const FUNCTION_LANDING: { fn: JobFunction; href: string }[] = [
   { fn: "ENGINEER", href: "/admin/maintenance" },
   { fn: "THERAPIST", href: "/admin/spa" },
+  // The HR director's work is the requests waiting for them.
+  { fn: "HR", href: "/admin/shift-requests" },
 ];
 
 export const DEFAULT_LANDING = "/admin";

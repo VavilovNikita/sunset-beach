@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { updateUserFunctions } from "@/lib/userFunctionsClient";
 import type { JobFunction } from "@/lib/types";
 
-const FUNCTIONS: JobFunction[] = ["ENGINEER", "HOUSEKEEPER", "THERAPIST"];
+const FUNCTIONS: JobFunction[] = ["ENGINEER", "HOUSEKEEPER", "THERAPIST", "HR"];
 
 // Job functions are a second, independent axis from role (see lib/session.ts's JobFunction) — no
 // "disabled" prop for the caller's own row the way UserRoleSelect/UserActiveToggle take one: the
@@ -15,12 +15,15 @@ export default function UserFunctionsSelect({ userId, currentFunctions }: { user
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Which function's toggle the error belongs to: a refused HR ("already assigned to ...") is said beside that toggle.
+  const [errorFn, setErrorFn] = useState<JobFunction | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
 
   async function toggle(fn: JobFunction, checked: boolean) {
     const next = checked ? [...currentFunctions, fn] : currentFunctions.filter((f) => f !== fn);
     setSaving(true);
     setError(null);
+    setErrorFn(null);
     setWarning(null);
 
     const result = await updateUserFunctions(userId, next);
@@ -28,6 +31,7 @@ export default function UserFunctionsSelect({ userId, currentFunctions }: { user
     setSaving(false);
     if (!result.ok) {
       setError(result.error);
+      setErrorFn(fn);
       return;
     }
     // Removing THERAPIST from someone with future spa appointments still assigned to them warns
@@ -40,19 +44,21 @@ export default function UserFunctionsSelect({ userId, currentFunctions }: { user
     <span className="flex flex-col gap-1">
       <span className="flex flex-wrap gap-3">
         {FUNCTIONS.map((fn) => (
-          <label key={fn} className="flex items-center gap-1.5 text-xs text-cream/70">
-            <input
-              type="checkbox"
-              checked={currentFunctions.includes(fn)}
-              disabled={saving}
-              onChange={(e) => toggle(fn, e.target.checked)}
-              className="accent-coral"
-            />
-            {fn}
-          </label>
+          <span key={fn} className="flex flex-col gap-0.5">
+            <label className="flex items-center gap-1.5 text-xs text-cream/70">
+              <input
+                type="checkbox"
+                checked={currentFunctions.includes(fn)}
+                disabled={saving}
+                onChange={(e) => toggle(fn, e.target.checked)}
+                className="accent-coral"
+              />
+              {fn}
+            </label>
+            {error && errorFn === fn && <span className="text-xs text-coral max-w-[16rem]">{error}</span>}
+          </span>
         ))}
       </span>
-      {error && <span className="text-xs text-coral">{error}</span>}
       {warning && <span className="text-xs text-amber-400">{warning}</span>}
     </span>
   );

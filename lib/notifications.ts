@@ -37,6 +37,12 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   BLOCK_EXPIRED_OPEN: "Block ended, task open",
   TERMINAL_OFFLINE: "Terminal not responding",
   TERMINAL_ONLINE: "Terminal back online",
+  SHIFT_REQUEST_NEW: "Shift request",
+  SHIFT_REQUEST_DECIDED: "Request decided",
+  SHIFT_REQUEST_EXPIRED: "Request expired",
+  SHIFT_REQUEST_REMINDER: "Request reminder",
+  SHIFT_EVE_REMINDER: "Evening reminder",
+  ROSTER_CHANGED: "Schedule changed",
 };
 
 export const NOTIFICATION_TYPES = Object.keys(NOTIFICATION_TYPE_LABELS) as NotificationType[];

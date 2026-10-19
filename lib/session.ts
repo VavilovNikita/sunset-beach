@@ -21,7 +21,9 @@ export type Role = "ADMIN" | "MANAGER" | "CASHIER" | "WAITER";
 // needs to check one — do not overload hasRoleAtLeast for that). THERAPIST marks a staff account
 // as a bookable spa therapist (see lib/types.ts's SpaAppointment) — no endpoint is gated on it in
 // v1, there is no therapist self-service screen (reception is the only spa surface).
-export type JobFunction = "ENGINEER" | "HOUSEKEEPER" | "THERAPIST";
+// HR marks the HR director: they decide employees' requests to move or remove a shift and may READ the roster and
+// the attendance summary (never write them - that stays MANAGER+). At most one active user holds it.
+export type JobFunction = "ENGINEER" | "HOUSEKEEPER" | "THERAPIST" | "HR";
 
 // Full shape of the backend's `User` schema — the same one GET /users
 // returns (see lib/types.ts, which re-exports this as `User` rather than
