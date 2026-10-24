@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { staffLanding } from "./staffLanding";
+import { safeCallbackUrl, staffLanding } from "./staffLanding";
 
 describe("staffLanding", () => {
   it("lets a job function win over the role for a waiter or a cashier", () => {
@@ -30,5 +30,18 @@ describe("staffLanding", () => {
     expect(staffLanding("MANAGER", ["ENGINEER", "THERAPIST"])).toBe("/admin");
     expect(staffLanding("ADMIN", ["THERAPIST"])).toBe("/admin");
     expect(staffLanding(null, undefined)).toBe("/admin");
+  });
+});
+
+describe("safeCallbackUrl", () => {
+  it("keeps a path on this site", () => {
+    expect(safeCallbackUrl("/admin/bookings/abc?tab=folio")).toBe("/admin/bookings/abc?tab=folio");
+  });
+
+  it("drops anything that would leave the site", () => {
+    for (const url of ["https://evil.example/admin", "//evil.example/admin", "/\\evil.example", "javascript:alert(1)", "admin", ""]) {
+      expect(safeCallbackUrl(url)).toBeNull();
+    }
+    expect(safeCallbackUrl(null)).toBeNull();
   });
 });

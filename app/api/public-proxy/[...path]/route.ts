@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { BACKEND_URL } from "@/lib/backend";
+import { proxyPath } from "@/lib/proxyPath";
 import { forwardedIpHeaders } from "@/lib/clientIp";
 
 // Same-origin stand-in for sunset, used by *unauthenticated* Client Components (the guest
@@ -52,12 +53,13 @@ function isAllowed(method: string, path: string[]): boolean {
 }
 
 async function proxy(req: Request, path: string[]) {
-  if (!isAllowed(req.method, path)) {
+  const forwarded = proxyPath(path);
+  if (forwarded === null || !isAllowed(req.method, path)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const incomingUrl = new URL(req.url);
-  const target = `${BACKEND_URL}/${path.join("/")}${incomingUrl.search}`;
+  const target = `${BACKEND_URL}/${forwarded}${incomingUrl.search}`;
 
   // sunset rate limits the public quote and booking endpoints per visitor - see lib/clientIp.ts.
   const headers: Record<string, string> = forwardedIpHeaders(req.headers);

@@ -25,3 +25,13 @@ export function staffLanding(role: string | null | undefined, functions: readonl
   const held = functions ?? [];
   return FUNCTION_LANDING.find((l) => held.includes(l.fn))?.href ?? roleLanding;
 }
+
+// The `callbackUrl` the login page may follow: a path on this site only. Anything else
+// (`https://evil.example/admin`, `//evil.example`, `/\evil.example`, `javascript:`) is ignored, so a
+// crafted login link can't send a freshly signed-in member of staff to a look-alike page that asks
+// them to "sign in again" (audit finding M11).
+export function safeCallbackUrl(callbackUrl: string | null | undefined): string | null {
+  if (!callbackUrl || !callbackUrl.startsWith("/")) return null;
+  if (callbackUrl.startsWith("//") || callbackUrl.startsWith("/\\")) return null;
+  return callbackUrl;
+}

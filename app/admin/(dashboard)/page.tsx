@@ -6,7 +6,11 @@ import { STAFF_AREA_LABELS } from "@/lib/rosterGrid";
 import { requireSessionUser } from "@/lib/rbac";
 import StatCard from "@/components/admin/StatCard";
 
-const MONTH_LABEL = new Intl.DateTimeFormat("en-US", { month: "long", timeZone: "UTC" }).format(new Date());
+// The hotel's month, read on every request: a module-level constant was frozen at the month the
+// server process started, and in UTC it was still last month until 07:00 on the 1st.
+function hotelMonthLabel(now: Date): string {
+  return new Intl.DateTimeFormat("en-US", { month: "long", timeZone: "Asia/Bangkok" }).format(now);
+}
 
 // One compact card per operational block. "forbidden" renders nothing (a role-appropriate gap,
 // same as the money blocks); "error" says so in-place rather than taking the page down.
@@ -31,6 +35,7 @@ function OpsCard<T>({
 }
 
 export default async function AdminDashboardPage() {
+  const monthLabel = hotelMonthLabel(new Date());
   // Every figure below needs a CASHIER+ read (see getDashboardStats/adminStats.ts) - for a
   // WAITER there is nothing this page can ever show, "forbidden" both times, so land them on
   // their own base instead of a heading with nothing under it. Not reachable from the sidebar
@@ -66,7 +71,7 @@ export default async function AdminDashboardPage() {
             <StatCard
               label="Room payments collected"
               value={`฿${Number(stats.posSummary.data.folioPaymentsTotal).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
-              sublabel={`${MONTH_LABEL} · recorded at the desk against bookings (includes POS charged to rooms once paid)`}
+              sublabel={`${monthLabel} · recorded at the desk against bookings (includes POS charged to rooms once paid)`}
             />
           )}
         </div>
@@ -100,7 +105,7 @@ export default async function AdminDashboardPage() {
               value={`฿${Number(stats.posSummary.data.grandTotal).toLocaleString("en-US", {
                 maximumFractionDigits: 0,
               })}`}
-              sublabel={`${MONTH_LABEL} · cash + card + other — excludes room charges`}
+              sublabel={`${monthLabel} · cash + card + other — excludes room charges`}
             />
             <StatCard
               label="Charged to rooms, not yet collected"
