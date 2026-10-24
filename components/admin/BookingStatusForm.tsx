@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS } from "@/lib/bookingChannel";
 import { parsePartySize } from "@/lib/bookingPurpose";
-import { cancelUnavailableReason, needsCancellationConfirm, needsPaymentDialog, selectableStatuses } from "@/lib/bookingStatusChange";
+import { statusOptionsNote, needsCancellationConfirm, needsPaymentDialog, selectableStatuses } from "@/lib/bookingStatusChange";
 import { useSavedNotice } from "@/lib/useSavedNotice";
 import type { Folio, FolioPaymentInput } from "@/lib/posTypes";
 import type { BookingChannel, BookingPurpose, BookingStatus, OccupancyStatus } from "@/lib/types";
@@ -140,8 +140,8 @@ export default function BookingStatusForm({
             </option>
           ))}
         </select>
-        {cancelUnavailableReason(currentStatus, occupancyStatus) && (
-          <p className="text-xs text-cream/50 mt-1">{cancelUnavailableReason(currentStatus, occupancyStatus)}</p>
+        {statusOptionsNote(currentStatus, occupancyStatus) && (
+          <p className="text-xs text-cream/50 mt-1">{statusOptionsNote(currentStatus, occupancyStatus)}</p>
         )}
       </div>
 

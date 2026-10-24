@@ -80,7 +80,7 @@ export const MANAGER_REPORT_SECTIONS: ManagerReportSection[] = [
       { label: "Walk-in rooms", value: (d) => count(d.accounts.walkInRooms) },
     ],
     captions: [
-      "Cancellations and no-shows are approximate: they count bookings that are cancelled or no-show now and were last changed on this date. A cancelled booking edited again the next day moves to that day, and a reinstated one drops out. Only today's figures are exact.",
+      "Cancellations and no-shows are approximate: they count bookings that are cancelled or no-show now and were last changed on this date. A cancelled booking edited again the next day moves to that day. Only today's figures are exact.",
     ],
   },
   {
