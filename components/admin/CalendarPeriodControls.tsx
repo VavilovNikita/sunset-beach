@@ -94,7 +94,8 @@ export default function CalendarPeriodControls({ from, to }: { from: string; to:
   }
 
   function handleQuickPick(months: number) {
-    const monthStart = startOfMonthUTC(new Date());
+    // The hotel's month: in UTC the 1st is still last month until 07:00 Bangkok.
+    const monthStart = startOfMonthUTC(parseDateKey(hotelDateKey(new Date())));
     navigateTo(monthStart, addMonthsUTC(monthStart, months));
   }
 

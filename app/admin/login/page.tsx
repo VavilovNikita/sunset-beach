@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getLastEmail, setLastEmail } from "@/lib/pos/lastUser";
-import { staffLanding } from "@/lib/staffLanding";
+import { safeCallbackUrl, staffLanding } from "@/lib/staffLanding";
 
 // Where each role / job function lands is lib/staffLanding.ts.
 
@@ -15,7 +15,7 @@ function LoginForm() {
   // visit to a specific protected page (see middleware.ts), and that deep
   // link should win over the role default below. A bare visit to the login
   // page (bookmark, typed URL) carries no callbackUrl at all.
-  const callbackUrl = searchParams.get("callbackUrl");
+  const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

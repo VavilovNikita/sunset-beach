@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { BACKEND_URL } from "@/lib/backend";
+import { proxyPath } from "@/lib/proxyPath";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
 
 // Same-origin stand-in for sunset, used by Client Components that need an
@@ -17,7 +18,9 @@ async function proxy(req: Request, path: string[]) {
   }
 
   const incomingUrl = new URL(req.url);
-  const target = `${BACKEND_URL}/${path.join("/")}${incomingUrl.search}`;
+  const forwarded = proxyPath(path);
+  if (forwarded === null) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const target = `${BACKEND_URL}/${forwarded}${incomingUrl.search}`;
 
   const headers = new Headers();
   headers.set("Authorization", `Bearer ${token}`);

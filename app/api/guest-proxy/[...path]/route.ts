@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { BACKEND_URL } from "@/lib/backend";
+import { proxyPath } from "@/lib/proxyPath";
 import { GUEST_SESSION_COOKIE_NAME } from "@/lib/guestSession";
 
 // Guest-account analogue of /api/admin-proxy - reads the httpOnly guest-session cookie
@@ -20,7 +21,9 @@ async function proxy(req: Request, path: string[]) {
   }
 
   const incomingUrl = new URL(req.url);
-  const target = `${BACKEND_URL}/guest/${path.join("/")}${incomingUrl.search}`;
+  const forwarded = proxyPath(path);
+  if (forwarded === null) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const target = `${BACKEND_URL}/guest/${forwarded}${incomingUrl.search}`;
 
   const headers = new Headers({ Authorization: `Bearer ${token}` });
   const hasBody = req.method !== "GET" && req.method !== "HEAD";
