@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { getLastEmail, setLastEmail } from "@/lib/pos/lastUser";
 import { decideAfterGuestLogin, decideAfterStaffLogin } from "@/lib/unifiedLogin";
 
 /**
@@ -12,17 +13,25 @@ import { decideAfterGuestLogin, decideAfterStaffLogin } from "@/lib/unifiedLogin
  * two backend auth systems stay entirely separate; this page is purely a frontend sequencing
  * layer on top of both, never called concurrently - always staff, awaited, then guest.
  *
- * /admin/login and /guest/login keep working unchanged - this is an additional entry point,
- * not a replacement.
+ * This is the one login page: /admin/login redirects here (keeping its callbackUrl), and
+ * /guest/login stays as the guest-only form.
  */
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const callbackUrl = useSearchParams().get("callbackUrl");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [unverified, setUnverified] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // A shared floor phone gets signed out and in as a different person all day: the last email typed (never the
+  // password) is remembered, as the old staff-only page did.
+  useEffect(() => {
+    const last = getLastEmail();
+    if (last) setEmail(last);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,9 +53,10 @@ export default function LoginPage() {
       return;
     }
     const staffData = await staffRes.json().catch(() => null);
-    const staffOutcome = decideAfterStaffLogin(staffRes.ok, staffRes.status, staffData);
+    const staffOutcome = decideAfterStaffLogin(staffRes.ok, staffRes.status, staffData, callbackUrl);
 
     if (staffOutcome.action === "redirect-admin") {
+      setLastEmail(email);
       router.push(staffOutcome.destination);
       router.refresh();
       return;
@@ -166,5 +176,13 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

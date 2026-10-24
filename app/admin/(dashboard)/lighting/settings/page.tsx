@@ -21,7 +21,7 @@ export default async function AdminLightingSettingsPage() {
   return (
     <div>
       <SubpageBackLink href="/admin/lighting" label="Lighting" />
-      <p className="eyebrow text-sea mb-2">Front desk</p>
+      <p className="eyebrow text-sea mb-2">Gym &amp; lighting</p>
       <h1 className="font-display italic text-3xl mb-4">Lighting devices</h1>
       <p className="text-sm text-cream/60 mb-6 max-w-2xl">Which lighting controllers appear on the Lighting page, at which address, and in what order.</p>
       {!configured && <LightingSetupBanner isAdmin />}

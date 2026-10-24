@@ -1,5 +1,7 @@
 import Link from "next/link";
 import ShiftPanel from "@/components/admin/pos/ShiftPanel";
+import LongOpenShiftNotice from "@/components/LongOpenShiftNotice";
+import { loadStaleShifts } from "@/lib/staleShiftsServer";
 import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 
 export default async function AdminShiftsPage() {
@@ -10,6 +12,7 @@ export default async function AdminShiftsPage() {
   // GET /shifts (the till-reconciliation overview across staff/period) is MANAGER+, stricter
   // than this page's own CASHIER+ floor - same reasoning as canExport above.
   const canReviewAllShifts = canExport;
+  const stale = await loadStaleShifts(user);
 
   return (
     <div>
@@ -27,6 +30,16 @@ export default async function AdminShiftsPage() {
           </Link>
         )}
       </div>
+      {/* Says whose old shift is still open and what to do - the form below is only ever about the reader's own shift. */}
+      <LongOpenShiftNotice
+        shifts={stale.shifts}
+        now={stale.now}
+        viewerUserId={user.id}
+        viewerHasOwnShift={stale.viewerHasOwnShift}
+        canCloseOthers={stale.isManager}
+        ownShiftHref="/admin/pos/shifts"
+        othersHref="/admin/pos/shifts/history"
+      />
       <ShiftPanel canExport={canExport} />
     </div>
   );

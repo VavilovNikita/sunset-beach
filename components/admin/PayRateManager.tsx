@@ -1,5 +1,7 @@
 "use client";
 
+import { normalizeMoneyInput } from "@/lib/moneyInput";
+
 import { useEffect, useState } from "react";
 import { createEmployeePayRate, listEmployeePayRates } from "@/lib/rosterClient";
 import type { EmployeePayRate, RosterEmployee } from "@/lib/types";
@@ -85,12 +87,11 @@ export default function PayRateManager({ employees }: { employees: RosterEmploye
           <div>
             <label className="eyebrow text-cream/60 block mb-1">Daily rate (฿)</label>
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               required
-              min={0}
-              step="0.01"
               value={dailyRate}
-              onChange={(e) => setDailyRate(e.target.value)}
+              onChange={(e) => setDailyRate(normalizeMoneyInput(e.target.value))}
               className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
             />
           </div>

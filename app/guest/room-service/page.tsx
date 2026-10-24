@@ -4,6 +4,8 @@ import { guestBackendJson } from "@/lib/guestBackendServer";
 import type { GuestBooking } from "@/lib/guestSession";
 import GuestRoomServiceClient from "@/components/GuestRoomServiceClient";
 
+export const metadata = { title: "Room service — The Sunset Beach Resort & Spa" };
+
 // Room-service ordering, gated on physically being at the hotel right now - see
 // GuestRoomServiceClient's own comment for the full picture. Bookings are filtered to
 // occupancyStatus === "CHECKED_IN" here, server-side, purely so the screen doesn't even offer a

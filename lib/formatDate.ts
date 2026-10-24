@@ -81,3 +81,12 @@ export function formatTimestampTime(iso: string): string {
   const p = instantParts(iso);
   return p ? `${p.hour}:${p.minute}` : iso;
 }
+
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+// "2026-10" (a month key, also a full date's first seven characters) -> "October 2026".
+export function formatMonth(key: string): string {
+  const m = /^(\d{4})-(\d{2})/.exec(key);
+  const month = m ? Number(m[2]) : 0;
+  return m && month >= 1 && month <= 12 ? `${MONTH_NAMES[month - 1]} ${m[1]}` : key;
+}

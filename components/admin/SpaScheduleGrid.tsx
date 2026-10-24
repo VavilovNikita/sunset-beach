@@ -7,7 +7,7 @@ import { addDaysUTC, dateOnlyUTC, toDateKey } from "@/lib/bookings";
 import { buildSlotColumns, slotIndexOf, slotSpanOf } from "@/lib/spaGridLayout";
 import { updateSpaAppointmentSchedule, swapSpaAppointmentTable } from "@/lib/spaClient";
 import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
-import { DEFAULT_COL_WIDTH_PX, MIN_COL_WIDTH_PX, MAX_COL_WIDTH_PX, loadStoredSpaGridDensity, saveStoredSpaGridDensity } from "@/lib/spaGridDensity";
+import { DEFAULT_COL_WIDTH_PX, MIN_COL_WIDTH_PX, MAX_COL_WIDTH_PX, fitColWidth, loadStoredSpaGridDensity, saveStoredSpaGridDensity } from "@/lib/spaGridDensity";
 import SpaAppointmentCreateModal from "@/components/admin/SpaAppointmentCreateModal";
 import SpaAppointmentPanel from "@/components/admin/SpaAppointmentPanel";
 import type { MenuItem, SpaAppointment, SpaSchedule, SpaTherapist } from "@/lib/posTypes";
@@ -72,14 +72,32 @@ export default function SpaScheduleGrid({
   // never changes what's fetched, only how the same schedule renders - hydrated from
   // localStorage once on mount (SSR has no localStorage, so first paint always uses the default).
   const [colWidth, setColWidth] = useState(DEFAULT_COL_WIDTH_PX);
+  // Until the person moves the slider the columns are sized to fit the screen (fitColWidth); once they do, their
+  // choice is stored and wins.
+  const [userChoseDensity, setUserChoseDensity] = useState(false);
   useEffect(() => {
     const stored = loadStoredSpaGridDensity();
-    if (stored !== null) setColWidth(stored);
+    if (stored !== null) {
+      setColWidth(stored);
+      setUserChoseDensity(true);
+    }
   }, []);
   function changeColWidth(next: number) {
+    setUserChoseDensity(true);
     setColWidth(next);
     saveStoredSpaGridDensity(next);
   }
+  const columnCount = columns.length;
+  useEffect(() => {
+    if (userChoseDensity) return;
+    const box = gridRef.current;
+    if (!box) return;
+    const apply = () => setColWidth(fitColWidth(box.clientWidth, LABEL_WIDTH, columnCount));
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [userChoseDensity, columnCount, schedule.tables.length]);
   const [createTarget, setCreateTarget] = useState<{ tableId: string; tableLabel: string; startTime: string } | null>(null);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   // Same shared gesture the booking calendar uses (lib/useTapOrDoubleClick.ts) - reused here, not
@@ -403,6 +421,10 @@ export default function SpaScheduleGrid({
           No active tables in the SPA zone yet.
         </p>
       ) : (
+        <>
+        {effectiveAppointments.length === 0 && (
+          <p className="mb-3 text-sm text-cream/50 bg-ink2/40 border border-cream/10 rounded-xl px-4 py-3">No appointments on this day.</p>
+        )}
         <div ref={gridRef} className="overflow-auto border border-cream/10 rounded-xl">
           <div style={{ width: LABEL_WIDTH + columns.length * colWidth }}>
             <div className="flex sticky top-0 z-20 bg-ink2 border-b border-cream/10">
@@ -541,6 +563,7 @@ export default function SpaScheduleGrid({
             })}
           </div>
         </div>
+        </>
       )}
 
       {createTarget && (

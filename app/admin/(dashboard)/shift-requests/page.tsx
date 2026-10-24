@@ -27,7 +27,7 @@ export default async function ShiftRequestsPage({ searchParams }: { searchParams
   const canSetLeave = user.role === "ADMIN" || user.functions.includes("HR");
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-4xl">
       <div className="mb-8">
         <p className="eyebrow text-sea mb-2">Staff</p>
         <h1 className="font-display italic text-3xl">Shift requests</h1>

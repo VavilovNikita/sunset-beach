@@ -104,7 +104,11 @@ export default function BotPanel({ tab, form, set, errors, deciders, onDecidersS
         >
           {/* Enter in a date field must not submit the page's Save: the leave has its own button. */}
           <div onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}>
-            <HrVacationForm deciders={deciders} onSaved={onDecidersSaved} />
+            {deciders.hrUserId ? (
+              <HrVacationForm deciders={deciders} onSaved={onDecidersSaved} />
+            ) : (
+              <p className="text-sm text-cream/60">Nobody holds the HR function, so there is no leave to set.</p>
+            )}
           </div>
         </SettingsCard>
       )}

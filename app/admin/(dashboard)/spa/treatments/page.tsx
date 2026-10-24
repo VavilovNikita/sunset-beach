@@ -19,7 +19,7 @@ export default async function AdminSpaTreatmentsPage() {
   const treatments = items.filter((item) => item.department === "SPA");
 
   return (
-    <div>
+    <div className="max-w-4xl">
       <SubpageBackLink href="/admin/spa" label="Spa schedule" />
       <div className="flex items-center justify-between mb-8">
         <div>

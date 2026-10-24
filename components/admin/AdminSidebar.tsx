@@ -83,7 +83,7 @@ export default function AdminSidebar({ email, role, functions }: { email: string
 
   async function handleSignOut() {
     await fetch("/api/session/logout", { method: "POST" });
-    router.push("/admin/login");
+    router.push("/login");
     router.refresh();
   }
 

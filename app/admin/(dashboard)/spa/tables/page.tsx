@@ -14,7 +14,7 @@ export default async function AdminSpaTablesPage() {
   const spaTables = tables.filter((t) => t.zone === "SPA");
 
   return (
-    <div>
+    <div className="max-w-4xl">
       <SubpageBackLink href="/admin/spa" label="Spa schedule" />
       {/* The heading goes in through TableManager so "New table" can sit at its top right - the
           same place "New treatment" sits on Treatments. */}

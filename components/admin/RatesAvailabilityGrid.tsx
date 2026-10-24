@@ -99,6 +99,7 @@ export default function RatesAvailabilityGrid({
   const [selectedUnit, setSelectedUnit] = useState<{ roomId: string; roomUnitId: string } | null>(null);
   // Guards against an older month's responses landing after a newer month was requested.
   const requestedMonth = useRef(month);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const dates = monthDateKeys(month);
   const visibleRooms = roomFilter ? rooms.filter((r) => r.id === roomFilter) : rooms;
@@ -118,6 +119,17 @@ export default function RatesAvailabilityGrid({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, roomKey]);
+
+  // Opens on today when the month shown has it: the table is a month wide and used to start at the 1st, leaving
+  // today off-screen to the right. Other months start at their 1st. Only after the first load - not after an edit.
+  useEffect(() => {
+    if (loading) return;
+    const box = scrollRef.current;
+    if (!box) return;
+    const dayIndex = dates.indexOf(todayKey);
+    box.scrollLeft = dayIndex > 0 ? Math.max(0, (dayIndex - 1) * DAY_COL_PX) : 0;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, month]);
 
   async function refetchRoom(roomId: string) {
     const row = await loadRow(roomId, month);
@@ -243,7 +255,7 @@ export default function RatesAvailabilityGrid({
         </Link>
       </div>
 
-      <div className="overflow-x-auto border border-cream/10 rounded-xl">
+      <div ref={scrollRef} className="overflow-x-auto border border-cream/10 rounded-xl">
         <table className="border-collapse text-xs" style={{ minWidth: LABEL_COL_PX + dates.length * DAY_COL_PX }}>
           <thead>
             <tr className="border-b border-cream/10">
@@ -390,8 +402,10 @@ function RateCellView({
 }) {
   const weekend = [0, 6].includes(weekdayOf(cell.date));
   const tone = availabilityTone(cell.available, cell.total);
-  const priceText = cell.price === null ? "—" : formatBaht(cell.price);
-  const availText = cell.available === null ? "—" : view === "availability" ? `${cell.available}/${cell.total}` : `${cell.available} left`;
+  // While the month is loading a cell is a pulsing bar, not "—" (which reads as "no price / no data").
+  const bar = <span aria-label="Loading" className="inline-block h-3 w-8 rounded bg-cream/10 animate-pulse align-middle" />;
+  const priceText = cell.price === null ? (loading ? bar : "—") : formatBaht(cell.price);
+  const availText = cell.available === null ? (loading ? bar : "—") : view === "availability" ? `${cell.available}/${cell.total}` : `${cell.available} left`;
 
   if (editing) {
     return (

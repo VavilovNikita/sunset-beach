@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/formatDate";
 import Link from "next/link";
 import { backendJson } from "@/lib/backendServer";
 import {
@@ -371,8 +372,8 @@ export function GuestLtvSection({ result }: { result: Loaded<GuestLtvReport> }) 
                   <td className={`${td} text-right whitespace-nowrap text-cream/60`}>
                     {formatBaht(row.roomChargesTotal)}
                   </td>
-                  <td className={`${td} whitespace-nowrap`}>{row.firstCheckIn}</td>
-                  <td className={`${td} whitespace-nowrap`}>{row.lastCheckIn}</td>
+                  <td className={`${td} whitespace-nowrap`}>{formatDate(row.firstCheckIn)}</td>
+                  <td className={`${td} whitespace-nowrap`}>{formatDate(row.lastCheckIn)}</td>
                 </tr>
               ))}
             </tbody>

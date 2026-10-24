@@ -24,7 +24,8 @@ export default function HrVacationForm({
   const [note, setNote] = useState<string | null>(null);
 
   if (!deciders.hrUserId) {
-    return <p className="text-sm text-cream/60">Nobody holds the HR function, so there is no leave to set.</p>;
+    // The deciders summary beside this form already says nobody holds HR; saying it twice was noise.
+    return null;
   }
 
   const problem = vacationFormError(from, to);

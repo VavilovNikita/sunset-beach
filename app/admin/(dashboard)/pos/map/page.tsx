@@ -1,3 +1,4 @@
+import SubpageBackLink from "@/components/admin/SubpageBackLink";
 import Link from "next/link";
 import { backendJson } from "@/lib/backendServer";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
@@ -16,15 +17,9 @@ export default async function AdminPosMapPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-4 flex-wrap mb-2">
-        <div>
-          <p className="eyebrow text-sea mb-2">Restaurant</p>
-          <h1 className="font-display italic text-3xl">Floor map</h1>
-        </div>
-        <Link href="/admin/pos" className="text-sm text-sea hover:text-coral transition-colors underline underline-offset-4">
-          ← Tables list
-        </Link>
-      </div>
+      <SubpageBackLink href="/admin/pos" label="Tables list" />
+      <p className="eyebrow text-sea mb-2">Restaurant</p>
+      <h1 className="font-display italic text-3xl mb-2">Floor map</h1>
       <p className="text-xs text-cream/40 mb-6 max-w-2xl">
         Sea is free, dark has an open order, dim is deactivated. Double-click a table (tap once on a touchscreen) to open
         its order, or start one.

@@ -31,3 +31,23 @@ export function bookingRequestBody(roomId: string, checkIn: string, checkOut: st
     children: Number(formData.get("children") || 0),
   };
 }
+
+// The party the room can take (Room.capacity; the server refuses a public booking over it). Adults start at 1; the
+// children's limit is what is left of the capacity once the adults are counted, so the form never offers a
+// party the server would turn down.
+export const DEFAULT_ADULTS = 1;
+
+export function clampAdults(value: number, capacity: number): number {
+  const max = Math.max(1, capacity);
+  if (!Number.isFinite(value)) return DEFAULT_ADULTS;
+  return Math.min(max, Math.max(1, Math.trunc(value)));
+}
+
+export function maxChildren(capacity: number, adults: number): number {
+  return Math.max(0, capacity - adults);
+}
+
+export function clampChildren(value: number, capacity: number, adults: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(maxChildren(capacity, adults), Math.max(0, Math.trunc(value)));
+}

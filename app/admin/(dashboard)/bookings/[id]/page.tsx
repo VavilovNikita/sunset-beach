@@ -94,8 +94,11 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
         </p>
       )}
 
-      <div className="grid md:grid-cols-2 gap-8">
-        <div className="space-y-2 text-sm">
+      {/* Two columns of cards: the details and the status form on the left, the stay/dates/rooms on the right -
+          the status form used to be the tail of the right column, which left the left one empty under a short list. */}
+      <div className="grid md:grid-cols-2 gap-6 items-start">
+        <div className="space-y-6">
+        <div className="space-y-2 text-sm bg-ink2/40 border border-cream/10 rounded-xl p-5">
           {/* From the segments, not booking.room: that's only the *last* segment's type (where the
               guest ends up), which made a relocated stay read as if it had all been in that room -
               see lib/bookingRooms.ts. */}
@@ -172,18 +175,6 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             <BookingGuestLinkSection booking={booking} />
           </div>
         </div>
-
-        <div className="space-y-6">
-          <BookingOccupancyPanel booking={booking} balanceDue={folio ? folio.balanceDue : null} />
-          <BookingScheduleForm
-            booking={booking}
-            units={assignableUnits}
-            canEdit={canEditSchedule}
-            canListUnits={canListUnits}
-          />
-          {/* The calendar panel's relocation and per-segment actions - the page had only the dates
-              form, so a stay could be moved to another room from the calendar but not from here. */}
-          <BookingRoomsCard booking={booking} canEdit={canEditSchedule} canManage={canListUnits} />
           <BookingStatusForm
             // The form seeds its fields from these props once. A folio payment (or check-out)
             // elsewhere on this page changes them through router.refresh() - e.g. NEW -> PAID -
@@ -201,6 +192,19 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             currentChildren={booking.children}
             folio={folio}
           />
+        </div>
+
+        <div className="space-y-6">
+          <BookingOccupancyPanel booking={booking} balanceDue={folio ? folio.balanceDue : null} />
+          <BookingScheduleForm
+            booking={booking}
+            units={assignableUnits}
+            canEdit={canEditSchedule}
+            canListUnits={canListUnits}
+          />
+          {/* The calendar panel's relocation and per-segment actions - the page had only the dates
+              form, so a stay could be moved to another room from the calendar but not from here. */}
+          <BookingRoomsCard booking={booking} canEdit={canEditSchedule} canManage={canListUnits} />
         </div>
       </div>
 
@@ -238,7 +242,11 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
               </div>
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-cream/10">
                 <span className="font-display italic text-lg text-cream">Balance due</span>
-                <span className={`font-display italic text-4xl ${Number(folio.balanceDue) > 0 ? "text-coral" : "text-sea"}`}>
+                <span
+                  className={`font-display italic text-4xl ${
+                    Number(folio.balanceDue) <= 0 ? "text-sea" : booking.owes === true ? "text-coral" : "text-cream"
+                  }`}
+                >
                   ฿{Number(folio.balanceDue).toLocaleString("en-US")}
                 </span>
               </div>

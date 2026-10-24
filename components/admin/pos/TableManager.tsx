@@ -227,7 +227,7 @@ export default function TableManager({
       )}
 
       {open && (
-        <div className={standalone ? "space-y-4 max-w-3xl" : "mt-4 space-y-4 max-w-3xl"}>
+        <div className={standalone ? "space-y-4 max-w-4xl" : "mt-4 space-y-4 max-w-4xl"}>
           {/* Standalone: the form opens right under the header button that opened it. */}
           {canManage && standalone && creating && createForm}
           {tables.length === 0 && (

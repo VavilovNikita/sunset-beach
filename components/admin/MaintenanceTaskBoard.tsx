@@ -1,5 +1,8 @@
 "use client";
 
+import { taskOpenLabel } from "@/lib/maintenanceAge";
+import FilePickerButton from "@/components/FilePickerButton";
+
 import { sortUnitsByLabel } from "@/lib/sortRooms";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -9,7 +12,7 @@ import {
   updateMaintenanceTaskStatus,
 } from "@/lib/maintenanceTaskClient";
 import type { BlockResponsibleFunction, MaintenanceTask, MaintenanceTaskBlockResult, MaintenanceTaskStatus, RoomUnit } from "@/lib/types";
-import { formatDateRange, formatTimestamp } from "@/lib/formatDate";
+import { formatDateRange, formatTimestamp, formatTimestampDate } from "@/lib/formatDate";
 import UploadedImage from "@/components/UploadedImage";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 import BlockFunctionSelect from "@/components/admin/BlockFunctionSelect";
@@ -56,7 +59,7 @@ export default function MaintenanceTaskBoard({
   });
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-4xl space-y-6">
       <div>
         {/* The big button only opens the form; the form carries its own Cancel next to its
             submit, so "Report a problem" never turns into a large coral Cancel in the same spot. */}
@@ -94,6 +97,12 @@ export default function MaintenanceTaskBoard({
           </button>
         ))}
       </div>
+
+      {/* The coral dot on a task is easy to misread as "urgent": it only means a room block is linked. */}
+      <p className="text-xs text-cream/50 flex items-center gap-2">
+        <span className="shrink-0 w-2 h-2 rounded-full bg-coral" aria-hidden="true" />
+        Coral dot &mdash; the room is blocked (off sale) for this task.
+      </p>
 
       <div className="space-y-3">
         {visibleTasks.length === 0 && <p className="text-sm text-cream/50">No tasks here.</p>}
@@ -179,16 +188,16 @@ function FileTaskForm({ roomUnits, onFiled, onCancel }: { roomUnits: RoomUnit[];
 
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Photos (optional)</label>
-        <input
-          ref={fileInputRef}
-          type="file"
+        <FilePickerButton
+          inputRef={fileInputRef}
           accept="image/jpeg,image/png,image/webp"
           multiple
           capture="environment"
+          label="Add photos"
+          tone="quiet"
+          selectedText={photos.length > 0 ? `${photos.length} photo(s) selected` : "No photos chosen"}
           onChange={(e) => setPhotos(Array.from(e.target.files ?? []))}
-          className="w-full text-sm text-cream/70 file:mr-3 file:rounded-full file:border-0 file:bg-cream/10 file:text-cream file:px-4 file:py-3 file:text-sm file:font-medium file:cursor-pointer"
         />
-        {photos.length > 0 && <p className="text-xs text-cream/40 mt-1">{photos.length} photo(s) selected</p>}
       </div>
 
       {error && <p className="text-sm text-coral">{error}</p>}
@@ -289,6 +298,9 @@ function TaskCard({
         <span className="flex-1 min-w-0">
           <span className="block text-sm font-medium truncate">{unitLabel}</span>
           <span className="block text-xs text-cream/50 truncate">{task.description}</span>
+          <span className="block text-xs text-cream/40 mt-0.5">
+            Reported {formatTimestampDate(task.createdAt)} · {taskOpenLabel(task.createdAt, task.closedAt, new Date())}
+          </span>
         </span>
         {task.blockId && <span className="shrink-0 w-2 h-2 rounded-full bg-coral" title="Room is blocked" />}
       </button>

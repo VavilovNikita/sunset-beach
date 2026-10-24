@@ -1,3 +1,4 @@
+import { formatDateRange } from "@/lib/formatDate";
 import Link from "next/link";
 import BookingBar from "@/components/BookingBar";
 import ArtBlock from "@/components/ArtBlock";
@@ -48,7 +49,7 @@ export default async function BookingSearchPage({
         <h1 className="font-display italic text-4xl">Find your stay</h1>
       </section>
 
-      <BookingBar />
+      <BookingBar initialCheckIn={checkIn} initialCheckOut={checkOut} />
 
       <section className="mx-auto max-w-6xl px-6 py-16">
         {!validRange ? (
@@ -58,7 +59,7 @@ export default async function BookingSearchPage({
         ) : (
           <>
             <p className="text-center text-cream/60 text-sm mb-10">
-              {checkIn} → {checkOut}
+              {formatDateRange(checkIn, checkOut)}
             </p>
             <div className="grid md:grid-cols-2 gap-10">
               {results.map(({ room, result }) => (

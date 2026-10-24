@@ -183,7 +183,7 @@ export default function NotificationSettingsWorkspace({
   return (
     <form onSubmit={handleSave} className="space-y-6">
       <nav aria-label="Sections" className="border-b border-cream/10">
-        <div ref={rowRef} className="flex gap-1 overflow-x-auto pb-px -mb-px">
+        <div ref={rowRef} className="flex flex-wrap gap-x-1 pb-px -mb-px">
           {SETTINGS_TABS.map((t) => {
             const current = t.id === tab;
             const hasError = errorTabs.includes(t.id);

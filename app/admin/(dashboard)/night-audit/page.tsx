@@ -1,3 +1,4 @@
+import NightAuditRowActions from "@/components/admin/NightAuditRowActions";
 import Link from "next/link";
 import { backendJson } from "@/lib/backendServer";
 import { requireRoleAtLeast } from "@/lib/rbac";
@@ -74,6 +75,7 @@ export default async function NightAuditPage({ searchParams }: { searchParams: {
         bookings={audit.missedArrivals}
         dueDate={(b) => b.checkIn}
         reviewedDate={audit.date}
+        actions={{ checkIn: true, noShow: true }}
       />
       <BookingList
         title="Not arrived — mark no-show or cancel"
@@ -82,6 +84,7 @@ export default async function NightAuditPage({ searchParams }: { searchParams: {
         bookings={audit.notArrived}
         dueDate={(b) => b.checkOut}
         reviewedDate={audit.date}
+        actions={{ checkIn: false, noShow: true }}
       />
       <BookingList
         title="Missed departures"
@@ -143,6 +146,7 @@ function BookingList({
   bookings,
   dueDate,
   reviewedDate,
+  actions,
 }: {
   title: string;
   empty: string;
@@ -150,6 +154,8 @@ function BookingList({
   bookings: NightAuditBooking[];
   dueDate: (b: NightAuditBooking) => string;
   reviewedDate: string;
+  // Quick answers on the row itself (a missed arrival is checked in or marked no-show without opening the booking).
+  actions?: { checkIn: boolean; noShow: boolean };
 }) {
   return (
     <section className="mb-8">
@@ -179,9 +185,19 @@ function BookingList({
                     title={`Nights from check-out through ${reviewedDate} with no agreed price - nothing has been charged for them`}
                   >
                     {describeUnpaidNights(b.unpaidOverstayNights)}
+                    {b.unpaidOverstayValue && ` · ≈ ฿${Number(b.unpaidOverstayValue).toLocaleString("en-US")} at the room rate`}
                   </span>
                 )}
                 <span className="text-xs text-amber-400">{describeOverdue(dueDate(b), reviewedDate)}</span>
+                {actions && (
+                  <NightAuditRowActions
+                    bookingId={b.id}
+                    guestName={b.guestName}
+                    hasRoom={b.roomUnitLabel !== null}
+                    canCheckIn={actions.checkIn && b.occupancyStatus === "EXPECTED"}
+                    canMarkNoShow={actions.noShow && b.occupancyStatus === "EXPECTED"}
+                  />
+                )}
               </div>
             </li>
           ))}

@@ -1,5 +1,7 @@
 "use client";
 
+import { normalizeMoneyInput } from "@/lib/moneyInput";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { recordFolioPayment } from "@/lib/folioPaymentClient";
@@ -63,12 +65,11 @@ export default function FolioPaymentPanel({
           <div>
             <label className="eyebrow text-cream/50 block mb-1 text-[0.65rem]">Amount collected</label>
             <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              max={outstanding}
+              type="text"
+              inputMode="decimal"
+              required
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => setAmount(normalizeMoneyInput(e.target.value))}
               className="w-28 bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
             />
           </div>

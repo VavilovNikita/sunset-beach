@@ -21,7 +21,7 @@ export default async function AdminGymSettingsPage() {
   return (
     <div>
       <SubpageBackLink href="/admin/gym" label="Gym" />
-      <p className="eyebrow text-sea mb-2">Front desk</p>
+      <p className="eyebrow text-sea mb-2">Gym &amp; lighting</p>
       <h1 className="font-display italic text-3xl mb-4">Gym devices</h1>
       <p className="text-sm text-cream/60 mb-6 max-w-2xl">
         The gym's opening hours and what the reservation automation does, then which Tuya devices appear on the Gym page and in what order, and

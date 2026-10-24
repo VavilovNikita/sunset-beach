@@ -1,5 +1,7 @@
 "use client";
 
+import { normalizeMoneyInput } from "@/lib/moneyInput";
+
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ADMIN_API_URL } from "@/lib/backend";
@@ -190,10 +192,10 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
         <div>
           <label className="eyebrow text-cream/60 block mb-1">Opening cash float (฿)</label>
           <input
-            type="number"
-            min={0}
+            type="text"
+            inputMode="decimal"
             value={openingFloat}
-            onChange={(e) => setOpeningFloat(e.target.value)}
+            onChange={(e) => setOpeningFloat(normalizeMoneyInput(e.target.value))}
             className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
           />
           <p className="text-xs text-cream/40 mt-1">Cash in the drawer before the first sale — the close is counted against it.</p>
@@ -243,10 +245,10 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
           <div>
             <label className="eyebrow text-cream/60 block mb-1">Counted cash (฿)</label>
             <input
-              type="number"
-              min={0}
+              type="text"
+              inputMode="decimal"
               value={closingCounted}
-              onChange={(e) => setClosingCounted(e.target.value)}
+              onChange={(e) => setClosingCounted(normalizeMoneyInput(e.target.value))}
               className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm focus:outline-none focus:border-coral"
             />
           </div>

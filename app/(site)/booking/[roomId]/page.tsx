@@ -40,25 +40,36 @@ export default async function BookRoomPage({
   const guestAccount = account ? { name: account.name, email: account.email } : null;
 
   return (
-    <section className="mx-auto max-w-3xl px-6 py-16">
-      <p className="eyebrow text-sea mb-2 text-center">Confirm your stay</p>
-      <h1 className="font-display italic text-4xl text-center mb-10">{room.name}</h1>
+    <section className="mx-auto max-w-5xl px-6 py-10 md:py-14">
+      <p className="eyebrow text-sea mb-2 text-center md:text-left">Confirm your stay</p>
+      <h1 className="font-display italic text-4xl text-center md:text-left mb-8">{room.name}</h1>
 
-      <ArtBlock
-        src={resolveImageUrl(room.images[0])}
-        alt={room.name}
-        tone="warm"
-        className="mb-6"
-        unoptimized={room.images[0]?.startsWith("/uploads/")}
-      />
-
-      <RoomBookingPanel
-        roomId={room.id}
-        initialCheckIn={checkIn}
-        initialCheckOut={checkOut}
-        initialQuote={initialQuote}
-        guestAccount={guestAccount}
-      />
+      {/* Two columns from md up so the form is on the first screen: the photo and the room's facts beside it
+          rather than above it. */}
+      <div className="grid md:grid-cols-5 gap-8 items-start">
+        <div className="md:col-span-2">
+          <ArtBlock
+            src={resolveImageUrl(room.images[0])}
+            alt={room.name}
+            tone="warm"
+            unoptimized={room.images[0]?.startsWith("/uploads/")}
+          />
+          <p className="mt-4 text-sm text-cream/60">
+            Sleeps up to {room.capacity} &middot; from &#3647;{Number(room.basePrice).toLocaleString("en-US")} per night
+          </p>
+        </div>
+        <div className="md:col-span-3">
+          <RoomBookingPanel
+            roomId={room.id}
+            initialCheckIn={checkIn}
+            initialCheckOut={checkOut}
+            initialQuote={initialQuote}
+            guestAccount={guestAccount}
+            capacity={room.capacity}
+            basePrice={room.basePrice}
+          />
+        </div>
+      </div>
     </section>
   );
 }

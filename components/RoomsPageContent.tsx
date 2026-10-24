@@ -129,6 +129,9 @@ export default function RoomsPageContent({ rooms }: { rooms: Room[] }) {
                 </div>
               )}
               <h3 className="mt-4 font-display text-xl">{room.name}</h3>
+              <p className="mt-1 text-sm text-cream/60">
+                from &#3647;{Number(room.basePrice).toLocaleString("en-US")} / night &middot; sleeps up to {room.capacity}
+              </p>
               <p className="mt-2 text-sm text-cream/70 leading-relaxed">{room.description}</p>
               <Link
                 href={href}

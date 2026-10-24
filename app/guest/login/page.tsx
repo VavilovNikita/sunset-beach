@@ -65,7 +65,7 @@ export default function GuestLoginPage() {
           ← The Sunset Beach
         </Link>
         <p className="eyebrow text-sea mb-2 text-center mt-6">Guest account</p>
-        <h1 className="font-display italic text-3xl text-center mb-8">Sign in</h1>
+        <h1 className="font-display italic text-3xl text-center mb-8">Guest sign-in</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4 bg-ink2/60 border border-cream/10 rounded-xl p-6">
           <div>

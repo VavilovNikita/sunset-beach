@@ -592,6 +592,8 @@ export type NightAuditBooking = {
   // date - the backend's OverstayRule, the same nights the room reports count at zero revenue.
   // Always 0 on missedArrivals, and 0 for a guest due out today. A warning only.
   unpaidOverstayNights: number;
+  // The overstay nights valued at the room type's price - a report estimate, never on the folio. Absent without overstay nights.
+  unpaidOverstayValue?: string;
   // Set on every unpaidBalances row: BookingFolio.balanceDue.
   balanceDue?: string;
 };
@@ -736,6 +738,8 @@ export type GuestUpdateInput = {
   tags: string[];
 };
 
+export type StayStatus = "UPCOMING" | "IN_HOUSE" | "CHECKED_OUT" | "CANCELLED" | "NO_SHOW";
+
 export type Booking = {
   id: string;
   roomId: string;
@@ -780,6 +784,9 @@ export type Booking = {
   // stays commercial only: confirmed/paid/cancelled). One value per booking, not per segment: a
   // relocation mid-stay never touches this. Never affects availability — see OccupancyStatus.
   occupancyStatus: OccupancyStatus;
+  // Where the booking stands as a stay, derived by the server from status + occupancyStatus (StayStatus in
+  // openapi.yaml). Show this - not `status` - where the question is what happened to the stay (stay history).
+  stayStatus?: StayStatus;
   checkedInAt: string | null;
   checkedOutAt: string | null;
   // roomId/room/roomUnitId/roomUnit/checkIn/checkOut/totalPrice above are all

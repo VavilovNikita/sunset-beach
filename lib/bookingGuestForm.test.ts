@@ -71,3 +71,21 @@ describe("bookingRequestBody", () => {
     expect(body.children).toBe(0);
   });
 });
+
+describe("party limits", () => {
+  it("adults start at 1 and never exceed the room's capacity", async () => {
+    const { DEFAULT_ADULTS, clampAdults } = await import("./bookingGuestForm");
+    expect(DEFAULT_ADULTS).toBe(1);
+    expect(clampAdults(0, 3)).toBe(1);
+    expect(clampAdults(5, 3)).toBe(3);
+    expect(clampAdults(Number.NaN, 3)).toBe(1);
+  });
+
+  it("children fill only what the adults leave", async () => {
+    const { clampChildren, maxChildren } = await import("./bookingGuestForm");
+    expect(maxChildren(3, 2)).toBe(1);
+    expect(maxChildren(2, 2)).toBe(0);
+    expect(clampChildren(4, 3, 2)).toBe(1);
+    expect(clampChildren(-1, 3, 1)).toBe(0);
+  });
+});

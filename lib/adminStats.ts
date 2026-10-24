@@ -40,6 +40,9 @@ export type DashboardRoomStats =
       status: "ok";
       bookingsToday: number;
       bookingsThisWeek: number;
+      // Stays that start today (checkIn = today, not cancelled) - a different question from bookingsToday, which
+      // counts bookings that were *made* today whatever dates they are for.
+      arrivalsToday: number;
       occupancyPct: number;
     }
   | { status: "forbidden" }
@@ -55,7 +58,7 @@ export function computeRoomStats(
   now: Date,
   rooms: Room[],
   bookings: Booking[]
-): { bookingsToday: number; bookingsThisWeek: number; occupancyPct: number } {
+): { bookingsToday: number; bookingsThisWeek: number; arrivalsToday: number; occupancyPct: number } {
   // "Today" and "this month" are the hotel's (Asia/Bangkok), not the UTC day `now` falls in or the
   // machine's zone: a booking made at 02:00 Bangkok is still yesterday in UTC.
   const todayKey = hotelDateKey(now);
@@ -66,6 +69,7 @@ export function computeRoomStats(
 
   let bookingsToday = 0;
   let bookingsThisWeek = 0;
+  let arrivalsToday = 0;
   let bookedNights = 0;
 
   for (const b of bookings) {
@@ -75,6 +79,7 @@ export function computeRoomStats(
 
     const checkIn = dateOnlyUTC(b.checkIn);
     const checkOut = dateOnlyUTC(b.checkOut);
+    if (b.status !== "CANCELLED" && checkIn.getTime() === todayStart.getTime()) arrivalsToday += 1;
 
     if (b.status !== "CANCELLED" && checkIn < occupancyWindowEnd && checkOut > todayStart) {
       const start = checkIn > todayStart ? checkIn : todayStart;
@@ -98,7 +103,7 @@ export function computeRoomStats(
   // No revenue here on purpose: room revenue used to be summed from bookings whose status was PAID,
   // and a status is not a payment (it can be set with nothing collected). The dashboard's room
   // figure is the server's recorded payments (PaymentsSummary.folioPaymentsTotal) - see getPosSummary.
-  return { bookingsToday, bookingsThisWeek, occupancyPct };
+  return { bookingsToday, bookingsThisWeek, arrivalsToday, occupancyPct };
 }
 
 async function getRoomStats(now: Date): Promise<DashboardRoomStats> {

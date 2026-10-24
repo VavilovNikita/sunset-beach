@@ -57,3 +57,14 @@ describe("nearDuplicateCategory", () => {
     expect(normalizeCategory("  Soft   drinks ")).toBe("Soft drinks");
   });
 });
+
+describe("filterMenuByName", () => {
+  it("matches part of a name, ignoring case and spaces around the text", async () => {
+    const { filterMenuByName } = await import("./menuCategories");
+    const items = [{ name: "Pad Thai" }, { name: "Green curry" }, { name: "thai iced tea" }];
+    expect(filterMenuByName(items, "  THAI ").map((i) => i.name)).toEqual(["Pad Thai", "thai iced tea"]);
+    expect(filterMenuByName(items, "")).toEqual(items);
+    expect(filterMenuByName(items, undefined)).toEqual(items);
+    expect(filterMenuByName(items, "zzz")).toEqual([]);
+  });
+});

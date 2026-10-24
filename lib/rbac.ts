@@ -21,7 +21,7 @@ export async function getSessionUser() {
 // For Server Components/pages — redirects rather than returning a response.
 export async function requireSessionUser() {
   const user = await getSessionUser();
-  if (!user) redirect("/admin/login");
+  if (!user) redirect("/login");
   return user;
 }
 

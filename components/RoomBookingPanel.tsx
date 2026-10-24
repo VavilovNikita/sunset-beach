@@ -6,6 +6,7 @@ import Link from "next/link";
 import BookingGuestForm from "@/components/BookingGuestForm";
 import { getRoomQuoteClient } from "@/lib/publicQuoteClient";
 import { addDaysUTC, parseDateKey, toDateKey } from "@/lib/bookings";
+import { formatDateRange } from "@/lib/formatDate";
 import { formatQuoteTotal, type QuoteResult } from "@/lib/quote";
 import type { BookingGuestPrefill } from "@/lib/bookingGuestForm";
 
@@ -17,12 +18,18 @@ export default function RoomBookingPanel({
   initialCheckOut,
   initialQuote,
   guestAccount = null,
+  capacity,
+  basePrice,
 }: {
   roomId: string;
   initialCheckIn: string;
   initialCheckOut: string;
   initialQuote: QuoteResult;
   guestAccount?: BookingGuestPrefill | null;
+  // The room's own figures: how many guests it takes, and the base price per night ("from" - a date with a special
+  // price costs what the server's quote total says, which is the only figure that is final).
+  capacity: number;
+  basePrice: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -86,36 +93,50 @@ export default function RoomBookingPanel({
     commitDates(checkIn, nextCheckOut);
   }
 
+  const quote = result.ok ? result.quote : null;
+
   return (
     <>
-      <div className="grid sm:grid-cols-3 gap-4 items-end mb-10">
+      <p className="text-center md:text-left font-display italic text-xl mb-4">{formatDateRange(checkIn, checkOut)}</p>
+      <div className="grid grid-cols-2 gap-4 items-end mb-4">
         <div>
-          <label htmlFor={checkInId} className="eyebrow text-cream/40 block mb-1 text-center sm:text-left">Check-in</label>
+          <label htmlFor={checkInId} className="eyebrow text-cream/40 block mb-1">Check-in</label>
           <input
             id={checkInId}
             type="date"
             value={checkIn}
             onChange={(e) => handleCheckInChange(e.target.value)}
-            className="w-full bg-transparent border-b border-cream/25 py-2 text-base text-center sm:text-left focus:outline-none focus:border-coral"
+            className="w-full bg-transparent border-b border-cream/25 py-2 text-base focus:outline-none focus:border-coral"
           />
         </div>
         <div>
-          <label htmlFor={checkOutId} className="eyebrow text-cream/40 block mb-1 text-center sm:text-left">Check-out</label>
+          <label htmlFor={checkOutId} className="eyebrow text-cream/40 block mb-1">Check-out</label>
           <input
             id={checkOutId}
             type="date"
             value={checkOut}
             onChange={(e) => handleCheckOutChange(e.target.value)}
-            className="w-full bg-transparent border-b border-cream/25 py-2 text-base text-center sm:text-left focus:outline-none focus:border-coral"
+            className="w-full bg-transparent border-b border-cream/25 py-2 text-base focus:outline-none focus:border-coral"
           />
         </div>
-        <div>
-          <p className="eyebrow text-cream/40 text-center">Total</p>
-          <p className="mt-1 text-coral font-display text-lg text-center">
-            {loading ? "Updating…" : result.ok ? formatQuoteTotal(result.quote) : "—"}
-          </p>
-        </div>
       </div>
+
+      {/* The total is the server's quote; the per-night figure is the room's base price, said as "from" because a
+          night with a special rate costs more or less - nothing here adds nights up itself. */}
+      <dl className="grid grid-cols-3 gap-3 rounded-xl border border-cream/10 bg-ink2/40 px-4 py-3 mb-8 text-center">
+        <div>
+          <dt className="eyebrow text-cream/40">Nights</dt>
+          <dd className="mt-1 font-display text-lg">{loading ? "…" : quote ? quote.nights : "—"}</dd>
+        </div>
+        <div>
+          <dt className="eyebrow text-cream/40">Per night</dt>
+          <dd className="mt-1 font-display text-lg">from ฿{Number(basePrice).toLocaleString("en-US")}</dd>
+        </div>
+        <div>
+          <dt className="eyebrow text-cream/40">Total</dt>
+          <dd className="mt-1 text-coral font-display text-lg">{loading ? "Updating…" : quote ? formatQuoteTotal(quote) : "—"}</dd>
+        </div>
+      </dl>
 
       {/* While a new quote is pending the previous outcome stays on screen (the booking form
           disabled, not unmounted, so what the guest already typed survives a date change). */}
@@ -140,6 +161,7 @@ export default function RoomBookingPanel({
           checkOut={checkOut}
           disabled={loading}
           guestAccount={guestAccount}
+          capacity={capacity}
         />
       ) : (
         <p className="text-center text-coral">

@@ -22,3 +22,13 @@ export function saveStoredSpaGridDensity(colWidth: number) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(DENSITY_STORAGE_KEY, String(colWidth));
 }
+
+// The default density: as wide as the screen allows so the whole day fits without sideways scrolling (for a normal
+// day on a 1280px-and-wider screen), never narrower than the slider's minimum - then it scrolls, as before - and never
+// wider than the old fixed default (a short day on a huge screen does not stretch into huge cells). Applies only until
+// the person moves the slider; their own choice is stored and wins.
+export function fitColWidth(containerWidth: number, labelWidth: number, columnCount: number): number {
+  if (!(containerWidth > 0) || columnCount <= 0) return DEFAULT_COL_WIDTH_PX;
+  const fit = Math.floor((containerWidth - labelWidth) / columnCount);
+  return Math.max(MIN_COL_WIDTH_PX, Math.min(DEFAULT_COL_WIDTH_PX, fit));
+}

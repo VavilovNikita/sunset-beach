@@ -27,7 +27,7 @@ export type NavGroup = {
 
 // Grouped by what someone is actually doing, not by when the feature was built - within a section,
 // most-frequent-first. Today and POS lead their groups on purpose: they're the two roles' actual
-// entry points (see ROLE_LANDING in app/admin/login/page.tsx), so the sidebar should already be
+// entry points (see ROLE_LANDING in lib/staffLanding.ts), so the sidebar should already be
 // pointing at them. One group per area of the hotel, plus Reports. Each group has everyday links
 // and, under a divider, `setup` links - the configuration of that same area. There used to be a
 // catch-all "Setup" group, which put links next to things they had nothing to do with (the POS

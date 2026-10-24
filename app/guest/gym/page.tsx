@@ -4,6 +4,8 @@ import { guestBackendJson } from "@/lib/guestBackendServer";
 import GuestGymClient from "@/components/GuestGymClient";
 import type { GymGuestInfo, GymGuestReservation } from "@/lib/types";
 
+export const metadata = { title: "Gym booking — The Sunset Beach Resort & Spa" };
+
 // The gym, booked from the guest's own account. Eligibility (a CHECKED_IN booking of this account)
 // and every slot rule are the server's; this page only shows what it says - see GuestGymClient.
 export default async function GuestGymPage() {

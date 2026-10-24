@@ -57,3 +57,12 @@ describe("month labels", () => {
     expect(formatTimestamp("2026-10-02T17:00:00Z")).toBe("3 Oct 2026, 00:00");
   });
 });
+
+describe("formatMonth", () => {
+  it("writes a month key with the full month name", async () => {
+    const { formatMonth } = await import("@/lib/formatDate");
+    expect(formatMonth("2026-10")).toBe("October 2026");
+    expect(formatMonth("2026-10-05")).toBe("October 2026");
+    expect(formatMonth("nonsense")).toBe("nonsense");
+  });
+});

@@ -16,20 +16,21 @@ export type BookingListParams = {
   from: string | null;
   to: string | null;
   status: BookingStatus | null;
-  sort: BookingSortField;
-  dir: SortDirection;
+  // null = the server's own order when none is asked for: the nearest arrivals from today first, then earlier
+  // stays, latest first (not the furthest future dates on top, which plain "check-in descending" gives).
+  sort: BookingSortField | null;
+  dir: SortDirection | null;
   page: number;
 };
 
-// Latest stays first by default: today's and upcoming arrivals near the top, years-old history at
-// the end, instead of the old oldest-first order that buried everything current.
+// No sort by default - the server answers the nearest arrivals from today first (see BookingListParams.sort).
 export const DEFAULT_BOOKING_LIST_PARAMS: BookingListParams = {
   q: "",
   from: null,
   to: null,
   status: null,
-  sort: "CHECK_IN",
-  dir: "DESC",
+  sort: null,
+  dir: null,
   page: 0,
 };
 
@@ -52,8 +53,8 @@ export function parseBookingListParams(sp: Record<string, string | undefined>): 
     from: validDateKey(sp.from),
     to: validDateKey(sp.to),
     status: STATUSES.includes(sp.status as BookingStatus) ? (sp.status as BookingStatus) : null,
-    sort: SORT_FIELDS.includes(sp.sort as BookingSortField) ? (sp.sort as BookingSortField) : DEFAULT_BOOKING_LIST_PARAMS.sort,
-    dir: sp.dir === "ASC" || sp.dir === "DESC" ? sp.dir : DEFAULT_BOOKING_LIST_PARAMS.dir,
+    sort: SORT_FIELDS.includes(sp.sort as BookingSortField) ? (sp.sort as BookingSortField) : null,
+    dir: sp.dir === "ASC" || sp.dir === "DESC" ? sp.dir : null,
     page: Number.isInteger(page) && page > 0 ? page : 0,
   };
 }
@@ -65,9 +66,9 @@ export function bookingListQuery(params: BookingListParams): string {
   if (params.from) qs.set("from", params.from);
   if (params.to) qs.set("to", params.to);
   if (params.status) qs.set("status", params.status);
-  if (params.sort !== DEFAULT_BOOKING_LIST_PARAMS.sort || params.dir !== DEFAULT_BOOKING_LIST_PARAMS.dir) {
+  if (params.sort) {
     qs.set("sort", params.sort);
-    qs.set("dir", params.dir);
+    qs.set("dir", params.dir ?? "DESC");
   }
   if (params.page > 0) qs.set("page", String(params.page));
   return qs.toString();
@@ -85,8 +86,10 @@ export function bookingSearchApiPath(params: BookingListParams): string {
   if (params.from) qs.set("from", params.from);
   if (params.to) qs.set("to", params.to);
   if (params.status) qs.set("status", params.status);
-  qs.set("sort", params.sort);
-  qs.set("direction", params.dir);
+  if (params.sort) {
+    qs.set("sort", params.sort);
+    qs.set("direction", params.dir ?? "DESC");
+  }
   qs.set("page", String(params.page));
   qs.set("pageSize", String(BOOKING_LIST_PAGE_SIZE));
   return `/bookings/search?${qs.toString()}`;

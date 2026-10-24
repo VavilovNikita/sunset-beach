@@ -3,13 +3,12 @@ import OrderBoard from "@/components/admin/pos/OrderBoard";
 import TableManager from "@/components/admin/pos/TableManager";
 import FailedPrintJobsBadge from "@/components/admin/pos/FailedPrintJobsBadge";
 import LongOpenShiftNotice from "@/components/LongOpenShiftNotice";
-import { backendJson, backendJsonOrDefault } from "@/lib/backendServer";
-import { hotelDateKey } from "@/lib/hotelDate";
-import { isLongOpenShift } from "@/lib/shiftReconciliation";
+import { backendJson } from "@/lib/backendServer";
+import { loadStaleShifts } from "@/lib/staleShiftsServer";
 import { loadNotPrintedJobs } from "@/lib/printQueueServer";
 import { summarizeNotPrinted } from "@/lib/printQueue";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
-import type { Order, ShiftListItem, ShiftSummary, Table } from "@/lib/posTypes";
+import type { Order, Table } from "@/lib/posTypes";
 
 export default async function AdminPosPage() {
   const [user, tables, openOrders, sentOrders, notPrintedJobs] = await Promise.all([
@@ -32,19 +31,9 @@ export default async function AdminPosPage() {
   // any order tied to it.
   const restaurantTables = tables.filter((t) => t.zone !== "SPA");
 
-  // A cash shift left open for over a day (lib/shiftReconciliation.ts#isLongOpenShift). A manager
-  // sees anyone's (GET /shifts, MANAGER+, bounded to a year back so the board doesn't pull every
-  // shift ever); a cashier sees their own (GET /shifts/current). Secondary - a failed read just
-  // shows nothing.
-  const now = new Date();
+  // A cash shift left open for over a day (lib/staleWork.ts) - whose it is and what to do is said by the notice itself.
+  const stale = user ? await loadStaleShifts(user) : null;
   const isManager = !!user && hasRoleAtLeast(user.role, "MANAGER");
-  const isCashier = !!user && hasRoleAtLeast(user.role, "CASHIER");
-  const candidateShifts: (ShiftListItem | ShiftSummary)[] = isManager
-    ? await backendJsonOrDefault<ShiftListItem[]>(`/shifts?from=${hotelDateKey(new Date(now.getTime() - 365 * 86400_000))}`, [], { auth: true })
-    : isCashier
-      ? [await backendJsonOrDefault<ShiftSummary | null>("/shifts/current", null, { auth: true })].filter((s): s is ShiftSummary => s !== null)
-      : [];
-  const longOpenShifts = candidateShifts.filter((s) => isLongOpenShift(s, now));
 
   return (
     <div>
@@ -71,7 +60,17 @@ export default async function AdminPosPage() {
         </div>
       </div>
 
-      <LongOpenShiftNotice shifts={longOpenShifts} now={now} shiftsHref={isManager ? "/admin/pos/shifts/history" : "/admin/pos/shifts"} />
+      {user && stale && (
+        <LongOpenShiftNotice
+          shifts={stale.shifts}
+          now={stale.now}
+          viewerUserId={user.id}
+          viewerHasOwnShift={stale.viewerHasOwnShift}
+          canCloseOthers={stale.isManager}
+          ownShiftHref="/admin/pos/shifts"
+          othersHref="/admin/pos/shifts/history"
+        />
+      )}
       <OrderBoard initialTables={restaurantTables} initialOrders={[...openOrders, ...sentOrders]} />
       <TableManager initialTables={restaurantTables} canManage={canManageTables} zones={["RESTAURANT", "BAR", "POOL", "ROOM_SERVICE"]} />
     </div>

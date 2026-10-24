@@ -1,5 +1,7 @@
 "use client";
 
+import { formatTimestamp } from "@/lib/formatDate";
+
 import { useState } from "react";
 import { fetchPrintJobs, retryPrintJob, dismissPrintJobs } from "@/lib/printJobsClient";
 import { usePolling } from "@/lib/usePolling";
@@ -233,6 +235,8 @@ export default function PrintQueue({
                 <p className="text-cream text-sm truncate">{job.summary}</p>
                 <p className="text-xs text-cream/50">
                   {PRINT_DOCUMENT_TYPE_LABELS[job.documentType]} · {job.attempts} attempt{job.attempts === 1 ? "" : "s"}
+                  <span> · created {formatTimestamp(job.createdAt)}</span>
+                  {job.lastAttemptAt && <span> · last attempt {formatTimestamp(job.lastAttemptAt)}</span>}
                   {job.lastError && <span className="text-coral"> · {job.lastError}</span>}
                   {isDismissed && job.dismissNote && <span> · Note: {job.dismissNote}</span>}
                 </p>

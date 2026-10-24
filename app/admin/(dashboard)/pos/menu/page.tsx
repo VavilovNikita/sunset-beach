@@ -4,10 +4,10 @@ import { ADMIN_API_URL } from "@/lib/backend";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
 import { MENU_DEPARTMENT_LABELS } from "@/lib/posOrders";
 import DeleteButton from "@/components/admin/DeleteButton";
-import { menuCategoryTabs, resolveSelectedCategory } from "@/lib/menuCategories";
+import { filterMenuByName, menuCategoryTabs, resolveSelectedCategory } from "@/lib/menuCategories";
 import type { MenuItem } from "@/lib/posTypes";
 
-export default async function AdminMenuPage({ searchParams }: { searchParams: { category?: string } }) {
+export default async function AdminMenuPage({ searchParams }: { searchParams: { category?: string; q?: string } }) {
   const [user, allItems] = await Promise.all([
     getSessionUser(),
     backendJson<MenuItem[]>("/menu", { auth: true }),
@@ -23,10 +23,12 @@ export default async function AdminMenuPage({ searchParams }: { searchParams: { 
   // A link per tab (not client state), so the selection survives a reload or a back from Edit.
   const tabs = menuCategoryTabs(nonSpaItems);
   const selectedCategory = resolveSelectedCategory(tabs, searchParams.category);
-  const items = nonSpaItems.filter((item) => item.category === selectedCategory);
+  // A search looks across every category and then replaces the tab filter; without one the open tab decides.
+  const query = (searchParams.q ?? "").trim();
+  const items = query ? filterMenuByName(nonSpaItems, query) : nonSpaItems.filter((item) => item.category === selectedCategory);
 
   return (
-    <div>
+    <div className="max-w-4xl">
       <div className="flex items-center justify-between mb-8">
         <div>
           <p className="eyebrow text-sea mb-2">Restaurant</p>
@@ -42,7 +44,31 @@ export default async function AdminMenuPage({ searchParams }: { searchParams: { 
         )}
       </div>
 
-      {tabs.length > 0 && (
+      <form method="get" className="flex flex-wrap items-center gap-3 mb-5" role="search">
+        <input
+          type="search"
+          name="q"
+          defaultValue={query}
+          placeholder="Search the menu by name"
+          aria-label="Search the menu by name"
+          className="w-full max-w-sm bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
+        />
+        <button type="submit" className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2 text-sm font-medium">
+          Search
+        </button>
+        {query && (
+          <Link href="/admin/pos/menu" className="text-sm text-cream/60 hover:text-cream">
+            Clear
+          </Link>
+        )}
+      </form>
+      {query && (
+        <p className="text-xs text-cream/50 mb-4">
+          {items.length} {items.length === 1 ? "item" : "items"} matching &ldquo;{query}&rdquo; in all categories.
+        </p>
+      )}
+
+      {tabs.length > 0 && !query && (
         <div className="flex flex-wrap gap-2 mb-6">
           {tabs.map((tab) => (
             <Link
@@ -71,6 +97,7 @@ export default async function AdminMenuPage({ searchParams }: { searchParams: { 
             <div className="flex-1 min-w-0">
               <p className="font-display text-lg truncate">{item.name}</p>
               <p className="text-sm text-cream/60">
+                {query && <span>{item.category} · </span>}
                 ฿{Number(item.price).toLocaleString("en-US")}
                 {!item.isAvailable && " · Unavailable"}
               </p>
@@ -95,7 +122,7 @@ export default async function AdminMenuPage({ searchParams }: { searchParams: { 
             )}
           </div>
         ))}
-        {items.length === 0 && <p className="text-cream/50 text-sm">No menu items yet.</p>}
+        {items.length === 0 && <p className="text-cream/50 text-sm">{query ? "No menu item matches this search." : "No menu items yet."}</p>}
       </div>
     </div>
   );

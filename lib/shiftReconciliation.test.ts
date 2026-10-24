@@ -127,3 +127,17 @@ describe("closeNote", () => {
     expect(closeNoteMissing(0, "")).toBe(false);
   });
 });
+
+describe("history table labels", () => {
+  it("tells a drawer that was never counted from one that matched", async () => {
+    const { countedCashLabel, discrepancyLabel } = await import("@/lib/shiftReconciliation");
+    const notCounted = { status: "CLOSED" as const, closingCashCounted: null, discrepancy: null, cashNotCounted: true };
+    expect(countedCashLabel(notCounted)).toBe("Not counted");
+    expect(discrepancyLabel(notCounted)).toBe("Not counted");
+    const matched = { status: "CLOSED" as const, closingCashCounted: "1000.00", discrepancy: "0.00" };
+    expect(countedCashLabel(matched)).toBe("฿1,000");
+    expect(discrepancyLabel(matched)).toBe("฿0");
+    expect(discrepancyLabel({ ...matched, discrepancy: "-50.00" })).toBe("−฿50");
+    expect(discrepancyLabel({ status: "OPEN", closingCashCounted: null, discrepancy: null })).toBe("—");
+  });
+});

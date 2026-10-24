@@ -1,5 +1,6 @@
 "use client";
 
+import { stayStatusLabel } from "@/lib/stayStatus";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -90,7 +91,7 @@ export default function GuestCard({ guest }: { guest: GuestDetail }) {
                   <p className="text-cream truncate">
                     {roomTypeSummary(b)} — {formatDateRange(b.checkIn, b.checkOut)}
                   </p>
-                  <p className="text-xs text-cream/40">{b.status}</p>
+                  <p className="text-xs text-cream/40">{stayStatusLabel(b)}</p>
                 </div>
                 <span className="text-cream shrink-0">฿{Number(b.totalPrice).toLocaleString("en-US")}</span>
               </Link>

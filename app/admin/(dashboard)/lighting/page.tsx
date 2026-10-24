@@ -18,7 +18,7 @@ export default async function AdminLightingPage() {
 
   return (
     <div>
-      <p className="eyebrow text-sea mb-2">Front desk</p>
+      <p className="eyebrow text-sea mb-2">Gym &amp; lighting</p>
       <h1 className="font-display italic text-3xl mb-4">Lighting</h1>
       <p className="text-sm text-cream/60 mb-2 max-w-2xl">
         Switch the lights, set the brightness or apply a preset stored on the controller. The page does not refresh by itself: press Refresh.

@@ -1,5 +1,6 @@
 "use client";
 
+import RosterEmptyMonth from "@/components/admin/RosterEmptyMonth";
 import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
@@ -472,22 +473,27 @@ export default function RosterGrid({
         <p className="print:hidden text-sm text-coral bg-coral/10 border border-coral/30 rounded-xl px-4 py-3 mb-4">{actionError}</p>
       )}
 
-      {monthIsEmpty && (
-        <p className="print:hidden text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-xl px-4 py-3 mb-4">
-          Nothing is rostered for this month yet. Use &ldquo;Copy previous month&rdquo; above to start from what was worked
-          before, &ldquo;Generate from patterns&rdquo; if employees have patterns, or show employees with no shifts below to
-          fill cells by hand.
-        </p>
-      )}
+      {monthIsEmpty && <RosterEmptyMonth year={year} month={month} canEdit={!readOnly} />}
 
-      <label className="print:hidden flex items-center gap-2 text-xs text-cream/50 mb-3">
+      <label
+        className={`print:hidden inline-flex items-center gap-2 text-sm mb-3 rounded-lg px-3 py-2 ${
+          hiddenCount > 0 ? "bg-amber-400/10 border border-amber-400/30 text-amber-400" : "text-cream/50"
+        }`}
+      >
         <input
           type="checkbox"
           checked={showEmptyRows}
           onChange={(e) => setShowEmptyRows(e.target.checked)}
           className="accent-coral"
         />
-        Show employees with no shifts this month ({hiddenCount})
+        {hiddenCount > 0 ? (
+          <>
+            <span className="font-medium">{hiddenCount}</span> {hiddenCount === 1 ? "employee has" : "employees have"} no shifts this month and{" "}
+            {showEmptyRows ? "are shown" : "are hidden"} &mdash; show them
+          </>
+        ) : (
+          "Show employees with no shifts this month (0)"
+        )}
       </label>
 
       <div className="overflow-x-auto print:overflow-visible border border-cream/10 print:border-0 rounded-xl print:rounded-none">
@@ -530,7 +536,8 @@ export default function RosterGrid({
                   <tr key={`${group.area}-coverage`}>
                     <td className="sticky left-0 bg-ink px-3 py-1 text-xs text-cream/30">Coverage</td>
                     {dates.map((d) => {
-                      const warning = coverageWarningFor(data.coverageWarnings, group.area as StaffArea, d);
+                      // Nobody is rostered at all, so every area would be "below minimum": that is the empty month, not a shortage.
+                      const warning = monthIsEmpty ? undefined : coverageWarningFor(data.coverageWarnings, group.area as StaffArea, d);
                       const isToday = d === todayKey;
                       const isWeekend = isWeekendDate(d);
                       return (
@@ -705,7 +712,7 @@ export default function RosterGrid({
               <td className="sticky left-0 bg-ink2 px-3 py-1.5 text-xs text-cream/50 border-t border-cream/10">Working</td>
               {dates.map((d) => {
                 const isToday = d === todayKey;
-                const warnings = coverageWarningsFor(d);
+                const warnings = monthIsEmpty ? [] : coverageWarningsFor(d);
                 return (
                   <td
                     key={d}

@@ -39,8 +39,8 @@ export default function BookingsTable({
   emptyMessage,
 }: {
   bookings: Booking[];
-  sort: BookingSortField;
-  dir: SortDirection;
+  sort: BookingSortField | null;
+  dir: SortDirection | null;
   sortHrefs: Record<BookingSortField, string>;
   // The hotel's date, for the "arrival date passed" flag (lib/bookingList.ts#isArrivalPassed).
   todayKey: string;

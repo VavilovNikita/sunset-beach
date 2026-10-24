@@ -1,5 +1,7 @@
 "use client";
 
+import FilePickerButton from "@/components/FilePickerButton";
+
 import { useState } from "react";
 import { previewRosterGridImport, commitRosterGridImport } from "@/lib/rosterClient";
 import { STAFF_AREA_LABELS } from "@/lib/rosterGrid";
@@ -385,11 +387,11 @@ export default function RosterGridImportManager({ initialEmployees }: { initialE
           </div>
           <div>
             <label className="eyebrow text-cream/60 block mb-1">Workbook</label>
-            <input
-              type="file"
+            <FilePickerButton
               accept=".xlsx"
+              label="Choose workbook"
+              selectedText={file ? file.name : null}
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="w-full text-cream text-xs file:mr-2 file:rounded-full file:border-0 file:bg-coral file:px-3 file:py-1.5 file:text-xs file:text-ink file:cursor-pointer"
             />
           </div>
         </div>

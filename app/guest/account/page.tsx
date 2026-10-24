@@ -1,9 +1,12 @@
+import { formatDateRange } from "@/lib/formatDate";
 import Link from "next/link";
 import { requireGuestSessionAccount } from "@/lib/guestRbac";
 import { guestBackendJson } from "@/lib/guestBackendServer";
 import type { GuestBooking } from "@/lib/guestSession";
 import GuestChangePasswordForm from "@/components/GuestChangePasswordForm";
 import GuestSignOutButton from "@/components/GuestSignOutButton";
+
+export const metadata = { title: "My bookings and account — The Sunset Beach Resort & Spa" };
 
 const STATUS_LABEL: Record<GuestBooking["status"], string> = {
   NEW: "Requested",
@@ -66,7 +69,7 @@ export default async function GuestAccountPage() {
                   <div>
                     <p className="font-medium">{booking.roomName}</p>
                     <p className="text-sm text-cream/50">
-                      {booking.checkIn} → {booking.checkOut}
+                      {formatDateRange(booking.checkIn, booking.checkOut)}
                     </p>
                   </div>
                   <div className="text-right">

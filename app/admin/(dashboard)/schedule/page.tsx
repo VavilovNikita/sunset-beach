@@ -1,3 +1,4 @@
+import { formatMonth } from "@/lib/formatDate";
 import Link from "next/link";
 import { backendJson } from "@/lib/backendServer";
 import { requireSessionUser } from "@/lib/rbac";
@@ -48,7 +49,7 @@ export default async function AdminSchedulePage({ searchParams }: { searchParams
           ← Prev
         </Link>
         <p className="text-sm text-cream/70 tabular-nums">
-          {year}-{String(month).padStart(2, "0")}
+          {formatMonth(`${year}-${String(month).padStart(2, "0")}`)}
         </p>
         <Link href={qs(nextMonth.year, nextMonth.month)} className="text-sm text-sea hover:text-coral transition-colors">
           Next →

@@ -1,5 +1,6 @@
 // Pure formatting/lookup helpers shared by POS admin components — no fetch,
 // mirrors the role lib/bookings.ts plays for date math.
+import { STALE_AFTER_HOURS } from "@/lib/staleWork";
 import type {
   OrderStatus,
   PaymentMethod,
@@ -105,7 +106,7 @@ export function ticketHeading(order: { guestName: string | null }): string {
 
 // An OPEN/SENT order this old is almost always a forgotten table or a ticket nobody closed, not a
 // long dinner - flagged on the floor boards so someone looks at it.
-export const LONG_OPEN_HOURS = 24;
+export const LONG_OPEN_HOURS = STALE_AFTER_HOURS;
 
 export function isLongOpen(order: { status: OrderStatus; createdAt: string }, now: Date): boolean {
   if (order.status !== "OPEN" && order.status !== "SENT") return false;

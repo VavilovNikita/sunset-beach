@@ -1,5 +1,6 @@
 import { extractApiError } from "@/lib/apiError";
 import { staffLanding } from "@/lib/staffLanding";
+import { safeCallbackUrl } from "@/lib/loginRedirect";
 
 export type StaffLoginOutcome =
   | { action: "redirect-admin"; destination: string }
@@ -12,12 +13,13 @@ export type StaffLoginOutcome =
  * after a plain 401 ("Invalid email or password") - anything else (429 rate-limited, a 5xx, or a
  * malformed body) stops here with its own message instead of falling through to a second call.
  */
-export function decideAfterStaffLogin(ok: boolean, status: number, body: unknown): StaffLoginOutcome {
+export function decideAfterStaffLogin(ok: boolean, status: number, body: unknown, callbackUrl?: string | null): StaffLoginOutcome {
   if (ok) {
     const b = body as { role?: unknown; functions?: unknown } | null;
     return {
       action: "redirect-admin",
-      destination: staffLanding(typeof b?.role === "string" ? b.role : null, Array.isArray(b?.functions) ? (b.functions as string[]) : []),
+      // A deep link the visitor was sent here from wins over the role's default landing page.
+      destination: safeCallbackUrl(callbackUrl) ?? staffLanding(typeof b?.role === "string" ? b.role : null, Array.isArray(b?.functions) ? (b.functions as string[]) : []),
     };
   }
   if (status === 401) return { action: "try-guest" };

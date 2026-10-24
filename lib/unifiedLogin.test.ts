@@ -10,6 +10,11 @@ describe("decideAfterStaffLogin", () => {
     });
   });
 
+  it("a safe deep link wins over the role's landing page; an unsafe one is ignored", () => {
+    expect(decideAfterStaffLogin(true, 200, { role: "MANAGER" }, "/admin/spa")).toEqual({ action: "redirect-admin", destination: "/admin/spa" });
+    expect(decideAfterStaffLogin(true, 200, { role: "MANAGER" }, "https://evil.example")).toEqual({ action: "redirect-admin", destination: "/admin" });
+  });
+
   it("a plain wrong-credentials 401 is the only case that falls through to guest login", () => {
     expect(decideAfterStaffLogin(false, 401, { error: "Invalid email or password" })).toEqual({ action: "try-guest" });
   });

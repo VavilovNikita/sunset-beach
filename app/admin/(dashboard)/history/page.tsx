@@ -1,3 +1,4 @@
+import AuditEntityFilter from "@/components/admin/AuditEntityFilter";
 import Link from "next/link";
 import { BackendError } from "@/lib/backend";
 import { backendJson } from "@/lib/backendServer";
@@ -134,31 +135,11 @@ export default async function AdminHistoryPage({
             ))}
           </select>
         </div>
-        <div>
-          <label className="eyebrow text-cream/60 block mb-1">Entity type</label>
-          <select
-            name="entityType"
-            defaultValue={entityType ?? ""}
-            className="bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="">All</option>
-            {ENTITY_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {describeEnumValue(t)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="eyebrow text-cream/60 block mb-1">Entity ID</label>
-          <input
-            type="text"
-            name="entityId"
-            defaultValue={entityId}
-            placeholder="requires entity type"
-            className="bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
-          />
-        </div>
+        <AuditEntityFilter
+          types={ENTITY_TYPES.map((t) => ({ value: t, label: describeEnumValue(t) }))}
+          initialType={entityType ?? ""}
+          initialId={entityId ?? ""}
+        />
         <div>
           <label className="eyebrow text-cream/60 block mb-1">From</label>
           <input

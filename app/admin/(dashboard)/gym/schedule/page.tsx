@@ -49,7 +49,7 @@ export default async function AdminGymSchedulePage({
     <div>
       <div className="flex items-start justify-between gap-4 mb-2 flex-wrap">
         <div>
-          <p className="eyebrow text-sea mb-2">Front desk</p>
+          <p className="eyebrow text-sea mb-2">Gym &amp; lighting</p>
           <h1 className="font-display italic text-3xl">Gym schedule</h1>
         </div>
         <div className="flex items-center gap-4 mt-1 flex-wrap justify-end">

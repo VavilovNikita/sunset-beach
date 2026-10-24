@@ -1,9 +1,18 @@
 "use client";
 
+import { extractApiError } from "@/lib/apiError";
 import { useState } from "react";
 import Link from "next/link";
 import { PUBLIC_PROXY_URL } from "@/lib/backend";
-import { bookingRequestBody, guestFormDefaults, type BookingGuestPrefill } from "@/lib/bookingGuestForm";
+import {
+  DEFAULT_ADULTS,
+  bookingRequestBody,
+  clampAdults,
+  clampChildren,
+  guestFormDefaults,
+  maxChildren,
+  type BookingGuestPrefill,
+} from "@/lib/bookingGuestForm";
 
 export default function BookingGuestForm({
   roomId,
@@ -11,17 +20,22 @@ export default function BookingGuestForm({
   checkOut,
   disabled = false,
   guestAccount = null,
+  capacity,
 }: {
   roomId: string;
   checkIn: string;
   checkOut: string;
   disabled?: boolean;
   guestAccount?: BookingGuestPrefill | null;
+  // Room.capacity - the most guests (adults + children) the room takes; the server refuses a public booking over it.
+  capacity: number;
 }) {
   const defaults = guestFormDefaults(guestAccount);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
+  const [adults, setAdults] = useState(DEFAULT_ADULTS);
+  const [children, setChildren] = useState(0);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -38,7 +52,8 @@ export default function BookingGuestForm({
     if (!res.ok) {
       const data = await res.json().catch(() => null);
       setStatus("error");
-      setError(typeof data?.error === "string" ? data.error : "Something went wrong. Please try again.");
+      // The server's own reason (party over the room's capacity, dates taken, ...) - the generic line only when it sent none.
+      setError(extractApiError(data, "Something went wrong. Please try again."));
       return;
     }
 
@@ -59,58 +74,72 @@ export default function BookingGuestForm({
     );
   }
 
+  const FIELD = "w-full bg-transparent border-b border-cream/25 py-2 text-cream placeholder:text-cream/30 focus:outline-none focus:border-coral";
+  const LABEL = "eyebrow text-cream/60 block mb-1";
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <input
-          type="text"
-          name="guestName"
-          defaultValue={defaults.guestName}
-          placeholder="Your name"
-          minLength={2}
-          required
-          className="w-full bg-transparent border-b border-cream/25 py-2 text-cream placeholder:text-cream/40 focus:outline-none focus:border-coral"
-        />
+        <label htmlFor="guestName" className={LABEL}>Your name</label>
+        <input id="guestName" type="text" name="guestName" defaultValue={defaults.guestName} autoComplete="name" minLength={2} required className={FIELD} />
       </div>
-      <div>
-        <input
-          type="email"
-          name="guestEmail"
-          defaultValue={defaults.guestEmail}
-          placeholder="Email"
-          required
-          className="w-full bg-transparent border-b border-cream/25 py-2 text-cream placeholder:text-cream/40 focus:outline-none focus:border-coral"
-        />
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="guestEmail" className={LABEL}>Email</label>
+          <input id="guestEmail" type="email" name="guestEmail" defaultValue={defaults.guestEmail} autoComplete="email" required className={FIELD} />
+        </div>
+        <div>
+          <label htmlFor="guestPhone" className={LABEL}>Phone</label>
+          <input id="guestPhone" type="tel" name="guestPhone" autoComplete="tel" placeholder="+66 …" minLength={5} required className={FIELD} />
+        </div>
       </div>
-      <div>
-        <input
-          type="tel"
-          name="guestPhone"
-          placeholder="Phone"
-          minLength={5}
-          required
-          className="w-full bg-transparent border-b border-cream/25 py-2 text-cream placeholder:text-cream/40 focus:outline-none focus:border-coral"
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="adults" className={LABEL}>Adults</label>
+          <input
+            id="adults"
+            type="number"
+            name="adults"
+            min={1}
+            max={Math.max(1, capacity)}
+            step={1}
+            required
+            value={adults}
+            onChange={(e) => {
+              const next = clampAdults(Number(e.target.value), capacity);
+              setAdults(next);
+              setChildren((c) => clampChildren(c, capacity, next));
+            }}
+            className={FIELD}
+          />
+        </div>
+        <div>
+          <label htmlFor="children" className={LABEL}>Children</label>
+          <input
+            id="children"
+            type="number"
+            name="children"
+            min={0}
+            max={maxChildren(capacity, adults)}
+            step={1}
+            value={children}
+            onChange={(e) => setChildren(clampChildren(Number(e.target.value), capacity, adults))}
+            className={FIELD}
+          />
+        </div>
       </div>
-      <div className="flex gap-4">
-        <input
-          type="number"
-          name="adults"
-          placeholder="Adults"
-          min={1}
-          step={1}
-          required
-          className="w-full bg-transparent border-b border-cream/25 py-2 text-cream placeholder:text-cream/40 focus:outline-none focus:border-coral"
-        />
-        <input
-          type="number"
-          name="children"
-          placeholder="Children"
-          min={0}
-          step={1}
-          className="w-full bg-transparent border-b border-cream/25 py-2 text-cream placeholder:text-cream/40 focus:outline-none focus:border-coral"
-        />
-      </div>
+      <p className="text-xs text-cream/40">This room sleeps up to {capacity} {capacity === 1 ? "guest" : "guests"} in total.</p>
+
+      <label className="flex items-start gap-3 text-sm text-cream/70">
+        <input type="checkbox" required className="mt-0.5 h-4 w-4 accent-coral" />
+        <span>
+          I have read and accept the{" "}
+          <Link href="/terms" target="_blank" className="underline underline-offset-4 hover:text-cream">
+            terms &amp; conditions
+          </Link>
+          .
+        </span>
+      </label>
 
       {status === "error" && (
         <p className="text-sm text-coral">

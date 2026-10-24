@@ -34,3 +34,11 @@ export function nearDuplicateCategory(input: string, existing: string[]): string
   const key = normalized.toLowerCase();
   return existing.find((c) => normalizeCategory(c).toLowerCase() === key) ?? null;
 }
+
+// The menu page's search box: items whose name contains the text, case and surrounding spaces ignored, across every
+// category (a search that only looked inside the open tab would miss the dish the person is thinking of).
+export function filterMenuByName<T extends { name: string }>(items: T[], query: string | undefined): T[] {
+  const needle = (query ?? "").trim().toLocaleLowerCase();
+  if (needle === "") return items;
+  return items.filter((item) => item.name.toLocaleLowerCase().includes(needle));
+}

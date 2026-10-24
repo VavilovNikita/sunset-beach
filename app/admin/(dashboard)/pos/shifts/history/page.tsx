@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { backendJson } from "@/lib/backendServer";
 import { requireRoleAtLeast } from "@/lib/rbac";
+import LongOpenShiftNotice from "@/components/LongOpenShiftNotice";
+import { loadStaleShifts } from "@/lib/staleShiftsServer";
 import ShiftHistoryTable from "@/components/admin/pos/ShiftHistoryTable";
 import type { ShiftListItem } from "@/lib/posTypes";
 
 export default async function ShiftHistoryPage({ searchParams }: { searchParams: { from?: string; to?: string } }) {
   // GET /shifts is MANAGER+ on the backend - a CASHIER's own current shift (ShiftPanel, one
   // level down at /admin/pos/shifts) is a different screen with a different purpose.
-  await requireRoleAtLeast("MANAGER");
+  const user = await requireRoleAtLeast("MANAGER");
+  const stale = await loadStaleShifts(user);
   const { from, to } = searchParams;
 
   const query = new URLSearchParams();
@@ -27,6 +30,16 @@ export default async function ShiftHistoryPage({ searchParams }: { searchParams:
           My current shift →
         </Link>
       </div>
+
+      <LongOpenShiftNotice
+        shifts={stale.shifts}
+        now={stale.now}
+        viewerUserId={user.id}
+        viewerHasOwnShift={stale.viewerHasOwnShift}
+        canCloseOthers
+        ownShiftHref="/admin/pos/shifts"
+        othersHref="/admin/pos/shifts/history"
+      />
 
       <form method="get" className="flex flex-wrap items-end gap-4 mb-8 bg-ink2/40 border border-cream/10 rounded-xl p-4">
         <div>

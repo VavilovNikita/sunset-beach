@@ -84,10 +84,14 @@ export default function BookingOccupancyPanel({ booking, balanceDue }: { booking
         <span className="text-sm text-cream/80">{OCCUPANCY_LABELS[occupancy]}</span>
       </div>
 
-      {owed && (
+      {owed && booking.owes === true && (
         <p className="text-sm text-coral">
           Balance due: ฿{Number(balanceDue).toLocaleString("en-US")} — collect it in the folio below.
         </p>
+      )}
+      {/* A stay that has not started owes nothing yet (the server's `owes`): money still to collect, said neutrally, not in red. */}
+      {owed && booking.owes !== true && (
+        <p className="text-sm text-cream/70">To pay at check-in ฿{Number(balanceDue).toLocaleString("en-US")}</p>
       )}
 
       {overdue && (

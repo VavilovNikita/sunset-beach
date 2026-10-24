@@ -31,7 +31,7 @@ async function staffMiddleware(req: NextRequest) {
   const user = await getCurrentUser(token);
 
   if (!user) {
-    const loginUrl = new URL("/admin/login", req.url);
+    const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", req.nextUrl.pathname);
     const res = NextResponse.redirect(loginUrl);
     res.cookies.delete(SESSION_COOKIE_NAME);

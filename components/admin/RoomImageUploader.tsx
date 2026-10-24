@@ -1,5 +1,7 @@
 "use client";
 
+import FilePickerButton from "@/components/FilePickerButton";
+
 import { useRef, useState } from "react";
 import UploadedImage from "@/components/UploadedImage";
 import { useRouter } from "next/navigation";
@@ -109,14 +111,13 @@ export default function RoomImageUploader({
         {images.length === 0 && <p className="col-span-full text-sm text-cream/50">No photos yet.</p>}
       </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
+      <FilePickerButton
+        inputRef={fileInputRef}
         accept="image/jpeg,image/png,image/webp"
         multiple
         onChange={handleUpload}
         disabled={uploading}
-        className="text-sm text-cream/70 file:mr-3 file:rounded-full file:border-0 file:bg-coral file:text-cream file:px-4 file:py-2 file:text-sm file:font-medium hover:file:bg-coraldeep file:cursor-pointer"
+        label="Add photos"
       />
       {uploading && <p className="text-sm text-cream/50 mt-2">Uploading…</p>}
       {error && <p className="text-sm text-coral mt-2">{error}</p>}

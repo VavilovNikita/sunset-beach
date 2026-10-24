@@ -17,7 +17,14 @@ const MIN_GAP_MS = 300;
 
 // intervalMs 0 means no timer at all - only the "page came back" refetch (the Lighting board: a controller on a
 // wireless link is asked when someone looks, not on a schedule).
-export function usePolling(callback: () => void, intervalMs: number, enabled = true) {
+//
+// A tick (or a "page came back" run) is skipped while the previous call is still waiting for its answer, when the
+// callback returns its promise: a slow server must not pile up identical requests behind each other.
+// Floor for any request-per-tick poll of a live screen (orders, maps): nothing on the floor changes faster than this
+// is worth asking for, and the page-came-back run already covers the "I just looked at it again" case.
+export const MIN_POLL_INTERVAL_MS = 5000;
+
+export function usePolling(callback: () => void | Promise<unknown>, intervalMs: number, enabled = true) {
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
 
@@ -25,12 +32,25 @@ export function usePolling(callback: () => void, intervalMs: number, enabled = t
     if (!enabled) return;
 
     let lastRun = 0;
+    let inFlight = false;
     function run() {
       if (document.visibilityState !== "visible") return;
+      if (inFlight) return;
       const now = Date.now();
       if (now - lastRun < MIN_GAP_MS) return;
       lastRun = now;
-      callbackRef.current();
+      const result = callbackRef.current();
+      if (result && typeof (result as Promise<unknown>).then === "function") {
+        inFlight = true;
+        (result as Promise<unknown>).then(
+          () => {
+            inFlight = false;
+          },
+          () => {
+            inFlight = false;
+          },
+        );
+      }
     }
 
     function onReturn() {

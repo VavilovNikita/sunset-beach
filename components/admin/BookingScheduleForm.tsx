@@ -73,7 +73,7 @@ export default function BookingScheduleForm({
           ) : (
             <>
               <p className="text-cream">
-                {toDateKey(dateOnlyUTC(booking.checkIn))} → {toDateKey(dateOnlyUTC(booking.checkOut))}
+                {formatDateRange(booking.checkIn, booking.checkOut)}
               </p>
               {booking.roomUnit ? (
                 <p className="text-cream/70">

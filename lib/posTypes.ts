@@ -89,6 +89,8 @@ export type PrintJob = {
   lastError: string | null;
   createdAt: string;
   updatedAt: string;
+  // When the printer was last tried; absent while no attempt has been made.
+  lastAttemptAt?: string;
   // Set once this FAILED job is closed as not-actionable (POST /print-jobs/dismiss) - dismiss
   // never changes `status`, it only stops the job counting toward the default list/badge/banner
   // (GET /print-jobs excludes dismissed jobs unless includeDismissed=true).
@@ -368,6 +370,11 @@ export type ShiftListItem = {
   totals: ShiftTotals;
   expectedCash: string;
   discrepancy: string | null;
+  // The person's name (their email when the account has none); closedByName is absent while the shift is open.
+  openedByName?: string;
+  closedByName?: string;
+  // A closed shift whose drawer was never counted: nothing to reconcile, which is not the same as a counted drawer that matched.
+  cashNotCounted?: boolean;
 };
 
 // POST /orders/{id}/close creates this server-side, but the endpoint returns

@@ -126,7 +126,7 @@ export default function BookingStatusForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-4 max-w-md bg-ink2/40 border border-cream/10 rounded-xl p-5">
+    <form onSubmit={handleSubmit} noValidate className="space-y-4 bg-ink2/40 border border-cream/10 rounded-xl p-5">
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Status</label>
         <select

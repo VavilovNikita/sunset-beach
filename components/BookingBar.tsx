@@ -12,6 +12,10 @@ type BookingBarProps = {
   checkOut?: string;
   onCheckInChange?: (value: string) => void;
   onCheckOutChange?: (value: string) => void;
+  // Uncontrolled mode only: the dates already in the page address (/booking?checkIn=..&checkOut=..), so the bar shows
+  // the search it is displaying rather than two empty boxes.
+  initialCheckIn?: string;
+  initialCheckOut?: string;
 };
 
 export default function BookingBar({
@@ -19,10 +23,12 @@ export default function BookingBar({
   checkOut: checkOutProp,
   onCheckInChange,
   onCheckOutChange,
+  initialCheckIn = "",
+  initialCheckOut = "",
 }: BookingBarProps = {}) {
   const router = useRouter();
-  const [checkInState, setCheckInState] = useState("");
-  const [checkOutState, setCheckOutState] = useState("");
+  const [checkInState, setCheckInState] = useState(initialCheckIn);
+  const [checkOutState, setCheckOutState] = useState(initialCheckOut);
   const [error, setError] = useState<string | null>(null);
   const checkInId = useId();
   const checkOutId = useId();

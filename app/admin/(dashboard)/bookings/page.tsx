@@ -93,8 +93,8 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
           </select>
         </div>
         {/* A new search keeps the chosen sort but starts again at page one. */}
-        <input type="hidden" name="sort" value={params.sort} />
-        <input type="hidden" name="dir" value={params.dir} />
+        {params.sort && <input type="hidden" name="sort" value={params.sort} />}
+        {params.dir && <input type="hidden" name="dir" value={params.dir} />}
         <button type="submit" className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-5 py-2.5 text-sm font-medium">
           Search
         </button>

@@ -1,9 +1,10 @@
 "use client";
 
+import { staleAge } from "@/lib/staleWork";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { usePolling } from "@/lib/usePolling";
+import { MIN_POLL_INTERVAL_MS, usePolling } from "@/lib/usePolling";
 import { cashTender } from "@/lib/cashTender";
 import { menuForOrder } from "@/lib/posMenu";
 import type { DraftOrderTarget } from "@/lib/posDraftOrder";
@@ -12,6 +13,7 @@ import {
   STATUS_LABELS,
   STATUS_STYLES,
   VOID_REASON_MAX,
+  isLongOpen,
   isTerminalStatus,
   orderNumberLabel,
   orderRefLabel,
@@ -214,7 +216,7 @@ function LiveOrderTicket({
 
   // Stops once the order reaches a terminal status, so a ticket left open in a background tab
   // doesn't keep polling forever.
-  usePolling(refetch, 3000, !isTerminalStatus(order.status));
+  usePolling(refetch, MIN_POLL_INTERVAL_MS, !isTerminalStatus(order.status));
 
   async function handleQuantityChange(item: Order["items"][number], nextQuantity: number) {
     if (nextQuantity < 1 || nextQuantity > MAX_LINE_QUANTITY) return;
@@ -378,6 +380,14 @@ function LiveOrderTicket({
         )}
         <span className="font-display italic text-2xl text-coral ml-auto">฿{Number(order.total).toLocaleString("en-US")}</span>
       </div>
+
+      {/* Nothing closes it by itself; this only says it has been forgotten and where it is dealt with. */}
+      {isLongOpen(order, new Date()) && (
+        <p className="text-sm text-amber-400 bg-amber-400/10 border border-amber-400/40 rounded-xl px-4 py-3">
+          This order has been open {staleAge(order.createdAt, new Date())}. If the guests have left, take payment below to close it
+          {order.status === "SENT" ? " (or ask a manager to cancel it)" : " or cancel it"}.
+        </p>
+      )}
 
       {order.status === "SENT" && (
         <p className="text-sm text-cream/50 bg-ink2 border border-cream/10 rounded-xl px-4 py-3">

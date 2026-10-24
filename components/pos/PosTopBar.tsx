@@ -29,7 +29,7 @@ export default function PosTopBar({ email, role }: { email: string; role: Role }
       // staying "logged in" on a floor device because a logout call didn't round-trip is the
       // wrong failure mode here.
     }
-    router.push("/admin/login?callbackUrl=/pos");
+    router.push("/login?callbackUrl=%2Fpos");
     router.refresh();
   }
 

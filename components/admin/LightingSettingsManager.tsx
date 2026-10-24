@@ -348,7 +348,7 @@ export default function LightingSettingsManager({ initialConfigs, configured }: 
       </div>
       {error && <p className="text-sm text-coral mt-2">{error}</p>}
 
-      <h2 className="eyebrow text-cream/60 mt-8 mb-3">Add a controller</h2>
+      <h2 className="eyebrow text-cream/60 mt-8 mb-3">New controller</h2>
       {!configured ? (
         <p className="text-sm text-cream/60">Adding is switched off until the server&rsquo;s allowed subnet is set.</p>
       ) : adding ? (

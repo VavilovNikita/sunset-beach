@@ -22,7 +22,7 @@ export default function PosIdleLogout() {
       fetch("/api/session/logout", { method: "POST" })
         .catch(() => {})
         .finally(() => {
-          router.push("/admin/login?callbackUrl=/pos");
+          router.push("/login?callbackUrl=%2Fpos");
           router.refresh();
         });
     }

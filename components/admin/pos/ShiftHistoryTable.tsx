@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { ShiftListItem } from "@/lib/posTypes";
 import { formatTimestamp } from "@/lib/formatDate";
 import { longOpenLabel } from "@/lib/posOrders";
-import { isLongOpenShift } from "@/lib/shiftReconciliation";
+import { countedCashLabel, discrepancyLabel, isLongOpenShift } from "@/lib/shiftReconciliation";
 
 // The staff filter is client-side, not a second round trip with `staffId` set - GET /shifts
 // already returns every shift in the chosen date range (staff count × working days is a small
@@ -19,7 +19,7 @@ export default function ShiftHistoryTable({ shifts }: { shifts: ShiftListItem[] 
 
   const staffOptions = useMemo(() => {
     const byId = new Map<string, string>();
-    for (const s of shifts) byId.set(s.openedByUserId, s.openedByEmail);
+    for (const s of shifts) byId.set(s.openedByUserId, s.openedByName || s.openedByEmail);
     return [...byId.entries()].sort((a, b) => a[1].localeCompare(b[1]));
   }, [shifts]);
 
@@ -78,7 +78,9 @@ export default function ShiftHistoryTable({ shifts }: { shifts: ShiftListItem[] 
                         {formatTimestamp(s.openedAt)}
                       </Link>
                     </td>
-                    <td className="py-3 pr-4 text-cream/70">{s.openedByEmail}</td>
+                    <td className="py-3 pr-4 text-cream/70" title={s.openedByEmail}>
+                      {s.openedByName || s.openedByEmail}
+                    </td>
                     <td className="py-3 pr-4 text-cream/70 whitespace-nowrap">
                       {s.status === "OPEN" ? "Open" : "Closed"}
                       {isLongOpenShift(s, now) && <span className="text-amber-400"> · {longOpenLabel(s.openedAt, now)}</span>}
@@ -90,18 +92,14 @@ export default function ShiftHistoryTable({ shifts }: { shifts: ShiftListItem[] 
                     </td>
                     <td className="py-3 pr-4 text-right text-cream/70">฿{Number(s.expectedCash).toLocaleString("en-US")}</td>
                     <td className="py-3 pr-4 text-right text-cream/70">
-                      {s.closingCashCounted !== null ? `฿${Number(s.closingCashCounted).toLocaleString("en-US")}` : "—"}
+                      {countedCashLabel(s)}
                     </td>
                     <td
                       className={`py-3 pr-4 text-right font-medium ${
                         discrepancy === null ? "text-cream/40" : discrepancy === 0 ? "text-cream/50" : "text-coral"
                       }`}
                     >
-                      {discrepancy === null
-                        ? "—"
-                        : discrepancy === 0
-                          ? "None"
-                          : `${discrepancy > 0 ? "+" : "−"}฿${Math.abs(discrepancy).toLocaleString("en-US")}`}
+                      {discrepancyLabel(s)}
                     </td>
                   </tr>
                 );

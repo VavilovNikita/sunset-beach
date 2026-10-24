@@ -1,5 +1,7 @@
 "use client";
 
+import FilePickerButton from "@/components/FilePickerButton";
+
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { hotelDateKey } from "@/lib/hotelDate";
@@ -436,16 +438,15 @@ function PropertyMapUploadForm({
     <div className="flex items-center gap-3 flex-wrap">
       <label className="text-sm">
         <span className="eyebrow text-cream/50 block mb-1">{hasImage ? "Replace floor plan" : "Upload floor plan"}</span>
-        <input
-          type="file"
+        <FilePickerButton
           accept="image/jpeg,image/png,image/webp"
           disabled={uploading}
+          label={hasImage ? "Choose a new image" : "Choose an image"}
           onChange={(e) => {
             const file = e.target.files?.[0];
             e.target.value = "";
             if (file) onUpload(file);
           }}
-          className="block text-sm text-cream/60 file:mr-3 file:rounded-full file:border-0 file:bg-coral file:px-4 file:py-2 file:text-sm file:font-medium file:text-cream hover:file:bg-coraldeep file:transition-colors file:cursor-pointer disabled:opacity-60"
         />
       </label>
       {uploading && <span className="text-sm text-cream/50">Uploading…</span>}

@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/formatDate";
 import Link from "next/link";
 import { backendJson } from "@/lib/backendServer";
 import { requireRoleAtLeast } from "@/lib/rbac";
@@ -83,11 +84,11 @@ export default async function InHousePage({ searchParams }: { searchParams: { da
                   <td className={`${td} text-right`}>{row.adults}</td>
                   <td className={`${td} text-right`}>{row.children}</td>
                   <td className={`${td} whitespace-nowrap`} title={MARKET_SEGMENT_LABELS[row.marketSegment]}>
-                    {row.marketSegment}
+                    {MARKET_SEGMENT_LABELS[row.marketSegment]}
                   </td>
-                  <td className={`${td} whitespace-nowrap`}>{row.arrival}</td>
+                  <td className={`${td} whitespace-nowrap`}>{formatDate(row.arrival)}</td>
                   <td className={`${td} whitespace-nowrap`}>
-                    {row.departure}
+                    {formatDate(row.departure)}
                     {overdueLabel(row.overdueDays) && <span className="block text-xs text-coral">{overdueLabel(row.overdueDays)}</span>}
                   </td>
                   <td className={`${td} text-xs text-cream/50 font-mono`}>{row.bookingId.slice(0, 8)}</td>

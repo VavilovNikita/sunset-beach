@@ -5,6 +5,8 @@ import { getDashboardOps, type DashboardBlock } from "@/lib/dashboardOps";
 import { STAFF_AREA_LABELS } from "@/lib/rosterGrid";
 import { requireSessionUser } from "@/lib/rbac";
 import StatCard from "@/components/admin/StatCard";
+import LongOpenShiftNotice from "@/components/LongOpenShiftNotice";
+import { loadStaleShifts } from "@/lib/staleShiftsServer";
 
 // The hotel's month, read on every request: a module-level constant was frozen at the month the
 // server process started, and in UTC it was still last month until 07:00 on the 1st.
@@ -43,7 +45,7 @@ export default async function AdminDashboardPage() {
   const user = await requireSessionUser();
   if (user.role === "WAITER") redirect("/admin/pos");
 
-  const [stats, ops] = await Promise.all([getDashboardStats(), getDashboardOps()]);
+  const [stats, ops, stale] = await Promise.all([getDashboardStats(), getDashboardOps(), loadStaleShifts(user)]);
   const anyOpsVisible = [ops.shiftBoard, ops.coverage, ops.devices, ops.maintenance].some((b) => b.status !== "forbidden");
 
   return (
@@ -51,11 +53,27 @@ export default async function AdminDashboardPage() {
       <p className="eyebrow text-sea mb-2">Overview</p>
       <h1 className="font-display italic text-3xl mb-8">Dashboard</h1>
 
+      <LongOpenShiftNotice
+        shifts={stale.shifts}
+        now={stale.now}
+        viewerUserId={user.id}
+        viewerHasOwnShift={stale.viewerHasOwnShift}
+        canCloseOthers={stale.isManager}
+        ownShiftHref="/admin/pos/shifts"
+        othersHref="/admin/pos/shifts/history"
+      />
+
       {stats.roomStats.status === "ok" && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          <StatCard label="Bookings today" value={String(stats.roomStats.bookingsToday)} />
+          {/* "Made" and "arrivals" are different questions: a booking made today is usually for another date. */}
           <StatCard
-            label="Bookings this week"
+            label="Bookings made today"
+            value={String(stats.roomStats.bookingsToday)}
+            sublabel="Created today, for any dates"
+          />
+          <StatCard label="Arrivals today" value={String(stats.roomStats.arrivalsToday)} sublabel="Stays starting today, not cancelled" />
+          <StatCard
+            label="Bookings made this week"
             value={String(stats.roomStats.bookingsThisWeek)}
             sublabel="Rolling 7 days"
           />

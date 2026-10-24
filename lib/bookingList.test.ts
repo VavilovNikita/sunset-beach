@@ -34,7 +34,9 @@ describe("parseBookingListParams", () => {
 
 describe("sortedBy", () => {
   it("flips direction when the same column is clicked again", () => {
-    expect(sortedBy(DEFAULT_BOOKING_LIST_PARAMS, "CHECK_IN")).toMatchObject({ sort: "CHECK_IN", dir: "ASC" });
+    const first = sortedBy(DEFAULT_BOOKING_LIST_PARAMS, "CHECK_IN");
+    expect(first).toMatchObject({ sort: "CHECK_IN", dir: "DESC" });
+    expect(sortedBy(first, "CHECK_IN")).toMatchObject({ sort: "CHECK_IN", dir: "ASC" });
   });
 
   it("starts names A→Z and amounts largest first, back on page one", () => {
@@ -45,9 +47,13 @@ describe("sortedBy", () => {
 });
 
 describe("bookingSearchApiPath", () => {
-  it("asks the server for exactly this page, sorted", () => {
-    expect(bookingSearchApiPath({ ...DEFAULT_BOOKING_LIST_PARAMS, q: "ann", page: 1 })).toBe(
-      "/bookings/search?q=ann&sort=CHECK_IN&direction=DESC&page=1&pageSize=50"
+  it("asks for no sort by default, so the server puts the nearest arrivals from today first", () => {
+    expect(bookingSearchApiPath({ ...DEFAULT_BOOKING_LIST_PARAMS, q: "ann", page: 1 })).toBe("/bookings/search?q=ann&page=1&pageSize=50");
+  });
+
+  it("sends a chosen sort", () => {
+    expect(bookingSearchApiPath({ ...DEFAULT_BOOKING_LIST_PARAMS, sort: "CHECK_IN", dir: "DESC" })).toBe(
+      "/bookings/search?sort=CHECK_IN&direction=DESC&page=0&pageSize=50"
     );
   });
 });

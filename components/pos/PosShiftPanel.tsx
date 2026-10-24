@@ -1,5 +1,7 @@
 "use client";
 
+import { normalizeMoneyInput } from "@/lib/moneyInput";
+
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePolling } from "@/lib/usePolling";
@@ -191,11 +193,10 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
         <div>
           <label className="eyebrow text-cream/60 block mb-1">Opening cash float (฿)</label>
           <input
-            type="number"
+            type="text"
             inputMode="decimal"
-            min={0}
             value={openingFloat}
-            onChange={(e) => setOpeningFloat(e.target.value)}
+            onChange={(e) => setOpeningFloat(normalizeMoneyInput(e.target.value))}
             className="w-full bg-ink2 border border-cream/20 rounded-xl px-4 py-3 text-cream text-base focus:outline-none focus:border-coral"
           />
           <p className="text-xs text-cream/40 mt-1">Cash in the drawer before the first sale — the close is counted against it.</p>
@@ -262,11 +263,10 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
             <div>
               <label className="eyebrow text-cream/60 block mb-1">Counted cash (฿)</label>
               <input
-                type="number"
+                type="text"
                 inputMode="decimal"
-                min={0}
                 value={closingCounted}
-                onChange={(e) => setClosingCounted(e.target.value)}
+                onChange={(e) => setClosingCounted(normalizeMoneyInput(e.target.value))}
                 className="w-full bg-ink2 border border-cream/20 rounded-xl px-4 py-3 text-cream text-base focus:outline-none focus:border-coral"
               />
             </div>

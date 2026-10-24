@@ -85,7 +85,7 @@ describe("computeRoomStats", () => {
       booking({ id: "b1", status: "PAID", checkIn: "2026-06-05", totalPrice: "1500.00" }),
       booking({ id: "b2", status: "PAID", checkIn: "2026-06-25", totalPrice: "2500.00" }),
     ]);
-    expect(Object.keys(stats).sort()).toEqual(["bookingsThisWeek", "bookingsToday", "occupancyPct"]);
+    expect(Object.keys(stats).sort()).toEqual(["arrivalsToday", "bookingsThisWeek", "bookingsToday", "occupancyPct"]);
   });
 
   it("computes occupancy from booked nights within the 30-day window over total active units", () => {
@@ -159,5 +159,15 @@ describe("computeRoomStats", () => {
     );
     // 3 nights / (5 units * 30) = 150 -> 2%
     expect(stats.occupancyPct).toBe(2);
+  });
+
+  it("counts arrivals (stays starting today, not cancelled) apart from bookings made today", () => {
+    const stats = computeRoomStats(NOW, [], [
+      booking({ id: "a1", checkIn: "2026-06-15", createdAt: "2026-05-01T09:00:00.000Z" }), // arrives today, made long ago
+      booking({ id: "a2", checkIn: "2026-06-15", status: "CANCELLED" }), // cancelled: not an arrival
+      booking({ id: "a3", checkIn: "2026-08-01", createdAt: "2026-06-15T09:00:00.000Z" }), // made today, arrives later
+    ]);
+    expect(stats.arrivalsToday).toBe(1);
+    expect(stats.bookingsToday).toBe(2);
   });
 });

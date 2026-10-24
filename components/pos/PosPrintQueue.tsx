@@ -1,5 +1,7 @@
 "use client";
 
+import { formatTimestamp } from "@/lib/formatDate";
+
 import { useState } from "react";
 import { usePolling } from "@/lib/usePolling";
 import { PRINT_JOB_STATUS_LABELS, PRINT_JOB_STATUS_STYLES, PRINT_DOCUMENT_TYPE_LABELS } from "@/lib/posOrders";
@@ -177,6 +179,8 @@ export default function PosPrintQueue({ initialJobs, initialFilter }: { initialJ
               <p className="text-cream text-sm">{job.summary}</p>
               <p className="text-xs text-cream/50 mt-1">
                 {job.attempts} attempt{job.attempts === 1 ? "" : "s"}
+                <span> · created {formatTimestamp(job.createdAt)}</span>
+                {job.lastAttemptAt && <span> · last attempt {formatTimestamp(job.lastAttemptAt)}</span>}
                 {job.lastError && <span className="text-coral"> · {job.lastError}</span>}
               </p>
               {isDismissed && job.dismissNote && <p className="text-xs text-cream/40 mt-1">Note: {job.dismissNote}</p>}
