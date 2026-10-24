@@ -14,7 +14,7 @@ import { sortUnitsByLabel } from "@/lib/sortRooms";
 import OwesBadge from "@/components/admin/OwesBadge";
 import CancelBookingDialog from "@/components/admin/CancelBookingDialog";
 import MarkPaidDialog from "@/components/admin/MarkPaidDialog";
-import { cancelUnavailableReason, needsCancellationConfirm, needsPaymentDialog, selectableStatuses } from "@/lib/bookingStatusChange";
+import { statusOptionsNote, needsCancellationConfirm, needsPaymentDialog, selectableStatuses } from "@/lib/bookingStatusChange";
 import { useSavedNotice } from "@/lib/useSavedNotice";
 import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
 import { BookingScheduleEditor, RoomUnitAssignmentEditor } from "@/components/admin/BookingScheduleEditor";
@@ -345,8 +345,8 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
             </option>
           ))}
         </select>
-        {cancelUnavailableReason(booking.status, booking.occupancyStatus) && (
-          <p className="text-xs text-cream/50 mt-1">{cancelUnavailableReason(booking.status, booking.occupancyStatus)}</p>
+        {statusOptionsNote(booking.status, booking.occupancyStatus) && (
+          <p className="text-xs text-cream/50 mt-1">{statusOptionsNote(booking.status, booking.occupancyStatus)}</p>
         )}
       </div>
       {needsPaymentDialog(booking.status, status, amountToMarkPaid) && (

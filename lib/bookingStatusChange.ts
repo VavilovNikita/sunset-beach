@@ -14,8 +14,9 @@ export function needsCancellationConfirm(current: BookingStatus, next: BookingSt
 
 // A guest who has arrived is not cancelled: the server answers a change into CANCELLED for a
 // CHECKED_IN or CHECKED_OUT booking with a 409, so the screens don't offer it (check the guest out,
-// shortening the stay if they leave early, instead). A booking that is already CANCELLED keeps
-// showing its own status in the dropdown.
+// shortening the stay if they leave early, instead). A booking that is already CANCELLED is never
+// moved out of it (409 too: its room may have been sold since) - the dropdown offers only its own
+// status, and the way back is a new booking.
 export const BOOKING_STATUSES: readonly BookingStatus[] = ["NEW", "CONFIRMED", "PAID", "CANCELLED"];
 
 export function canCancelBooking(status: BookingStatus, occupancyStatus: OccupancyStatus): boolean {
@@ -24,12 +25,14 @@ export function canCancelBooking(status: BookingStatus, occupancyStatus: Occupan
 }
 
 export function selectableStatuses(status: BookingStatus, occupancyStatus: OccupancyStatus): BookingStatus[] {
-  return BOOKING_STATUSES.filter((s) => s !== "CANCELLED" || status === "CANCELLED" || canCancelBooking(status, occupancyStatus));
+  if (status === "CANCELLED") return ["CANCELLED"];
+  return BOOKING_STATUSES.filter((s) => s !== "CANCELLED" || canCancelBooking(status, occupancyStatus));
 }
 
-// Why the cancel option is missing, shown next to the dropdown - or null when it is offered.
-export function cancelUnavailableReason(status: BookingStatus, occupancyStatus: OccupancyStatus): string | null {
-  if (status === "CANCELLED" || canCancelBooking(status, occupancyStatus)) return null;
+// Why options are missing from the dropdown, shown next to it - or null when every one is offered.
+export function statusOptionsNote(status: BookingStatus, occupancyStatus: OccupancyStatus): string | null {
+  if (status === "CANCELLED") return "A cancelled booking can't be reinstated - its room may have been sold since. Create a new booking instead.";
+  if (canCancelBooking(status, occupancyStatus)) return null;
   return occupancyStatus === "CHECKED_OUT"
     ? "This guest has checked out, so the booking can't be cancelled."
     : "This guest is checked in, so the booking can't be cancelled - check them out instead.";

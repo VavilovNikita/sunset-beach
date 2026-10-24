@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canCancelBooking,
-  cancelUnavailableReason,
+  statusOptionsNote,
   needsCancellationConfirm,
   needsPaymentDialog,
   paidPaymentInput,
@@ -35,8 +35,6 @@ describe("needsPaymentDialog", () => {
   it("asks for a payment when a booking becomes PAID while money is owed", () => {
     expect(needsPaymentDialog("NEW", "PAID", "4500.00")).toBe(true);
     expect(needsPaymentDialog("CONFIRMED", "PAID", "120.50")).toBe(true);
-    // A cancelled booking being reinstated straight to PAID owes the room again - the server says how much.
-    expect(needsPaymentDialog("CANCELLED", "PAID", "4500.00")).toBe(true);
   });
 
   it("does not ask when nothing is owed, when it is already PAID, or for any other change", () => {
@@ -84,13 +82,14 @@ describe("cancelling a booking whose guest has arrived", () => {
     expect(selectableStatuses("PAID", "CHECKED_IN")).toEqual(["NEW", "CONFIRMED", "PAID"]);
     expect(selectableStatuses("NEW", "CHECKED_OUT")).toEqual(["NEW", "CONFIRMED", "PAID"]);
     expect(selectableStatuses("NEW", "EXPECTED")).toEqual(["NEW", "CONFIRMED", "PAID", "CANCELLED"]);
-    expect(selectableStatuses("CANCELLED", "CHECKED_OUT")).toEqual(["NEW", "CONFIRMED", "PAID", "CANCELLED"]);
+    expect(selectableStatuses("CANCELLED", "CHECKED_OUT")).toEqual(["CANCELLED"]);
+    expect(selectableStatuses("CANCELLED", "EXPECTED")).toEqual(["CANCELLED"]);
   });
 
   it("explains why the option is missing", () => {
-    expect(cancelUnavailableReason("PAID", "CHECKED_IN")).toMatch(/checked in/);
-    expect(cancelUnavailableReason("PAID", "CHECKED_OUT")).toMatch(/checked out/);
-    expect(cancelUnavailableReason("PAID", "EXPECTED")).toBeNull();
-    expect(cancelUnavailableReason("CANCELLED", "EXPECTED")).toBeNull();
+    expect(statusOptionsNote("PAID", "CHECKED_IN")).toMatch(/checked in/);
+    expect(statusOptionsNote("PAID", "CHECKED_OUT")).toMatch(/checked out/);
+    expect(statusOptionsNote("PAID", "EXPECTED")).toBeNull();
+    expect(statusOptionsNote("CANCELLED", "EXPECTED")).toMatch(/can't be reinstated/);
   });
 });
