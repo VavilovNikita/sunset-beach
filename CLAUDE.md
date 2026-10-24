@@ -230,7 +230,7 @@ Spa tables are ordinary POS `Table` rows (`zone: "SPA"`), and a spa appointment 
 
 **A file field is `FilePickerButton`** (hidden input, our button, English text). The browser's own control speaks the browser's language and cannot be styled.
 
-**One login page, `/login`.** `/admin/login` only redirects there (keeping `callbackUrl`, `lib/loginRedirect.ts#safeCallbackUrl` - same-site paths only, no open redirect); the middleware, the sidebar's sign-out and the phone's idle logout all point at it. `/guest/login` stays the guest-only form ("Guest sign-in"). Unmatched addresses get `app/not-found.tsx` (this app has no root layout, so it brings its own `<html>`); a record that is missing inside the site or the admin gets that section's own `not-found.tsx`, and `app/admin/(dashboard)/[...slug]` makes an unknown `/admin/...` address land in the admin's frame.
+**One login page, `/login`.** `/admin/login` only redirects there (keeping `callbackUrl`, `lib/loginRedirect.ts#safeCallbackUrl` - same-site paths only, no open redirect); the middleware, the sidebar's sign-out and the phone's idle logout all point at it. `/guest/login` stays the guest-only form ("Guest sign-in"). Next refuses a root `not-found.tsx` when the app has no root layout, so an unmatched address is routed into a section by a catch-all (`app/(site)/[...slug]`, and `app/admin/(dashboard)/[...slug]` for `/admin/...`) that calls `notFound()`: the site's or the admin's own `not-found.tsx` renders inside that section's frame. A missing record inside a section does the same.
 
 **The booking list's default order is the server's** (`BookingListParams.sort/dir` are `null`): nearest arrivals from today first. A sort is sent only once a column header is clicked.
 
