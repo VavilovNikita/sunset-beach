@@ -136,6 +136,17 @@ export default function BookingsTable({
                         Arrival passed
                       </span>
                     )}
+                    {b.occupancyStatus === "NO_SHOW" && (
+                      // The guest was marked as not arrived (a label - the dates and price are unchanged). Without
+                      // this a no-show read as an ordinary NEW booking. A dotted outline, like "Arrival passed":
+                      // the palette is full, so the state is told by shape.
+                      <span
+                        className="rounded-full px-2.5 py-1 text-xs border border-dotted border-cream/50 text-cream/80"
+                        title="The guest never arrived and was marked a no-show. The booking's dates and price are unchanged."
+                      >
+                        No-show
+                      </span>
+                    )}
                     {/* Any status: the balance is the server's (Booking.balanceDue), not a PAID-only hint. */}
                     <OwesBadge balanceDue={b.balanceDue} owes={b.owes} settlement={b.settlement} status={b.status} creditBalance={b.creditBalance} />
                   </div>

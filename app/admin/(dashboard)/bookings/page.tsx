@@ -3,6 +3,7 @@ import { backendJson } from "@/lib/backendServer";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import { hotelDateKey } from "@/lib/hotelDate";
+import { bookingStatusLabel } from "@/lib/bookingStatusLabel";
 import {
   BOOKING_LIST_PAGE_SIZE,
   bookingListHref,
@@ -87,7 +88,7 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
             <option value="">All</option>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {bookingStatusLabel(s)}
               </option>
             ))}
           </select>

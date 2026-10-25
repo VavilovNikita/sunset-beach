@@ -23,7 +23,7 @@ export type BookingListParams = {
   page: number;
 };
 
-// No sort by default - the server answers the nearest arrivals from today first (see BookingListParams.sort).
+// No sort by default - the server answers: guests in the room now, then arrivals to come, then the past (see BookingListParams.sort).
 export const DEFAULT_BOOKING_LIST_PARAMS: BookingListParams = {
   q: "",
   from: null,
