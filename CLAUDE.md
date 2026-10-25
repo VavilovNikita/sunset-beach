@@ -82,7 +82,7 @@ Any action that can fail shows its failure next to the control that triggered it
 
 `hasRoleAtLeast` and the `requireRoleAtLeast` guards. Hierarchy: `ADMIN > MANAGER > CASHIER > WAITER`.
 
-**Who is in the house is the backend's call (`OverstayRule`).** A guest still checked in past `checkOut` arrives flagged (`overdueDays`, `CalendarBooking.overstayUntil`); `lib/overstay.ts` only words it. Don't re-derive presence from dates on a screen.
+**Who is in the house is the backend's call (`OverstayRule`).** A guest still checked in past `checkOut` arrives flagged (`overdueDays`, `CalendarBooking.overstayUntil`); `lib/overstay.ts` only words it. Don't re-derive presence from dates on a screen. **The nights a guest stays past check-out are charged to the booking** (the server's overstay charge): `Folio.overstayNights`/`overstayTotal` are a line of their own between Room and POS room charges and are already inside `folioTotal`/`balanceDue` - show them, never add them. The booking page's notice ("Overstaying N nights", button to the stay dates `#stay-dates`) reads the folio; the Today board has no per-night figure and does not derive one.
 
 Hide actions a role cannot perform — do not show a working form that fails on save. Guard the page itself too, not only the link: a hidden link is not access control.
 

@@ -195,7 +195,14 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
         </div>
 
         <div className="space-y-6">
-          <BookingOccupancyPanel booking={booking} balanceDue={folio ? folio.balanceDue : null} />
+          <BookingOccupancyPanel
+            booking={booking}
+            balanceDue={folio ? folio.balanceDue : null}
+            overstayNights={folio ? folio.overstayNights : null}
+            overstayTotal={folio ? folio.overstayTotal : null}
+          />
+          {/* The target of "Extend the stay" in the overstay notice. */}
+          <div id="stay-dates" className="scroll-mt-6" />
           <BookingScheduleForm
             booking={booking}
             units={assignableUnits}
@@ -230,6 +237,12 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
               <div className="space-y-1 text-sm text-cream/60">
                 <FolioLine label={booking.status === "CANCELLED" ? "Room (cancelled — not charged)" : "Room"} amount={folio.roomTotal} />
                 {Number(folio.earlyDepartureFee) > 0 && <FolioLine label="Early departure (unused nights)" amount={folio.earlyDepartureFee} />}
+                {folio.overstayNights > 0 && (
+                  <FolioLine
+                    label={`Overstay — ${folio.overstayNights} ${folio.overstayNights === 1 ? "night" : "nights"} past check-out`}
+                    amount={folio.overstayTotal}
+                  />
+                )}
                 <FolioLine label={`POS room charges (${folio.roomChargeCount})`} amount={folio.roomChargesGross} />
                 <div className="flex items-center justify-between pt-1 text-cream/80">
                   <span>Total charged</span>

@@ -422,6 +422,10 @@ export type Folio = {
   // booking were not yet paid and not cancelled. Equals balanceDue for a NEW/CONFIRMED booking.
   amountToMarkPaid: string;
   creditBalance: string;
+  // The nights a checked-in guest stayed past checkOut, charged to the booking (the server's OverstayChargeService):
+  // already inside folioTotal and balanceDue - shown as their own line, never added here.
+  overstayNights: number;
+  overstayTotal: string;
   roomChargeCount: number;
 };
 

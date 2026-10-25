@@ -32,8 +32,8 @@ describe("describeUnpaidNights", () => {
   });
 
   it("counts the nights the server reports", () => {
-    expect(describeUnpaidNights(1)).toBe("Staying unpaid · 1 night");
-    expect(describeUnpaidNights(28)).toBe("Staying unpaid · 28 nights");
+    expect(describeUnpaidNights(1)).toBe("Overstaying · 1 night charged");
+    expect(describeUnpaidNights(28)).toBe("Overstaying · 28 nights charged");
   });
 });
 

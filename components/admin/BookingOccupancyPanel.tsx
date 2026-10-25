@@ -31,7 +31,18 @@ const OCCUPANCY_LABELS: Record<Booking["occupancyStatus"], string> = {
 // balanceDue is the folio's own figure (null when the folio didn't load), shown for as long as it
 // is above zero - not a one-off message after check-out, which used to vanish after a partial
 // payment while money was still owed.
-export default function BookingOccupancyPanel({ booking, balanceDue }: { booking: Booking; balanceDue: string | null }) {
+export default function BookingOccupancyPanel({
+  booking,
+  balanceDue,
+  overstayNights = null,
+  overstayTotal = null,
+}: {
+  booking: Booking;
+  balanceDue: string | null;
+  // The folio's Overstay line (the server's count and price of the nights past check-out); null when the folio did not load.
+  overstayNights?: number | null;
+  overstayTotal?: string | null;
+}) {
   const router = useRouter();
   const [checkingOut, setCheckingOut] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
@@ -95,10 +106,25 @@ export default function BookingOccupancyPanel({ booking, balanceDue }: { booking
       )}
 
       {overdue && (
-        <p className="text-sm text-coral">
-          {overdue} — was due out on {formatDate(booking.checkOut)} and is still checked in, so the room is held for them tonight.
-          Check them out if they&rsquo;ve left, or extend the stay below if they&rsquo;re still here.
-        </p>
+        <div className="rounded-lg border border-coral/40 bg-coral/10 px-3 py-2 text-sm text-coral space-y-1">
+          <p className="font-medium">
+            {overstayNights && overstayNights > 0
+              ? `Overstaying ${overstayNights} ${overstayNights === 1 ? "night" : "nights"}`
+              : "Overstaying"}
+            {overstayTotal && Number(overstayTotal) > 0 && ` · ฿${Number(overstayTotal).toLocaleString("en-US")} charged to this booking`}
+          </p>
+          <p>
+            {overdue} — was due out on {formatDate(booking.checkOut)} and is still checked in, so the room is held for them tonight. Every
+            night past check-out is charged at the room price. Check them out if they&rsquo;ve left, or extend the stay if they&rsquo;re still here
+            (the extended nights become ordinary nights of the booking).
+          </p>
+          <a
+            href="#stay-dates"
+            className="inline-flex items-center rounded-full border border-coral/60 px-3 py-1 text-xs font-medium hover:bg-coral/10 transition-colors"
+          >
+            Extend the stay
+          </a>
+        </div>
       )}
       {occupancy === "EXPECTED" && arrivalDue && !cancelled && booking.checkIn < today && (
         <p className="text-sm text-amber-400">Was due to arrive on {formatDate(booking.checkIn)}. Check them in, or mark a no-show.</p>

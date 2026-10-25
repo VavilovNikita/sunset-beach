@@ -588,11 +588,11 @@ export type NightAuditBooking = {
   checkOut: string;
   status: BookingStatus;
   occupancyStatus: OccupancyStatus;
-  // Nights stayed past checkOut with nothing agreed or charged, from checkOut through the reviewed
-  // date - the backend's OverstayRule, the same nights the room reports count at zero revenue.
-  // Always 0 on missedArrivals, and 0 for a guest due out today. A warning only.
+  // Nights stayed past checkOut, from checkOut through the reviewed date - the backend's OverstayRule.
+  // They are charged to the booking (its folio's Overstay line, inside balanceDue).
+  // Always 0 on missedArrivals, and 0 for a guest due out today.
   unpaidOverstayNights: number;
-  // The overstay nights valued at the room type's price - a report estimate, never on the folio. Absent without overstay nights.
+  // Those nights at the price they are charged at. Absent without overstay nights.
   unpaidOverstayValue?: string;
   // Set on every unpaidBalances row: BookingFolio.balanceDue.
   balanceDue?: string;

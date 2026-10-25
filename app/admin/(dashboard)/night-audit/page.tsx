@@ -89,7 +89,7 @@ export default async function NightAuditPage({ searchParams }: { searchParams: {
       <BookingList
         title="Missed departures"
         empty="No checked-in guest is past their check-out."
-        hint="Still checked in, with a check-out on or before this date - the room stays held for them until they're checked out. Check the guest out from the booking, or extend the stay there if they're still here. “Staying unpaid” counts the nights past check-out with nothing agreed or charged - agree a rate with the guest and extend the stay, which prices them."
+        hint="Still checked in, with a check-out on or before this date - the room stays held for them until they're checked out. Check the guest out from the booking, or extend the stay there if they're still here. “Overstaying” counts the nights past check-out; they are charged to the booking at the room type's price for each date and are in its balance (Unpaid balances once the guest has left). Extending the stay over them turns them into ordinary nights of the booking."
         bookings={audit.missedDepartures}
         dueDate={(b) => b.checkOut}
         reviewedDate={audit.date}
@@ -182,10 +182,10 @@ function BookingList({
                 {describeUnpaidNights(b.unpaidOverstayNights) && (
                   <span
                     className="rounded-full px-2.5 py-1 text-xs bg-amber-400/15 text-amber-400 whitespace-nowrap"
-                    title={`Nights from check-out through ${reviewedDate} with no agreed price - nothing has been charged for them`}
+                    title={`Nights from check-out through ${reviewedDate} charged to the booking at the room price`}
                   >
                     {describeUnpaidNights(b.unpaidOverstayNights)}
-                    {b.unpaidOverstayValue && ` · ≈ ฿${Number(b.unpaidOverstayValue).toLocaleString("en-US")} at the room rate`}
+                    {b.unpaidOverstayValue && ` · ฿${Number(b.unpaidOverstayValue).toLocaleString("en-US")}`}
                   </span>
                 )}
                 <span className="text-xs text-amber-400">{describeOverdue(dueDate(b), reviewedDate)}</span>

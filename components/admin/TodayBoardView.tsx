@@ -179,7 +179,11 @@ function TodayRow({
         <div className="flex items-center gap-3 flex-wrap mt-1 text-xs">
           {overdue && (
             <span className="text-coral">
-              {overdue} — was due out {formatDate(booking.checkOut)}. Check out, or extend the stay from the booking.
+              Overstaying · {overdue} — was due out {formatDate(booking.checkOut)}. The nights are charged to the booking.{" "}
+              <Link href={`/admin/bookings/${booking.id}#stay-dates`} className="underline underline-offset-2">
+                Extend the stay
+              </Link>{" "}
+              or check out.
             </span>
           )}
           {needsRoom && <span className="text-amber-400">No room assigned</span>}
