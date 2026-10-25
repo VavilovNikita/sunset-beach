@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { EXTEND_STAY_EVENT, EXTEND_STAY_HASH, extendedCheckOut } from "@/lib/extendStay";
 import { useRouter } from "next/navigation";
 import { dateOnlyUTC, toDateKey } from "@/lib/bookings";
 import { BookingScheduleEditor, RoomUnitAssignmentEditor } from "@/components/admin/BookingScheduleEditor";
@@ -33,6 +34,23 @@ export default function BookingScheduleForm({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  // "Extend the stay" (the overstay notice, or the Today board's link with #extend-stay) opens the form at once with
+  // the departure set to tomorrow; a plain "Change" opens it as it always did.
+  const [suggestedCheckOut, setSuggestedCheckOut] = useState<string | null>(null);
+
+  useEffect(() => {
+    function open() {
+      if (!canEdit) return;
+      setSuggestedCheckOut(extendedCheckOut(new Date()));
+      setEditing(true);
+    }
+    if (window.location.hash === `#${EXTEND_STAY_HASH}`) {
+      open();
+      document.getElementById("stay-dates")?.scrollIntoView({ block: "start" });
+    }
+    window.addEventListener(EXTEND_STAY_EVENT, open);
+    return () => window.removeEventListener(EXTEND_STAY_EVENT, open);
+  }, [canEdit]);
   const segments = booking.segments;
   const multiSegment = segments.length > 1;
 
@@ -48,7 +66,10 @@ export default function BookingScheduleForm({
         {canEdit && !editing && (
           <button
             type="button"
-            onClick={() => setEditing(true)}
+            onClick={() => {
+              setSuggestedCheckOut(null);
+              setEditing(true);
+            }}
             className="text-sm text-sea hover:text-coral transition-colors shrink-0"
           >
             Change
@@ -88,7 +109,7 @@ export default function BookingScheduleForm({
         </div>
       ) : (
         <div className="space-y-3">
-          <BookingScheduleEditor booking={booking} onSaved={handleSaved} />
+          <BookingScheduleEditor booking={booking} onSaved={handleSaved} suggestedCheckOut={suggestedCheckOut} />
 
           {/* Room-unit reassignment without a date change only exists as a dedicated operation
               for a single-segment booking - see RoomUnitAssignmentEditor's own comment. A

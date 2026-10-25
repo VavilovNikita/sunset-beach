@@ -1,5 +1,7 @@
 "use client";
 
+import { bookingStatusLabel } from "@/lib/bookingStatusLabel";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import PriceCalendar, { type CalendarCell } from "@/components/admin/PriceCalendar";
@@ -292,7 +294,7 @@ export default function RoomUnitBlocksPanel({
                     >
                       <p className="text-sm text-cream/80">{b.guestName}</p>
                       <p className="text-xs text-cream/50 mt-0.5">
-                        {formatDateRange(b.checkIn, b.checkOut)} · {b.status}
+                        {formatDateRange(b.checkIn, b.checkOut)} · {bookingStatusLabel(b.status)}
                       </p>
                     </Link>
                   ))}
@@ -314,7 +316,7 @@ export default function RoomUnitBlocksPanel({
                     >
                       <p className="text-sm text-cream/80">{b.guestName}</p>
                       <p className="text-xs text-cream/50 mt-0.5">
-                        {formatDateRange(b.checkIn, b.checkOut)} · {b.status}
+                        {formatDateRange(b.checkIn, b.checkOut)} · {bookingStatusLabel(b.status)}
                       </p>
                     </Link>
                   ))}

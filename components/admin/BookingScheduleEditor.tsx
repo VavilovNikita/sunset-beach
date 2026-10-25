@@ -24,7 +24,16 @@ import type { Booking, BookingScheduleQuote, RoomUnit } from "@/lib/types";
 // actually built to reason about which room a segment is in; every quote/apply call re-sends
 // whichever segment's own room-unit is already in effect, unchanged, so a date-only change can
 // never silently move the guest too.
-export function BookingScheduleEditor({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
+export function BookingScheduleEditor({
+  booking,
+  onSaved,
+  suggestedCheckOut = null,
+}: {
+  booking: Booking;
+  onSaved: () => void;
+  // A departure to start from instead of the booking's own (the overstay notice's "Extend the stay": tomorrow).
+  suggestedCheckOut?: string | null;
+}) {
   const segments = booking.segments;
   const multiSegment = segments.length > 1;
   const firstSegment = segments[0];
@@ -39,17 +48,17 @@ export function BookingScheduleEditor({ booking, onSaved }: { booking: Booking; 
   const bookingCheckOutKey = toDateKey(dateOnlyUTC(booking.checkOut));
 
   const [checkIn, setCheckIn] = useState(bookingCheckInKey);
-  const [checkOut, setCheckOut] = useState(bookingCheckOutKey);
+  const [checkOut, setCheckOut] = useState(suggestedCheckOut ?? bookingCheckOutKey);
   const [quote, setQuote] = useState<BookingScheduleQuote | null>(null);
   const [status, setStatus] = useState<"idle" | "quoting" | "ready" | "error" | "applying">("idle");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setCheckIn(bookingCheckInKey);
-    setCheckOut(bookingCheckOutKey);
+    setCheckOut(suggestedCheckOut ?? bookingCheckOutKey);
     setQuote(null);
     setStatus("idle");
-  }, [bookingCheckInKey, bookingCheckOutKey]);
+  }, [bookingCheckInKey, bookingCheckOutKey, suggestedCheckOut]);
 
   const checkInChanged = checkIn !== bookingCheckInKey;
   const checkOutChanged = checkOut !== bookingCheckOutKey;
@@ -91,8 +100,10 @@ export function BookingScheduleEditor({ booking, onSaved }: { booking: Booking; 
           change. Changing dates or rooms in the middle of the stay needs the booking calendar (relocate/undo).
         </p>
       )}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
+      {/* auto-fit: side by side while each date has room for its full text, one under the other when not (a narrow window
+          used to cut them to "14.10.20"). */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] gap-3">
+        <div className="min-w-0">
           <label className="eyebrow text-cream/60 block mb-1">Check-in</label>
           <input
             type="date"
@@ -106,7 +117,7 @@ export function BookingScheduleEditor({ booking, onSaved }: { booking: Booking; 
             className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm disabled:opacity-50"
           />
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="eyebrow text-cream/60 block mb-1">Check-out</label>
           <input
             type="date"

@@ -1,22 +1,34 @@
-// "Owes ฿X" - shown when the server says the debt has already fallen due (Booking.owes) AND the
-// balance (Booking.balanceDue, the folio's single balance) is above zero: a guest in the house or
-// gone who has not paid, a CANCELLED booking that still carries charges, a stay whose dates are over.
-// A future booking that is merely unpaid shows no badge - that money is still to be collected, not
-// owed. Gated on the amount, never a count of charges (a count never goes back down).
-// Both values come from the server as sent; nothing is worked out here. `owes` is left out only by
-// a caller whose rows are due by definition (the night audit's unpaid balances).
-export default function OwesBadge({ balanceDue, owes = true }: { balanceDue: string | number | null | undefined; owes?: boolean | null }) {
-  if (owes === false) return null;
-  if (!(Number(balanceDue) > 0)) return null;
+import { settlementChip } from "@/lib/bookingStatusLabel";
+import type { BookingStatus, SettlementStatus } from "@/lib/types";
 
-  const amount = `฿${Number(balanceDue).toLocaleString("en-US")}`;
-
+// The money chip beside a booking's status, from the server's `settlement` (see lib/bookingStatusLabel.ts):
+// "Owes ฿X" once the debt has fallen due (Booking.owes - a future booking that is merely unpaid shows nothing; it is
+// money still to collect, not owed), "Credit ฿X" for an overpayment, "Settled" beside "Room paid". Gated on the
+// amount, never a count of charges. Everything comes from the server as sent; nothing is worked out here. `owes` is
+// left out only by a caller whose rows are due by definition (the night audit's unpaid balances).
+export default function OwesBadge({
+  balanceDue,
+  owes = true,
+  settlement,
+  status,
+  creditBalance,
+}: {
+  balanceDue: string | number | null | undefined;
+  owes?: boolean | null;
+  settlement?: SettlementStatus | null;
+  status?: BookingStatus | null;
+  creditBalance?: string | number | null;
+}) {
+  const chip = settlementChip({ settlement, status, balanceDue, creditBalance, owes });
+  if (!chip) return null;
+  const tone =
+    chip.tone === "owes" ? "bg-amber-400/15 text-amber-400" : chip.tone === "credit" ? "bg-sea/15 text-sea" : "bg-green-500/15 text-green-400";
   return (
     <span
-      className="inline-block rounded-full px-2.5 py-1 text-xs bg-amber-400/15 text-amber-400 whitespace-nowrap"
-      title={`${amount} is still owed on this booking.`}
+      className={`inline-block rounded-full px-2.5 py-1 text-xs whitespace-nowrap ${tone}`}
+      title={chip.tone === "owes" ? `${chip.text.replace("Owes ", "")} is still owed on this booking.` : undefined}
     >
-      Owes {amount}
+      {chip.text}
     </span>
   );
 }

@@ -8,6 +8,7 @@ import CheckOutDialog from "@/components/admin/CheckOutDialog";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 import { checkInBooking, markBookingNoShow } from "@/lib/bookingOccupancyClient";
 import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
+import { overstayText } from "@/lib/bookingStatusLabel";
 import { overdueLabel } from "@/lib/overstay";
 import { applyCheckedIn, applyCheckedOut, applyNoShow } from "@/lib/todayBoard";
 import type { CheckInResult, CheckOutResult, TodayBoard, TodayBoardEntry } from "@/lib/types";
@@ -179,8 +180,9 @@ function TodayRow({
         <div className="flex items-center gap-3 flex-wrap mt-1 text-xs">
           {overdue && (
             <span className="text-coral">
-              Overstaying · {overdue} — was due out {formatDate(booking.checkOut)}. The nights are charged to the booking.{" "}
-              <Link href={`/admin/bookings/${booking.id}#stay-dates`} className="underline underline-offset-2">
+              {entry.overstayNights ? overstayText(entry.overstayNights, entry.overstayIncludesTonight === true) : "Overstaying"} — was due out{" "}
+              {formatDate(booking.checkOut)}. Charged to the booking.{" "}
+              <Link href={`/admin/bookings/${booking.id}#extend-stay`} className="underline underline-offset-2">
                 Extend the stay
               </Link>{" "}
               or check out.

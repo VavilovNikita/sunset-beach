@@ -594,6 +594,9 @@ export type NightAuditBooking = {
   unpaidOverstayNights: number;
   // Those nights at the price they are charged at. Absent without overstay nights.
   unpaidOverstayValue?: string;
+  settlement?: SettlementStatus;
+  // True when unpaidOverstayNights counts tonight (the reviewed date is today).
+  overstayIncludesTonight?: boolean;
   // Set on every unpaidBalances row: BookingFolio.balanceDue.
   balanceDue?: string;
 };
@@ -738,6 +741,8 @@ export type GuestUpdateInput = {
   tags: string[];
 };
 
+export type SettlementStatus = "SETTLED" | "OWES" | "CREDIT";
+
 export type StayStatus = "UPCOMING" | "IN_HOUSE" | "CHECKED_OUT" | "CANCELLED" | "NO_SHOW";
 
 export type Booking = {
@@ -787,6 +792,11 @@ export type Booking = {
   // Where the booking stands as a stay, derived by the server from status + occupancyStatus (StayStatus in
   // openapi.yaml). Show this - not `status` - where the question is what happened to the stay (stay history).
   stayStatus?: StayStatus;
+  // Where the money stands, from the folio's own balance (server-computed). PAID is only the room's status: read this
+  // for "is anything left to settle".
+  settlement?: SettlementStatus;
+  // Collected beyond what was charged; shown with settlement CREDIT.
+  creditBalance?: string;
   checkedInAt: string | null;
   checkedOutAt: string | null;
   // roomId/room/roomUnitId/roomUnit/checkIn/checkOut/totalPrice above are all
@@ -876,6 +886,9 @@ export type TodayBoardEntry = {
   // Days past checkOut for a guest still CHECKED_IN (0 otherwise) - server-computed by the
   // backend's OverstayRule, the same figure the night audit's missed departures show.
   overdueDays?: number;
+  // The nights charged to the booking as overstay - the one number to show; tonight is among them when the flag is set.
+  overstayNights?: number;
+  overstayIncludesTonight?: boolean;
 };
 
 // Response of GET /bookings/today — the front desk's daily working set. A booking appears in

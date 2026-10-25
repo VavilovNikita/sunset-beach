@@ -1,3 +1,4 @@
+import { bookingStatusLabel } from "@/lib/bookingStatusLabel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { backendJson } from "@/lib/backendServer";
@@ -83,7 +84,8 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
       <p className="eyebrow text-sea mb-2">Reservation</p>
       <div className="flex flex-wrap items-center gap-3 mb-8">
         <h1 className="font-display italic text-3xl">{booking.guestName}</h1>
-        <OwesBadge balanceDue={booking.balanceDue} owes={booking.owes} />
+        <span className="rounded-full px-2.5 py-1 text-xs bg-cream/10 text-cream/80">{bookingStatusLabel(booking.status)}</span>
+        <OwesBadge balanceDue={booking.balanceDue} owes={booking.owes} settlement={booking.settlement} status={booking.status} creditBalance={folio?.creditBalance ?? booking.creditBalance} />
       </div>
 
       {/* Cancelling cleaned up the guest's spa, but anything already paid is left for a person
@@ -199,6 +201,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             booking={booking}
             balanceDue={folio ? folio.balanceDue : null}
             overstayNights={folio ? folio.overstayNights : null}
+            overstayIncludesTonight={folio ? folio.overstayIncludesTonight : false}
             overstayTotal={folio ? folio.overstayTotal : null}
           />
           {/* The target of "Extend the stay" in the overstay notice. */}

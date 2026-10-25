@@ -425,6 +425,8 @@ export type Folio = {
   // The nights a checked-in guest stayed past checkOut, charged to the booking (the server's OverstayChargeService):
   // already inside folioTotal and balanceDue - shown as their own line, never added here.
   overstayNights: number;
+  // True when tonight's night is among overstayNights.
+  overstayIncludesTonight: boolean;
   overstayTotal: string;
   roomChargeCount: number;
 };

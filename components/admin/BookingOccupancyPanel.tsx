@@ -6,6 +6,8 @@ import CheckInDialog from "@/components/admin/CheckInDialog";
 import CheckOutDialog from "@/components/admin/CheckOutDialog";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 import { checkInBooking, markBookingNoShow } from "@/lib/bookingOccupancyClient";
+import ExtendStayButton from "@/components/admin/ExtendStayButton";
+import { overstayText, roomPaidButOwesLine } from "@/lib/bookingStatusLabel";
 import { hotelDateKey } from "@/lib/hotelDate";
 import { overdueDaysFor, overdueLabel } from "@/lib/overstay";
 import type { Booking } from "@/lib/types";
@@ -35,12 +37,14 @@ export default function BookingOccupancyPanel({
   booking,
   balanceDue,
   overstayNights = null,
+  overstayIncludesTonight = false,
   overstayTotal = null,
 }: {
   booking: Booking;
   balanceDue: string | null;
   // The folio's Overstay line (the server's count and price of the nights past check-out); null when the folio did not load.
   overstayNights?: number | null;
+  overstayIncludesTonight?: boolean;
   overstayTotal?: string | null;
 }) {
   const router = useRouter();
@@ -87,6 +91,7 @@ export default function BookingOccupancyPanel({
   const needsRoom = booking.roomUnitId === null;
   const roomDirty = booking.roomUnit?.housekeepingStatus === "DIRTY";
   const owed = balanceDue !== null && Number(balanceDue) > 0;
+  const roomPaidLine = roomPaidButOwesLine(booking.status, booking.settlement, balanceDue);
 
   return (
     <div className="bg-ink2/40 border border-cream/10 rounded-xl p-4 space-y-3">
@@ -95,7 +100,8 @@ export default function BookingOccupancyPanel({
         <span className="text-sm text-cream/80">{OCCUPANCY_LABELS[occupancy]}</span>
       </div>
 
-      {owed && booking.owes === true && (
+      {roomPaidLine && <p className="text-sm text-amber-400">{roomPaidLine}</p>}
+      {owed && booking.owes === true && !roomPaidLine && (
         <p className="text-sm text-coral">
           Balance due: ฿{Number(balanceDue).toLocaleString("en-US")} — collect it in the folio below.
         </p>
@@ -109,21 +115,15 @@ export default function BookingOccupancyPanel({
         <div className="rounded-lg border border-coral/40 bg-coral/10 px-3 py-2 text-sm text-coral space-y-1">
           <p className="font-medium">
             {overstayNights && overstayNights > 0
-              ? `Overstaying ${overstayNights} ${overstayNights === 1 ? "night" : "nights"}`
+              ? overstayText(overstayNights, overstayIncludesTonight, overstayTotal)
               : "Overstaying"}
-            {overstayTotal && Number(overstayTotal) > 0 && ` · ฿${Number(overstayTotal).toLocaleString("en-US")} charged to this booking`}
           </p>
           <p>
-            {overdue} — was due out on {formatDate(booking.checkOut)} and is still checked in, so the room is held for them tonight. Every
-            night past check-out is charged at the room price. Check them out if they&rsquo;ve left, or extend the stay if they&rsquo;re still here
-            (the extended nights become ordinary nights of the booking).
+            Was due out on {formatDate(booking.checkOut)} and is still checked in, so the room is held for them tonight. Every night past
+            check-out is charged at the room price. Check them out if they&rsquo;ve left, or extend the stay if they&rsquo;re still here (the
+            extended nights become ordinary nights of the booking).
           </p>
-          <a
-            href="#stay-dates"
-            className="inline-flex items-center rounded-full border border-coral/60 px-3 py-1 text-xs font-medium hover:bg-coral/10 transition-colors"
-          >
-            Extend the stay
-          </a>
+          <ExtendStayButton />
         </div>
       )}
       {occupancy === "EXPECTED" && arrivalDue && !cancelled && booking.checkIn < today && (

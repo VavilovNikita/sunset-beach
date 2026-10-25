@@ -1,5 +1,7 @@
 "use client";
 
+import { bookingStatusLabel } from "@/lib/bookingStatusLabel";
+
 import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -958,7 +960,7 @@ export default function BookingCalendarGrid({
                     onPointerCancel={onDragPointerCancel}
                     onClick={tapHandlers.onClick}
                     onDoubleClick={tapHandlers.onDoubleClick}
-                    title={`${booking.guestName} · ${booking.status}${booking.segmentCount > 1 ? " · relocated" : ""}`}
+                    title={`${booking.guestName} · ${bookingStatusLabel(booking.status)}${booking.segmentCount > 1 ? " · relocated" : ""}`}
                   >
                     {showLabel && <span className="truncate px-2 text-xs pointer-events-none">{booking.guestName}</span>}
                   </div>

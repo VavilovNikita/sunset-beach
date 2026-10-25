@@ -27,9 +27,10 @@ export function describeOverdue(dueDate: string, reviewedDate: string): string {
 // The overstay note on a missed departure, or null when there's nothing to say. The nights are charged to the
 // booking (its folio's Overstay line). The count is the server's (unpaidOverstayNights) - it includes the checkOut
 // night the guest also stayed, so it is one more than "N days overdue" next to it.
-export function describeUnpaidNights(nights: number): string | null {
+export function describeUnpaidNights(nights: number, includesTonight = false): string | null {
   if (!nights || nights <= 0) return null;
-  return nights === 1 ? "Overstaying · 1 night charged" : `Overstaying · ${nights} nights charged`;
+  const tonight = includesTonight ? " (incl. tonight)" : "";
+  return nights === 1 ? `Overstaying · 1 night${tonight} charged` : `Overstaying · ${nights} nights${tonight} charged`;
 }
 
 // closedAt is a UTC date-time, shown in hotel-local time (lib/formatDate.ts).

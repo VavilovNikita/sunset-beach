@@ -1,3 +1,4 @@
+import { bookingStatusLabel } from "@/lib/bookingStatusLabel";
 import NightAuditRowActions from "@/components/admin/NightAuditRowActions";
 import Link from "next/link";
 import { backendJson } from "@/lib/backendServer";
@@ -80,7 +81,7 @@ export default async function NightAuditPage({ searchParams }: { searchParams: {
       <BookingList
         title="Not arrived — mark no-show or cancel"
         empty="No past booking is waiting to be settled."
-        hint="The dates have passed and the guest never checked in. The room is not counted as owed; open each booking and mark it no-show or cancel it. Any other charges on it are still listed under Unpaid balances."
+        hint="The dates have passed and the guest never checked in. The room is not counted as owed. Mark each one no-show here, or open the booking to cancel it. Any other charges on it are still listed under Unpaid balances."
         bookings={audit.notArrived}
         dueDate={(b) => b.checkOut}
         reviewedDate={audit.date}
@@ -127,10 +128,10 @@ function UnpaidBalances({ bookings }: { bookings: NightAuditBooking[] }) {
                 <p className="text-xs text-cream/50">
                   {b.roomName}
                   {b.roomUnitLabel ? ` · ${b.roomUnitLabel}` : " · no room assigned"} · {formatDateRange(b.checkIn, b.checkOut)} ·{" "}
-                  {b.status}, {b.occupancyStatus.replace("_", " ").toLowerCase()}
+                  {bookingStatusLabel(b.status)}, {b.occupancyStatus.replace("_", " ").toLowerCase()}
                 </p>
               </div>
-              <OwesBadge balanceDue={b.balanceDue} />
+              <OwesBadge balanceDue={b.balanceDue} settlement={b.settlement} status={b.status} />
             </li>
           ))}
         </ul>
@@ -179,16 +180,19 @@ function BookingList({
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {describeUnpaidNights(b.unpaidOverstayNights) && (
+                {describeUnpaidNights(b.unpaidOverstayNights, b.overstayIncludesTonight) && (
                   <span
                     className="rounded-full px-2.5 py-1 text-xs bg-amber-400/15 text-amber-400 whitespace-nowrap"
                     title={`Nights from check-out through ${reviewedDate} charged to the booking at the room price`}
                   >
-                    {describeUnpaidNights(b.unpaidOverstayNights)}
+                    {describeUnpaidNights(b.unpaidOverstayNights, b.overstayIncludesTonight)}
                     {b.unpaidOverstayValue && ` · ฿${Number(b.unpaidOverstayValue).toLocaleString("en-US")}`}
                   </span>
                 )}
-                <span className="text-xs text-amber-400">{describeOverdue(dueDate(b), reviewedDate)}</span>
+                {/* The overstay chip already says how long; "N days overdue" beside it was the same stay counted differently. */}
+                {!describeUnpaidNights(b.unpaidOverstayNights, b.overstayIncludesTonight) && (
+                  <span className="text-xs text-amber-400">{describeOverdue(dueDate(b), reviewedDate)}</span>
+                )}
                 {actions && (
                   <NightAuditRowActions
                     bookingId={b.id}

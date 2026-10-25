@@ -1,5 +1,7 @@
 "use client";
 
+import { bookingStatusLabel } from "@/lib/bookingStatusLabel";
+
 import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -332,7 +334,7 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
       <div>
         <div className="flex items-center justify-between mb-1">
           <label className="eyebrow text-cream/60">Status</label>
-          <OwesBadge balanceDue={booking.balanceDue} owes={booking.owes} />
+          <OwesBadge balanceDue={booking.balanceDue} owes={booking.owes} settlement={booking.settlement} status={booking.status} creditBalance={booking.creditBalance} />
         </div>
         <select
           value={status}
@@ -341,7 +343,7 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
         >
           {selectableStatuses(booking.status, booking.occupancyStatus).map((s) => (
             <option key={s} value={s}>
-              {s}
+              {bookingStatusLabel(s)}
             </option>
           ))}
         </select>

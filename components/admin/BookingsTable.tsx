@@ -1,5 +1,7 @@
 "use client";
 
+import { bookingStatusLabel } from "@/lib/bookingStatusLabel";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import OwesBadge from "@/components/admin/OwesBadge";
@@ -123,7 +125,7 @@ export default function BookingsTable({
                 <td className="py-3 pr-4 text-cream/70">฿{Number(b.totalPrice).toLocaleString("en-US")}</td>
                 <td className="py-3 pr-4">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className={`rounded-full px-2.5 py-1 text-xs ${STATUS_STYLES[b.status] ?? ""}`}>{b.status}</span>
+                    <span className={`rounded-full px-2.5 py-1 text-xs ${STATUS_STYLES[b.status] ?? ""}`}>{bookingStatusLabel(b.status)}</span>
                     {arrivalPassed && (
                       // Amber with a dashed outline (shape, not a new colour - the palette is full):
                       // attention, not urgent. A probable no-show nobody has handled yet.
@@ -135,7 +137,7 @@ export default function BookingsTable({
                       </span>
                     )}
                     {/* Any status: the balance is the server's (Booking.balanceDue), not a PAID-only hint. */}
-                    <OwesBadge balanceDue={b.balanceDue} owes={b.owes} />
+                    <OwesBadge balanceDue={b.balanceDue} owes={b.owes} settlement={b.settlement} status={b.status} creditBalance={b.creditBalance} />
                   </div>
                 </td>
                 <td className="py-3 pr-4 text-cream/40 text-xs whitespace-nowrap">{formatTimestampDate(b.createdAt)}</td>

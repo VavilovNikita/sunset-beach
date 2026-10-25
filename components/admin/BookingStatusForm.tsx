@@ -1,5 +1,7 @@
 "use client";
 
+import { bookingStatusLabel } from "@/lib/bookingStatusLabel";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
@@ -136,7 +138,7 @@ export default function BookingStatusForm({
         >
           {selectableStatuses(currentStatus, occupancyStatus).map((s) => (
             <option key={s} value={s}>
-              {s}
+              {bookingStatusLabel(s)}
             </option>
           ))}
         </select>
