@@ -16,6 +16,7 @@ import {
   type NavGroup,
 } from "@/lib/adminNav";
 import { FLYOUT_CLOSED, FLYOUT_CLOSE_DELAY_MS, flyoutReducer } from "@/lib/navFlyout";
+import { STAFF_MANUAL_HREF } from "@/lib/staticPages";
 
 // Hover menus only where there is a mouse and room for them. Everything else (touch, phone width) keeps
 // the accordion. Server render and first client render are the accordion; the desktop switches on mount.
@@ -354,6 +355,15 @@ export default function AdminSidebar({ email, role, functions }: { email: string
               {email}
             </Link>
             <p className="eyebrow text-cream/40 mt-0.5">{role}</p>
+            {/* Served by nginx, not this app (lib/staticPages.ts) - a plain link, opened in its own tab. */}
+            <a
+              href={STAFF_MANUAL_HREF}
+              target="_blank"
+              rel="noopener"
+              className="mt-4 flex w-fit items-center min-h-11 md:min-h-0 text-sm text-cream/70 hover:text-cream transition-colors"
+            >
+              Staff manual ↗
+            </a>
             <button
               onClick={handleSignOut}
               className="mt-4 text-sm text-cream/70 hover:text-coral transition-colors"
