@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getLastEmail, setLastEmail } from "@/lib/pos/lastUser";
 import { decideAfterGuestLogin, decideAfterStaffLogin } from "@/lib/unifiedLogin";
+import { isOutsideApp } from "@/lib/staticPages";
 
 /**
  * One login form for both staff and guest accounts - staff login (POST /api/session/login) is
@@ -57,6 +58,11 @@ function LoginForm() {
 
     if (staffOutcome.action === "redirect-admin") {
       setLastEmail(email);
+      if (isOutsideApp(staffOutcome.destination)) {
+        // The staff manual is served by nginx, not by this app: a full page load, not a router push.
+        window.location.assign(staffOutcome.destination);
+        return;
+      }
       router.push(staffOutcome.destination);
       router.refresh();
       return;
