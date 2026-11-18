@@ -245,3 +245,5 @@ Guest-facing pages and the booking flow are not to be touched unless the task is
 When a decision is a judgment call — a data model, a permission boundary, anything touching money — present the options and a recommendation and wait, rather than choosing silently.
 
 The staff manual quotes UI labels verbatim. Renaming a visible label breaks it; propose rather than rename.
+
+A change staff will see is not done until sunset-manual has a What's new entry for its release (and the manual section it changes is updated).
