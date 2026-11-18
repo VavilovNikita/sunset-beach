@@ -184,7 +184,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/reports", label: "Reports", minRole: "MANAGER" },
       { href: "/admin/history", label: "History", minRole: "MANAGER" },
     ],
-    setup: [],
+    // The VAT and service-charge percentages the reports take out of room prices (GET/PUT /settings/vat and
+    // /settings/service-charge): ADMIN-only, reads included, like every /settings route.
+    setup: [{ href: "/admin/settings/tax-rates", label: "Tax rates", minRole: "ADMIN" }],
   },
 ];
 

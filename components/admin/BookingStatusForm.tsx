@@ -7,10 +7,12 @@ import { useRouter } from "next/navigation";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS } from "@/lib/bookingChannel";
 import { parsePartySize } from "@/lib/bookingPurpose";
+import { breakfastFormFrom, parseBreakfast } from "@/lib/bookingBreakfast";
 import { statusOptionsNote, needsCancellationConfirm, needsPaymentDialog, selectableStatuses } from "@/lib/bookingStatusChange";
 import { useSavedNotice } from "@/lib/useSavedNotice";
 import type { Folio, FolioPaymentInput } from "@/lib/posTypes";
-import type { BookingChannel, BookingPurpose, BookingStatus, OccupancyStatus } from "@/lib/types";
+import type { BookingChannel, BookingPurpose, BookingStatus, BreakfastRate, OccupancyStatus } from "@/lib/types";
+import BookingBreakfastFields from "@/components/admin/BookingBreakfastFields";
 import BookingPurposePartyFields from "@/components/admin/BookingPurposePartyFields";
 import CancelBookingDialog from "@/components/admin/CancelBookingDialog";
 import MarkPaidDialog from "@/components/admin/MarkPaidDialog";
@@ -25,6 +27,8 @@ export default function BookingStatusForm({
   currentPurpose,
   currentAdults,
   currentChildren,
+  currentBreakfastGuests,
+  currentBreakfastRate,
   balanceDue,
   folio,
 }: {
@@ -38,6 +42,9 @@ export default function BookingStatusForm({
   currentPurpose: BookingPurpose;
   currentAdults: number;
   currentChildren: number;
+  // Breakfast per night, null = none (the booking tracker deducts it from the package).
+  currentBreakfastGuests: number | null;
+  currentBreakfastRate: BreakfastRate | null;
   // Booking.balanceDue - the server's balance, used until/unless the folio itself has loaded.
   balanceDue: string;
   // Purely informational — nothing here writes to paymentNote or blocks
@@ -52,6 +59,9 @@ export default function BookingStatusForm({
   const [purpose, setPurpose] = useState<BookingPurpose>(currentPurpose);
   const [adults, setAdults] = useState(String(currentAdults));
   const [children, setChildren] = useState(String(currentChildren));
+  const initialBreakfast = breakfastFormFrom({ breakfastGuests: currentBreakfastGuests, breakfastRate: currentBreakfastRate });
+  const [breakfastGuests, setBreakfastGuests] = useState(initialBreakfast.guests);
+  const [breakfastRate, setBreakfastRate] = useState(initialBreakfast.rate);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
@@ -65,6 +75,11 @@ export default function BookingStatusForm({
     const party = parsePartySize(adults, children);
     if ("error" in party) {
       setError(party.error);
+      return;
+    }
+    const breakfast = parseBreakfast({ guests: breakfastGuests, rate: breakfastRate }, party.adults + party.children);
+    if (!breakfast.ok) {
+      setError(breakfast.error);
       return;
     }
     setError(null);
@@ -84,6 +99,8 @@ export default function BookingStatusForm({
   async function save(cancellationReason: string | null, payment?: FolioPaymentInput) {
     const party = parsePartySize(adults, children);
     if ("error" in party) return;
+    const breakfast = parseBreakfast({ guests: breakfastGuests, rate: breakfastRate }, party.adults + party.children);
+    if (!breakfast.ok) return;
     setSaving(true);
     setError(null);
     clearNotice();
@@ -97,6 +114,8 @@ export default function BookingStatusForm({
         purpose,
         adults: party.adults,
         children: party.children,
+        breakfastGuests: breakfast.breakfastGuests,
+        breakfastRate: breakfast.breakfastRate,
         ...(cancellationReason ? { cancellationReason } : {}),
         ...(payment ? { payment } : {}),
       }),
@@ -119,6 +138,8 @@ export default function BookingStatusForm({
       setPurpose(currentPurpose);
       setAdults(String(currentAdults));
       setChildren(String(currentChildren));
+      setBreakfastGuests(initialBreakfast.guests);
+      setBreakfastRate(initialBreakfast.rate);
       return;
     }
     setConfirmingCancel(false);
@@ -180,6 +201,14 @@ export default function BookingStatusForm({
         onAdultsChange={setAdults}
         childCount={children}
         onChildCountChange={setChildren}
+        inputClassName="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
+      />
+
+      <BookingBreakfastFields
+        guests={breakfastGuests}
+        onGuestsChange={setBreakfastGuests}
+        rate={breakfastRate}
+        onRateChange={setBreakfastRate}
         inputClassName="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
       />
 

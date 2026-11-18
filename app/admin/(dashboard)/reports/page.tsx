@@ -20,6 +20,8 @@ import {
   type ReportsState,
 } from "@/lib/reportsTabs";
 import ManagerReportView from "@/components/admin/ManagerReportView";
+import BookingTrackerPanel from "@/components/admin/reports/BookingTrackerPanel";
+import { parseTrackerParams, trackerQuery } from "@/lib/bookingTracker";
 import {
   GuestLtvSection,
   MarketSegmentSection,
@@ -29,6 +31,7 @@ import {
   load,
 } from "@/components/admin/reports/sections";
 import type {
+  BookingTrackerReport,
   GuestLtvReport,
   ManagerReport,
   MarketSegmentReport,
@@ -46,7 +49,17 @@ import type {
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: { tab?: string; section?: string; date?: string; from?: string; to?: string; limit?: string };
+  searchParams: {
+    tab?: string;
+    section?: string;
+    date?: string;
+    from?: string;
+    to?: string;
+    limit?: string;
+    fromMonth?: string;
+    toMonth?: string;
+    stayMonth?: string;
+  };
 }) {
   await requireRoleAtLeast("MANAGER");
 
@@ -55,6 +68,7 @@ export default async function ReportsPage({
   const section = parseManagerSection(searchParams.section);
   const range = parseReportRange(searchParams.from, searchParams.to, hotelDateKey(new Date()));
   const limit = parseGuestLtvLimit(searchParams.limit);
+  const trackerParams = parseTrackerParams(searchParams);
 
   // Only what somebody actually chose goes into the address; the rest keeps its server default.
   const state: ReportsState = {
@@ -64,6 +78,9 @@ export default async function ReportsPage({
     from: searchParams.from && searchParams.to ? range.from : undefined,
     to: searchParams.from && searchParams.to ? range.to : undefined,
     limit: searchParams.limit ? String(limit) : undefined,
+    fromMonth: trackerParams.fromMonth,
+    toMonth: trackerParams.toMonth,
+    stayMonth: trackerParams.stayMonth,
   };
 
   let content: React.ReactNode;
@@ -117,6 +134,12 @@ export default async function ReportsPage({
         )}
       </>
     );
+  } else if (tab === "tracker") {
+    // The booking tracker is a stay-month report (?fromMonth=&toMonth=&stayMonth=), not a day range; without them the
+    // server's own default season applies. The panel keeps the last good figures if a later reload fails.
+    const query = trackerQuery(trackerParams);
+    const result = await load<BookingTrackerReport>(`/reports/booking-tracker${query ? `?${query}` : ""}`);
+    content = <BookingTrackerPanel result={result} state={state} today={hotelDateKey(new Date())} />;
   } else if (tab === "guests") {
     const result = await load<GuestLtvReport>(`/reports/guest-ltv?limit=${limit}`);
     content = (
@@ -171,7 +194,7 @@ export default async function ReportsPage({
   }
 
   return (
-    <div className="max-w-4xl">
+    <div className={tab === "tracker" ? "max-w-7xl" : "max-w-4xl"}>
       <div className="mb-6">
         <p className="eyebrow text-sea mb-2">Reports</p>
         <h1 className="font-display italic text-3xl">Reports</h1>

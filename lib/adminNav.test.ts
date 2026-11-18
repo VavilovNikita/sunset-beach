@@ -137,6 +137,7 @@ describe("visibleNavGroups", () => {
       "Fingerprint terminals", "Import schedule", "Users", "Notification settings",
     ]);
     expect(t["Restaurant"]).toEqual(["POS", "Print queue", "Shifts", "Menu", "Printers", "Print layouts"]);
+    expect(t["Reports"]).toEqual(["Dashboard", "Reports", "History", "Tax rates"]);
     expect(groups.flatMap(groupLinks)).toHaveLength(NAV_GROUPS.flatMap(groupLinks).length);
   });
 
@@ -149,7 +150,7 @@ describe("visibleNavGroups", () => {
       Spa: ["Tables"],
       "Gym & lighting": ["Gym devices", "Lighting devices"],
       Staff: ["Fingerprint terminals", "Import schedule", "Users", "Notification settings"],
-      Reports: [],
+      Reports: ["Tax rates"],
     });
     expect(NAV_GROUPS.map((g) => g.title)).not.toContain("Setup");
   });
@@ -229,6 +230,7 @@ describe("activeNavHref / activeNavGroupTitle", () => {
     ["/admin/roster/import", "/admin/roster/import", "Staff"],
     ["/admin/settings/lifecycle-emails", "/admin/settings/lifecycle-emails", "Front desk"],
     ["/admin/settings/print-layouts", "/admin/settings/print-layouts", "Restaurant"],
+    ["/admin/settings/tax-rates", "/admin/settings/tax-rates", "Reports"],
     ["/admin/rooms/7/edit", "/admin/rooms", "Rooms"],
     ["/admin/reports", "/admin/reports", "Reports"],
   ])("%s highlights %s in %s", (pathname, href, group) => {

@@ -28,6 +28,17 @@ describe("reportsHref", () => {
   });
 });
 
+describe("the booking tracker's months", () => {
+  it("stay in the address across tabs, apart from the day range", () => {
+    const s: ReportsState = { tab: "tracker", fromMonth: "2026-11", toMonth: "2027-04", stayMonth: "2027-01", from: "2026-09-01", to: "2026-09-30" };
+    expect(reportsHref(s, { tab: "guests" })).toBe(
+      "/admin/reports?tab=guests&from=2026-09-01&to=2026-09-30&fromMonth=2026-11&toMonth=2027-04&stayMonth=2027-01"
+    );
+    expect(reportsHiddenFields(s, ["fromMonth", "toMonth", "stayMonth"]).map(([n]) => n)).toEqual(["tab", "from", "to"]);
+    expect(parseReportTab("tracker")).toBe("tracker");
+  });
+});
+
 describe("reportsHiddenFields", () => {
   it("carries the tab and the other tabs' parameters, not the form's own", () => {
     expect(reportsHiddenFields(state, ["from", "to"])).toEqual([

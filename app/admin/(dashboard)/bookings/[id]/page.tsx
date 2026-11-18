@@ -13,6 +13,7 @@ import FolioPaymentPanel from "@/components/admin/FolioPaymentPanel";
 import OwesBadge from "@/components/admin/OwesBadge";
 import BookingGuestLinkSection from "@/components/admin/BookingGuestLinkSection";
 import { BOOKING_PURPOSE_LABELS, formatPartySize } from "@/lib/bookingPurpose";
+import { formatBreakfast } from "@/lib/bookingBreakfast";
 import { BOOKING_CHANNEL_LABELS, bookingOriginNote } from "@/lib/bookingChannel";
 import { roomStops } from "@/lib/bookingRooms";
 import { formatDateRange, formatTimestamp, formatTimestampDate } from "@/lib/formatDate";
@@ -153,6 +154,9 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             <span className="text-cream/40">Guests:</span> {formatPartySize(booking.adults, booking.children)}
           </p>
           <p>
+            <span className="text-cream/40">Breakfast:</span> {formatBreakfast(booking) ?? <span className="text-cream/40">none recorded</span>}
+          </p>
+          <p>
             <span className="text-cream/40">Purpose:</span> {BOOKING_PURPOSE_LABELS[booking.purpose]}
           </p>
           <p>
@@ -165,7 +169,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             )}
           </p>
           <p>
-            <span className="text-cream/40">Booked on:</span> {formatTimestampDate(booking.createdAt)}
+            <span className="text-cream/40">Booked on:</span> {formatTimestampDate(booking.bookedAt ?? booking.createdAt)}
           </p>
           {booking.status === "CANCELLED" && (
             <p>
@@ -181,7 +185,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             // The form seeds its fields from these props once. A folio payment (or check-out)
             // elsewhere on this page changes them through router.refresh() - e.g. NEW -> PAID -
             // and without remounting, the dropdown kept showing the old status until a reload.
-            key={[booking.status, booking.paymentNote, booking.channel, booking.purpose, booking.adults, booking.children].join("|")}
+            key={[booking.status, booking.paymentNote, booking.channel, booking.purpose, booking.adults, booking.children, booking.breakfastGuests, booking.breakfastRate].join("|")}
             bookingId={booking.id}
             guestName={booking.guestName}
             currentStatus={booking.status}
@@ -192,6 +196,8 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             currentPurpose={booking.purpose}
             currentAdults={booking.adults}
             currentChildren={booking.children}
+            currentBreakfastGuests={booking.breakfastGuests ?? null}
+            currentBreakfastRate={booking.breakfastRate ?? null}
             folio={folio}
           />
         </div>

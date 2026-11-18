@@ -8,6 +8,8 @@ import Link from "next/link";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS, bookingOriginNote } from "@/lib/bookingChannel";
+import { breakfastFormFrom, formatBreakfast, parseBreakfast } from "@/lib/bookingBreakfast";
+import BookingBreakfastFields from "@/components/admin/BookingBreakfastFields";
 import { formatDateRange, formatTimestamp } from "@/lib/formatDate";
 import { BOOKING_PURPOSE_LABELS, formatPartySize, parsePartySize } from "@/lib/bookingPurpose";
 import BookingPurposePartyFields from "@/components/admin/BookingPurposePartyFields";
@@ -151,6 +153,7 @@ export default function BookingCardPanel({
                   <span className="ml-2 text-sea">{BOOKING_PURPOSE_LABELS[booking.purpose]}</span>
                 )}
               </p>
+              {formatBreakfast(booking) && <p className="text-sm text-cream/50">Breakfast: {formatBreakfast(booking)}</p>}
               <div className="mt-2">
                 <GuestLinkEditor booking={booking} onSaved={refetchAndNotify} />
               </div>
@@ -251,6 +254,8 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
   const [purpose, setPurpose] = useState(booking.purpose);
   const [adults, setAdults] = useState(String(booking.adults));
   const [children, setChildren] = useState(String(booking.children));
+  const [breakfastGuests, setBreakfastGuests] = useState(breakfastFormFrom(booking).guests);
+  const [breakfastRate, setBreakfastRate] = useState(breakfastFormFrom(booking).rate);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
@@ -266,13 +271,20 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
     setPurpose(booking.purpose);
     setAdults(String(booking.adults));
     setChildren(String(booking.children));
-  }, [booking.status, booking.paymentNote, booking.channel, booking.purpose, booking.adults, booking.children]);
+    setBreakfastGuests(breakfastFormFrom(booking).guests);
+    setBreakfastRate(breakfastFormFrom(booking).rate);
+  }, [booking.status, booking.paymentNote, booking.channel, booking.purpose, booking.adults, booking.children, booking.breakfastGuests, booking.breakfastRate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const party = parsePartySize(adults, children);
     if ("error" in party) {
       setError(party.error);
+      return;
+    }
+    const breakfast = parseBreakfast({ guests: breakfastGuests, rate: breakfastRate }, party.adults + party.children);
+    if (!breakfast.ok) {
+      setError(breakfast.error);
       return;
     }
     setError(null);
@@ -292,6 +304,8 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
   async function save(cancellationReason: string | null, payment?: FolioPaymentInput) {
     const party = parsePartySize(adults, children);
     if ("error" in party) return;
+    const breakfast = parseBreakfast({ guests: breakfastGuests, rate: breakfastRate }, party.adults + party.children);
+    if (!breakfast.ok) return;
     setSaving(true);
     setError(null);
     clearNotice();
@@ -304,6 +318,8 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
         purpose,
         adults: party.adults,
         children: party.children,
+        breakfastGuests: breakfast.breakfastGuests,
+        breakfastRate: breakfast.breakfastRate,
         ...(cancellationReason ? { cancellationReason } : {}),
         ...(payment ? { payment } : {}),
       }),
@@ -321,6 +337,8 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
       setPurpose(booking.purpose);
       setAdults(String(booking.adults));
       setChildren(String(booking.children));
+      setBreakfastGuests(breakfastFormFrom(booking).guests);
+      setBreakfastRate(breakfastFormFrom(booking).rate);
       return;
     }
     setConfirmingCancel(false);
@@ -378,6 +396,13 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
         onAdultsChange={setAdults}
         childCount={children}
         onChildCountChange={setChildren}
+        inputClassName="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
+      />
+      <BookingBreakfastFields
+        guests={breakfastGuests}
+        onGuestsChange={setBreakfastGuests}
+        rate={breakfastRate}
+        onRateChange={setBreakfastRate}
         inputClassName="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
       />
       <div>

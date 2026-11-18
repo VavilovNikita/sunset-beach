@@ -1,7 +1,7 @@
 import type { Booking, BookingChannel } from "@/lib/types";
 
 // Display order for every channel picker — the ones front desk types in most often first.
-export const BOOKING_CHANNELS: BookingChannel[] = ["WALK_IN", "PHONE", "DIRECT", "BOOKING_COM", "AIRBNB", "AGODA", "EXPEDIA", "OTHER"];
+export const BOOKING_CHANNELS: BookingChannel[] = ["WALK_IN", "PHONE", "DIRECT", "BOOKING_COM", "AIRBNB", "AGODA", "EXPEDIA", "CTRIP", "HOTELBEDS", "AGENT", "OTHER"];
 
 export const BOOKING_CHANNEL_LABELS: Record<BookingChannel, string> = {
   DIRECT: "Direct (website)",
@@ -11,6 +11,9 @@ export const BOOKING_CHANNEL_LABELS: Record<BookingChannel, string> = {
   AIRBNB: "Airbnb",
   AGODA: "Agoda",
   EXPEDIA: "Expedia",
+  CTRIP: "Ctrip / Trip.com",
+  HOTELBEDS: "Hotelbeds",
+  AGENT: "Travel agent",
   OTHER: "Other",
 };
 

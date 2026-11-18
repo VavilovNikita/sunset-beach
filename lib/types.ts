@@ -23,7 +23,23 @@ export type BookingStatus = "NEW" | "CONFIRMED" | "PAID" | "CANCELLED";
 // form always sets DIRECT server-side; required on POST /bookings/staff; editable afterwards
 // via PATCH /bookings/{id}. Unrelated to the backend's internal public/staff "source" field.
 // Bookings older than the field read DIRECT (public form) or OTHER (staff-entered).
-export type BookingChannel = "DIRECT" | "PHONE" | "WALK_IN" | "BOOKING_COM" | "AIRBNB" | "AGODA" | "EXPEDIA" | "OTHER";
+// CTRIP (Ctrip / Trip.com), HOTELBEDS and AGENT (a travel agent) are kept apart for the booking tracker; the
+// SiteMinder import maps names starting with Ctrip/Trip.com and Hotelbeds to the first two, AGENT is staff-entered only.
+export type BookingChannel =
+  | "DIRECT"
+  | "PHONE"
+  | "WALK_IN"
+  | "BOOKING_COM"
+  | "AIRBNB"
+  | "AGODA"
+  | "EXPEDIA"
+  | "CTRIP"
+  | "HOTELBEDS"
+  | "AGENT"
+  | "OTHER";
+
+// Baht per guest per night for breakfast - the two rates the hotel sells (backend BreakfastRate).
+export type BreakfastRate = 250 | 350;
 
 // Why the room is occupied — a paying stay, a comp, or internal house use. Independent of
 // channel (a comp booked by phone is COMPLIMENTARY + PHONE). Still a booking that occupies the
@@ -812,6 +828,11 @@ export type Booking = {
   // booking reached *us*, not a channel the guest booked through, so it is not a BookingChannel.
   externalReference: string | null;
   externalChannel: string | null;
+  // Breakfast per night, as staff recorded it (the booking tracker deducts it from the package): both null = none.
+  breakfastGuests?: number | null;
+  breakfastRate?: BreakfastRate | null;
+  // SiteMinder's own "booked on" instant for an imported booking that has it; null otherwise.
+  bookedAt?: string | null;
   // The reason staff gave for the cancellation - set only while status is CANCELLED (a cancelled
   // booking is never reinstated). Null for a cancellation without one (SiteMinder, the
   // expiry sweep) and for cancellations made before it was stored (those are only in the audit log).
@@ -2273,3 +2294,115 @@ export type StaffBotSettings = {
 };
 
 export type StaffBotSettingsUpdateInput = Omit<StaffBotSettings, "updatedAt">;
+
+// --- Booking tracker (GET /reports/booking-tracker, MANAGER+) -------------------------------------------
+// Every figure is the server's: money is a decimal string, a percentage is percent with two decimals, and a figure
+// that cannot be computed is null. Nothing here is ever summed or divided on the client.
+
+// One stay month; with month null it is the total row (and physicalRooms is null there too).
+export type BookingTrackerMonth = {
+  month: string | null;
+  physicalRooms: number | null;
+  nightsInMonth: number;
+  blockedRoomNights: number;
+  availableRoomNights: number;
+  bookedRoomNights: number;
+  occupancyPercent: string | null;
+  grossRevenue: string;
+  packageRevenue: string;
+  serviceCharge: string;
+  vat: string;
+  breakfastRevenue: string;
+  netRoomRevenue: string;
+  netAdr: string | null;
+  baselineRoomNights: number | null;
+  baselineNetRevenue: string | null;
+  targetRoomNights: number | null;
+  stillNeededRoomNights: number | null;
+  pickupVsBaseline: number | null;
+};
+
+export type BookingTrackerChannelRow = {
+  channel: BookingChannel | null; // null on the total row
+  roomNights: number;
+  netRoomRevenue: string;
+  netAdr: string | null;
+  roomNightSharePercent: string | null;
+  revenueSharePercent: string | null;
+};
+
+export type BookingTrackerChannelRank = {
+  rank: number;
+  channel: BookingChannel;
+  netRoomRevenue: string;
+  roomNights: number;
+};
+
+export type BookingTrackerBucket = {
+  label: string;
+  fromDays: number;
+  toDays: number | null;
+  roomNights: number;
+  netRoomRevenue: string;
+  roomNightSharePercent: string | null;
+};
+
+export type BookingTrackerWeek = {
+  weekStart: string;
+  roomNights: number;
+  netRoomRevenue: string;
+};
+
+// One Friday's frozen reading of one stay month; only reason / nextAction / owner / dueDate are editable.
+export type BookingTrackerSnapshot = {
+  id: string;
+  snapshotDate: string;
+  stayMonth: string;
+  late: boolean;
+  roomNights: number;
+  netRoomRevenue: string;
+  occupancyPercent: string | null;
+  pickupRoomNights: number | null;
+  pickupNetRevenue: string | null;
+  reason: string | null;
+  nextAction: string | null;
+  owner: string | null;
+  dueDate: string | null;
+};
+
+export type BookingTrackerReport = {
+  fromMonth: string;
+  toMonth: string;
+  stayMonth: string | null;
+  positionDate: string;
+  vatRate: string;
+  serviceChargeRate: string;
+  months: BookingTrackerMonth[];
+  total: BookingTrackerMonth;
+  channels: { rows: BookingTrackerChannelRow[]; total: BookingTrackerChannelRow; ranking: BookingTrackerChannelRank[] };
+  trends: { averageBookingWindowDays: string | null; buckets: BookingTrackerBucket[]; weeks: BookingTrackerWeek[] };
+  weeklyReview: BookingTrackerSnapshot[];
+};
+
+// PUT /reports/booking-tracker/months/{month}: replaces the three inputs, an omitted or null one is cleared.
+export type BookingTrackerMonthTargetsInput = {
+  targetRoomNights: number | null;
+  baselineRoomNights: number | null;
+  baselineNetRevenue: string | null;
+};
+
+export type BookingTrackerMonthTargets = BookingTrackerMonthTargetsInput & { month: string };
+
+// PATCH /reports/booking-tracker/snapshots/{id}: an omitted field is left alone, null clears it.
+export type BookingTrackerSnapshotUpdateInput = {
+  reason?: string | null;
+  nextAction?: string | null;
+  owner?: string | null;
+  dueDate?: string | null;
+};
+
+// GET/PUT /settings/service-charge (ADMIN): the rate the tracker takes out of room prices, for that analysis only.
+export type ServiceChargeSettings = { serviceChargeRate: string; updatedAt: string };
+
+// GET/PUT /settings/vat (ADMIN).
+export type VatSettings = { vatRate: string; updatedAt: string };

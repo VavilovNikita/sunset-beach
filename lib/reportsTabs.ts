@@ -12,6 +12,7 @@ export const REPORT_TABS = [
   { key: "segments", label: "Market segment" },
   { key: "sales", label: "Sales mix" },
   { key: "guests", label: "Guest LTV" },
+  { key: "tracker", label: "Booking tracker" },
 ] as const;
 
 export type ManagerSectionKey = ManagerReportSection["key"];
@@ -35,11 +36,15 @@ export type ReportsState = {
   from?: string;
   to?: string;
   limit?: string;
+  // The booking tracker's own stay-month range, apart from the day range above.
+  fromMonth?: string;
+  toMonth?: string;
+  stayMonth?: string;
 };
 
-export type ReportsParamName = "date" | "section" | "from" | "to" | "limit";
+export type ReportsParamName = "date" | "section" | "from" | "to" | "limit" | "fromMonth" | "toMonth" | "stayMonth";
 
-const ORDER: ReportsParamName[] = ["date", "section", "from", "to", "limit"];
+const ORDER: ReportsParamName[] = ["date", "section", "from", "to", "limit", "fromMonth", "toMonth", "stayMonth"];
 
 function entries(state: ReportsState, omit: ReportsParamName[]): [string, string][] {
   const out: [string, string][] = [["tab", state.tab]];
