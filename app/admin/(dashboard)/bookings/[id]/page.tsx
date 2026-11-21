@@ -1,4 +1,5 @@
 import { bookingStatusLabel } from "@/lib/bookingStatusLabel";
+import { describeAuditEntry } from "@/lib/auditDisplay";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { backendJson } from "@/lib/backendServer";
@@ -316,17 +317,18 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             <p className="text-sm text-cream/40">No recorded actions on this booking yet.</p>
           ) : (
             <div className="space-y-2">
-              {auditLog.items.map((entry) => (
-                <div key={entry.id} className="bg-ink2/40 border border-cream/10 rounded-xl p-4 text-sm">
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <span className="text-cream/70">{entry.summary}</span>
-                    <span className="text-xs text-cream/40 shrink-0">{formatTimestamp(entry.createdAt)}</span>
+              {auditLog.items.map((entry) => {
+                const shown = describeAuditEntry(entry);
+                return (
+                  <div key={entry.id} className="bg-ink2/40 border border-cream/10 rounded-xl p-4 text-sm">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <span className="text-cream/70">{shown.text}</span>
+                      <span className="text-xs text-cream/40 shrink-0">{formatTimestamp(entry.createdAt)}</span>
+                    </div>
+                    <p className="text-xs text-cream/40 mt-2">{shown.actor}</p>
                   </div>
-                  <p className="text-xs text-cream/40 mt-2">
-                    {entry.actorRole === null ? "System" : `${entry.actorEmail} (${entry.actorRole})`}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -96,7 +96,7 @@ export default async function AdminBookingCalendarPage({
 
       <p className="text-xs text-cream/40 mb-4">
         Drag across free nights on a room's row to create a booking. Drag a booking's edge to change dates, or drag the
-        whole bar to move it. Click a booking to open its details, change its status, or relocate it to another room.
+        whole bar to move it. Double-click a booking (tap on a touch screen) to open its details, change its status, or relocate it to another room.
         {/* The number on each room type's header row is rooms left that night - the same server figure the Rates &
             availability table shows, so the two can't disagree (AvailabilityCalendarAgreementTests, sunset repo). */}{" "}
         Prices by night and room blocks are on{" "}

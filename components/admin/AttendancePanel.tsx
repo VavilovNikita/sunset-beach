@@ -110,7 +110,7 @@ export default function AttendancePanel({ employees, readOnly = false }: { emplo
                 const key = `${year}-${String(month).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`;
                 const weekday = new Date(Date.UTC(year, month - 1, i + 1)).getUTCDay();
                 return (
-                  <th key={key} className={`sticky top-0 z-20 px-1.5 py-2 text-center font-normal tabular-nums bg-ink ${key === today ? "text-sea" : ""} ${weekday === 0 || weekday === 6 ? "shadow-[inset_0_0_0_999px_rgba(255,255,255,0.05)]" : ""}`}>
+                  <th key={key} className={`sticky top-0 z-20 min-w-[3.25rem] px-1.5 py-2 text-center font-normal tabular-nums bg-ink ${key === today ? "text-sea" : ""} ${weekday === 0 || weekday === 6 ? "shadow-[inset_0_0_0_999px_rgba(255,255,255,0.05)]" : ""}`}>
                     {i + 1}
                     <div className="text-[10px]">{["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][weekday]}</div>
                   </th>
@@ -138,7 +138,9 @@ export default function AttendancePanel({ employees, readOnly = false }: { emplo
                         const key = `${year}-${String(month).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`;
                         const cell = attendanceCell(byDate.get(key), today);
                         return (
-                          <td key={key} className={`p-0 text-center tabular-nums whitespace-nowrap ${TONE_CLASS[cell.tone]}`}>
+                          // A fixed width on the cell itself: days after today render no content, and a column sized by its content was
+                          // narrower for them (23-30 against 1-22).
+                          <td key={key} className={`min-w-[3.25rem] p-0 text-center tabular-nums whitespace-nowrap ${TONE_CLASS[cell.tone]}`}>
                             {key <= today && readOnly ? (
                               <div className="min-w-[3.25rem] px-1.5 py-1.5 min-h-[2rem]">
                                 {cell.lines.map((line, n) => (

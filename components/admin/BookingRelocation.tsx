@@ -5,12 +5,13 @@ import { ADMIN_API_URL } from "@/lib/backend";
 import { quoteBookingRelocation, applyBookingRelocation, undoBookingRelocation } from "@/lib/bookingRelocationClient";
 import { quoteBookingReprice, applyBookingReprice } from "@/lib/bookingRepriceClient";
 import { defaultRelocationDate, relocationDateBounds } from "@/lib/bookingRelocationDefaults";
-import { describeDifference, figuresFor, rateChoices, rateModeToSend } from "@/lib/bookingRelocation";
+import { describeDifference, figuresFor, rateChoices, rateModeToSend, relocationNeedsUnit } from "@/lib/bookingRelocation";
 import { hotelDateKey } from "@/lib/hotelDate";
 import { sortRoomsByName, sortUnitsByLabel } from "@/lib/sortRooms";
 import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
-import type { Booking, RelocationQuote, RelocationRateMode, Room, RoomUnit } from "@/lib/types";
+import PaidPriceNotice from "@/components/admin/PaidPriceNotice";
+import type { Booking, RelocationQuote, RelocationRateMode, RepriceQuote, Room, RoomUnit } from "@/lib/types";
 
 // The room-moving controls of a booking: relocate from a date, undo a relocation, reprice a segment.
 // One copy, used by the calendar's side panel (BookingCardPanel.tsx), the full booking page
@@ -40,12 +41,15 @@ export function RelocationPanel({
   booking,
   canManage,
   preset,
+  heading,
   onClose,
   onSaved,
 }: {
   booking: Booking;
   canManage: boolean;
   preset?: RelocationPreset;
+  /** The title inside the frame (the dialog names the guest); the inline form keeps "Relocate from a date". */
+  heading?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -78,11 +82,11 @@ export function RelocationPanel({
   }, []);
 
   // Re-fetched whenever the target type changes — units belong to one type, so the previous
-  // type's list is meaningless once roomId moves. Still MANAGER+-gated like every other
-  // room-unit picker in this panel; a CASHIER can relocate but not browse/pick physical units,
-  // same restriction the same-type picker already had (relocate can still target "no unit yet").
+  // type's list is meaningless once roomId moves. Everyone who can relocate (CASHIER+) can list
+  // room units (GET /room-units is open from WAITER), so everyone picks one: a cashier once sent an
+  // in-house guest to "no room assigned" because the picker was hidden from them.
   useEffect(() => {
-    if (preset || !canManage) {
+    if (preset) {
       setRoomUnits([]);
       return;
     }
@@ -91,7 +95,11 @@ export function RelocationPanel({
       .then((units: RoomUnit[]) => setRoomUnits(sortUnitsByLabel(units.filter((u: RoomUnit) => u.isActive))))
       .catch(() => setRoomUnits([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, roomId]);
+  }, [roomId]);
+
+  // A guest in the house moved from today must be given a room - the server refuses it otherwise.
+  const unitRequired = relocationNeedsUnit(booking.occupancyStatus, effectiveDate, todayKey);
+  const missingUnit = unitRequired && !roomUnitId;
 
   const selectedRoomName = rooms.find((r) => r.id === roomId)?.name ?? (roomId === booking.roomId ? booking.room.name : null);
 
@@ -108,11 +116,11 @@ export function RelocationPanel({
     setStatus("idle");
   }
 
-  async function handleQuote() {
+  async function handleQuote(mode?: RelocationRateMode) {
     if (!effectiveDate) return;
     setStatus("quoting");
     setError(null);
-    const result = await quoteBookingRelocation(booking.id, { effectiveDate, roomId, roomUnitId: roomUnitId || null });
+    const result = await quoteBookingRelocation(booking.id, { effectiveDate, roomId, roomUnitId: roomUnitId || null, ...(mode ? { rateMode: mode } : {}) });
     if (!result.ok) {
       setError(result.error);
       setStatus("error");
@@ -120,6 +128,13 @@ export function RelocationPanel({
     }
     setQuote(result.quote);
     setStatus("ready");
+  }
+
+  // The server words what a price change does to a PAID booking for the rate it was asked about, so a
+  // different choice asks again instead of reusing the warning of the other one.
+  async function handlePickMode(mode: RelocationRateMode) {
+    setPickedMode(mode);
+    if (quote && quote.rateMode !== mode) await handleQuote(mode);
   }
 
   async function handleApply() {
@@ -149,7 +164,7 @@ export function RelocationPanel({
 
   return (
     <div className="bg-ink border border-cream/10 rounded-xl p-4 space-y-3">
-      <p className="eyebrow text-cream/50">Relocate from a date</p>
+      {heading ? <p className="eyebrow text-coral">{heading}</p> : <p className="eyebrow text-cream/50">Relocate from a date</p>}
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Effective date</label>
         <input
@@ -192,26 +207,25 @@ export function RelocationPanel({
               ))}
             </select>
           </div>
-          {canManage && (
-            <div>
-              <label className="eyebrow text-cream/60 block mb-1">New room unit</label>
-              <select
-                value={roomUnitId}
-                onChange={(e) => {
-                  setRoomUnitId(e.target.value);
-                  invalidate();
-                }}
-                className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
-              >
-                <option value="">Unassigned</option>
-                {roomUnits.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div>
+            <label className="eyebrow text-cream/60 block mb-1">New room unit</label>
+            <select
+              value={roomUnitId}
+              onChange={(e) => {
+                setRoomUnitId(e.target.value);
+                invalidate();
+              }}
+              className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="">{unitRequired ? "Choose a room…" : "Unassigned"}</option>
+              {roomUnits.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.label}
+                </option>
+              ))}
+            </select>
+            {unitRequired && <p className="text-[11px] text-cream/40 mt-1">A guest who is in the house needs a room.</p>}
+          </div>
         </>
       )}
 
@@ -244,7 +258,7 @@ export function RelocationPanel({
                       className="mt-1"
                       checked={checked}
                       disabled={!c.allowed}
-                      onChange={() => setPickedMode(c.mode)}
+                      onChange={() => void handlePickMode(c.mode)}
                     />
                     <span className="flex-1 text-sm">
                       <span className="block text-cream">{c.mode === "NEW_RATE" ? "Apply new rate" : "Keep original rate"}</span>
@@ -279,6 +293,7 @@ export function RelocationPanel({
           </div>
         </div>
       )}
+      {status === "ready" && quote && quote.available && <PaidPriceNotice reopensPaid={quote.reopensPaid} paidWarning={quote.paidWarning} />}
       {status === "ready" && quote && !quote.available && <p className="text-xs text-coral">{quote.reason}</p>}
       {error && <p className="text-xs text-coral">{error}</p>}
 
@@ -295,8 +310,8 @@ export function RelocationPanel({
         ) : (
           <button
             type="button"
-            onClick={handleQuote}
-            disabled={!effectiveDate || status === "quoting"}
+            onClick={() => void handleQuote()}
+            disabled={!effectiveDate || missingUnit || status === "quoting"}
             className="rounded-full border border-cream/25 hover:border-cream/50 transition-colors px-4 py-2 text-xs font-medium disabled:opacity-40"
           >
             {status === "quoting" ? "Pricing…" : "Preview relocation"}
@@ -351,8 +366,7 @@ export function RelocationDialog({
   return (
     <div className="fixed inset-0 z-[60] bg-ink/80 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-label="Relocate guest" className="max-w-md w-full text-left" onClick={(e) => e.stopPropagation()}>
-        <p className="eyebrow text-coral mb-2">Relocate {booking.guestName}</p>
-        <RelocationPanel booking={booking} canManage={canManage} preset={preset} onClose={onClose} onSaved={onSaved} />
+        <RelocationPanel booking={booking} canManage={canManage} preset={preset} heading={`Relocate ${booking.guestName}`} onClose={onClose} onSaved={onSaved} />
       </div>
     </div>
   );
@@ -401,7 +415,7 @@ export function UndoRelocationButton({ bookingId, splitDate, onSaved }: { bookin
 // without the manager seeing the before/after total first.
 export function RepriceSegmentButton({ bookingId, segmentId, onSaved }: { bookingId: string; segmentId: string; onSaved: () => void }) {
   const [open, setOpen] = useState(false);
-  const [quote, setQuote] = useState<{ oldTotalPrice: string; newTotalPrice: string; nightsRepriced: number } | null>(null);
+  const [quote, setQuote] = useState<RepriceQuote | null>(null);
   const [status, setStatus] = useState<"idle" | "quoting" | "ready" | "error" | "applying">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -472,6 +486,7 @@ export function RepriceSegmentButton({ bookingId, segmentId, onSaved }: { bookin
               {Number(quote!.oldTotalPrice).toLocaleString("en-US")} → ฿{Number(quote!.newTotalPrice).toLocaleString("en-US")}
             </p>
           )}
+          <PaidPriceNotice reopensPaid={quote!.reopensPaid} paidWarning={quote!.paidWarning} />
           <button
             type="button"
             onClick={handleApply}

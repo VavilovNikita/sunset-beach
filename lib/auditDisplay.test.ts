@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeAuditActor, describeAuditEntity, humanizeAuditSummary } from "@/lib/auditDisplay";
+import { describeAuditActor, describeAuditEntity, describeAuditEntry, humanizeAuditSummary } from "@/lib/auditDisplay";
 
 describe("humanizeAuditSummary - booking statuses", () => {
   it("reads NEW as Tentative in a status change and at creation", () => {
@@ -49,5 +49,23 @@ describe("describeAuditEntity", () => {
 
   it("keeps an id that isn't a uuid as is", () => {
     expect(describeAuditEntity("SETTINGS", "1")).toBe("Settings 1");
+  });
+});
+
+describe("describeAuditEntry - the one reading of an entry (booking page History and calendar panel)", () => {
+  it("shows status labels and the role label, never the raw values", () => {
+    const entry = describeAuditEntry({
+      summary: "Status changed from CONFIRMED to PAID for Jane in Villa",
+      actorEmail: "anna@example.com",
+      actorRole: "MANAGER",
+    });
+    expect(entry.text).toBe("Status changed from Confirmed to Room paid for Jane in Villa");
+    expect(entry.actor).toBe("anna@example.com (Manager)");
+  });
+
+  it("shows a creation entry's status as a label and a system row as System", () => {
+    expect(
+      describeAuditEntry({ summary: "Staff booking created for Jane in Villa; status NEW", actorEmail: "system@sunsetbeach.internal", actorRole: null }),
+    ).toEqual({ text: "Staff booking created for Jane in Villa; status Tentative", actor: "System" });
   });
 });

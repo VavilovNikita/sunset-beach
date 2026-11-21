@@ -55,6 +55,15 @@ export function describeDifference(difference: string): DifferenceText {
   return negative ? { text: `−฿${shown}`, tone: "down" } : { text: `+฿${shown}`, tone: "up" };
 }
 
+/**
+ * A guest who is in the house and moves from today (or earlier) must be given a room: "no room
+ * assigned" would lose where they sleep (a cashier once sent an in-house guest to "Deluxe Suite (no
+ * room assigned)"). The server refuses it too (400 on roomUnitId); this is the form saying so first.
+ */
+export function relocationNeedsUnit(occupancy: OccupancyStatus, effectiveDate: string, todayKey: string): boolean {
+  return occupancy === "CHECKED_IN" && effectiveDate <= todayKey;
+}
+
 // --- A bar dropped on another room's row ------------------------------------------------------
 
 export type RoomDropIntent =

@@ -25,7 +25,7 @@ import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
 import { BookingScheduleEditor, RoomUnitAssignmentEditor } from "@/components/admin/BookingScheduleEditor";
 import type { Booking, BookingChannel, BookingScheduleQuote, Room, RoomUnit, AuditLogEntry } from "@/lib/types";
 import type { BookingPosOrder, Folio, FolioPaymentInput } from "@/lib/posTypes";
-import { describeAuditActor, humanizeAuditSummary } from "@/lib/auditDisplay";
+import { describeAuditEntry } from "@/lib/auditDisplay";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 
 // Slide-in panel opened by clicking a bar on the booking calendar grid - deliberately a fixed-
@@ -231,14 +231,17 @@ export default function BookingCardPanel({
                   <p className="text-sm text-cream/40">No recorded actions on this booking yet.</p>
                 ) : (
                   <div className="space-y-2">
-                    {auditLog.map((entry) => (
-                      <div key={entry.id} className="bg-ink border border-cream/10 rounded-xl p-3 text-xs">
-                        <p className="text-cream/70">{humanizeAuditSummary(entry.summary)}</p>
-                        <p className="text-cream/40 mt-1">
-                          {formatTimestamp(entry.createdAt)} · {describeAuditActor(entry.actorEmail, entry.actorRole)}
-                        </p>
-                      </div>
-                    ))}
+                    {auditLog.map((entry) => {
+                      const shown = describeAuditEntry(entry);
+                      return (
+                        <div key={entry.id} className="bg-ink border border-cream/10 rounded-xl p-3 text-xs">
+                          <p className="text-cream/70">{shown.text}</p>
+                          <p className="text-cream/40 mt-1">
+                            {formatTimestamp(entry.createdAt)} · {shown.actor}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

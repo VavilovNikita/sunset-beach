@@ -1068,6 +1068,10 @@ export type BookingScheduleQuote = {
   nights: number;
   available: boolean;
   reason: string | null;
+  // Set only for a booking whose room is marked PAID, by the server (never worded here): the change
+  // reopens it ("Room paid will be reopened: the guest will owe ฿X.") or leaves it paid with a credit.
+  reopensPaid?: boolean;
+  paidWarning?: string;
 };
 
 // What the moved nights cost (openapi RelocationRateMode). KEEP_RATE: exactly the prices they
@@ -1111,6 +1115,10 @@ export type RelocationQuote = {
   keepRatePriceDifference: string;
   newRateTotalPrice?: string | null;
   newRatePriceDifference?: string | null;
+  // Set only for a booking whose room is marked PAID, by the server (never worded here): the change
+  // reopens it ("Room paid will be reopened: the guest will owe ฿X.") or leaves it paid with a credit.
+  reopensPaid?: boolean;
+  paidWarning?: string;
 };
 
 // Body of POST /bookings/{id}/undo-relocation — reverses a relocation,
@@ -1135,6 +1143,10 @@ export type RepriceQuote = {
   oldTotalPrice: string;
   newTotalPrice: string;
   nightsRepriced: number;
+  // Set only for a booking whose room is marked PAID, by the server (never worded here): the change
+  // reopens it ("Room paid will be reopened: the guest will owe ฿X.") or leaves it paid with a credit.
+  reopensPaid?: boolean;
+  paidWarning?: string;
 };
 
 // Body of POST /bookings/staff — front-desk (walk-in) booking creation.

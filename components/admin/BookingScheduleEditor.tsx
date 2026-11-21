@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { dateOnlyUTC, toDateKey } from "@/lib/bookings";
 import { quoteBookingSchedule, applyBookingSchedule } from "@/lib/bookingScheduleClient";
 import { assignBookingRoomUnit } from "@/lib/bookingRoomUnitClient";
+import PaidPriceNotice from "@/components/admin/PaidPriceNotice";
 import type { Booking, BookingScheduleQuote, RoomUnit } from "@/lib/types";
 
 // Shared by the booking calendar panel (BookingCardPanel.tsx) and the booking detail page
@@ -145,6 +146,7 @@ export function BookingScheduleEditor({
           <span className="font-display italic text-xl text-coral">฿{Number(quote.totalPrice).toLocaleString("en-US")}</span>
         </div>
       )}
+      {status === "ready" && quote && quote.available && <PaidPriceNotice reopensPaid={quote.reopensPaid} paidWarning={quote.paidWarning} />}
       {status === "ready" && quote && !quote.available && <p className="text-xs text-coral">{quote.reason}</p>}
       {error && <p className="text-xs text-coral">{error}</p>}
 

@@ -96,3 +96,10 @@ export function describeAuditActor(actorEmail: string, actorRole: Role | null): 
 export function describeAuditEntity(entityType: string, entityId: string): string {
   return `${describeEnumValue(entityType)} ${IS_UUID.test(entityId) ? shortRef(entityId) : entityId}`;
 }
+
+// One audit entry as a person reads it - the sentence and who did it. The booking page's History and the
+// calendar panel's both render through this, so the page can no longer show "status CONFIRMED" / "from NEW to
+// PAID" where the panel shows "Confirmed" / "from Tentative to Room paid".
+export function describeAuditEntry(entry: { summary: string; actorEmail: string; actorRole: Role | null }): { text: string; actor: string } {
+  return { text: humanizeAuditSummary(entry.summary), actor: describeAuditActor(entry.actorEmail, entry.actorRole) };
+}

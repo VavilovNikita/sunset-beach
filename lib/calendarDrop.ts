@@ -45,3 +45,35 @@ export function grabDayOffset(pointerX: number, barLeft: number, dayWidth: numbe
   const clipped = checkInKey < gridFromKey ? Math.round((Date.parse(`${gridFromKey}T00:00:00Z`) - Date.parse(`${checkInKey}T00:00:00Z`)) / 86_400_000) : 0;
   return visible + clipped;
 }
+
+export type DropOutcome = "gone" | "swap-other-type" | "missed";
+
+/**
+ * The sentence shown next to the grid when a drop ends without a dialog. A drop always ends in one of
+ * the two - a dialog to confirm, or one of these - never in nothing, so the desk can tell "refused" from
+ * "the page ignored me".
+ */
+export function dropOutcomeMessage(kind: DropOutcome, guestName: string, otherGuestName?: string): string {
+  switch (kind) {
+    case "gone":
+      return "That booking is no longer on the calendar - reload the page and try again.";
+    case "swap-other-type":
+      return `${guestName} and ${otherGuestName ?? "that guest"} are in different room types, so they can't swap rooms. Drop on a free night of a room to move ${guestName} there.`;
+    case "missed":
+      return `Nothing was changed: ${guestName} was dropped between rooms. Drop on another booking to swap rooms, or on a free night of a room to move there.`;
+  }
+}
+
+export type OccupantBar = { bookingId: string; segmentId: string; roomId: string; roomUnitId: string | null; guestName: string; checkIn: string; checkOut: string };
+
+/**
+ * The booking that holds `roomUnitId` on the night `dateKey` (its departure day is free), other than the
+ * one being dragged. This is how a drop on a booking of the same dates is recognised: once the dragged bar
+ * enters the target row it is laid out beside the booking underneath (the two overlap, so each takes its own
+ * lane), and what is under the pointer on screen is then a lane or a gap, not that booking - asking the
+ * data instead of the pixels is what keeps "drop on a booking = swap" independent of the layout.
+ */
+export function findOccupant<T extends OccupantBar>(bookings: T[], roomUnitId: string, dateKey: string, excludeSegmentId: string): T | undefined {
+  if (roomUnitId === "") return undefined;
+  return bookings.find((b) => b.segmentId !== excludeSegmentId && b.roomUnitId === roomUnitId && b.checkIn <= dateKey && dateKey < b.checkOut);
+}

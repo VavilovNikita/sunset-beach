@@ -19,7 +19,8 @@ import {
 } from "@/lib/calendarLayout";
 import { quoteBookingSchedule, applyBookingSchedule } from "@/lib/bookingScheduleClient";
 import { assignBookingSegmentRoomUnit, swapBookingSegmentRoomUnit } from "@/lib/bookingSegmentClient";
-import { findClash, grabDayOffset as grabOffsetDays, isSwapPartner } from "@/lib/calendarDrop";
+import PaidPriceNotice from "@/components/admin/PaidPriceNotice";
+import { dropOutcomeMessage, findClash, findOccupant, grabDayOffset as grabOffsetDays, isSwapPartner } from "@/lib/calendarDrop";
 import { roomDropIntent } from "@/lib/bookingRelocation";
 import { adminRequest } from "@/lib/adminFetch";
 import { useBookingSiblingsCache } from "@/lib/useBookingSiblingsCache";
@@ -303,11 +304,20 @@ export default function BookingCalendarGrid({
   // nothing isn't a swap (see swapSegmentRoomUnits's own backend rule).
   function barUnderPointer(e: React.PointerEvent, excludeSegmentId: string) {
     const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-bar-segment-id]");
-    if (!el) return null;
-    const { barBookingId, barSegmentId, barRoomId, barRoomUnitId, barGuestName } = el.dataset;
-    if (!barBookingId || !barSegmentId || !barRoomId || barRoomUnitId === undefined || !barGuestName) return null;
-    if (barSegmentId === excludeSegmentId || barRoomUnitId === "") return null;
-    return { bookingId: barBookingId, segmentId: barSegmentId, roomId: barRoomId, roomUnitId: barRoomUnitId, guestName: barGuestName };
+    if (el) {
+      const { barBookingId, barSegmentId, barRoomId, barRoomUnitId, barGuestName } = el.dataset;
+      if (barBookingId && barSegmentId && barRoomId && barRoomUnitId !== undefined && barGuestName && barSegmentId !== excludeSegmentId && barRoomUnitId !== "") {
+        return { bookingId: barBookingId, segmentId: barSegmentId, roomId: barRoomId, roomUnitId: barRoomUnitId, guestName: barGuestName };
+      }
+    }
+    // No bar under the pointer: the booking holding the night under it, from the data. A booking dropped on one
+    // with the same dates is laid out beside it (they overlap, so each takes a lane) and the pointer then lands on a
+    // lane or a gap, never on that bar - the swap used to be missed exactly then (see findOccupant).
+    const cell = cellUnderPointer(e);
+    if (!cell) return null;
+    const occupant = findOccupant(data.bookings, cell.roomUnitId, toDateKey(cell.date), excludeSegmentId);
+    if (!occupant || occupant.roomUnitId === null) return null;
+    return { bookingId: occupant.bookingId, segmentId: occupant.segmentId, roomId: occupant.roomId, roomUnitId: occupant.roomUnitId, guestName: occupant.guestName };
   }
 
   function clampSelectionEnd(roomUnitId: string, start: Date, hovered: Date) {
@@ -526,7 +536,7 @@ export default function BookingCalendarGrid({
   function onDragPointerUp(e: React.PointerEvent<HTMLDivElement>) {
     if (!dragState) return;
     setTouchActionNone(false);
-    const finished = dragState;
+    let finished = dragState;
     setDragState(null);
 
     if (finished.kind === "select") {
@@ -537,8 +547,13 @@ export default function BookingCalendarGrid({
     }
 
     if (finished.kind === "move") {
-      const booking = data.bookings.find((b) => b.segmentId === finished.segmentId);
-      if (!booking) return;
+      setSegmentMoveError(null);
+      const draggedSegmentId = finished.segmentId;
+      const booking = data.bookings.find((b) => b.segmentId === draggedSegmentId);
+      if (!booking) {
+        setSegmentMoveError(dropOutcomeMessage("gone", ""));
+        return;
+      }
 
       // Recomputed fresh from the release point, not from finished.swapTarget - the same
       // "don't trust the last thing pointermove happened to see" principle behind the spa
@@ -552,13 +567,41 @@ export default function BookingCalendarGrid({
       // attempt, so it keeps falling through to the ordinary move logic below on a miss,
       // exactly as before - dropping outside a valid cell there still commits to the last
       // validly-hovered position, which is a deliberate, separate decision (not this one).
+      // Every drop ends in a dialog or a sentence next to the grid, never in nothing: a drag from one
+      // room to another passes over the bars between them, which used to latch "swap attempt" and then
+      // cancel the whole drop, silently, when it was released on a free night.
       if (finished.hasHoveredSwapTarget) {
         const hoveredBar = barUnderPointer(e, finished.segmentId);
         const swapTarget = isSwapPartner(hoveredBar, finished.bookingId, finished.originalRoomUnitId) ? hoveredBar : null;
-        if (!swapTarget) return; // aimed at a bar, missed on release - cancel, don't fall back to a move
-        if (swapTarget.roomId !== finished.roomId) return; // cross-type - refused before any request, no modal
-        openSwapConfirm(booking, swapTarget);
-        return;
+        if (swapTarget) {
+          if (swapTarget.roomId !== finished.roomId) {
+            // Refused before any request: a swap across room types would reprice one of the guests.
+            setSegmentMoveError(dropOutcomeMessage("swap-other-type", booking.guestName, swapTarget.guestName));
+            return;
+          }
+          openSwapConfirm(booking, swapTarget);
+          return;
+        }
+        // Released off the bar it aimed at. On a free night of a room, that is a plain move there;
+        // anywhere else (a row gap, a header, a block) nothing is changed and the desk is told so.
+        const releasedOn = cellUnderPointer(e);
+        if (!releasedOn) {
+          setSegmentMoveError(dropOutcomeMessage("missed", booking.guestName));
+          return;
+        }
+        if (finished.segmentCount > 1) {
+          finished = { ...finished, roomUnitId: releasedOn.roomUnitId, targetRoomId: releasedOn.roomId };
+        } else {
+          const nights = Math.round((finished.originalCheckOut.getTime() - finished.originalCheckIn.getTime()) / 86_400_000);
+          const releasedCheckIn = addDaysUTC(releasedOn.date, -finished.grabDayOffset);
+          finished = {
+            ...finished,
+            roomUnitId: releasedOn.roomUnitId,
+            targetRoomId: releasedOn.roomId,
+            checkIn: releasedCheckIn,
+            checkOut: addDaysUTC(releasedCheckIn, nights),
+          };
+        }
       }
 
       const datesUnchanged =
@@ -1204,6 +1247,9 @@ export default function BookingCalendarGrid({
                   </span>
                 </div>
                 {!scheduleConfirm.quote.available && <p className="text-sm text-coral">{scheduleConfirm.quote.reason}</p>}
+                {scheduleConfirm.quote.available && (
+                  <PaidPriceNotice reopensPaid={scheduleConfirm.quote.reopensPaid} paidWarning={scheduleConfirm.quote.paidWarning} />
+                )}
                 <div className="flex gap-3 flex-wrap">
                   <button
                     type="button"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeDifference, figuresFor, rateChoices, rateModeToSend, roomDropIntent } from "./bookingRelocation";
+import { describeDifference, figuresFor, rateChoices, rateModeToSend, relocationNeedsUnit, roomDropIntent } from "./bookingRelocation";
 import type { RelocationQuote } from "./types";
 
 const crossType: RelocationQuote = {
@@ -110,5 +110,18 @@ describe("roomDropIntent", () => {
     expect(roomDropIntent({ ...base, barCheckIn: "2026-11-21", barCheckOut: "2026-11-24" })).toEqual({ kind: "schedule" });
     expect(roomDropIntent({ ...base, barCheckIn: "2026-12-05", barCheckOut: "2026-12-08" })).toEqual({ kind: "schedule" });
     expect(roomDropIntent({ ...base, segmentCount: 2, barCheckIn: "2026-12-05", barCheckOut: "2026-12-08" })).toEqual({ kind: "segment-unit" });
+  });
+});
+
+describe("relocationNeedsUnit - a guest in the house needs a room", () => {
+  it("requires a room for a checked-in guest moved from today or earlier", () => {
+    expect(relocationNeedsUnit("CHECKED_IN", "2026-12-01", "2026-12-01")).toBe(true);
+    expect(relocationNeedsUnit("CHECKED_IN", "2026-11-30", "2026-12-01")).toBe(true);
+  });
+
+  it("lets a move planned for a later day, or a guest who has not arrived, stay without a room", () => {
+    expect(relocationNeedsUnit("CHECKED_IN", "2026-12-02", "2026-12-01")).toBe(false);
+    expect(relocationNeedsUnit("EXPECTED", "2026-12-01", "2026-12-01")).toBe(false);
+    expect(relocationNeedsUnit("CHECKED_OUT", "2026-12-01", "2026-12-01")).toBe(false);
   });
 });
