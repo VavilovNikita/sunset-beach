@@ -19,14 +19,17 @@ import {
 } from "@/lib/calendarLayout";
 import { quoteBookingSchedule, applyBookingSchedule } from "@/lib/bookingScheduleClient";
 import { assignBookingSegmentRoomUnit, swapBookingSegmentRoomUnit } from "@/lib/bookingSegmentClient";
-import { findClash, isSwapPartner } from "@/lib/calendarDrop";
+import { findClash, grabDayOffset as grabOffsetDays, isSwapPartner } from "@/lib/calendarDrop";
+import { roomDropIntent } from "@/lib/bookingRelocation";
+import { adminRequest } from "@/lib/adminFetch";
 import { useBookingSiblingsCache } from "@/lib/useBookingSiblingsCache";
 import { useTapOrDoubleClick } from "@/lib/useTapOrDoubleClick";
 import { DEFAULT_DAY_WIDTH_PX, MIN_DAY_WIDTH_PX, MAX_DAY_WIDTH_PX, loadStoredDensity, saveStoredDensity } from "@/lib/calendarRange";
 import BookingCreateFromGridModal from "@/components/admin/BookingCreateFromGridModal";
 import BookingCardPanel from "@/components/admin/BookingCardPanel";
+import { RelocationDialog, type RelocationPreset } from "@/components/admin/BookingRelocation";
 import RoomUnitBlockPanel from "@/components/admin/RoomUnitBlockPanel";
-import type { BookingCalendarResponse, BookingScheduleQuote, CalendarBooking, HousekeepingStatus, RoomUnit } from "@/lib/types";
+import type { Booking, BookingCalendarResponse, BookingScheduleQuote, CalendarBooking, HousekeepingStatus, RoomUnit } from "@/lib/types";
 import { formatDate, formatDateRange } from "@/lib/formatDate";
 
 const ROW_HEIGHT = 40;
@@ -183,6 +186,9 @@ export default function BookingCalendarGrid({
         // move below and a swap-onto-another-bar compares against this.
         roomId: string;
         originalRoomUnitId: string;
+        // The room type of the row the bar is over right now (starts as its own). A drop on another
+        // type opens the room-move dialog instead of being refused - see handleRoomDrop.
+        targetRoomId: string;
         originalCheckIn: Date;
         originalCheckOut: Date;
         // Sticky for the life of this drag - set true the first moment the pointer hovers a
@@ -202,13 +208,10 @@ export default function BookingCalendarGrid({
         // Set while hovering directly over a different, swap-eligible bar (both sides must
         // already have a physical room assigned - see swapSegmentRoomUnits's own backend rule).
         swapTarget: { bookingId: string; segmentId: string; roomId: string; roomUnitId: string; guestName: string } | null;
-        // True when the current drop target (the hovered bar for a swap, or the hovered cell's
-        // own room type for a segmentCount > 1 room-only move) is a different room type than this
-        // bar's own - refused client-side before any request is sent, never just quoted and left
-        // to fail server-side, matching swapSegmentRoomUnits' own "checked before any availability
-        // work" rule. Left false (and never consulted) for the ordinary segmentCount === 1 move
-        // onto a plain cell - that path keeps its existing quote-then-confirm tolerance for a
-        // cross-type drop, unchanged from before this round.
+        // True when the hovered bar (a swap) is a different room type than this bar's own -
+        // refused client-side before any request is sent, matching swapSegmentRoomUnits' own
+        // "checked before any availability work" rule. A plain cell of another type is NOT invalid
+        // any more: it opens the room-move dialog (see handleRoomDrop), so it never sets this.
         dropInvalid: boolean;
       };
 
@@ -258,6 +261,8 @@ export default function BookingCalendarGrid({
     error?: string;
   } | null>(null);
   const [segmentMoveError, setSegmentMoveError] = useState<string | null>(null);
+  // The room-move dialog opened by a drop on another room type (or on a guest in the house).
+  const [relocation, setRelocation] = useState<{ booking: Booking; preset: RelocationPreset } | null>(null);
 
   function setTouchActionNone(active: boolean) {
     if (gridRef.current) gridRef.current.style.touchAction = active ? "none" : "";
@@ -382,7 +387,8 @@ export default function BookingCalendarGrid({
     e.currentTarget.setPointerCapture(e.pointerId);
     setTouchActionNone(true);
     const rect = e.currentTarget.getBoundingClientRect();
-    const grabDayOffset = Math.floor((e.clientX - rect.left) / dayWidth);
+    // From the stay's real first night, not the visible left edge: a bar that began before the grid is clipped.
+    const grabDayOffset = grabOffsetDays(e.clientX, rect.left, dayWidth, booking.checkIn, toDateKey(gridFrom));
     const checkIn = dateOnlyUTC(booking.checkIn);
     const checkOut = dateOnlyUTC(booking.checkOut);
     setDragState({
@@ -392,6 +398,7 @@ export default function BookingCalendarGrid({
       segmentCount: booking.segmentCount,
       roomId: booking.roomId,
       originalRoomUnitId: booking.roomUnitId ?? "",
+      targetRoomId: booking.roomId,
       originalCheckIn: checkIn,
       originalCheckOut: checkOut,
       grabDayOffset,
@@ -440,6 +447,7 @@ export default function BookingCalendarGrid({
           ...dragState,
           swapTarget,
           hasHoveredSwapTarget: true,
+          targetRoomId: swapTarget.roomId,
           roomUnitId: swapTarget.roomUnitId,
           dropInvalid: swapTarget.roomId !== dragState.roomId,
         });
@@ -452,14 +460,14 @@ export default function BookingCalendarGrid({
       if (dragState.segmentCount > 1) {
         // Room-only move: this segment's own dates never change during the drag, only which
         // unit it's hovering over - see the "move" DragState variant's own comment.
-        setDragState({ ...dragState, swapTarget: null, roomUnitId: target.roomUnitId, dropInvalid: target.roomId !== dragState.roomId });
+        setDragState({ ...dragState, swapTarget: null, roomUnitId: target.roomUnitId, targetRoomId: target.roomId, dropInvalid: false });
         return;
       }
 
       const nights = Math.round((dragState.originalCheckOut.getTime() - dragState.originalCheckIn.getTime()) / 86_400_000);
       const checkIn = addDaysUTC(target.date, -dragState.grabDayOffset);
       const checkOut = addDaysUTC(checkIn, nights);
-      setDragState({ ...dragState, swapTarget: null, dropInvalid: false, roomUnitId: target.roomUnitId, checkIn, checkOut });
+      setDragState({ ...dragState, swapTarget: null, dropInvalid: false, roomUnitId: target.roomUnitId, targetRoomId: target.roomId, checkIn, checkOut });
       return;
     }
 
@@ -553,9 +561,20 @@ export default function BookingCalendarGrid({
         return;
       }
 
-      if (finished.segmentCount > 1) {
-        if (finished.dropInvalid) return; // cross-type - refused before any request
+      const datesUnchanged =
+        finished.segmentCount > 1 ||
+        (toDateKey(finished.checkIn) === toDateKey(finished.originalCheckIn) && toDateKey(finished.checkOut) === toDateKey(finished.originalCheckOut));
+      if (datesUnchanged) {
         if (finished.roomUnitId === finished.originalRoomUnitId) return; // dropped back where it started
+        // A room-only drop on a real room: what it means depends on who is in the room and which
+        // room type it is (see handleRoomDrop). The "Unassigned" row has no room to move into.
+        if (finished.roomUnitId !== "") {
+          void handleRoomDrop(booking, finished.roomUnitId, finished.targetRoomId, finished.segmentCount);
+          return;
+        }
+      }
+
+      if (finished.segmentCount > 1) {
         applySegmentRoomUnit(booking, finished.roomUnitId || null);
         return;
       }
@@ -597,6 +616,51 @@ export default function BookingCalendarGrid({
   function onDragPointerCancel() {
     setTouchActionNone(false);
     setDragState(null);
+  }
+
+  // A bar dropped on another room's row without changing its dates. The calendar bar does not know
+  // whether the guest is in the house, so the booking is read first (one GET), and lib/
+  // bookingRelocation.ts#roomDropIntent decides: another room type, or a guest in the house, opens
+  // the room-move dialog (date, rate and the server's new total, confirmed before anything is
+  // written - a drag never changes a stay on its own); nobody in the room is the plain room change
+  // it always was. Nothing is moved on release.
+  async function handleRoomDrop(booking: CalendarBooking, roomUnitId: string, targetRoomId: string, segmentCount: number) {
+    setSegmentMoveError(null);
+    const loaded = await adminRequest<Booking>(`/bookings/${booking.bookingId}`, undefined, "Could not load this booking.");
+    if (!loaded.ok) {
+      setSegmentMoveError(loaded.error);
+      return;
+    }
+    const intent = roomDropIntent({
+      todayKey,
+      occupancyStatus: loaded.data.occupancyStatus,
+      barRoomId: booking.roomId,
+      targetRoomId,
+      segmentCount,
+      barCheckIn: booking.checkIn,
+      barCheckOut: booking.checkOut,
+    });
+    if (intent.kind === "relocate") {
+      setRelocation({
+        booking: loaded.data,
+        preset: {
+          effectiveDate: intent.effectiveDate,
+          roomId: targetRoomId,
+          roomUnitId,
+          roomUnitLabel: roomUnitLabelById.get(roomUnitId) ?? "the selected room",
+        },
+      });
+    } else if (intent.kind === "segment-unit") {
+      void applySegmentRoomUnit(booking, roomUnitId);
+    } else if (intent.kind === "schedule") {
+      openScheduleConfirm(booking, booking.checkIn, booking.checkOut, roomUnitId, {
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        roomUnitId: booking.roomUnitId,
+      });
+    } else {
+      setSegmentMoveError(`${booking.guestName}'s nights in this room are all in the past, so they can't be moved to another room type.`);
+    }
   }
 
   // Room-only move for a segment of a relocated booking (segmentCount > 1) - no price change
@@ -1038,11 +1102,21 @@ export default function BookingCalendarGrid({
         <span className="text-xs text-cream/50 w-16 text-right">{dayWidth}px/day</span>
       </div>
       {!allowDrag && (
-        <p className="text-xs text-cream/40 mb-2">
-          Columns are too narrow here for precise drag-editing — click a bar to change its dates or room from the
-          booking panel, or click an empty cell to open the new-booking form (fix the dates there if the click landed
-          on the wrong day). Increase density to drag directly instead.
-        </p>
+        // Visible on purpose: the column width is remembered in the browser, so a desk that once
+        // squeezed the grid finds dragging "broken" days later. Says why and fixes it in one click.
+        <div className="flex items-center justify-between gap-3 flex-wrap bg-sand/10 border border-sand/40 rounded-lg px-3 py-2 mb-2">
+          <p className="text-sm text-cream/80">
+            Dragging is off: the columns are too narrow ({dayWidth}px a day, {DRAG_THRESHOLD_PX}px needed) to drop a booking on the right day. Click a bar to change
+            its dates or room from the booking panel, or click an empty cell to open the new-booking form.
+          </p>
+          <button
+            type="button"
+            onClick={() => changeDayWidth(DEFAULT_DAY_WIDTH_PX)}
+            className="rounded-full border border-cream/30 hover:border-cream/60 transition-colors px-4 py-1.5 text-xs font-medium shrink-0"
+          >
+            Make columns wider
+          </button>
+        </div>
       )}
       {segmentMoveError && (
         <div className="flex items-center justify-between gap-3 bg-coral/10 border border-coral/30 rounded-lg px-3 py-2 mb-2">
@@ -1209,6 +1283,16 @@ export default function BookingCalendarGrid({
             </div>
           </div>
         </div>
+      )}
+
+      {relocation && (
+        <RelocationDialog
+          booking={relocation.booking}
+          canManage={canManage}
+          preset={relocation.preset}
+          onClose={() => setRelocation(null)}
+          onSaved={() => router.refresh()}
+        />
       )}
 
       {selectedBookingId && (

@@ -32,3 +32,16 @@ export function findClash<T extends OccupyingBooking>(
   if (!roomUnitId) return undefined;
   return bookings.find((b) => b.bookingId !== movingBookingId && b.roomUnitId === roomUnitId && b.checkIn < checkOut && checkIn < b.checkOut);
 }
+
+/**
+ * How many days from the bar's real check-in the pointer grabbed it. The bar on screen starts at the
+ * grid's first column when the stay began before it (the calendar opens on today, so every guest in
+ * the house is like that), so counting from the visible left edge alone is short by the clipped days -
+ * and a drag that only meant to change the ROOM moved the stay later by exactly that many days (and
+ * the drop was then answered with a clash or a "different room type" error instead of the room move).
+ */
+export function grabDayOffset(pointerX: number, barLeft: number, dayWidth: number, checkInKey: string, gridFromKey: string): number {
+  const visible = Math.floor((pointerX - barLeft) / dayWidth);
+  const clipped = checkInKey < gridFromKey ? Math.round((Date.parse(`${gridFromKey}T00:00:00Z`) - Date.parse(`${checkInKey}T00:00:00Z`)) / 86_400_000) : 0;
+  return visible + clipped;
+}

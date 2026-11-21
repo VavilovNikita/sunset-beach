@@ -1058,10 +1058,9 @@ export type BookingScheduleInput = {
   roomUnitId: string | null;
 };
 
-// Response of both POST /bookings/{id}/schedule/quote and
-// POST /bookings/{id}/relocate/quote (reused as-is, not duplicated) — a
-// non-mutating preview. totalPrice is always computed (for relocate, the
-// whole booking's new total after the move); available/reason report
+// Response of POST /bookings/{id}/schedule/quote — a
+// non-mutating preview (relocation has its own RelocationQuote). totalPrice is always computed;
+// available/reason report
 // whether applying this exact change would currently succeed. Advisory only,
 // not a lock — the apply call re-validates from scratch.
 export type BookingScheduleQuote = {
@@ -1071,17 +1070,47 @@ export type BookingScheduleQuote = {
   reason: string | null;
 };
 
+// What the moved nights cost (openapi RelocationRateMode). KEEP_RATE: exactly the prices they
+// already have (a complimentary upgrade, or a move the hotel caused) - MANAGER+ across room types.
+// NEW_RATE: the new room type's current rate, from today forward. Within one room type the price
+// never changes, so no mode is sent.
+export type RelocationRateMode = "KEEP_RATE" | "NEW_RATE";
+
 // Body of POST /bookings/{id}/relocate and POST /bookings/{id}/relocate/quote
 // — a guest moving to a different room (possibly a different room *type*,
 // hence roomId being changeable here unlike BookingScheduleInput)
-// partway through their stay. effectiveDate must fall strictly after the
-// start of the segment currently covering it — splitting a segment on its
-// own first night is "assign this segment a different room"
-// (BookingScheduleInput when there's only one segment), not a mid-stay move.
+// from effectiveDate. effectiveDate may be the first night of the segment
+// covering it (the whole segment then changes room - a guest arriving today)
+// or any later night (the segment is split; past nights stay in the old room).
+// Before today is MANAGER+. rateMode is omitted within one room type.
 export type RelocationInput = {
   effectiveDate: string;
   roomId: string;
   roomUnitId: string | null;
+  rateMode?: RelocationRateMode;
+};
+
+// Response of POST /bookings/{id}/relocate/quote. Every amount is the whole booking's and is
+// computed by the server with the code the apply call uses - the screen never subtracts prices.
+// totalPrice/nights/available/reason keep their BookingScheduleQuote meaning (totalPrice is for
+// `rateMode`, the mode that would be applied). keepRate* is the total if the moved nights keep
+// their agreed prices; newRate* only exists across room types.
+export type RelocationQuote = {
+  totalPrice: string;
+  nights: number;
+  available: boolean;
+  reason: string | null;
+  currentTotalPrice: string;
+  sameRoomType: boolean;
+  // The move starts on the segment's first night: no split, nothing for undo.
+  wholeSegment: boolean;
+  rateMode: RelocationRateMode;
+  // Whether the signed-in user may apply KEEP_RATE (a MANAGER+ right across room types).
+  mayKeepRate: boolean;
+  keepRateTotalPrice: string;
+  keepRatePriceDifference: string;
+  newRateTotalPrice?: string | null;
+  newRatePriceDifference?: string | null;
 };
 
 // Body of POST /bookings/{id}/undo-relocation — reverses a relocation,

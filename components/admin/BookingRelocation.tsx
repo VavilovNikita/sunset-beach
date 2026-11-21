@@ -4,16 +4,19 @@ import { useEffect, useState } from "react";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { quoteBookingRelocation, applyBookingRelocation, undoBookingRelocation } from "@/lib/bookingRelocationClient";
 import { quoteBookingReprice, applyBookingReprice } from "@/lib/bookingRepriceClient";
-import { defaultRelocationDate } from "@/lib/bookingRelocationDefaults";
+import { defaultRelocationDate, relocationDateBounds } from "@/lib/bookingRelocationDefaults";
+import { describeDifference, figuresFor, rateChoices, rateModeToSend } from "@/lib/bookingRelocation";
 import { hotelDateKey } from "@/lib/hotelDate";
 import { sortRoomsByName, sortUnitsByLabel } from "@/lib/sortRooms";
+import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
-import type { Booking, BookingScheduleQuote, Room, RoomUnit } from "@/lib/types";
+import type { Booking, RelocationQuote, RelocationRateMode, Room, RoomUnit } from "@/lib/types";
 
 // The room-moving controls of a booking: relocate from a date, undo a relocation, reprice a segment.
-// One copy, used by the calendar's side panel (BookingCardPanel.tsx) and the full booking page
-// (BookingRoomsCard.tsx) - the page used to have neither relocation nor a way to reprice, so the same
-// stay could be moved from the calendar but not from its own page.
+// One copy, used by the calendar's side panel (BookingCardPanel.tsx), the full booking page
+// (BookingRoomsCard.tsx) and - as a dialog - by a bar dropped on another room in the calendar
+// (RelocationDialog below). The page used to have neither relocation nor a way to reprice, so the
+// same stay could be moved from the calendar but not from its own page.
 
 // Relocating to a different room *type* is a normal front-desk operation (upgrade, downgrade,
 // or moving someone out of a broken room) — the backend has never restricted `relocate` to the
@@ -24,14 +27,41 @@ import type { Booking, BookingScheduleQuote, Room, RoomUnit } from "@/lib/types"
 // *current* type, for SingleSegmentScheduleEditor/EdgeSegmentScheduleEditor which can only ever
 // change the room-unit within the segment's existing type — schedule changes never carry a
 // roomId, see BookingWriter#resolveScheduleTarget).
-export function RelocateForm({ booking, canManage, onSaved }: { booking: Booking; canManage: boolean; onSaved: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [effectiveDate, setEffectiveDate] = useState("");
+//
+// A move may start on any night of the stay, the first one included (a guest arriving today): the
+// server then changes the whole segment's room instead of splitting it. Every figure on screen
+// comes from the server's quote (lib/bookingRelocation.ts only picks and formats) - this form
+// never subtracts one price from another.
+
+/** A room (and unit) already chosen elsewhere - the calendar drop - so the pickers are not shown. */
+export type RelocationPreset = { effectiveDate: string; roomId: string; roomUnitId: string; roomUnitLabel: string };
+
+export function RelocationPanel({
+  booking,
+  canManage,
+  preset,
+  onClose,
+  onSaved,
+}: {
+  booking: Booking;
+  canManage: boolean;
+  preset?: RelocationPreset;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const stayStart = booking.segments[0].checkIn;
+  const stayEnd = booking.segments[booking.segments.length - 1].checkOut;
+  const todayKey = hotelDateKey(new Date());
+  // A CASHIER cannot move a guest from a day in the past (the server answers 403); a manager can.
+  const bounds = relocationDateBounds(todayKey, stayStart, stayEnd, canManage);
+
+  const [effectiveDate, setEffectiveDate] = useState(preset?.effectiveDate ?? defaultRelocationDate(todayKey, stayStart, stayEnd));
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [roomId, setRoomId] = useState(booking.roomId);
+  const [roomId, setRoomId] = useState(preset?.roomId ?? booking.roomId);
   const [roomUnits, setRoomUnits] = useState<RoomUnit[]>([]);
-  const [roomUnitId, setRoomUnitId] = useState("");
-  const [quote, setQuote] = useState<BookingScheduleQuote | null>(null);
+  const [roomUnitId, setRoomUnitId] = useState(preset?.roomUnitId ?? "");
+  const [quote, setQuote] = useState<RelocationQuote | null>(null);
+  const [pickedMode, setPickedMode] = useState<RelocationRateMode | null>(null);
   const [status, setStatus] = useState<"idle" | "quoting" | "ready" | "error" | "applying">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -39,20 +69,20 @@ export function RelocateForm({ booking, canManage, onSaved }: { booking: Booking
   // changes mid-session, and re-fetching on every keystroke elsewhere in the panel would be
   // wasteful. Types with zero active units are left out: nothing to relocate into.
   useEffect(() => {
-    if (!open) return;
+    if (preset) return; // the target was chosen by the drop
     fetch(`${ADMIN_API_URL}/rooms`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : []))
       .then((data: Room[]) => setRooms(sortRoomsByName(data.filter((r) => r.activeUnitCount > 0))))
       .catch(() => setRooms([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, []);
 
   // Re-fetched whenever the target type changes — units belong to one type, so the previous
   // type's list is meaningless once roomId moves. Still MANAGER+-gated like every other
   // room-unit picker in this panel; a CASHIER can relocate but not browse/pick physical units,
   // same restriction the same-type picker already had (relocate can still target "no unit yet").
   useEffect(() => {
-    if (!open || !canManage) {
+    if (preset || !canManage) {
       setRoomUnits([]);
       return;
     }
@@ -60,24 +90,21 @@ export function RelocateForm({ booking, canManage, onSaved }: { booking: Booking
       .then((r) => (r.ok ? r.json() : []))
       .then((units: RoomUnit[]) => setRoomUnits(sortUnitsByLabel(units.filter((u: RoomUnit) => u.isActive))))
       .catch(() => setRoomUnits([]));
-  }, [open, canManage, roomId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManage, roomId]);
 
-  const selectedRoomName = rooms.find((r) => r.id === roomId)?.name ?? booking.room.name;
-  const isCrossType = roomId !== booking.roomId;
-  const priceDelta = quote ? Number(quote.totalPrice) - Number(booking.totalPrice) : 0;
-
-  function openForm() {
-    setRoomId(booking.roomId);
-    // Today when the move can start today, else the nearest day the stay allows - an empty date left
-    // the preview button disabled with no hint why.
-    setEffectiveDate(defaultRelocationDate(hotelDateKey(new Date()), booking.segments[0].checkIn, booking.segments[booking.segments.length - 1].checkOut));
-    setOpen(true);
-  }
+  const selectedRoomName = rooms.find((r) => r.id === roomId)?.name ?? (roomId === booking.roomId ? booking.room.name : null);
 
   function handleRoomChange(nextRoomId: string) {
     setRoomId(nextRoomId);
     setRoomUnitId(""); // the previous unit belongs to the old type, never valid for the new one
+    invalidate();
+  }
+
+  function invalidate() {
     setQuote(null);
+    setPickedMode(null);
+    setError(null);
     setStatus("idle");
   }
 
@@ -96,113 +123,159 @@ export function RelocateForm({ booking, canManage, onSaved }: { booking: Booking
   }
 
   async function handleApply() {
+    if (!quote) return;
     setStatus("applying");
-    const result = await applyBookingRelocation(booking.id, { effectiveDate, roomId, roomUnitId: roomUnitId || null });
+    setError(null);
+    const result = await applyBookingRelocation(booking.id, {
+      effectiveDate,
+      roomId,
+      roomUnitId: roomUnitId || null,
+      rateMode: rateModeToSend(quote, pickedMode),
+    });
     if (!result.ok) {
+      // The form stays as it is, with the preview, so the desk can fix the cause and try again.
       setError(result.error);
-      setStatus("error");
+      setStatus("ready");
       return;
     }
-    setOpen(false);
-    setEffectiveDate("");
-    setRoomUnitId("");
-    setQuote(null);
-    setStatus("idle");
     onSaved();
+    onClose();
   }
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={openForm}
-        className="mt-3 text-xs text-sea hover:text-coral transition-colors underline underline-offset-4"
-      >
-        Relocate to another room
-      </button>
-    );
-  }
+  const choices = quote ? rateChoices(quote) : [];
+  const modeToSend = quote ? rateModeToSend(quote, pickedMode) : undefined;
+  const figures = quote ? figuresFor(quote, modeToSend) : null;
+  const change = figures ? describeDifference(figures.difference) : null;
 
   return (
-    <div className="mt-3 bg-ink border border-cream/10 rounded-xl p-4 space-y-3">
+    <div className="bg-ink border border-cream/10 rounded-xl p-4 space-y-3">
       <p className="eyebrow text-cream/50">Relocate from a date</p>
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Effective date</label>
         <input
           type="date"
-          min={booking.segments[0].checkIn}
-          max={booking.segments[booking.segments.length - 1].checkOut}
+          min={bounds.min}
+          max={bounds.max}
           value={effectiveDate}
           onChange={(e) => {
             setEffectiveDate(e.target.value);
-            setStatus("idle");
+            invalidate();
           }}
           className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
         />
+        <p className="text-[11px] text-cream/40 mt-1">
+          The first night in the new room. Nights before it stay where the guest slept{canManage ? "" : "; a move can start today at the earliest"}.
+        </p>
       </div>
-      <div>
-        <label className="eyebrow text-cream/60 block mb-1">New room type</label>
-        <select
-          value={roomId}
-          onChange={(e) => handleRoomChange(e.target.value)}
-          className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
-        >
-          {/* The booking's current type is always offered even if it has since run out of
-              active units elsewhere (rooms list filters those out) - staying in the same type
-              (moving to a different physical room within it) must never become unpickable. */}
-          {!rooms.some((r) => r.id === booking.roomId) && <option value={booking.roomId}>{booking.room.name}</option>}
-          {rooms.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      {canManage && (
-        <div>
-          <label className="eyebrow text-cream/60 block mb-1">New room unit</label>
-          <select
-            value={roomUnitId}
-            onChange={(e) => {
-              setRoomUnitId(e.target.value);
-              setStatus("idle");
-            }}
-            className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="">Unassigned</option>
-            {roomUnits.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.label}
-              </option>
-            ))}
-          </select>
+      {preset ? (
+        <div className="bg-ink2 rounded-lg px-3 py-2 text-sm">
+          <span className="text-xs text-cream/60">New room </span>
+          <span className="text-cream">{preset.roomUnitLabel}</span>
         </div>
+      ) : (
+        <>
+          <div>
+            <label className="eyebrow text-cream/60 block mb-1">New room type</label>
+            <select
+              value={roomId}
+              onChange={(e) => handleRoomChange(e.target.value)}
+              className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
+            >
+              {/* The booking's current type is always offered even if it has since run out of
+                  active units elsewhere (rooms list filters those out) - staying in the same type
+                  (moving to a different physical room within it) must never become unpickable. */}
+              {!rooms.some((r) => r.id === booking.roomId) && <option value={booking.roomId}>{booking.room.name}</option>}
+              {rooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {canManage && (
+            <div>
+              <label className="eyebrow text-cream/60 block mb-1">New room unit</label>
+              <select
+                value={roomUnitId}
+                onChange={(e) => {
+                  setRoomUnitId(e.target.value);
+                  invalidate();
+                }}
+                className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="">Unassigned</option>
+                {roomUnits.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Same reasoning as BookingScheduleEditor: a rejected quote's totalPrice/nights are 0, not
-          absent - showing them next to the rejection reason would read as "the total is now
-          ฿0", not "nothing was priced". Only the target type and reason belong on screen here
-          when available is false. */}
-      {status === "ready" && quote && quote.available && (
-        <div className="bg-ink2 rounded-lg px-3 py-2 space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-cream/60">New room type</span>
-            <span className={`text-sm ${isCrossType ? "text-coral font-medium" : "text-cream"}`}>{selectedRoomName}</span>
+      {/* Same reasoning as BookingScheduleEditor: a rejected quote's totalPrice/nights are not a
+          price - showing them next to the rejection reason would read as "the total is now ฿0",
+          not "nothing was priced". Only the reason belongs on screen when available is false. */}
+      {status !== "idle" && status !== "quoting" && quote && quote.available && figures && change && (
+        <div className="bg-ink2 rounded-lg px-3 py-2 space-y-2">
+          {quote.wholeSegment && (
+            <p className="text-[11px] text-cream/50">Starts on the first night of this part of the stay, so all of it moves to the new room.</p>
+          )}
+          {quote.sameRoomType ? (
+            <p className="text-xs text-cream/70">Same room type – price unchanged</p>
+          ) : (
+            <fieldset className="space-y-1.5">
+              <legend className="text-xs text-cream/60 mb-1">Price of the moved {quote.nights === 1 ? "night" : `${quote.nights} nights`}{selectedRoomName ? ` in ${selectedRoomName}` : ""}</legend>
+              {choices.map((c) => {
+                const text = describeDifference(c.difference);
+                const checked = modeToSend === c.mode;
+                return (
+                  <label
+                    key={c.mode}
+                    className={`flex items-start gap-2 rounded-lg border px-3 py-2 ${c.allowed ? "cursor-pointer" : "opacity-60"} ${
+                      checked ? "border-coral/60 bg-coral/5" : "border-cream/10"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="relocation-rate"
+                      className="mt-1"
+                      checked={checked}
+                      disabled={!c.allowed}
+                      onChange={() => setPickedMode(c.mode)}
+                    />
+                    <span className="flex-1 text-sm">
+                      <span className="block text-cream">{c.mode === "NEW_RATE" ? "Apply new rate" : "Keep original rate"}</span>
+                      <span className="block text-[11px] text-cream/50">
+                        {c.mode === "NEW_RATE"
+                          ? "Paid upgrade or downgrade: the new room's price from today."
+                          : c.allowed
+                            ? "Complimentary upgrade or a move the hotel caused: the nights keep their agreed price."
+                            : "Only a manager can keep the original rate."}
+                      </span>
+                    </span>
+                    <span className="text-right text-sm">
+                      <span className="block font-display italic text-coral">฿{Number(c.total).toLocaleString("en-US")}</span>
+                      <span className={`block text-[11px] ${text.tone === "up" ? "text-coral" : text.tone === "down" ? "text-sea" : "text-cream/50"}`}>{text.text}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </fieldset>
+          )}
+          <div className="flex items-center justify-between pt-1.5 border-t border-cream/10">
+            <span className="text-xs text-cream/60">Current total</span>
+            <span className="text-sm text-cream">฿{Number(quote.currentTotalPrice).toLocaleString("en-US")}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-cream/60">New booking total</span>
-            <span className="font-display italic text-xl text-coral">฿{Number(quote.totalPrice).toLocaleString("en-US")}</span>
+            <span className="font-display italic text-xl text-coral">฿{Number(figures.total).toLocaleString("en-US")}</span>
           </div>
-          {/* Same-type relocation (moving physical room, not room type) always prices out to a
-              zero difference - rate plans are per room type, not per unit, so two units of the
-              same type on the same dates always cost the same. A cross-type move is exactly the
-              operation that changes this number, so it's called out explicitly rather than left
-              for reception to notice by comparing two totals themselves. */}
-          <div className="flex items-center justify-between pt-1.5 border-t border-cream/10">
+          <div className="flex items-center justify-between">
             <span className="text-xs text-cream/60">Change vs. current total</span>
-            <span className={`text-sm font-medium ${priceDelta === 0 ? "text-cream/50" : priceDelta > 0 ? "text-coral" : "text-sea"}`}>
-              {priceDelta === 0 ? "No change" : `${priceDelta > 0 ? "+" : "−"}฿${Math.abs(priceDelta).toLocaleString("en-US")}`}
-            </span>
+            <span className={`text-sm font-medium ${change.tone === "up" ? "text-coral" : change.tone === "down" ? "text-sea" : "text-cream/50"}`}>{change.text}</span>
           </div>
         </div>
       )}
@@ -210,14 +283,14 @@ export function RelocateForm({ booking, canManage, onSaved }: { booking: Booking
       {error && <p className="text-xs text-coral">{error}</p>}
 
       <div className="flex gap-2 flex-wrap">
-        {status === "ready" ? (
+        {(status === "ready" || status === "applying") && quote ? (
           <button
             type="button"
             onClick={handleApply}
-            disabled={!quote?.available || status === ("applying" as typeof status)}
+            disabled={!quote.available || status === "applying"}
             className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-4 py-2 text-xs font-medium disabled:opacity-60"
           >
-            Confirm relocation
+            {status === "applying" ? "Moving…" : "Confirm relocation"}
           </button>
         ) : (
           <button
@@ -229,13 +302,57 @@ export function RelocateForm({ booking, canManage, onSaved }: { booking: Booking
             {status === "quoting" ? "Pricing…" : "Preview relocation"}
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="text-xs text-cream/50 hover:text-cream transition-colors"
-        >
+        <button type="button" onClick={onClose} className="text-xs text-cream/50 hover:text-cream transition-colors">
           Cancel
         </button>
+      </div>
+    </div>
+  );
+}
+
+export function RelocateForm({ booking, canManage, onSaved }: { booking: Booking; canManage: boolean; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-3 text-xs text-sea hover:text-coral transition-colors underline underline-offset-4"
+      >
+        Relocate to another room
+      </button>
+    );
+  }
+  return (
+    <div className="mt-3">
+      <RelocationPanel booking={booking} canManage={canManage} onClose={() => setOpen(false)} onSaved={onSaved} />
+    </div>
+  );
+}
+
+// The same form as a dialog, for a bar dropped on another room's row in the calendar: the drop only
+// says where the guest should go, and this is where the date, the rate and the new total are
+// confirmed before anything is written (a drag never changes a stay without a confirmation).
+export function RelocationDialog({
+  booking,
+  canManage,
+  preset,
+  onClose,
+  onSaved,
+}: {
+  booking: Booking;
+  canManage: boolean;
+  preset: RelocationPreset;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  useCloseOnBrowserBack(true, onClose);
+  return (
+    <div className="fixed inset-0 z-[60] bg-ink/80 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label="Relocate guest" className="max-w-md w-full text-left" onClick={(e) => e.stopPropagation()}>
+        <p className="eyebrow text-coral mb-2">Relocate {booking.guestName}</p>
+        <RelocationPanel booking={booking} canManage={canManage} preset={preset} onClose={onClose} onSaved={onSaved} />
       </div>
     </div>
   );

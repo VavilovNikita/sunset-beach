@@ -3,13 +3,13 @@
 // (same ok/error result shape, same adminRequest use) so the calendar grid and the booking
 // card panel read these the same way the schedule quote/apply calls already do.
 import { adminRequest } from "@/lib/adminFetch";
-import type { Booking, BookingScheduleQuote, RelocationInput, RelocationUndoInput } from "@/lib/types";
+import type { Booking, RelocationInput, RelocationQuote, RelocationUndoInput } from "@/lib/types";
 
-export type RelocationQuoteResult = { ok: true; quote: BookingScheduleQuote } | { ok: false; error: string };
+export type RelocationQuoteResult = { ok: true; quote: RelocationQuote } | { ok: false; error: string };
 export type RelocationApplyResult = { ok: true; booking: Booking } | { ok: false; error: string };
 
 export async function quoteBookingRelocation(bookingId: string, input: RelocationInput): Promise<RelocationQuoteResult> {
-  const result = await adminRequest<BookingScheduleQuote>(
+  const result = await adminRequest<RelocationQuote>(
     `/bookings/${bookingId}/relocate/quote`,
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) },
     "Could not price this relocation."
