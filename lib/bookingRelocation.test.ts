@@ -72,7 +72,7 @@ describe("figuresFor", () => {
 describe("describeDifference", () => {
   it("formats the server's signed string without doing arithmetic on prices", () => {
     expect(describeDifference("6000.00")).toEqual({ text: "+฿6,000", tone: "up" });
-    expect(describeDifference("-500.50")).toEqual({ text: "−฿500.5", tone: "down" });
+    expect(describeDifference("-500.50")).toEqual({ text: "−฿500.50", tone: "down" });
     expect(describeDifference("0.00")).toEqual({ text: "No change", tone: "none" });
   });
 });

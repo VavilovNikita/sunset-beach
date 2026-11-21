@@ -21,6 +21,7 @@ import { roomStops } from "@/lib/bookingRooms";
 import { formatDateRange, formatTimestamp, formatTimestampDate } from "@/lib/formatDate";
 import type { AuditLogPage, Booking, RoomUnit } from "@/lib/types";
 import type { BookingPosOrder, Folio, FolioPayment } from "@/lib/posTypes";
+import { formatBaht } from "@/lib/money";
 
 export default async function AdminBookingDetailPage({ params }: { params: { id: string } }) {
   // GET /bookings/{id} is CASHIER+ on the backend — guard the whole page
@@ -162,11 +163,11 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             <span className="text-cream/40">Purpose:</span> {BOOKING_PURPOSE_LABELS[booking.purpose]}
           </p>
           <p>
-            <span className="text-cream/40">Total:</span> ฿{Number(booking.totalPrice).toLocaleString("en-US")}
+            <span className="text-cream/40">Total:</span> {formatBaht(booking.totalPrice)}
             {Number(booking.earlyDepartureFee ?? 0) > 0 && (
               <span className="text-cream/40">
                 {" "}
-                + ฿{Number(booking.earlyDepartureFee).toLocaleString("en-US")} early departure
+                + {formatBaht(booking.earlyDepartureFee)} early departure
               </span>
             )}
           </p>
@@ -258,7 +259,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
                 <FolioLine label={`POS room charges (${folio.roomChargeCount})`} amount={folio.roomChargesGross} />
                 <div className="flex items-center justify-between pt-1 text-cream/80">
                   <span>Total charged</span>
-                  <span>฿{Number(folio.folioTotal).toLocaleString("en-US")}</span>
+                  <span>{formatBaht(folio.folioTotal)}</span>
                 </div>
                 {Number(folio.paidTotal) > 0 && <FolioLine label="Paid at the desk" amount={folio.paidTotal} negative />}
                 {Number(folio.settledOutside) > 0 && (
@@ -272,13 +273,13 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
                     Number(folio.balanceDue) <= 0 ? "text-sea" : booking.owes === true ? "text-coral" : "text-cream"
                   }`}
                 >
-                  ฿{Number(folio.balanceDue).toLocaleString("en-US")}
+                  {formatBaht(folio.balanceDue)}
                 </span>
               </div>
               {Number(folio.creditBalance) > 0 && (
                 <p className="mt-2 text-sm text-amber-400">
-                  ฿{Number(folio.creditBalance).toLocaleString("en-US")} was collected beyond what&rsquo;s charged (the stay got
-                  shorter after it was paid). There&rsquo;s no refund record in the system — settle it with the guest and note it.
+                  {formatBaht(folio.creditBalance)} was collected beyond what&rsquo;s charged &mdash; the
+                  price fell after it was paid. There&rsquo;s no refund record in the system — settle it with the guest and note it.
                 </p>
               )}
               <FolioPaymentPanel bookingId={booking.id} outstanding={folio.balanceDue} payments={folioPayments} />
@@ -303,7 +304,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
                   </p>
                   <p className="text-xs text-cream/40">{formatTimestamp(po.paidAt)}</p>
                 </div>
-                <span className="text-cream shrink-0">฿{Number(po.amount).toLocaleString("en-US")}</span>
+                <span className="text-cream shrink-0">{formatBaht(po.amount)}</span>
               </Link>
             ))}
           </div>
@@ -342,7 +343,7 @@ function FolioLine({ label, amount, negative = false }: { label: string; amount:
     <div className="flex items-center justify-between">
       <span>{label}</span>
       <span>
-        {negative ? "−" : ""}฿{Number(amount).toLocaleString("en-US")}
+        {negative ? "−" : ""}{formatBaht(amount)}
       </span>
     </div>
   );

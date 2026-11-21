@@ -14,6 +14,7 @@ import { SPA_SECTION } from "@/lib/adminNav";
 import { SPA_MENU_TAB } from "@/lib/posMenu";
 import type { MenuItem, Order, SpaAppointment, SpaAppointmentStatus } from "@/lib/posTypes";
 import { formatDate } from "@/lib/formatDate";
+import { formatBaht } from "@/lib/money";
 
 // Side panel for one appointment clicked on the grid - same shell as BookingCardPanel.tsx (no
 // dimming backdrop, so the grid stays visible while working this appointment; click-outside
@@ -246,7 +247,7 @@ export default function SpaAppointmentPanel({
                     {t.treatmentName} <span className="text-cream/40">({t.durationMinutes} min)</span>
                   </span>
                   <span className="flex items-center gap-2 shrink-0">
-                    <span className="text-cream/60">฿{Number(t.currentPrice).toLocaleString("en-US")}</span>
+                    <span className="text-cream/60">{formatBaht(t.currentPrice)}</span>
                     {canRemoveTreatment && current.treatments.length > 1 && (
                       <button
                         type="button"
@@ -266,7 +267,7 @@ export default function SpaAppointmentPanel({
                 the number that's actually charged (that's computed fresh, live, when a treatment
                 is billed - see lib/spaTreatmentPricing.ts's own comment). */}
             <p className="text-sm text-cream/60 pt-1">
-              Estimated total: ฿{totalCurrentPrice.toLocaleString("en-US")}
+              Estimated total: {formatBaht(totalCurrentPrice)}
             </p>
             {removeTreatmentError && <p className="text-sm text-coral">{removeTreatmentError}</p>}
 
@@ -279,7 +280,7 @@ export default function SpaAppointmentPanel({
                 >
                   {availableTreatments.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.name} ({t.durationMinutes} min) — ฿{Number(t.price).toLocaleString("en-US")}
+                      {t.name} ({t.durationMinutes} min) — {formatBaht(t.price)}
                     </option>
                   ))}
                 </select>

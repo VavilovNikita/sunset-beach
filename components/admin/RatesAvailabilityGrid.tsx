@@ -22,6 +22,8 @@ import {
 } from "@/lib/ratesGrid";
 import type { AvailabilityDay, PricingResponse } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
+import { formatBaht } from "@/lib/money";
+import { normalizeMoneyInput } from "@/lib/moneyInput";
 
 type Room = { id: string; name: string };
 
@@ -41,9 +43,6 @@ const WEEKDAY_LETTER = ["S", "M", "T", "W", "T", "F", "S"];
 const DAY_COL_PX = 64;
 const LABEL_COL_PX = 168;
 
-function formatBaht(n: number) {
-  return `฿${n.toLocaleString("en-US")}`;
-}
 
 function toneClass(tone: AvailabilityTone) {
   switch (tone) {
@@ -314,7 +313,7 @@ export default function RatesAvailabilityGrid({
                       selected={view === "availability" && selectedDay?.roomId === room.id && selectedDay.date === cell.date}
                       editing={editing && editing.roomId === room.id && editing.date === cell.date ? editing : null}
                       onClick={() => onCellClick(room.id, cell)}
-                      onEditChange={(value) => setEditing((e) => (e ? { ...e, value, error: null } : e))}
+                      onEditChange={(value) => setEditing((e) => (e ? { ...e, value: normalizeMoneyInput(value), error: null } : e))}
                       onEditSave={saveInlinePrice}
                       onEditCancel={() => setEditing(null)}
                     />

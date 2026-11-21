@@ -5,6 +5,7 @@ import { ADMIN_API_URL, resolveImageUrl } from "@/lib/backend";
 import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import DeleteButton from "@/components/admin/DeleteButton";
 import type { Room } from "@/lib/types";
+import { formatBaht } from "@/lib/money";
 
 export default async function AdminRoomsPage() {
   // GET /rooms is CASHIER+ on the backend; writing (create/edit/delete a
@@ -53,7 +54,7 @@ export default async function AdminRoomsPage() {
               <p className="font-display text-lg truncate">{room.name}</p>
               <p className="text-sm text-cream/60">
                 {room.capacity} guests · {room.activeUnitCount} active {room.activeUnitCount === 1 ? "room" : "rooms"}{" "}
-                · ฿{Number(room.basePrice).toLocaleString("en-US")}/night base
+                · {formatBaht(room.basePrice)}/night base
               </p>
             </div>
             {canManage && (

@@ -41,6 +41,7 @@ import type { Role } from "@/lib/session";
 import { formatTimestamp } from "@/lib/formatDate";
 import { MAX_LINE_QUANTITY, canAddOne } from "@/lib/orderQuantity";
 import type { Order, MenuItem, PaymentMethod, PrintAttemptResult, Zone } from "@/lib/posTypes";
+import { formatBaht } from "@/lib/money";
 
 const ROLE_LABELS: Record<Role, string> = { WAITER: "Waiter", CASHIER: "Cashier", MANAGER: "Manager", ADMIN: "Admin" };
 
@@ -378,7 +379,7 @@ function LiveOrderTicket({
             Linked booking →
           </Link>
         )}
-        <span className="font-display italic text-2xl text-coral ml-auto">฿{Number(order.total).toLocaleString("en-US")}</span>
+        <span className="font-display italic text-2xl text-coral ml-auto">{formatBaht(order.total)}</span>
       </div>
 
       {/* Nothing closes it by itself; this only says it has been forgotten and where it is dealt with. */}
@@ -400,7 +401,7 @@ function LiveOrderTicket({
 
       {lastPayment ? (
         <p className="text-sm text-cream/50">
-          Paid via {PAYMENT_METHOD_LABELS[lastPayment.method]} — ฿{lastPayment.amount.toLocaleString("en-US")}
+          Paid via {PAYMENT_METHOD_LABELS[lastPayment.method]} — {formatBaht(lastPayment.amount)}
         </p>
       ) : (
         // order.paymentMethod (unlike lastPayment) survives a reload - what makes a closed
@@ -421,7 +422,7 @@ function LiveOrderTicket({
                 <p className="text-cream">{menuById.get(item.menuItemId)?.name ?? "Unknown item"}</p>
                 {item.note && <p className="text-xs text-cream/50 mt-0.5">{item.note}</p>}
               </div>
-              <p className="text-cream/70 text-sm shrink-0">฿{(Number(item.unitPrice) * item.quantity).toLocaleString("en-US")}</p>
+              <p className="text-cream/70 text-sm shrink-0">{formatBaht(Number(item.unitPrice) * item.quantity)}</p>
             </div>
             {canEditItems ? (
               <div className="flex items-center justify-between mt-3">
@@ -477,7 +478,7 @@ function LiveOrderTicket({
               <div className="mt-3">
                 <PosAttributedConfirm
                   title={`Void — ${menuById.get(item.menuItemId)?.name ?? "item"}`}
-                  detail={`${voiding.quantity} × ฿${Number(item.unitPrice).toLocaleString("en-US")}`}
+                  detail={`${voiding.quantity} × ${formatBaht(item.unitPrice)}`}
                   actorEmail={actorLabel?.email}
                   actorRole={actorLabel?.role}
                   confirmLabel="Void item"
@@ -552,7 +553,7 @@ function LiveOrderTicket({
               <div className="flex items-start justify-between gap-3">
                 <p className="text-cream/50 line-through">{menuById.get(v.menuItemId)?.name ?? "Unknown item"}</p>
                 <p className="text-cream/40 text-sm shrink-0 line-through">
-                  {v.quantity} × ฿{Number(v.unitPrice).toLocaleString("en-US")}
+                  {v.quantity} × {formatBaht(v.unitPrice)}
                 </p>
               </div>
               <p className="text-xs text-cream/50 mt-1">&ldquo;{v.reason}&rdquo;</p>
@@ -631,7 +632,7 @@ function LiveOrderTicket({
             // on the phone, for the identity check - on the till Card closes straight away.
             <PosAttributedConfirm
               title={`Close order — ${PAYMENT_METHOD_LABELS[confirmingMethod]}`}
-              detail={`฿${Number(order.total).toLocaleString("en-US")}`}
+              detail={`${formatBaht(order.total)}`}
               actorEmail={actorLabel?.email}
               actorRole={actorLabel?.role}
               confirmLabel={actorLabel ? "Confirm payment" : "Close order"}
@@ -812,7 +813,7 @@ function LiveOrderTicket({
           <div className="flex items-center gap-3">
             <div className="shrink-0">
               <p className="eyebrow text-cream/50">Total</p>
-              <p className="font-display italic text-2xl text-coral leading-tight">฿{Number(order.total).toLocaleString("en-US")}</p>
+              <p className="font-display italic text-2xl text-coral leading-tight">{formatBaht(order.total)}</p>
             </div>
             <div className="flex-1 min-w-0">
               {sendButton}

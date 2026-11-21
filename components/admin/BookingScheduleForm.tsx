@@ -33,6 +33,8 @@ export default function BookingScheduleForm({
   canListUnits: boolean;
 }) {
   const router = useRouter();
+  // The server refuses a schedule change on a cancelled booking (409): no button that can only fail.
+  const canEditDates = canEdit && booking.status !== "CANCELLED";
   const [editing, setEditing] = useState(false);
   // "Extend the stay" (the overstay notice, or the Today board's link with #extend-stay) opens the form at once with
   // the departure set to tomorrow; a plain "Change" opens it as it always did.
@@ -40,7 +42,7 @@ export default function BookingScheduleForm({
 
   useEffect(() => {
     function open() {
-      if (!canEdit) return;
+      if (!canEditDates) return;
       setSuggestedCheckOut(extendedCheckOut(new Date()));
       setEditing(true);
     }
@@ -50,7 +52,7 @@ export default function BookingScheduleForm({
     }
     window.addEventListener(EXTEND_STAY_EVENT, open);
     return () => window.removeEventListener(EXTEND_STAY_EVENT, open);
-  }, [canEdit]);
+  }, [canEditDates]);
   const segments = booking.segments;
   const multiSegment = segments.length > 1;
 
@@ -63,7 +65,7 @@ export default function BookingScheduleForm({
     <div className="bg-ink2/40 border border-cream/10 rounded-xl p-5">
       <div className="flex items-center justify-between gap-3 mb-2">
         <p className="eyebrow text-cream/60">Dates &amp; room</p>
-        {canEdit && !editing && (
+        {canEditDates && !editing && (
           <button
             type="button"
             onClick={() => {

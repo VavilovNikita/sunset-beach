@@ -5,8 +5,9 @@ import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { checkOutBooking, previewCheckOut } from "@/lib/bookingOccupancyClient";
 import { formatDate } from "@/lib/formatDate";
 import type { CheckOutInput, CheckOutPreview, CheckOutResult } from "@/lib/types";
+import { formatBaht } from "@/lib/money";
 
-const baht = (value: string | number) => `฿${Number(value).toLocaleString("en-US")}`;
+const baht = (value: string | number) => `${formatBaht(value)}`;
 
 type Charge = "stayed" | "full";
 

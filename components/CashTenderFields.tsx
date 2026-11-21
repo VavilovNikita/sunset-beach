@@ -1,6 +1,8 @@
 "use client";
 
 import { cashTender } from "@/lib/cashTender";
+import { formatBaht } from "@/lib/money";
+import { normalizeMoneyInput } from "@/lib/moneyInput";
 
 // "Received from guest" + the change to hand back, shown before a CASH close is confirmed - on the
 // desktop till and the phone alike (components/OrderTicket.tsx, shared by both).
@@ -26,18 +28,18 @@ export default function CashTenderFields({
         inputMode="decimal"
         autoFocus
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange(normalizeMoneyInput(e.target.value))}
         // The total as a hint, styled so it can't pass for an amount already typed in.
-        placeholder={`at least ${Number(total).toLocaleString("en-US")}`}
+        placeholder={`at least ${formatBaht(total)}`}
         className={`${inputClassName} placeholder:text-cream/25 placeholder:italic`}
       />
       {tender.ok ? (
         <p className="text-sm text-cream">
-          Change to give: <span className="font-display italic text-xl text-coral">฿{Number(tender.change).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+          Change to give: <span className="font-display italic text-xl text-coral">{formatBaht(tender.change)}</span>
         </p>
       ) : tender.reason === "insufficient" ? (
         <p className="text-sm text-amber-400">
-          ฿{Number(tender.short).toLocaleString("en-US", { maximumFractionDigits: 2 })} short of the total — the cash received must cover it to close.
+          {formatBaht(tender.short)} short of the total — the cash received must cover it to close.
         </p>
       ) : (
         value.trim() !== "" ? (
@@ -45,7 +47,7 @@ export default function CashTenderFields({
         ) : (
           // Says why the close button is still disabled, before anyone wonders.
           <p className="text-sm text-cream/50">
-            Enter the cash received — at least ฿{Number(total).toLocaleString("en-US", { maximumFractionDigits: 2 })} — to close the order.
+            Enter the cash received — at least {formatBaht(total)} — to close the order.
           </p>
         )
       )}

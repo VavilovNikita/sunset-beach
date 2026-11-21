@@ -10,6 +10,7 @@ import { isArrivalPassed } from "@/lib/bookingList";
 import { roomTypeSummary, roomUnitSummary } from "@/lib/bookingRooms";
 import { formatDate, formatTimestampDate } from "@/lib/formatDate";
 import type { Booking, BookingSortField, SortDirection } from "@/lib/types";
+import { formatBaht } from "@/lib/money";
 
 const STATUS_STYLES: Record<string, string> = {
   NEW: "bg-sea/15 text-sea",
@@ -123,7 +124,7 @@ export default function BookingsTable({
                 </td>
                 <td className="py-3 pr-4 text-cream/70 whitespace-nowrap">{formatDate(b.checkIn)}</td>
                 <td className="py-3 pr-4 text-cream/70 whitespace-nowrap">{formatDate(b.checkOut)}</td>
-                <td className="py-3 pr-4 text-cream/70">฿{Number(b.totalPrice).toLocaleString("en-US")}</td>
+                <td className="py-3 pr-4 text-cream/70">{formatBaht(b.totalPrice)}</td>
                 <td className="py-3 pr-4">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className={`rounded-full px-2.5 py-1 text-xs ${STATUS_STYLES[b.status] ?? ""}`}>{bookingStatusLabel(b.status)}</span>

@@ -18,7 +18,8 @@ export default function UserForm() {
   const [canLogIn, setCanLogIn] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Role>("MANAGER");
+  const [showPassword, setShowPassword] = useState(false);
+  const [role, setRole] = useState<Role>("WAITER");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -100,14 +101,20 @@ export default function UserForm() {
           </div>
           <div>
             <label className="eyebrow text-cream/60 block mb-1">Temporary password</label>
-            <input
-              type="text"
-              required={canLogIn}
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-transparent border-b border-cream/25 py-2 text-cream focus:outline-none focus:border-coral"
-            />
+            <div className="flex items-center gap-3">
+              <input
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                required={canLogIn}
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-transparent border-b border-cream/25 py-2 text-cream focus:outline-none focus:border-coral"
+              />
+              <button type="button" onClick={() => setShowPassword((v) => !v)} className="text-xs text-sea hover:text-coral shrink-0">
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
           </div>
         </>
       )}

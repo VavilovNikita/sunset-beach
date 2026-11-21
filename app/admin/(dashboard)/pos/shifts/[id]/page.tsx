@@ -7,6 +7,7 @@ import StatCard from "@/components/admin/StatCard";
 import type { ShiftSummary } from "@/lib/posTypes";
 import { formatTimestamp } from "@/lib/formatDate";
 import { shiftOpeningFacts } from "@/lib/shiftReconciliation";
+import { formatBaht } from "@/lib/money";
 
 export default async function ShiftReportPage({ params }: { params: { id: string } }) {
   // GET /shifts/{id} is CASHIER+ on the backend.
@@ -38,9 +39,9 @@ export default async function ShiftReportPage({ params }: { params: { id: string
       </p>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <StatCard label="Cash" value={`฿${Number(shift.totals.cash).toLocaleString("en-US")}`} />
-        <StatCard label="Card" value={`฿${Number(shift.totals.card).toLocaleString("en-US")}`} />
-        <StatCard label="Room charge" value={`฿${Number(shift.totals.roomCharge).toLocaleString("en-US")}`} />
+        <StatCard label="Cash" value={`${formatBaht(shift.totals.cash)}`} />
+        <StatCard label="Card" value={`${formatBaht(shift.totals.card)}`} />
+        <StatCard label="Room charge" value={`${formatBaht(shift.totals.roomCharge)}`} />
         <StatCard label="Payments" value={String(shift.totals.paymentCount)} />
       </div>
 

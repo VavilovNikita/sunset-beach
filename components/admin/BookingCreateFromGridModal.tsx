@@ -31,6 +31,7 @@ import { quoteStaffBooking } from "@/lib/staffBookingQuoteClient";
 import type { Booking, BookingChannel, BookingPurpose, BookingScheduleQuote, Guest, StaffBookingCreateInput } from "@/lib/types";
 import BookingPurposePartyFields from "@/components/admin/BookingPurposePartyFields";
 import GuestSearchPicker from "@/components/admin/GuestSearchPicker";
+import { formatBaht } from "@/lib/money";
 
 const QUOTE_DEBOUNCE_MS = 300;
 
@@ -233,7 +234,7 @@ export default function BookingCreateFromGridModal({
             <p className="text-sm text-cream/60">
               {formatDateRange(created.checkIn, created.checkOut)} ({nights} night{nights === 1 ? "" : "s"})
             </p>
-            <p className="font-display italic text-3xl text-coral">฿{Number(created.totalPrice).toLocaleString("en-US")}</p>
+            <p className="font-display italic text-3xl text-coral">{formatBaht(created.totalPrice)}</p>
             {created.warning && <p className="text-sm text-amber-400">{created.warning}</p>}
             {created.guest && <p className="text-xs text-cream/50">Linked to guest card {created.guest.name}.</p>}
             <div className="flex gap-3">
@@ -300,7 +301,7 @@ export default function BookingCreateFromGridModal({
                     <span className="text-cream/60">
                       {quote.nights} night{quote.nights === 1 ? "" : "s"}
                     </span>
-                    <span className="font-display italic text-2xl text-coral">฿{Number(quote.totalPrice).toLocaleString("en-US")}</span>
+                    <span className="font-display italic text-2xl text-coral">{formatBaht(quote.totalPrice)}</span>
                   </div>
                   {!quote.available && <p className="text-xs text-coral mt-1">{quote.reason ?? "This room isn't free for these dates."}</p>}
                 </div>
@@ -311,7 +312,7 @@ export default function BookingCreateFromGridModal({
                   {price.manual ? (
                     <div className="space-y-2">
                       <div className="flex items-baseline justify-between gap-3 text-xs text-cream/50">
-                        <span>{quote ? `Calculated: ฿${Number(quote.totalPrice).toLocaleString("en-US")}` : "Calculated: …"}</span>
+                        <span>{quote ? `Calculated: ${formatBaht(quote.totalPrice)}` : "Calculated: …"}</span>
                         <button
                           type="button"
                           onClick={() => {

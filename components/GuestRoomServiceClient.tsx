@@ -6,6 +6,7 @@ import { submitRoomServiceOrder, addRoomServiceOrderItems } from "@/lib/roomServ
 import type { MenuItem } from "@/lib/posTypes";
 import type { GuestOrderView } from "@/lib/guestOrderTypes";
 import type { GuestBooking } from "@/lib/guestSession";
+import { formatBaht } from "@/lib/money";
 
 const STATUS_LABELS: Record<GuestOrderView["status"], string> = {
   OPEN: "Open",
@@ -124,14 +125,14 @@ export default function GuestRoomServiceClient({ bookings }: { bookings: GuestBo
                   {item.note && <p className="text-xs text-cream/50 mt-0.5">{item.note}</p>}
                 </div>
                 <p className="text-cream/70 text-sm shrink-0">
-                  ฿{(Number(item.unitPrice) * item.quantity).toLocaleString("en-US")}
+                  {formatBaht(Number(item.unitPrice) * item.quantity)}
                 </p>
               </div>
             ))}
           </div>
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-cream/10">
             <p className="text-cream/70 text-sm">Total (added to your room folio)</p>
-            <p className="font-display italic text-xl text-coral">฿{Number(order.total).toLocaleString("en-US")}</p>
+            <p className="font-display italic text-xl text-coral">{formatBaht(order.total)}</p>
           </div>
         </div>
       )}
@@ -166,7 +167,7 @@ export default function GuestRoomServiceClient({ bookings }: { bookings: GuestBo
             className="rounded-xl bg-ink2 border border-cream/10 active:bg-sea/15 active:border-sea/40 transition-colors px-3 py-2.5 text-left disabled:opacity-50"
           >
             <p className="text-cream text-sm leading-snug">{item.name}</p>
-            <p className="text-cream/50 text-xs mt-0.5">{addingId === item.id ? "Adding…" : `฿${Number(item.price).toLocaleString("en-US")}`}</p>
+            <p className="text-cream/50 text-xs mt-0.5">{addingId === item.id ? "Adding…" : `${formatBaht(item.price)}`}</p>
           </button>
         ))}
         {menu && visibleMenuItems.length === 0 && <p className="col-span-2 text-cream/50 text-sm py-2">No items in this category.</p>}

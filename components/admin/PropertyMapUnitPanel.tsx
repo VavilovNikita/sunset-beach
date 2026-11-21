@@ -10,6 +10,7 @@ import { overdueLabel } from "@/lib/overstay";
 import { updateRoomUnitHousekeeping } from "@/lib/roomUnitHousekeepingClient";
 import type { PropertyMapUnit } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
+import { formatBaht } from "@/lib/money";
 
 // Side panel for a single room clicked on the property map - same shell as BookingCardPanel.tsx
 // (no dimming backdrop, so the plan stays visible while working this room; click-outside closes).
@@ -144,7 +145,7 @@ export default function PropertyMapUnitPanel({
               )}
               {owed > 0 && (
                 <p className="text-coral">
-                  ฿{owed.toLocaleString("en-US")} owed{isCheckedIn ? " — collect before checkout" : ""}
+                  {formatBaht(owed)} owed{isCheckedIn ? " — collect before checkout" : ""}
                 </p>
               )}
               <Link

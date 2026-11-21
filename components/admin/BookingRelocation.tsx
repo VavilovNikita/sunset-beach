@@ -12,6 +12,9 @@ import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 import PaidPriceNotice from "@/components/admin/PaidPriceNotice";
 import type { Booking, RelocationQuote, RelocationRateMode, RepriceQuote, Room, RoomUnit } from "@/lib/types";
+import { formatBaht } from "@/lib/money";
+import { fetchAvailability } from "@/lib/availabilityClient";
+import { busyUnits, monthsOfRange, movedRange } from "@/lib/relocationUnits";
 
 // The room-moving controls of a booking: relocate from a date, undo a relocation, reprice a segment.
 // One copy, used by the calendar's side panel (BookingCardPanel.tsx), the full booking page
@@ -64,6 +67,7 @@ export function RelocationPanel({
   const [roomId, setRoomId] = useState(preset?.roomId ?? booking.roomId);
   const [roomUnits, setRoomUnits] = useState<RoomUnit[]>([]);
   const [roomUnitId, setRoomUnitId] = useState(preset?.roomUnitId ?? "");
+  const [busy, setBusy] = useState<Map<string, string>>(new Map());
   const [quote, setQuote] = useState<RelocationQuote | null>(null);
   const [pickedMode, setPickedMode] = useState<RelocationRateMode | null>(null);
   const [status, setStatus] = useState<"idle" | "quoting" | "ready" | "error" | "applying">("idle");
@@ -96,6 +100,34 @@ export function RelocationPanel({
       .catch(() => setRoomUnits([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
+
+  // Which rooms are taken on the nights that would move, from the server's availability (the same data the calendar
+  // reads). Only a hint: a failed read marks nothing, and the server still decides when the move is applied.
+  const holderSegment = booking.segments.find((s) => s.checkIn <= effectiveDate && effectiveDate < s.checkOut);
+  const currentUnitId = holderSegment?.roomUnitId ?? null;
+  useEffect(() => {
+    if (preset || !effectiveDate) {
+      setBusy(new Map());
+      return;
+    }
+    let cancelled = false;
+    const range = movedRange(booking.segments, effectiveDate);
+    Promise.all(monthsOfRange(range.from, range.toExclusive).map((month) => fetchAvailability(roomId, month))).then((results) => {
+      if (cancelled) return;
+      const days = results.flatMap((r) => (r.ok ? r.days : []));
+      setBusy(busyUnits(days, range.from, range.toExclusive, booking.id));
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, effectiveDate]);
+
+  // A room chosen earlier that turns out taken for the new dates is dropped from the choice, not sent to be refused.
+  useEffect(() => {
+    if (roomUnitId && busy.has(roomUnitId)) setRoomUnitId("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy]);
 
   // A guest in the house moved from today must be given a room - the server refuses it otherwise.
   const unitRequired = relocationNeedsUnit(booking.occupancyStatus, effectiveDate, todayKey);
@@ -218,11 +250,16 @@ export function RelocationPanel({
               className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
             >
               <option value="">{unitRequired ? "Choose a room…" : "Unassigned"}</option>
-              {roomUnits.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.label}
-                </option>
-              ))}
+              {roomUnits
+                .filter((u) => u.id !== currentUnitId)
+                .map((u) => {
+                  const taken = busy.get(u.id);
+                  return (
+                    <option key={u.id} value={u.id} disabled={taken !== undefined}>
+                      {taken !== undefined ? `${u.label} — ${taken}` : u.label}
+                    </option>
+                  );
+                })}
             </select>
             {unitRequired && <p className="text-[11px] text-cream/40 mt-1">A guest who is in the house needs a room.</p>}
           </div>
@@ -242,7 +279,7 @@ export function RelocationPanel({
           ) : (
             <fieldset className="space-y-1.5">
               <legend className="text-xs text-cream/60 mb-1">Price of the moved {quote.nights === 1 ? "night" : `${quote.nights} nights`}{selectedRoomName ? ` in ${selectedRoomName}` : ""}</legend>
-              {choices.map((c) => {
+              {choices.filter((c) => c.allowed).map((c) => {
                 const text = describeDifference(c.difference);
                 const checked = modeToSend === c.mode;
                 return (
@@ -267,25 +304,26 @@ export function RelocationPanel({
                           ? "Paid upgrade or downgrade: the new room's price from today."
                           : c.allowed
                             ? "Complimentary upgrade or a move the hotel caused: the nights keep their agreed price."
-                            : "Only a manager can keep the original rate."}
+                            : ""}
                       </span>
                     </span>
                     <span className="text-right text-sm">
-                      <span className="block font-display italic text-coral">฿{Number(c.total).toLocaleString("en-US")}</span>
+                      <span className="block font-display italic text-coral">{formatBaht(c.total)}</span>
                       <span className={`block text-[11px] ${text.tone === "up" ? "text-coral" : text.tone === "down" ? "text-sea" : "text-cream/50"}`}>{text.text}</span>
                     </span>
                   </label>
                 );
               })}
+              {choices.some((c) => !c.allowed) && <p className="text-[11px] text-cream/50">Only a manager can keep the original rate.</p>}
             </fieldset>
           )}
           <div className="flex items-center justify-between pt-1.5 border-t border-cream/10">
             <span className="text-xs text-cream/60">Current total</span>
-            <span className="text-sm text-cream">฿{Number(quote.currentTotalPrice).toLocaleString("en-US")}</span>
+            <span className="text-sm text-cream">{formatBaht(quote.currentTotalPrice)}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-cream/60">New booking total</span>
-            <span className="font-display italic text-xl text-coral">฿{Number(figures.total).toLocaleString("en-US")}</span>
+            <span className="font-display italic text-xl text-coral">{formatBaht(figures.total)}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-cream/60">Change vs. current total</span>
@@ -482,8 +520,8 @@ export function RepriceSegmentButton({ bookingId, segmentId, onSaved }: { bookin
             <p className="text-cream/40">Nothing left to reprice - this segment is entirely in the past.</p>
           ) : (
             <p className="text-cream/70">
-              {quote!.nightsRepriced} night{quote!.nightsRepriced === 1 ? "" : "s"}: ฿
-              {Number(quote!.oldTotalPrice).toLocaleString("en-US")} → ฿{Number(quote!.newTotalPrice).toLocaleString("en-US")}
+              {quote!.nightsRepriced} night{quote!.nightsRepriced === 1 ? "" : "s"}:{" "}
+              {formatBaht(quote!.oldTotalPrice)} → {formatBaht(quote!.newTotalPrice)}
             </p>
           )}
           <PaidPriceNotice reopensPaid={quote!.reopensPaid} paidWarning={quote!.paidWarning} />

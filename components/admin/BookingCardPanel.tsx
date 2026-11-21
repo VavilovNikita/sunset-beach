@@ -27,6 +27,7 @@ import type { Booking, BookingChannel, BookingScheduleQuote, Room, RoomUnit, Aud
 import type { BookingPosOrder, Folio, FolioPaymentInput } from "@/lib/posTypes";
 import { describeAuditEntry } from "@/lib/auditDisplay";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
+import { formatBaht } from "@/lib/money";
 
 // Slide-in panel opened by clicking a bar on the booking calendar grid - deliberately a fixed-
 // width side panel, not a full-screen modal, so reception can still see the grid (neighbouring
@@ -183,22 +184,22 @@ export default function BookingCardPanel({
                 <div className="bg-ink border border-cream/10 rounded-xl p-4 text-sm space-y-1">
                   <div className="flex items-center justify-between text-cream/60">
                     <span>Room{Number(folio.earlyDepartureFee) > 0 ? " + early departure" : ""}</span>
-                    <span>฿{(Number(folio.roomTotal) + Number(folio.earlyDepartureFee)).toLocaleString("en-US")}</span>
+                    <span>{formatBaht(Number(folio.roomTotal) + Number(folio.earlyDepartureFee))}</span>
                   </div>
                   <div className="flex items-center justify-between text-cream/60">
                     <span>POS room charges ({folio.roomChargeCount})</span>
-                    <span>฿{Number(folio.roomChargesGross).toLocaleString("en-US")}</span>
+                    <span>{formatBaht(folio.roomChargesGross)}</span>
                   </div>
                   {Number(folio.paidTotal) + Number(folio.settledOutside) > 0 && (
                     <div className="flex items-center justify-between text-cream/60">
                       <span>Paid</span>
-                      <span>−฿{(Number(folio.paidTotal) + Number(folio.settledOutside)).toLocaleString("en-US")}</span>
+                      <span>−{formatBaht(Number(folio.paidTotal) + Number(folio.settledOutside))}</span>
                     </div>
                   )}
                   <div className="flex items-center justify-between pt-2 mt-2 border-t border-cream/10">
                     <span className="font-display italic text-cream">Balance due</span>
                     <span className={`font-display italic text-2xl ${Number(folio.balanceDue) > 0 ? "text-coral" : "text-sea"}`}>
-                      ฿{Number(folio.balanceDue).toLocaleString("en-US")}
+                      {formatBaht(folio.balanceDue)}
                     </span>
                   </div>
                 </div>
@@ -216,7 +217,7 @@ export default function BookingCardPanel({
                       <p className="text-cream/70 truncate">{po.items.map((i) => `${i.quantity}× ${i.name}`).join(", ")}</p>
                       <div className="flex items-center justify-between text-xs text-cream/40 mt-1">
                         <span>{formatTimestamp(po.paidAt)}</span>
-                        <span className="text-cream">฿{Number(po.amount).toLocaleString("en-US")}</span>
+                        <span className="text-cream">{formatBaht(po.amount)}</span>
                       </div>
                     </div>
                   ))}
@@ -377,7 +378,7 @@ function StatusAndNoteEditor({ booking, folio, onSaved }: { booking: Booking; fo
       </div>
       {needsPaymentDialog(booking.status, status, amountToMarkPaid) && (
         <p className="text-xs text-coral bg-coral/10 border border-coral/30 rounded-lg px-3 py-2">
-          ฿{Number(amountToMarkPaid).toLocaleString("en-US")} is still owed. Saving as Paid asks how it was collected and records that
+          {formatBaht(amountToMarkPaid)} is still owed. Saving as Paid asks how it was collected and records that
           payment with the status.
         </p>
       )}
@@ -501,7 +502,7 @@ function SegmentsSection({
                 {segment.room.name}
                 {segment.roomUnit ? ` — ${segment.roomUnit.label}` : " (unassigned)"}
               </span>
-              <span className="text-cream/60">฿{Number(segment.totalPrice).toLocaleString("en-US")}</span>
+              <span className="text-cream/60">{formatBaht(segment.totalPrice)}</span>
             </div>
             <p className="text-xs text-cream/40 mt-1">
               {formatDateRange(segment.checkIn, segment.checkOut)}

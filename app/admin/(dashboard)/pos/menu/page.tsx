@@ -6,6 +6,7 @@ import { MENU_DEPARTMENT_LABELS } from "@/lib/posOrders";
 import DeleteButton from "@/components/admin/DeleteButton";
 import { filterMenuByName, menuCategoryTabs, resolveSelectedCategory } from "@/lib/menuCategories";
 import type { MenuItem } from "@/lib/posTypes";
+import { formatBaht } from "@/lib/money";
 
 export default async function AdminMenuPage({ searchParams }: { searchParams: { category?: string; q?: string } }) {
   const [user, allItems] = await Promise.all([
@@ -98,7 +99,7 @@ export default async function AdminMenuPage({ searchParams }: { searchParams: { 
               <p className="font-display text-lg truncate">{item.name}</p>
               <p className="text-sm text-cream/60">
                 {query && <span>{item.category} · </span>}
-                ฿{Number(item.price).toLocaleString("en-US")}
+                {formatBaht(item.price)}
                 {!item.isAvailable && " · Unavailable"}
               </p>
             </div>

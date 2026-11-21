@@ -12,6 +12,7 @@ import { hotelDateKey } from "@/lib/hotelDate";
 import { overdueDaysFor, overdueLabel } from "@/lib/overstay";
 import type { Booking } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
+import { formatBaht } from "@/lib/money";
 
 const OCCUPANCY_LABELS: Record<Booking["occupancyStatus"], string> = {
   EXPECTED: "Expected",
@@ -93,6 +94,10 @@ export default function BookingOccupancyPanel({
   const owed = balanceDue !== null && Number(balanceDue) > 0;
   const roomPaidLine = roomPaidButOwesLine(booking.status, booking.settlement, balanceDue);
 
+  // A cancelled booking nobody arrived for has no stay to act on: "Expected" next to "Cancelled" only confuses. (An old
+  // cancelled booking whose guest did check in keeps the panel - that guest still has to be checked out.)
+  if (cancelled && occupancy === "EXPECTED") return null;
+
   return (
     <div className="bg-ink2/40 border border-cream/10 rounded-xl p-4 space-y-3">
       <div className="flex items-center justify-between gap-3">
@@ -103,12 +108,12 @@ export default function BookingOccupancyPanel({
       {roomPaidLine && <p className="text-sm text-amber-400">{roomPaidLine}</p>}
       {owed && booking.owes === true && !roomPaidLine && (
         <p className="text-sm text-coral">
-          Balance due: ฿{Number(balanceDue).toLocaleString("en-US")} — collect it in the folio below.
+          Balance due: {formatBaht(balanceDue)} — collect it in the folio below.
         </p>
       )}
       {/* A stay that has not started owes nothing yet (the server's `owes`): money still to collect, said neutrally, not in red. */}
       {owed && booking.owes !== true && (
-        <p className="text-sm text-cream/70">To pay at check-in ฿{Number(balanceDue).toLocaleString("en-US")}</p>
+        <p className="text-sm text-cream/70">To pay at check-in {formatBaht(balanceDue)}</p>
       )}
 
       {overdue && (

@@ -6,6 +6,7 @@ import { BackendError, resolveImageUrl } from "@/lib/backend";
 import { getRoomQuote } from "@/lib/publicQuote";
 import { getGuestSessionAccount } from "@/lib/guestRbac";
 import type { Room } from "@/lib/types";
+import { formatBaht } from "@/lib/money";
 
 export const metadata = { title: "Confirm your stay — The Sunset Beach Resort & Spa" };
 
@@ -55,7 +56,7 @@ export default async function BookRoomPage({
             unoptimized={room.images[0]?.startsWith("/uploads/")}
           />
           <p className="mt-4 text-sm text-cream/60">
-            Sleeps up to {room.capacity} &middot; from &#3647;{Number(room.basePrice).toLocaleString("en-US")} per night
+            Sleeps up to {room.capacity} &middot; from {formatBaht(room.basePrice)} per night
           </p>
         </div>
         <div className="md:col-span-3">

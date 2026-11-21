@@ -30,7 +30,11 @@ export default function UsersList({ users, sessionUserId }: { users: User[]; ses
   const [showDeactivated, setShowDeactivated] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const deactivatedCount = users.filter((u) => !u.active).length;
-  const visibleUsers = showDeactivated ? users : users.filter((u) => u.active);
+  // A stable order of our own: the server's list is not guaranteed to keep a person where they were after an edit
+  // (ticking a function used to send the row you were editing to the end of its group). By name, then id.
+  const visibleUsers = [...(showDeactivated ? users : users.filter((u) => u.active))].sort(
+    (x, y) => x.name.localeCompare(y.name, "en", { sensitivity: "base" }) || x.id.localeCompare(y.id)
+  );
 
   const groups: { area: StaffArea | null; users: User[] }[] = [
     ...STAFF_AREAS.map((area) => ({ area, users: visibleUsers.filter((u) => u.staffArea === area) })),

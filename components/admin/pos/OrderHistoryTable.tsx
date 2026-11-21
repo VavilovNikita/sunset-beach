@@ -5,6 +5,7 @@ import Link from "next/link";
 import { STATUS_LABELS, STATUS_STYLES, PAYMENT_METHOD_LABELS, orderNumberLabel, ticketTitle } from "@/lib/posOrders";
 import type { Order, Table } from "@/lib/posTypes";
 import { formatTimestamp } from "@/lib/formatDate";
+import { formatBaht } from "@/lib/money";
 
 // Staff filter is client-side, narrowing rows already fetched for the chosen period/status/table -
 // same reasoning as ShiftHistoryTable: GET /users is ADMIN-only, so the dropdown's options come
@@ -83,7 +84,7 @@ export default function OrderHistoryTable({ orders, tables }: { orders: Order[];
                     <span className={`text-xs rounded-full px-2.5 py-1 ${STATUS_STYLES[o.status]}`}>{STATUS_LABELS[o.status]}</span>
                   </td>
                   <td className="py-3 pr-4 text-cream/70">{o.paymentMethod ? PAYMENT_METHOD_LABELS[o.paymentMethod] : "—"}</td>
-                  <td className="py-3 pr-4 text-right text-cream/70">฿{Number(o.total).toLocaleString("en-US")}</td>
+                  <td className="py-3 pr-4 text-right text-cream/70">{formatBaht(o.total)}</td>
                 </tr>
               ))}
             </tbody>

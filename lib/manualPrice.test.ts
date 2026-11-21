@@ -79,3 +79,11 @@ describe("agreedTotalServerError", () => {
     expect(agreedTotalServerError(400, null)).toBeNull();
   });
 });
+
+describe("typing a price with a decimal comma", () => {
+  it("is stored with a dot, so '8000,50' passes validation", () => {
+    const state = editManualPrice(startManualPrice("7000.00"), "8000,50");
+    expect(state.amount).toBe("8000.50");
+    expect(validateManualPrice(state.amount)).toBeNull();
+  });
+});

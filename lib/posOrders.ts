@@ -10,6 +10,7 @@ import type {
   PrintJobStatus,
   PrintDocumentType,
 } from "@/lib/posTypes";
+import { formatBaht } from "@/lib/money";
 
 // Same color mapping as BookingsTable's STATUS_STYLES (lib/types.ts's
 // BookingStatus): OPEN~NEW, SENT~CONFIRMED, PAID/CANCELLED match by name.
@@ -143,5 +144,5 @@ export function validateVoidReason(reason: string): string | null {
 // total (never re-derived from lines here). Null for an empty table or a bill that's still ฿0.
 export function tableBillLabel(orders: { total: string }[]): string | null {
   const sum = orders.reduce((acc, o) => acc + Number(o.total), 0);
-  return sum > 0 ? `฿${sum.toLocaleString("en-US")}` : null;
+  return sum > 0 ? `${formatBaht(sum)}` : null;
 }

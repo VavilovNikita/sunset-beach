@@ -489,7 +489,7 @@ export default function RosterGrid({
         {hiddenCount > 0 ? (
           <>
             <span className="font-medium">{hiddenCount}</span> {hiddenCount === 1 ? "employee has" : "employees have"} no shifts this month and{" "}
-            {showEmptyRows ? "are shown" : "are hidden"} &mdash; show them
+            {showEmptyRows ? "are shown — hide them" : "are hidden — show them"}
           </>
         ) : (
           "Show employees with no shifts this month (0)"

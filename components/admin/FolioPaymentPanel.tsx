@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { recordFolioPayment } from "@/lib/folioPaymentClient";
 import type { FolioPayment, FolioPaymentMethod } from "@/lib/posTypes";
 import { formatTimestamp } from "@/lib/formatDate";
+import { formatBaht } from "@/lib/money";
+import { followOutstanding, startFolioAmount, typeFolioAmount } from "@/lib/folioAmount";
 
 const METHODS: FolioPaymentMethod[] = ["CASH", "CARD", "OTHER"];
 
@@ -27,7 +29,11 @@ export default function FolioPaymentPanel({
 }) {
   const router = useRouter();
   const owed = Number(outstanding);
-  const [amount, setAmount] = useState(outstanding);
+  const [box, setBox] = useState(() => startFolioAmount(outstanding));
+  // The balance moved under this page (relocation, reprice, extension): an untouched amount follows it.
+  const current = followOutstanding(box, outstanding);
+  if (current !== box) setBox(current);
+  const amount = current.amount;
   const [method, setMethod] = useState<FolioPaymentMethod>("CASH");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +60,7 @@ export default function FolioPaymentPanel({
               <span>
                 {p.method} · {formatTimestamp(p.createdAt)}
               </span>
-              <span>฿{Number(p.amount).toLocaleString("en-US")}</span>
+              <span>{formatBaht(p.amount)}</span>
             </div>
           ))}
         </div>
@@ -69,7 +75,7 @@ export default function FolioPaymentPanel({
               inputMode="decimal"
               required
               value={amount}
-              onChange={(e) => setAmount(normalizeMoneyInput(e.target.value))}
+              onChange={(e) => setBox(typeFolioAmount(current, normalizeMoneyInput(e.target.value)))}
               className="w-28 bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
             />
           </div>

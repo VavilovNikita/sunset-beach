@@ -17,6 +17,7 @@ import {
 } from "@/lib/adminNav";
 import { FLYOUT_CLOSED, FLYOUT_CLOSE_DELAY_MS, flyoutReducer } from "@/lib/navFlyout";
 import { STAFF_MANUAL_HREF } from "@/lib/staticPages";
+import { staffLanding } from "@/lib/staffLanding";
 
 // Hover menus only where there is a mouse and room for them. Everything else (touch, phone width) keeps
 // the accordion. Server render and first client render are the accordion; the desktop switches on mount.
@@ -229,10 +230,9 @@ export default function AdminSidebar({ email, role, functions }: { email: string
     return !!active && wrapper.contains(active) && active.matches(":focus-visible");
   }
 
-  const isCashierPlus = role !== "WAITER";
-  // The brand mark is a "go home" link everywhere else in this app - for a WAITER, home isn't
-  // /admin (Dashboard is CASHIER+ for exactly this reason), it's the first item they actually have.
-  const homeHref = isCashierPlus ? "/admin" : (allLinks[0]?.href ?? "/admin/pos");
+  // The brand mark is the "go home" link: home is where this person lands after signing in (lib/staffLanding.ts), not
+  // whichever link happens to be first in their menu (an ENGINEER's logo used to open Maintenance by accident of order).
+  const homeHref = staffLanding(role, functions);
 
   return (
     <aside className="print:hidden w-full md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-cream/10 md:min-h-screen bg-ink2/40">

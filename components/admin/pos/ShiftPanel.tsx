@@ -13,6 +13,7 @@ import StatCard from "@/components/admin/StatCard";
 import { closeNoteMissing, closeNoteRequired, isLongOpenShift, reconcileCash, shiftOpeningFacts } from "@/lib/shiftReconciliation";
 import { longOpenLabel } from "@/lib/posOrders";
 import type { ShiftSummary } from "@/lib/posTypes";
+import { formatBaht } from "@/lib/money";
 
 // Who opened this drawer, when, and with how much - the float is what the close is reconciled
 // against, so it has to be visible for the whole shift, not only in the form that set it.
@@ -48,16 +49,16 @@ function DiscrepancyBlock({ expectedCash, counted, discrepancy }: { expectedCash
     <div className={`max-w-md rounded-xl px-5 py-3 space-y-1 border ${isOff ? "bg-coral/10 border-coral/40" : "bg-ink2/40 border-cream/10"}`}>
       <div className="flex items-center justify-between text-sm">
         <span className="text-cream/60">Expected cash</span>
-        <span className="text-cream">฿{expectedCash.toLocaleString("en-US")}</span>
+        <span className="text-cream">{formatBaht(expectedCash)}</span>
       </div>
       <div className="flex items-center justify-between text-sm">
         <span className="text-cream/60">Counted cash</span>
-        <span className="text-cream">฿{counted.toLocaleString("en-US")}</span>
+        <span className="text-cream">{formatBaht(counted)}</span>
       </div>
       <div className="flex items-center justify-between pt-1 border-t border-cream/10">
         <span className={`text-sm font-medium ${isOff ? "text-coral" : "text-cream/50"}`}>Discrepancy</span>
         <span className={`text-base font-medium ${isOff ? "text-coral" : "text-cream/50"}`}>
-          {discrepancy === 0 ? "None" : `${discrepancy! > 0 ? "+" : "−"}฿${Math.abs(discrepancy!).toLocaleString("en-US")}`}
+          {discrepancy === 0 ? "None" : `${discrepancy! > 0 ? "+" : "−"}${formatBaht(Math.abs(discrepancy!))}`}
         </span>
       </div>
     </div>
@@ -218,13 +219,13 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
     <div className="max-w-2xl">
       <OpeningFacts shift={shift} />
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <StatCard label="Cash" value={`฿${Number(shift.totals.cash).toLocaleString("en-US")}`} />
-        <StatCard label="Card" value={`฿${Number(shift.totals.card).toLocaleString("en-US")}`} />
-        <StatCard label="Room charge" value={`฿${Number(shift.totals.roomCharge).toLocaleString("en-US")}`} />
+        <StatCard label="Cash" value={`${formatBaht(shift.totals.cash)}`} />
+        <StatCard label="Card" value={`${formatBaht(shift.totals.card)}`} />
+        <StatCard label="Room charge" value={`${formatBaht(shift.totals.roomCharge)}`} />
         <StatCard label="Payments" value={String(shift.totals.paymentCount)} />
         {/* Cash taken at reception against a booking's folio - in the drawer, so in expected cash. */}
         {Number(shift.totals.folioCash ?? 0) > 0 && (
-          <StatCard label="Folio cash (reception)" value={`฿${Number(shift.totals.folioCash).toLocaleString("en-US")}`} />
+          <StatCard label="Folio cash (reception)" value={`${formatBaht(shift.totals.folioCash)}`} />
         )}
       </div>
 

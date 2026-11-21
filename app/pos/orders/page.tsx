@@ -4,6 +4,7 @@ import { requireRoleAtLeast } from "@/lib/rbac";
 import { STATUS_LABELS, STATUS_STYLES, PAYMENT_METHOD_LABELS, orderNumberLabel, ticketHeading } from "@/lib/posOrders";
 import type { Order, Shift, Table } from "@/lib/posTypes";
 import { formatTimestamp } from "@/lib/formatDate";
+import { formatBaht } from "@/lib/money";
 
 // Mobile deliberately doesn't offer the admin's full period/status/table/staff filter form (see
 // /admin/pos/orders) - a cashier in the zал reaches for this to look something up from *their own*
@@ -62,7 +63,7 @@ export default async function PosOrderHistoryPage({ searchParams }: { searchPara
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-cream">฿{Number(o.total).toLocaleString("en-US")}</p>
+                <p className="text-cream">{formatBaht(o.total)}</p>
                 <span className={`text-xs rounded-full px-2 py-0.5 ${STATUS_STYLES[o.status]}`}>{STATUS_LABELS[o.status]}</span>
               </div>
             </Link>

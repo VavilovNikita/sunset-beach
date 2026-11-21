@@ -16,6 +16,7 @@ import BookingBreakfastFields from "@/components/admin/BookingBreakfastFields";
 import BookingPurposePartyFields from "@/components/admin/BookingPurposePartyFields";
 import CancelBookingDialog from "@/components/admin/CancelBookingDialog";
 import MarkPaidDialog from "@/components/admin/MarkPaidDialog";
+import { formatBaht } from "@/lib/money";
 
 export default function BookingStatusForm({
   bookingId,
@@ -174,7 +175,7 @@ export default function BookingStatusForm({
           PAID by itself once the room is covered. */}
       {needsPaymentDialog(currentStatus, status, amountToMarkPaid) && (
         <p className="text-sm text-coral bg-coral/10 border border-coral/30 rounded-lg px-3 py-2">
-          ฿{Number(amountToMarkPaid).toLocaleString("en-US")} is still owed. Saving as Paid asks how it was collected and records
+          {formatBaht(amountToMarkPaid)} is still owed. Saving as Paid asks how it was collected and records
           that payment with the status.
         </p>
       )}

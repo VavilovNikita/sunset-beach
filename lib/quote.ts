@@ -5,6 +5,7 @@
 // /pricing days, audit finding M14). Kept free of server-only imports so both sides can share it.
 import { extractApiError } from "@/lib/apiError";
 import type { BookingScheduleQuote } from "@/lib/types";
+import { formatBaht } from "@/lib/money";
 
 export type QuoteResult =
   | { ok: true; quote: BookingScheduleQuote }
@@ -33,5 +34,5 @@ export async function toQuoteResult(res: Response): Promise<QuoteResult> {
 }
 
 export function formatQuoteTotal(quote: BookingScheduleQuote): string {
-  return `฿${Number(quote.totalPrice).toLocaleString("en-US")}`;
+  return `${formatBaht(quote.totalPrice)}`;
 }

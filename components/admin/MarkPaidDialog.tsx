@@ -4,6 +4,7 @@ import { useState } from "react";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { paidPaymentInput, validatePaidPayment } from "@/lib/bookingStatusChange";
 import type { FolioPaymentInput, FolioPaymentMethod } from "@/lib/posTypes";
+import { formatBaht } from "@/lib/money";
 
 const METHODS: { value: FolioPaymentMethod; label: string }[] = [
   { value: "CASH", label: "Cash" },
@@ -57,7 +58,7 @@ export default function MarkPaidDialog({
       onBack={onBack}
     >
       <p className="text-sm text-cream/60 -mt-3">
-        ฿{Number(amountDue).toLocaleString("en-US")} is still owed on this booking. A booking is only marked paid with a payment
+        {formatBaht(amountDue)} is still owed on this booking. A booking is only marked paid with a payment
         behind it - record how it was collected.
       </p>
       <div className="flex gap-3 flex-wrap">
@@ -69,7 +70,7 @@ export default function MarkPaidDialog({
             type="text"
             readOnly
             aria-readonly="true"
-            value={`฿${Number(amount).toLocaleString("en-US")}`}
+            value={`${formatBaht(amount)}`}
             title="The amount owed, as the server worked it out"
             className="w-32 bg-ink/60 border border-cream/10 rounded-lg px-3 py-2 text-sm text-cream/80 cursor-default"
           />

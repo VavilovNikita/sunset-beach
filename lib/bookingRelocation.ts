@@ -2,6 +2,7 @@
 // means. Pure: no React, no fetch, and no money arithmetic - every amount shown is a string the
 // server computed (RelocationQuote); the only thing done with one here is formatting it.
 import type { OccupancyStatus, RelocationQuote, RelocationRateMode } from "@/lib/types";
+import { formatBaht } from "@/lib/money";
 
 export type RateChoice = {
   mode: RelocationRateMode;
@@ -51,8 +52,8 @@ export function describeDifference(difference: string): DifferenceText {
   const negative = difference.startsWith("-");
   const magnitude = negative ? difference.slice(1) : difference;
   if (/^0*(\.0*)?$/.test(magnitude)) return { text: "No change", tone: "none" };
-  const shown = Number(magnitude).toLocaleString("en-US", { maximumFractionDigits: 2 });
-  return negative ? { text: `−฿${shown}`, tone: "down" } : { text: `+฿${shown}`, tone: "up" };
+  const shown = formatBaht(magnitude);
+  return negative ? { text: `−${shown}`, tone: "down" } : { text: `+${shown}`, tone: "up" };
 }
 
 /**

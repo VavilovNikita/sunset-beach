@@ -42,7 +42,7 @@ describe("formatPercent", () => {
 
 describe("formatBaht", () => {
   it("formats a server decimal string", () => {
-    expect(formatBaht("12345.50")).toBe("฿12,345.5");
+    expect(formatBaht("12345.50")).toBe("฿12,345.50");
     expect(formatBaht("0.00")).toBe("฿0");
   });
 });
@@ -51,7 +51,7 @@ describe("formatBahtOrDash", () => {
   it("shows a null ratio as a dash, not ฿0", () => {
     expect(formatBahtOrDash(null)).toBe("—");
     expect(formatBahtOrDash("0.00")).toBe("฿0");
-    expect(formatBahtOrDash("1500.50")).toBe("฿1,500.5");
+    expect(formatBahtOrDash("1500.50")).toBe("฿1,500.50");
   });
 });
 

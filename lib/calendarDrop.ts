@@ -77,3 +77,14 @@ export function findOccupant<T extends OccupantBar>(bookings: T[], roomUnitId: s
   if (roomUnitId === "") return undefined;
   return bookings.find((b) => b.segmentId !== excludeSegmentId && b.roomUnitId === roomUnitId && b.checkIn <= dateKey && dateKey < b.checkOut);
 }
+
+/**
+ * Whether a bar found under the pointer may decide the drop. The cell under the pointer says which room the release
+ * is in; a bar of another room that happens to overlap the pointer on screen decides nothing. With no cell to compare
+ * (the pointer is off the grid) the bar is taken as before.
+ */
+export function barAgreesWithCell(barRoomUnitId: string | undefined, cellRoomUnitId: string | undefined): boolean {
+  if (barRoomUnitId === undefined) return false;
+  if (cellRoomUnitId === undefined) return true;
+  return barRoomUnitId === cellRoomUnitId;
+}

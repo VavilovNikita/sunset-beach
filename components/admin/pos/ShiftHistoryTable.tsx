@@ -6,6 +6,7 @@ import type { ShiftListItem } from "@/lib/posTypes";
 import { formatTimestamp } from "@/lib/formatDate";
 import { longOpenLabel } from "@/lib/posOrders";
 import { countedCashLabel, discrepancyLabel, isLongOpenShift } from "@/lib/shiftReconciliation";
+import { formatBaht } from "@/lib/money";
 
 // The staff filter is client-side, not a second round trip with `staffId` set - GET /shifts
 // already returns every shift in the chosen date range (staff count × working days is a small
@@ -85,12 +86,12 @@ export default function ShiftHistoryTable({ shifts }: { shifts: ShiftListItem[] 
                       {s.status === "OPEN" ? "Open" : "Closed"}
                       {isLongOpenShift(s, now) && <span className="text-amber-400"> · {longOpenLabel(s.openedAt, now)}</span>}
                     </td>
-                    <td className="py-3 pr-4 text-right text-cream/70">฿{Number(s.totals.cash).toLocaleString("en-US")}</td>
-                    <td className="py-3 pr-4 text-right text-cream/70">฿{Number(s.totals.card).toLocaleString("en-US")}</td>
+                    <td className="py-3 pr-4 text-right text-cream/70">{formatBaht(s.totals.cash)}</td>
+                    <td className="py-3 pr-4 text-right text-cream/70">{formatBaht(s.totals.card)}</td>
                     <td className="py-3 pr-4 text-right text-cream/70">
-                      ฿{Number(s.totals.roomCharge).toLocaleString("en-US")}
+                      {formatBaht(s.totals.roomCharge)}
                     </td>
-                    <td className="py-3 pr-4 text-right text-cream/70">฿{Number(s.expectedCash).toLocaleString("en-US")}</td>
+                    <td className="py-3 pr-4 text-right text-cream/70">{formatBaht(s.expectedCash)}</td>
                     <td className="py-3 pr-4 text-right text-cream/70">
                       {countedCashLabel(s)}
                     </td>

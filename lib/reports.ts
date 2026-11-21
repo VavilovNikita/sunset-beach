@@ -1,6 +1,7 @@
 import { parseDateKey } from "@/lib/bookings";
 import type { MenuDepartment } from "@/lib/posTypes";
 import type { MarketSegment } from "@/lib/types";
+import { formatBaht } from "@/lib/money";
 
 // Display helpers for the reports page. Pure, so they're tested in reports.test.ts.
 
@@ -39,9 +40,7 @@ export function formatPercent(percent: string | null): string {
 }
 
 // Money is a server-computed decimal string; this only formats it, same as the night-audit page.
-export function formatBaht(amount: string): string {
-  return `฿${Number(amount).toLocaleString("en-US")}`;
-}
+export { formatBaht };
 
 // A ratio (ADR, RevPAR) is null when its denominator is zero - nothing sold or nothing
 // available - which is "no figure", not ฿0.

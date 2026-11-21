@@ -7,6 +7,7 @@ import { requireSessionUser } from "@/lib/rbac";
 import StatCard from "@/components/admin/StatCard";
 import LongOpenShiftNotice from "@/components/LongOpenShiftNotice";
 import { loadStaleShifts } from "@/lib/staleShiftsServer";
+import { formatBaht } from "@/lib/money";
 
 // The hotel's month, read on every request: a module-level constant was frozen at the month the
 // server process started, and in UTC it was still last month until 07:00 on the 1st.
@@ -88,7 +89,7 @@ export default async function AdminDashboardPage() {
           {stats.posSummary.status === "ok" && (
             <StatCard
               label="Room payments collected"
-              value={`฿${Number(stats.posSummary.data.folioPaymentsTotal).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
+              value={`${formatBaht(stats.posSummary.data.folioPaymentsTotal)}`}
               sublabel={`${monthLabel} · recorded at the desk against bookings (includes POS charged to rooms once paid)`}
             />
           )}
@@ -120,16 +121,12 @@ export default async function AdminDashboardPage() {
           <div className="grid sm:grid-cols-2 gap-5">
             <StatCard
               label="POS revenue collected"
-              value={`฿${Number(stats.posSummary.data.grandTotal).toLocaleString("en-US", {
-                maximumFractionDigits: 0,
-              })}`}
+              value={`${formatBaht(stats.posSummary.data.grandTotal)}`}
               sublabel={`${monthLabel} · cash + card + other — excludes room charges`}
             />
             <StatCard
               label="Charged to rooms, not yet collected"
-              value={`฿${Number(stats.posSummary.data.totals.roomCharge).toLocaleString("en-US", {
-                maximumFractionDigits: 0,
-              })}`}
+              value={`${formatBaht(stats.posSummary.data.totals.roomCharge)}`}
               sublabel="Not included in any revenue figure on this dashboard — reconcile against the folio at checkout (the booking page shows the amount due)"
             />
           </div>

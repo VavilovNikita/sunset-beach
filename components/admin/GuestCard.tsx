@@ -12,6 +12,7 @@ import type { GuestDetail } from "@/lib/types";
 import { roomTypeSummary } from "@/lib/bookingRooms";
 import { formatDateRange } from "@/lib/formatDate";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
+import { formatBaht } from "@/lib/money";
 
 // The guest card: contact details plus this guest's entire stay history (every booking with
 // this guestId, any status - cancelled included, see GuestDetail's own description). Each
@@ -93,7 +94,7 @@ export default function GuestCard({ guest }: { guest: GuestDetail }) {
                   </p>
                   <p className="text-xs text-cream/40">{stayStatusLabel(b)}</p>
                 </div>
-                <span className="text-cream shrink-0">฿{Number(b.totalPrice).toLocaleString("en-US")}</span>
+                <span className="text-cream shrink-0">{formatBaht(b.totalPrice)}</span>
               </Link>
             ))}
           </div>

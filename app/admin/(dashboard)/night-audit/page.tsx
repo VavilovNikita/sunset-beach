@@ -9,6 +9,7 @@ import OwesBadge from "@/components/admin/OwesBadge";
 import NightAuditCloseForm from "@/components/admin/NightAuditCloseForm";
 import type { NightAudit, NightAuditBooking } from "@/lib/types";
 import { formatDateRange } from "@/lib/formatDate";
+import { formatBaht } from "@/lib/money";
 
 // The front desk's once-a-day review: who should have arrived or left and didn't, the day's room
 // figures, and a "Close day" receipt. GET /night-audit and POST /night-audit/close are CASHIER+ -
@@ -64,7 +65,7 @@ export default async function NightAuditPage({ searchParams }: { searchParams: {
         <StatCard label="Occupancy" value={snapshot.occupancyPercent === null ? "—" : `${snapshot.occupancyPercent}%`} />
         <StatCard
           label="Room revenue"
-          value={`฿${Number(snapshot.roomRevenue).toLocaleString("en-US")}`}
+          value={`${formatBaht(snapshot.roomRevenue)}`}
           sublabel="Agreed room price for this night, not money collected"
         />
       </div>
@@ -186,7 +187,7 @@ function BookingList({
                     title={`Nights from check-out through ${reviewedDate} charged to the booking at the room price`}
                   >
                     {describeUnpaidNights(b.unpaidOverstayNights, b.overstayIncludesTonight)}
-                    {b.unpaidOverstayValue && ` · ฿${Number(b.unpaidOverstayValue).toLocaleString("en-US")}`}
+                    {b.unpaidOverstayValue && ` · ${formatBaht(b.unpaidOverstayValue)}`}
                   </span>
                 )}
                 {/* The overstay chip already says how long; "N days overdue" beside it was the same stay counted differently. */}

@@ -5,6 +5,7 @@ import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
 import DeleteButton from "@/components/admin/DeleteButton";
 import SubpageBackLink from "@/components/admin/SubpageBackLink";
 import type { MenuItem } from "@/lib/posTypes";
+import { formatBaht } from "@/lib/money";
 
 // GET /menu has no department filter on the backend - fetch everything and keep only SPA-
 // department items here, same "filter server-side in the page" approach spa/page.tsx already
@@ -42,7 +43,7 @@ export default async function AdminSpaTreatmentsPage() {
             <div className="flex-1 min-w-0">
               <p className="font-display text-lg truncate">{item.name}</p>
               <p className="text-sm text-cream/60">
-                {item.category} · ฿{Number(item.price).toLocaleString("en-US")}
+                {item.category} · {formatBaht(item.price)}
                 {item.durationMinutes != null && ` · ${item.durationMinutes} min`}
                 {!item.isAvailable && " · Unavailable"}
               </p>

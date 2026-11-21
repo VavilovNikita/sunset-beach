@@ -8,6 +8,7 @@ import { fetchGuestMenu, fetchGuestOrder, addGuestOrderItems } from "@/lib/guest
 import { addToCart, cartItemCount, cartToItems, removeFromCart, removeOneFromCart, type CartLine } from "@/lib/guestCart";
 import type { MenuItem } from "@/lib/posTypes";
 import type { GuestOrderView } from "@/lib/guestOrderTypes";
+import { formatBaht } from "@/lib/money";
 
 const STATUS_LABELS: Record<GuestOrderView["status"], string> = {
   OPEN: "Open",
@@ -154,14 +155,14 @@ export default function GuestOrderClient({ orderId, token }: { orderId: string; 
                   {item.note && <p className="text-xs text-cream/50 mt-0.5">{item.note}</p>}
                 </div>
                 <p className="text-cream/70 text-sm shrink-0">
-                  ฿{(Number(item.unitPrice) * item.quantity).toLocaleString("en-US")}
+                  {formatBaht(Number(item.unitPrice) * item.quantity)}
                 </p>
               </div>
             ))}
           </div>
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-cream/10">
             <p className="text-cream/70 text-sm">Total</p>
-            <p className="font-display italic text-xl text-coral">฿{Number(order.total).toLocaleString("en-US")}</p>
+            <p className="font-display italic text-xl text-coral">{formatBaht(order.total)}</p>
           </div>
         </div>
       )}
@@ -252,7 +253,7 @@ export default function GuestOrderClient({ orderId, token }: { orderId: string; 
                 className="rounded-xl bg-ink2 border border-cream/10 active:bg-sea/15 active:border-sea/40 transition-colors min-h-[44px] px-3 py-2.5 text-left disabled:opacity-50"
               >
                 <p className="text-cream text-sm leading-snug">{item.name}</p>
-                <p className="text-cream/50 text-xs mt-0.5">฿{Number(item.price).toLocaleString("en-US")}</p>
+                <p className="text-cream/50 text-xs mt-0.5">{formatBaht(item.price)}</p>
               </button>
             ))}
             {visibleMenuItems.length === 0 && <p className="col-span-2 text-cream/50 text-sm py-2">No items in this category.</p>}

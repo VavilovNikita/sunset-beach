@@ -31,6 +31,7 @@ import { reportsHref, type ReportsState } from "@/lib/reportsTabs";
 import { useSavedNotice } from "@/lib/useSavedNotice";
 import type { BookingTrackerMonth, BookingTrackerReport, BookingTrackerSnapshot } from "@/lib/types";
 import { BarChart, LineChart } from "@/components/admin/reports/TrackerCharts";
+import { normalizeMoneyInput } from "@/lib/moneyInput";
 
 // The Booking tracker tab: the hotel's Excel workbook on real data. The server sends every figure; this only lays them
 // out, takes the typed targets and notes, and keeps the last good figures on screen when a reload fails.
@@ -371,7 +372,7 @@ function InputsRow({ month, onSaved }: { month: BookingTrackerMonth; onSaved: ()
       title={fieldErrors[name]}
       inputMode="decimal"
       value={form[name]}
-      onChange={(e) => setForm({ ...form, [name]: e.target.value })}
+      onChange={(e) => setForm({ ...form, [name]: normalizeMoneyInput(e.target.value) })}
       className={`${fieldClass} ${width} ${fieldErrors[name] ? "border-coral" : ""}`}
     />
   );

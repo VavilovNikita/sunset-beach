@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dropOutcomeMessage, findClash, findOccupant, grabDayOffset, isSwapPartner } from "./calendarDrop";
+import { barAgreesWithCell, dropOutcomeMessage, findClash, findOccupant, grabDayOffset, isSwapPartner } from "./calendarDrop";
 
 describe("isSwapPartner", () => {
   it("is true for a booking in another room", () => {
@@ -84,5 +84,16 @@ describe("findOccupant", () => {
     expect(findOccupant(bars, "u101", "2026-12-03", "s2")).toBeUndefined();
     expect(findOccupant(bars, "u101", "2026-12-02", "s1")).toBeUndefined();
     expect(findOccupant(bars, "", "2026-12-02", "s2")).toBeUndefined();
+  });
+});
+
+describe("barAgreesWithCell", () => {
+  it("ignores a bar of another room that overlaps the pointer: a release on a free night there is a move", () => {
+    expect(barAgreesWithCell("t204", "t205")).toBe(false);
+  });
+  it("accepts a bar in the row of the cell under the pointer, and any bar when there is no cell", () => {
+    expect(barAgreesWithCell("t204", "t204")).toBe(true);
+    expect(barAgreesWithCell("t204", undefined)).toBe(true);
+    expect(barAgreesWithCell(undefined, "t204")).toBe(false);
   });
 });

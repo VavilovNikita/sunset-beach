@@ -1,3 +1,4 @@
+import { normalizeMoneyInput } from "@/lib/moneyInput";
 // The new-booking form's "Set price manually" (BookingCreateFromGridModal -> POST /bookings/staff,
 // StaffBookingCreateInput.agreedTotal). MANAGER+ only; the server enforces that, the form only hides
 // the button. The server spreads the total over the nights and freezes it - nothing here sums or
@@ -30,7 +31,7 @@ export function useCalculatedPrice(): ManualPriceState {
 }
 
 export function editManualPrice(state: ManualPriceState, amount: string): ManualPriceState {
-  return { manual: state.manual, amount, touched: true };
+  return { manual: state.manual, amount: normalizeMoneyInput(amount), touched: true };
 }
 
 // The dates changed and the server priced them again. An amount the user never touched follows the new

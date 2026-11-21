@@ -1,6 +1,7 @@
 import { STALE_AFTER_HOURS } from "@/lib/staleWork";
 import type { ShiftSummary } from "@/lib/posTypes";
 import { formatTimestamp } from "@/lib/formatDate";
+import { formatBaht } from "@/lib/money";
 
 // expectedCash/discrepancy are never returned by the API - the backend computes the same
 // arithmetic (openingFloat + POS cash + folio cash taken at reception, counted - expected) several times
@@ -48,7 +49,7 @@ export function shiftOpeningFacts(shift: Pick<ShiftSummary, "openedByEmail" | "o
   return {
     openedBy: shift.openedByEmail || "Unknown staff member",
     openedAt: formatTimestamp(shift.openedAt),
-    openingFloat: shift.openingCashFloat != null ? `฿${Number(shift.openingCashFloat).toLocaleString("en-US")}` : "Not entered",
+    openingFloat: shift.openingCashFloat != null ? `${formatBaht(shift.openingCashFloat)}` : "Not entered",
   };
 }
 
@@ -69,7 +70,7 @@ export function isLongOpenShift(shift: { status: "OPEN" | "CLOSED"; openedAt: st
 // (nothing to reconcile - not the same as a counted drawer that matched); an open shift has nothing yet ("—").
 // A counted drawer always shows its signed difference, "฿0" included, so the column reads in one style.
 export function countedCashLabel(s: { status: "OPEN" | "CLOSED"; closingCashCounted: string | null; cashNotCounted?: boolean }): string {
-  if (s.closingCashCounted !== null) return `฿${Number(s.closingCashCounted).toLocaleString("en-US")}`;
+  if (s.closingCashCounted !== null) return `${formatBaht(s.closingCashCounted)}`;
   return s.status === "CLOSED" || s.cashNotCounted ? "Not counted" : "—";
 }
 
@@ -77,5 +78,5 @@ export function discrepancyLabel(s: { status: "OPEN" | "CLOSED"; discrepancy: st
   if (s.discrepancy === null) return s.status === "CLOSED" || s.cashNotCounted ? "Not counted" : "—";
   const d = Number(s.discrepancy);
   if (d === 0) return "฿0";
-  return `${d > 0 ? "+" : "−"}฿${Math.abs(d).toLocaleString("en-US")}`;
+  return `${d > 0 ? "+" : "−"}${formatBaht(Math.abs(d))}`;
 }

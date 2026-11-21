@@ -14,6 +14,7 @@ import { overdueLabel } from "@/lib/overstay";
 import { applyCheckedIn, applyCheckedOut, applyNoShow } from "@/lib/todayBoard";
 import type { CheckInResult, CheckOutResult, TodayBoard, TodayBoardEntry } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
+import { formatBaht } from "@/lib/money";
 
 // The front desk's daily working set - see openapi.yaml's TodayBoard description for exactly
 // which booking lands in which of the three lists. Data comes down as server-rendered props
@@ -192,7 +193,7 @@ function TodayRow({
           )}
           {needsRoom && <span className="text-amber-400">No room assigned</span>}
           {roomDirty && <span className="text-sand">Room not clean</span>}
-          {owed && <span className="text-coral">฿{Number(outstandingBalance).toLocaleString("en-US")} owed</span>}
+          {owed && <span className="text-coral">{formatBaht(outstandingBalance)} owed</span>}
         </div>
         {/* Optional, not a check-in blocker - check-in is the moment reception is already looking
             at this row, so it's the natural place to offer linking a guest, but the backend

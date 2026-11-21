@@ -1,4 +1,5 @@
 import type { BookingStatus, SettlementStatus } from "@/lib/types";
+import { formatBaht } from "@/lib/money";
 
 // What staff read for a booking status; the value on the wire never changes. NEW is a provisional booking, shown as
 // Tentative (there is no separate "tentative" status). PAID means "the cost of the stay was paid" - not "everything is
@@ -16,7 +17,7 @@ export function bookingStatusLabel(status: BookingStatus): string {
 
 export type SettlementChip = { text: string; tone: "owes" | "credit" | "settled" };
 
-const baht = (v: string | number) => `฿${Number(v).toLocaleString("en-US")}`;
+const baht = (v: string | number) => `${formatBaht(v)}`;
 
 // The money state shown next to the status, from the server's `settlement` (computed from the folio's own balance).
 //  - OWES: "Owes ฿X" - once the debt has fallen due (`owes`); a future booking that is merely unpaid shows nothing.

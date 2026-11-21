@@ -20,7 +20,7 @@ import {
 import { quoteBookingSchedule, applyBookingSchedule } from "@/lib/bookingScheduleClient";
 import { assignBookingSegmentRoomUnit, swapBookingSegmentRoomUnit } from "@/lib/bookingSegmentClient";
 import PaidPriceNotice from "@/components/admin/PaidPriceNotice";
-import { dropOutcomeMessage, findClash, findOccupant, grabDayOffset as grabOffsetDays, isSwapPartner } from "@/lib/calendarDrop";
+import { barAgreesWithCell, dropOutcomeMessage, findClash, findOccupant, grabDayOffset as grabOffsetDays, isSwapPartner } from "@/lib/calendarDrop";
 import { roomDropIntent } from "@/lib/bookingRelocation";
 import { adminRequest } from "@/lib/adminFetch";
 import { useBookingSiblingsCache } from "@/lib/useBookingSiblingsCache";
@@ -32,6 +32,7 @@ import { RelocationDialog, type RelocationPreset } from "@/components/admin/Book
 import RoomUnitBlockPanel from "@/components/admin/RoomUnitBlockPanel";
 import type { Booking, BookingCalendarResponse, BookingScheduleQuote, CalendarBooking, HousekeepingStatus, RoomUnit } from "@/lib/types";
 import { formatDate, formatDateRange } from "@/lib/formatDate";
+import { formatBaht } from "@/lib/money";
 
 const ROW_HEIGHT = 40;
 const LABEL_WIDTH = 208;
@@ -304,7 +305,11 @@ export default function BookingCalendarGrid({
   // nothing isn't a swap (see swapSegmentRoomUnits's own backend rule).
   function barUnderPointer(e: React.PointerEvent, excludeSegmentId: string) {
     const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-bar-segment-id]");
-    if (el) {
+    const cellHere = cellUnderPointer(e);
+    // A bar counts as the drop target only when it sits in the row of the cell under the pointer. A bar that merely
+    // overlaps the pointer (a tall lane, a row that changed height when the dragged bar entered it) belongs to a row
+    // the pointer is not in: releasing on a free night of another room is a move there, whatever bars were passed.
+    if (el && barAgreesWithCell(el.dataset.barRoomUnitId, cellHere?.roomUnitId)) {
       const { barBookingId, barSegmentId, barRoomId, barRoomUnitId, barGuestName } = el.dataset;
       if (barBookingId && barSegmentId && barRoomId && barRoomUnitId !== undefined && barGuestName && barSegmentId !== excludeSegmentId && barRoomUnitId !== "") {
         return { bookingId: barBookingId, segmentId: barSegmentId, roomId: barRoomId, roomUnitId: barRoomUnitId, guestName: barGuestName };
@@ -313,7 +318,7 @@ export default function BookingCalendarGrid({
     // No bar under the pointer: the booking holding the night under it, from the data. A booking dropped on one
     // with the same dates is laid out beside it (they overlap, so each takes a lane) and the pointer then lands on a
     // lane or a gap, never on that bar - the swap used to be missed exactly then (see findOccupant).
-    const cell = cellUnderPointer(e);
+    const cell = cellHere;
     if (!cell) return null;
     const occupant = findOccupant(data.bookings, cell.roomUnitId, toDateKey(cell.date), excludeSegmentId);
     if (!occupant || occupant.roomUnitId === null) return null;
@@ -1048,7 +1053,7 @@ export default function BookingCalendarGrid({
                   }}
                 >
                   <div
-                    className={`absolute inset-0 rounded-md flex items-center overflow-hidden ${STATUS_BAR_STYLES[booking.status] ?? "bg-cream/20 text-cream"} ${
+                    className={`absolute inset-0 rounded-md ${eff.checkIn < toDateKey(gridFrom) ? "rounded-l-none" : ""} flex items-center overflow-hidden ${STATUS_BAR_STYLES[booking.status] ?? "bg-cream/20 text-cream"} ${
                       dragging ? (eff.dropInvalid ? "opacity-50 ring-2 ring-coral" : "opacity-50 ring-2 ring-dashed ring-cream") : ""
                     } ${eff.isSwapTarget ? "ring-2 ring-sea" : ""} ${booking.segmentCount > 1 ? "ring-1 ring-inset ring-cream/40" : ""} ${
                       // Static, not set in onBarPointerDown: a browser fixes a touch gesture's
@@ -1069,6 +1074,12 @@ export default function BookingCalendarGrid({
                     onDoubleClick={tapHandlers.onDoubleClick}
                     title={`${booking.guestName} · ${bookingStatusLabel(booking.status)}${booking.segmentCount > 1 ? " · relocated" : ""}`}
                   >
+                    {/* The stay began before the first day shown: a square left edge and a chevron, so it cannot pass for one arriving on that day. */}
+                    {eff.checkIn < toDateKey(gridFrom) && (
+                      <span aria-label="Began before the days shown" title="Began before the days shown" className="pl-1 text-xs leading-none opacity-80 pointer-events-none">
+                        ‹
+                      </span>
+                    )}
                     {showLabel && <span className="truncate px-2 text-xs pointer-events-none">{booking.guestName}</span>}
                   </div>
                   {edgeTarget?.canDragStart && (
@@ -1243,7 +1254,7 @@ export default function BookingCalendarGrid({
                     {scheduleConfirm.quote.nights} night{scheduleConfirm.quote.nights === 1 ? "" : "s"}
                   </span>
                   <span className="font-display italic text-3xl text-coral">
-                    ฿{Number(scheduleConfirm.quote.totalPrice).toLocaleString("en-US")}
+                    {formatBaht(scheduleConfirm.quote.totalPrice)}
                   </span>
                 </div>
                 {!scheduleConfirm.quote.available && <p className="text-sm text-coral">{scheduleConfirm.quote.reason}</p>}

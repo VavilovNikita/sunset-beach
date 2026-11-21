@@ -10,6 +10,7 @@ import Lightbox, { type LightboxImage } from "@/components/Lightbox";
 import { toDateKey, addDaysUTC } from "@/lib/bookings";
 import { resolveImageUrl } from "@/lib/backend";
 import type { Room } from "@/lib/types";
+import { formatBaht } from "@/lib/money";
 
 // /booking/[roomId] 404s without a valid checkIn < checkOut pair, so fall
 // back to the same tomorrow/day-after default the search page (/booking)
@@ -130,7 +131,7 @@ export default function RoomsPageContent({ rooms }: { rooms: Room[] }) {
               )}
               <h3 className="mt-4 font-display text-xl">{room.name}</h3>
               <p className="mt-1 text-sm text-cream/60">
-                from &#3647;{Number(room.basePrice).toLocaleString("en-US")} / night &middot; sleeps up to {room.capacity}
+                from {formatBaht(room.basePrice)} / night &middot; sleeps up to {room.capacity}
               </p>
               <p className="mt-2 text-sm text-cream/70 leading-relaxed">{room.description}</p>
               <Link

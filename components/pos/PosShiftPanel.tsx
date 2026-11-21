@@ -14,6 +14,7 @@ import { longOpenLabel } from "@/lib/posOrders";
 import PosAttributedConfirm from "@/components/pos/PosAttributedConfirm";
 import type { Role } from "@/lib/session";
 import type { ShiftSummary } from "@/lib/posTypes";
+import { formatBaht } from "@/lib/money";
 
 const ROLE_LABELS: Record<Role, string> = { WAITER: "Waiter", CASHIER: "Cashier", MANAGER: "Manager", ADMIN: "Admin" };
 
@@ -59,16 +60,16 @@ function DiscrepancyBlock({ expectedCash, counted, discrepancy }: { expectedCash
     <div className={`rounded-xl px-4 py-3 space-y-1 border ${isOff ? "bg-coral/10 border-coral/40" : "bg-ink2 border-cream/10"}`}>
       <div className="flex items-center justify-between text-sm">
         <span className="text-cream/60">Expected cash</span>
-        <span className="text-cream">฿{expectedCash.toLocaleString("en-US")}</span>
+        <span className="text-cream">{formatBaht(expectedCash)}</span>
       </div>
       <div className="flex items-center justify-between text-sm">
         <span className="text-cream/60">Counted cash</span>
-        <span className="text-cream">฿{counted.toLocaleString("en-US")}</span>
+        <span className="text-cream">{formatBaht(counted)}</span>
       </div>
       <div className="flex items-center justify-between pt-1 border-t border-cream/10">
         <span className={`text-sm font-medium ${isOff ? "text-coral" : "text-cream/50"}`}>Discrepancy</span>
         <span className={`text-base font-medium ${isOff ? "text-coral" : "text-cream/50"}`}>
-          {discrepancy === 0 ? "None" : `${discrepancy! > 0 ? "+" : "−"}฿${Math.abs(discrepancy!).toLocaleString("en-US")}`}
+          {discrepancy === 0 ? "None" : `${discrepancy! > 0 ? "+" : "−"}${formatBaht(Math.abs(discrepancy!))}`}
         </span>
       </div>
     </div>
@@ -219,12 +220,12 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
     <div className="p-4">
       <OpeningFacts shift={shift} />
       <div className="grid grid-cols-2 gap-3 mb-6">
-        <StatTile label="Cash" value={`฿${Number(shift.totals.cash).toLocaleString("en-US")}`} />
-        <StatTile label="Card" value={`฿${Number(shift.totals.card).toLocaleString("en-US")}`} />
-        <StatTile label="Room charge" value={`฿${Number(shift.totals.roomCharge).toLocaleString("en-US")}`} />
+        <StatTile label="Cash" value={`${formatBaht(shift.totals.cash)}`} />
+        <StatTile label="Card" value={`${formatBaht(shift.totals.card)}`} />
+        <StatTile label="Room charge" value={`${formatBaht(shift.totals.roomCharge)}`} />
         <StatTile label="Payments" value={String(shift.totals.paymentCount)} />
         {Number(shift.totals.folioCash ?? 0) > 0 && (
-          <StatTile label="Folio cash (reception)" value={`฿${Number(shift.totals.folioCash).toLocaleString("en-US")}`} />
+          <StatTile label="Folio cash (reception)" value={`${formatBaht(shift.totals.folioCash)}`} />
         )}
       </div>
 
@@ -243,7 +244,7 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
             <DiscrepancyBlock {...reconciled} />
             <PosAttributedConfirm
               title="Close shift"
-              detail={closingCounted ? `฿${Number(closingCounted).toLocaleString("en-US")} counted` : undefined}
+              detail={closingCounted ? `${formatBaht(closingCounted)} counted` : undefined}
               actorEmail={actorEmail}
               actorRole={ROLE_LABELS[actorRole]}
               confirmLabel="Confirm close"

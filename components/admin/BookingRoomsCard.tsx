@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { RelocateForm, RepriceSegmentButton, UndoRelocationButton } from "@/components/admin/BookingRelocation";
 import { formatDateRange } from "@/lib/formatDate";
 import type { Booking } from "@/lib/types";
+import { formatBaht } from "@/lib/money";
 
 // The room-moving half of the calendar panel's "Rooms" section, for the full booking page: every
 // segment with its undo / reprice actions, and "Relocate to another room". Dates and the room unit of
@@ -25,7 +26,7 @@ export default function BookingRoomsCard({ booking, canEdit, canManage }: { book
                 {segment.room.name}
                 {segment.roomUnit ? ` — ${segment.roomUnit.label}` : " (unassigned)"}
               </span>
-              <span className="text-cream/60">฿{Number(segment.totalPrice).toLocaleString("en-US")}</span>
+              <span className="text-cream/60">{formatBaht(segment.totalPrice)}</span>
             </div>
             <p className="text-xs text-cream/40 mt-1">{formatDateRange(segment.checkIn, segment.checkOut)}</p>
             <div className="flex items-center flex-wrap gap-3 mt-1">

@@ -5,6 +5,7 @@ import { addOrderItem, createOrderWithItem } from "@/lib/pos/ordersClient";
 import type { DraftOrderTarget } from "@/lib/posDraftOrder";
 import { SPA_MENU_TAB } from "@/lib/posMenu";
 import type { MenuItem, Order } from "@/lib/posTypes";
+import { formatBaht } from "@/lib/money";
 
 // The item picker of the one order ticket both POS surfaces render (OrderTicket.tsx): categories
 // as large tabs plus a search box, and one tap = one item added immediately (quantity 1, no
@@ -186,7 +187,7 @@ export default function OrderMenuPicker({
                   className="flex-1 min-w-0 hover:bg-sea/10 active:bg-sea/15 transition-colors px-3 py-2.5 text-left disabled:opacity-50"
                 >
                   <p className="text-cream text-sm leading-snug">{item.name}</p>
-                  <p className="text-cream/50 text-xs mt-0.5">฿{Number(item.price).toLocaleString("en-US")}</p>
+                  <p className="text-cream/50 text-xs mt-0.5">{formatBaht(item.price)}</p>
                 </button>
                 <button
                   type="button"

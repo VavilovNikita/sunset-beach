@@ -7,6 +7,7 @@ import { quoteBookingSchedule, applyBookingSchedule } from "@/lib/bookingSchedul
 import { assignBookingRoomUnit } from "@/lib/bookingRoomUnitClient";
 import PaidPriceNotice from "@/components/admin/PaidPriceNotice";
 import type { Booking, BookingScheduleQuote, RoomUnit } from "@/lib/types";
+import { formatBaht } from "@/lib/money";
 
 // Shared by the booking calendar panel (BookingCardPanel.tsx) and the booking detail page
 // (BookingScheduleForm.tsx) - previously each had its own hand-rolled date form, and only this
@@ -143,7 +144,7 @@ export function BookingScheduleEditor({
           <span className="text-xs text-cream/60">
             {quote.nights} night{quote.nights === 1 ? "" : "s"}
           </span>
-          <span className="font-display italic text-xl text-coral">฿{Number(quote.totalPrice).toLocaleString("en-US")}</span>
+          <span className="font-display italic text-xl text-coral">{formatBaht(quote.totalPrice)}</span>
         </div>
       )}
       {status === "ready" && quote && quote.available && <PaidPriceNotice reopensPaid={quote.reopensPaid} paidWarning={quote.paidWarning} />}

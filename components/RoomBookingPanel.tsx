@@ -9,6 +9,7 @@ import { addDaysUTC, parseDateKey, toDateKey } from "@/lib/bookings";
 import { formatDateRange } from "@/lib/formatDate";
 import { formatQuoteTotal, type QuoteResult } from "@/lib/quote";
 import type { BookingGuestPrefill } from "@/lib/bookingGuestForm";
+import { formatBaht } from "@/lib/money";
 
 const QUOTE_DEBOUNCE_MS = 500;
 
@@ -130,7 +131,7 @@ export default function RoomBookingPanel({
         </div>
         <div>
           <dt className="eyebrow text-cream/40">Per night</dt>
-          <dd className="mt-1 font-display text-lg">from ฿{Number(basePrice).toLocaleString("en-US")}</dd>
+          <dd className="mt-1 font-display text-lg">from {formatBaht(basePrice)}</dd>
         </div>
         <div>
           <dt className="eyebrow text-cream/40">Total</dt>
