@@ -1,5 +1,7 @@
 "use client";
 
+import { bookingStatusLabel } from "@/lib/bookingStatusLabel";
+import { NOTES_MAX_LENGTH, NOTES_PLACEHOLDER, notesCounter, notesError, notesForCreate } from "@/lib/bookingNotes";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
@@ -96,6 +98,9 @@ export default function BookingCreateFromGridModal({
   // validated. Children defaults to 0.
   const [adults, setAdults] = useState("1");
   const [children, setChildren] = useState("0");
+  // Tentative (NEW) or Confirmed; Confirmed by default, always sent. Optional staff notes, sent only when not empty.
+  const [startStatus, setStartStatus] = useState<"NEW" | "CONFIRMED">("CONFIRMED");
+  const [notes, setNotes] = useState("");
   // Validation runs on submit and then follows every edit, so an error goes away the moment its field
   // is fixed - not at the next submit, which used to leave a corrected field red until it was pressed.
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -123,7 +128,8 @@ export default function BookingCreateFromGridModal({
   // Shown once the amount has been edited or a save was tried, so the box doesn't open already red.
   const priceError =
     price.manual && (submitAttempted || price.touched) ? (validateManualPrice(price.amount) ?? priceServerError) : null;
-  const hasFieldErrors = Object.keys(fieldErrors).length > 0 || priceError !== null;
+  const notesProblem = submitAttempted || notes.length > NOTES_MAX_LENGTH ? notesError(notes) : null;
+  const hasFieldErrors = Object.keys(fieldErrors).length > 0 || priceError !== null || notesProblem !== null;
 
   const datesValid = staffBookingDatesValid(checkIn, checkOut);
   const nights = datesValid ? getNights(checkIn, checkOut).length : 0;
@@ -169,6 +175,7 @@ export default function BookingCreateFromGridModal({
     const errors = validateStaffBookingForm({ guestName, guestEmail, guestPhone, checkIn, checkOut, channel, adults, children });
     if (Object.keys(errors).length > 0 || !channel) return;
     if (price.manual && validateManualPrice(price.amount)) return; // shown under the amount
+    if (notesError(notes)) return; // shown under the notes
     const party = parsePartySize(adults, children);
     if ("error" in party) return; // already reported by validateStaffBookingForm
     setSaving(true);
@@ -189,6 +196,8 @@ export default function BookingCreateFromGridModal({
       adults: party.adults,
       children: party.children,
       guestId: pickedGuest?.id ?? null,
+      status: startStatus,
+      ...(notesForCreate(notes) !== undefined ? { notes: notesForCreate(notes) } : {}),
       // Left out of the body entirely unless the price is set by hand.
       ...(agreedTotal !== undefined ? { agreedTotal } : {}),
     };
@@ -399,6 +408,35 @@ export default function BookingCreateFromGridModal({
               adultsError={fieldErrors.adults}
               childrenError={fieldErrors.children}
             />
+
+            <fieldset>
+              <legend className="eyebrow text-cream/60 mb-1">Booking status</legend>
+              <div className="flex gap-2">
+                {(["NEW", "CONFIRMED"] as const).map((s) => (
+                  <label
+                    key={s}
+                    className={`flex-1 text-center cursor-pointer rounded-lg border px-3 py-2 text-sm ${
+                      startStatus === s ? "border-sea bg-sea/15 text-cream" : "border-cream/20 text-cream/60"
+                    }`}
+                  >
+                    <input type="radio" name="startStatus" value={s} checked={startStatus === s} onChange={() => setStartStatus(s)} className="sr-only" />
+                    {bookingStatusLabel(s)}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <div>
+              <label className="eyebrow text-cream/60 block mb-1">Notes</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                placeholder={NOTES_PLACEHOLDER}
+                className={`w-full bg-ink border rounded-lg px-3 py-2 text-sm ${notesProblem ? "border-coral" : "border-cream/20"}`}
+              />
+              <p className={`text-xs mt-1 ${notesProblem ? "text-coral" : "text-cream/40"}`}>{notesProblem ?? notesCounter(notes)}</p>
+            </div>
 
             {hasFieldErrors && <p className="text-sm text-coral">Fix the highlighted fields.</p>}
             {error && <p className="text-sm text-coral">{error}</p>}

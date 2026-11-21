@@ -101,22 +101,22 @@ export default function AttendancePanel({ employees, readOnly = false }: { emplo
 
       {loading && <p className="text-cream/50 text-sm mb-2">Loading…</p>}
 
-      <div className="overflow-x-auto mb-2">
+      <div className="overflow-auto max-h-[calc(100vh-16rem)] min-h-[16rem] print:max-h-none mb-2">
         <table className="text-xs border-collapse">
           <thead>
             <tr className="text-cream/40">
-              <th className="sticky left-0 z-10 bg-ink text-left py-2 pr-3 font-normal eyebrow">Employee</th>
+              <th className="sticky top-0 left-0 z-30 bg-ink text-left py-2 pr-3 font-normal eyebrow">Employee</th>
               {Array.from({ length: daysInMonth }, (_, i) => {
                 const key = `${year}-${String(month).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`;
                 const weekday = new Date(Date.UTC(year, month - 1, i + 1)).getUTCDay();
                 return (
-                  <th key={key} className={`px-1.5 py-2 text-center font-normal tabular-nums ${key === today ? "text-sea" : ""} ${weekday === 0 || weekday === 6 ? "bg-cream/5" : ""}`}>
+                  <th key={key} className={`sticky top-0 z-20 px-1.5 py-2 text-center font-normal tabular-nums bg-ink ${key === today ? "text-sea" : ""} ${weekday === 0 || weekday === 6 ? "shadow-[inset_0_0_0_999px_rgba(255,255,255,0.05)]" : ""}`}>
                     {i + 1}
                     <div className="text-[10px]">{["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][weekday]}</div>
                   </th>
                 );
               })}
-              <th className="px-2 py-2 text-right font-normal eyebrow">Total</th>
+              <th className="sticky top-0 z-20 bg-ink px-2 py-2 text-right font-normal eyebrow">Total</th>
             </tr>
           </thead>
           <tbody>

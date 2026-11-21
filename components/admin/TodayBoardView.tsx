@@ -1,5 +1,6 @@
 "use client";
 
+import NotesBadge from "@/components/admin/NotesBadge";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -172,6 +173,7 @@ function TodayRow({
           <Link href={`/admin/bookings/${booking.id}`} className="text-cream hover:text-coral transition-colors font-medium truncate">
             {booking.guestName}
           </Link>
+          <NotesBadge notes={booking.notes} />
           <span className="text-xs text-cream/50 truncate">
             {booking.room.name}
             {booking.roomUnit ? ` — ${booking.roomUnit.label}` : ""}

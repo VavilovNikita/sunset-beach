@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { describeAuditActor, describeAuditEntity, humanizeAuditSummary } from "@/lib/auditDisplay";
 
+describe("humanizeAuditSummary - booking statuses", () => {
+  it("reads NEW as Tentative in a status change and at creation", () => {
+    expect(humanizeAuditSummary("Status changed from NEW to CONFIRMED for Jane in Villa")).toBe("Status changed from Tentative to Confirmed for Jane in Villa");
+    expect(humanizeAuditSummary("Status changed from CONFIRMED to PAID; notes added for Jane")).toBe("Status changed from Confirmed to Room paid; notes added for Jane");
+    expect(humanizeAuditSummary("Staff booking created for Jane in Villa (2026-12-01 to 2026-12-03); status NEW")).toContain("; status Tentative");
+  });
+});
+
 describe("humanizeAuditSummary", () => {
   it("turns a payment method enum into words", () => {
     expect(humanizeAuditSummary("Order closed with ROOM_CHARGE payment of 1000.00 (charged to QA Petrov's room)")).toBe(
@@ -15,7 +23,7 @@ describe("humanizeAuditSummary", () => {
   });
 
   it("words status transitions", () => {
-    expect(humanizeAuditSummary("Booking status changed from NEW to NO_SHOW")).toBe("Booking status changed from new to no show");
+    expect(humanizeAuditSummary("Booking status changed from NEW to NO_SHOW")).toBe("Booking status changed from Tentative to no show");
   });
 
   it("leaves upper-case words that aren't enum values alone", () => {

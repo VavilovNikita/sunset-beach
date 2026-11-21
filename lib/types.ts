@@ -833,6 +833,9 @@ export type Booking = {
   breakfastRate?: BreakfastRate | null;
   // SiteMinder's own "booked on" instant for an imported booking that has it; null otherwise.
   bookedAt?: string | null;
+  // Staff notes for the stay (airport pickup, allergies, special requests), up to 1000 characters; null = none.
+  // Staff-only, never shown to the guest.
+  notes?: string | null;
   // The reason staff gave for the cancellation - set only while status is CANCELLED (a cancelled
   // booking is never reinstated). Null for a cancellation without one (SiteMinder, the
   // expiry sweep) and for cancellations made before it was stored (those are only in the audit log).
@@ -1130,6 +1133,10 @@ export type StaffBookingCreateInput = {
   // MANAGER+ only (403 otherwise): the price of the whole stay typed by staff instead of the rate plan's.
   // A decimal string, 0 or more, at most 2 decimals; left out of the body when the calculated price is used.
   agreedTotal?: string | null;
+  // Tentative (NEW) or Confirmed (CONFIRMED) only; omitted means NEW. Always sent by the create form.
+  status?: "NEW" | "CONFIRMED";
+  // Optional staff notes, up to 1000 characters; sent only when not empty.
+  notes?: string | null;
 };
 
 // Body of POST /bookings/staff/quote - the price/availability preview the create form shows
@@ -2406,3 +2413,38 @@ export type ServiceChargeSettings = { serviceChargeRate: string; updatedAt: stri
 
 // GET/PUT /settings/vat (ADMIN).
 export type VatSettings = { vatRate: string; updatedAt: string };
+
+// GET /reports/future-bookings (MANAGER+): arrivals in a date range by status. Every figure is the server's.
+export type FutureBookingRow = {
+  bookingId: string;
+  guestName: string;
+  // The room type and physical room of the booking's first night.
+  roomName: string;
+  roomUnitLabel: string | null;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  adults: number;
+  children: number;
+  channel: BookingChannel;
+  status: BookingStatus;
+  totalPrice: string;
+  balanceDue: string;
+  notes: string | null;
+};
+
+export type FutureBookingsStatusSummary = {
+  status: BookingStatus;
+  bookings: number;
+  nights: number;
+  // Sum of the rows' totalPrice, computed by the server.
+  totalPrice: string;
+};
+
+export type FutureBookingsReport = {
+  from: string;
+  to: string;
+  statuses: BookingStatus[];
+  rows: FutureBookingRow[];
+  summary: FutureBookingsStatusSummary[];
+};

@@ -1,5 +1,6 @@
 "use client";
 
+import BookingNotes from "@/components/admin/BookingNotes";
 import { bookingStatusLabel } from "@/lib/bookingStatusLabel";
 
 import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
@@ -164,6 +165,8 @@ export default function BookingCardPanel({
                 Open full page
               </Link>
             </div>
+
+            <BookingNotes key={`notes-${booking.id}-${booking.notes ?? ""}`} bookingId={booking.id} status={booking.status} notes={booking.notes} onSaved={refetchAndNotify} />
 
             <StatusAndNoteEditor booking={booking} folio={folio} onSaved={refetchAndNotify} />
 

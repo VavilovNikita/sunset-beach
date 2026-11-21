@@ -1,5 +1,6 @@
 "use client";
 
+import NotesBadge from "@/components/admin/NotesBadge";
 import { bookingStatusLabel } from "@/lib/bookingStatusLabel";
 
 import Link from "next/link";
@@ -126,6 +127,7 @@ export default function BookingsTable({
                 <td className="py-3 pr-4">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className={`rounded-full px-2.5 py-1 text-xs ${STATUS_STYLES[b.status] ?? ""}`}>{bookingStatusLabel(b.status)}</span>
+                    <NotesBadge notes={b.notes} />
                     {arrivalPassed && (
                       // Amber with a dashed outline (shape, not a new colour - the palette is full):
                       // attention, not urgent. A probable no-show nobody has handled yet.

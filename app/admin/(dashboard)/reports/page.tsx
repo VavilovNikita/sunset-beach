@@ -21,6 +21,8 @@ import {
 } from "@/lib/reportsTabs";
 import ManagerReportView from "@/components/admin/ManagerReportView";
 import BookingTrackerPanel from "@/components/admin/reports/BookingTrackerPanel";
+import FutureBookingsPanel from "@/components/admin/reports/FutureBookingsPanel";
+import { futureQuery, futureStatusesParam, parseFutureRange, parseFutureStatuses } from "@/lib/futureBookings";
 import { parseTrackerParams, trackerQuery } from "@/lib/bookingTracker";
 import {
   GuestLtvSection,
@@ -32,6 +34,7 @@ import {
 } from "@/components/admin/reports/sections";
 import type {
   BookingTrackerReport,
+  FutureBookingsReport,
   GuestLtvReport,
   ManagerReport,
   MarketSegmentReport,
@@ -59,6 +62,7 @@ export default async function ReportsPage({
     fromMonth?: string;
     toMonth?: string;
     stayMonth?: string;
+    status?: string | string[];
   };
 }) {
   await requireRoleAtLeast("MANAGER");
@@ -69,6 +73,8 @@ export default async function ReportsPage({
   const range = parseReportRange(searchParams.from, searchParams.to, hotelDateKey(new Date()));
   const limit = parseGuestLtvLimit(searchParams.limit);
   const trackerParams = parseTrackerParams(searchParams);
+  const futureStatuses = parseFutureStatuses(searchParams.status);
+  const futureRange = parseFutureRange(searchParams.from, searchParams.to, hotelDateKey(new Date()));
 
   // Only what somebody actually chose goes into the address; the rest keeps its server default.
   const state: ReportsState = {
@@ -81,6 +87,7 @@ export default async function ReportsPage({
     fromMonth: trackerParams.fromMonth,
     toMonth: trackerParams.toMonth,
     stayMonth: trackerParams.stayMonth,
+    status: futureStatusesParam(futureStatuses),
   };
 
   let content: React.ReactNode;
@@ -140,6 +147,14 @@ export default async function ReportsPage({
     const query = trackerQuery(trackerParams);
     const result = await load<BookingTrackerReport>(`/reports/booking-tracker${query ? `?${query}` : ""}`);
     content = <BookingTrackerPanel result={result} state={state} today={hotelDateKey(new Date())} />;
+  } else if (tab === "future") {
+    // Arrivals by status. from/to are the same address parameters the other day-range tabs use; here a missing pair means
+    // today .. +90 days (the server's own default), which the form shows filled in.
+    const result =
+      futureRange.from > futureRange.to
+        ? ({ ok: false, error: "From must be on or before To." } as const)
+        : await load<FutureBookingsReport>(`/reports/future-bookings?${futureQuery(futureRange, futureStatuses)}`);
+    content = <FutureBookingsPanel result={result} state={state} range={futureRange} statuses={futureStatuses} />;
   } else if (tab === "guests") {
     const result = await load<GuestLtvReport>(`/reports/guest-ltv?limit=${limit}`);
     content = (
@@ -194,7 +209,7 @@ export default async function ReportsPage({
   }
 
   return (
-    <div className={tab === "tracker" ? "max-w-7xl" : "max-w-4xl"}>
+    <div className={tab === "tracker" || tab === "future" ? "max-w-7xl" : "max-w-4xl"}>
       <div className="mb-6">
         <p className="eyebrow text-sea mb-2">Reports</p>
         <h1 className="font-display italic text-3xl">Reports</h1>

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { backendJson } from "@/lib/backendServer";
 import { BackendError } from "@/lib/backend";
 import { requireRoleAtLeast, hasRoleAtLeast } from "@/lib/rbac";
+import BookingNotes from "@/components/admin/BookingNotes";
 import BookingStatusForm from "@/components/admin/BookingStatusForm";
 import BookingOccupancyPanel from "@/components/admin/BookingOccupancyPanel";
 import BookingScheduleForm from "@/components/admin/BookingScheduleForm";
@@ -181,6 +182,7 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
             <BookingGuestLinkSection booking={booking} />
           </div>
         </div>
+          <BookingNotes key={`notes-${booking.notes ?? ""}`} bookingId={booking.id} status={booking.status} notes={booking.notes} />
           <BookingStatusForm
             // The form seeds its fields from these props once. A folio payment (or check-out)
             // elsewhere on this page changes them through router.refresh() - e.g. NEW -> PAID -

@@ -66,8 +66,21 @@ export function describeEnumValue(value: string): string {
   return lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 
-export function humanizeAuditSummary(summary: string): string {
+// Booking statuses inside an audit sentence read as the labels staff see ("from NEW to CONFIRMED" -> "from Tentative to
+// Confirmed"; "status CONFIRMED" at creation). Entries are immutable and keep the raw values - only the reading changes.
+const STATUS_WORD: Record<string, string> = { NEW: "Tentative", CONFIRMED: "Confirmed", PAID: "Room paid", CANCELLED: "Cancelled" };
+function statusWord(raw: string): string {
+  return STATUS_WORD[raw.toUpperCase()] ?? raw;
+}
+
+function statusLabels(summary: string): string {
   return summary
+    .replace(/(status changed from )(\w+)( to )(\w+)/gi, (_match, lead, oldStatus, mid, newStatus) => `${lead}${statusWord(oldStatus)}${mid}${statusWord(newStatus)}`)
+    .replace(/(; status )(NEW|CONFIRMED)\b/g, (_match, lead, status) => `${lead}${statusWord(status)}`);
+}
+
+export function humanizeAuditSummary(summary: string): string {
+  return statusLabels(summary)
     .replace(UUID, (id) => shortRef(id))
     .replace(MULTI_WORD_ENUM, (token) => words(token))
     .replace(SINGLE_WORD, (token) => (SINGLE_WORD_ENUMS.has(token) ? words(token) : token));

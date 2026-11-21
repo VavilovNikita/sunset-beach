@@ -13,6 +13,7 @@ export const REPORT_TABS = [
   { key: "sales", label: "Sales mix" },
   { key: "guests", label: "Guest LTV" },
   { key: "tracker", label: "Booking tracker" },
+  { key: "future", label: "Future bookings" },
 ] as const;
 
 export type ManagerSectionKey = ManagerReportSection["key"];
@@ -40,11 +41,13 @@ export type ReportsState = {
   fromMonth?: string;
   toMonth?: string;
   stayMonth?: string;
+  // The Future bookings tab's statuses: absent = all three, else a comma list (futureStatusesParam).
+  status?: string;
 };
 
-export type ReportsParamName = "date" | "section" | "from" | "to" | "limit" | "fromMonth" | "toMonth" | "stayMonth";
+export type ReportsParamName = "date" | "section" | "from" | "to" | "limit" | "fromMonth" | "toMonth" | "stayMonth" | "status";
 
-const ORDER: ReportsParamName[] = ["date", "section", "from", "to", "limit", "fromMonth", "toMonth", "stayMonth"];
+const ORDER: ReportsParamName[] = ["date", "section", "from", "to", "limit", "fromMonth", "toMonth", "stayMonth", "status"];
 
 function entries(state: ReportsState, omit: ReportsParamName[]): [string, string][] {
   const out: [string, string][] = [["tab", state.tab]];

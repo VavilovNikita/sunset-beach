@@ -496,20 +496,20 @@ export default function RosterGrid({
         )}
       </label>
 
-      <div className="overflow-x-auto print:overflow-visible border border-cream/10 print:border-0 rounded-xl print:rounded-none">
+      <div className="overflow-auto max-h-[calc(100vh-13rem)] min-h-[20rem] print:max-h-none print:min-h-0 print:overflow-visible border border-cream/10 print:border-0 rounded-xl print:rounded-none">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr>
-              <th className="sticky left-0 bg-ink2 text-left px-3 py-2 eyebrow text-cream/40 min-w-[180px]">Employee</th>
+              <th className="sticky top-0 left-0 z-30 print:static bg-ink2 text-left px-3 py-2 eyebrow text-cream/40 min-w-[180px]">Employee</th>
               {dates.map((d) => {
                 const isToday = d === todayKey;
                 const isWeekend = isWeekendDate(d);
                 return (
                   <th
                     key={d}
-                    className={`px-1 py-2 text-center text-xs min-w-[44px] border-l ${
+                    className={`sticky top-0 z-20 print:static px-1 py-2 text-center text-xs min-w-[44px] border-l ${
                       isToday ? "border-l-2 border-l-cream" : "border-cream/10"
-                    } ${isWeekend ? "bg-ink3/40" : ""} ${isToday ? "text-cream" : "text-cream/40"}`}
+                    } ${isWeekend ? "bg-ink3" : "bg-ink2"} ${isToday ? "text-cream" : "text-cream/40"}`}
                   >
                     <div className={isToday ? "font-semibold" : ""}>{Number(d.slice(8, 10))}</div>
                     <div className="eyebrow">{weekdayAbbrFor(d)}</div>

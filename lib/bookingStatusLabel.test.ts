@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { bookingStatusLabel, overstayText, roomPaidButOwesLine, settlementChip } from "@/lib/bookingStatusLabel";
 
 describe("bookingStatusLabel", () => {
-  it("shows PAID as Room paid and leaves the rest alone", () => {
+  it("shows every status as the label staff read", () => {
+    expect(bookingStatusLabel("NEW")).toBe("Tentative");
+    expect(bookingStatusLabel("CONFIRMED")).toBe("Confirmed");
     expect(bookingStatusLabel("PAID")).toBe("Room paid");
-    expect(bookingStatusLabel("NEW")).toBe("NEW");
-    expect(bookingStatusLabel("CANCELLED")).toBe("CANCELLED");
+    expect(bookingStatusLabel("CANCELLED")).toBe("Cancelled");
   });
 });
 

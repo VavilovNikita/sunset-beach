@@ -1,10 +1,17 @@
 import type { BookingStatus, SettlementStatus } from "@/lib/types";
 
-// PAID means "the cost of the stay was paid" - not "everything is closed" (a guest who stayed on, or ran up charges
-// to the room, still owes). So it is shown as "Room paid" everywhere; the value on the wire does not change. Every
-// other status is shown as it always was.
+// What staff read for a booking status; the value on the wire never changes. NEW is a provisional booking, shown as
+// Tentative (there is no separate "tentative" status). PAID means "the cost of the stay was paid" - not "everything is
+// closed" (a guest who stayed on, or ran up charges to the room, still owes) - so it reads "Room paid".
+const STATUS_LABELS: Record<BookingStatus, string> = {
+  NEW: "Tentative",
+  CONFIRMED: "Confirmed",
+  PAID: "Room paid",
+  CANCELLED: "Cancelled",
+};
+
 export function bookingStatusLabel(status: BookingStatus): string {
-  return status === "PAID" ? "Room paid" : status;
+  return STATUS_LABELS[status] ?? status;
 }
 
 export type SettlementChip = { text: string; tone: "owes" | "credit" | "settled" };
