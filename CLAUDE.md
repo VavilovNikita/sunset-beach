@@ -246,4 +246,4 @@ When a decision is a judgment call — a data model, a permission boundary, anyt
 
 The staff manual quotes UI labels verbatim. Renaming a visible label breaks it; propose rather than rename.
 
-A change staff will see is not done until sunset-manual has a What's new entry for its release (and the manual section it changes is updated).
+A change staff will see is not done until sunset-manual's What's new entry for the current week (hotel week, Monday-Sunday) has it under its area as New or Fixed, and the manual section it changes is updated.
