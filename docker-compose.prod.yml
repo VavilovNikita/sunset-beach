@@ -35,6 +35,11 @@ services:
       args:
         NEXT_PUBLIC_BACKEND_API_URL: ${NEXT_PUBLIC_BACKEND_API_URL}
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
     env_file:
       - .env.production
     # Bound to localhost only — the host's nginx reverse-proxies
