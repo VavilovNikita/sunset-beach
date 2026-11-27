@@ -56,7 +56,10 @@ export default async function AdminPosPage() {
               Order history →
             </Link>
           )}
-          <FailedPrintJobsBadge initialSummary={notPrintedJobs ? summarizeNotPrinted(notPrintedJobs) : null} />
+          <FailedPrintJobsBadge
+            initialSummary={notPrintedJobs ? summarizeNotPrinted(notPrintedJobs) : null}
+            limited={!user || !hasRoleAtLeast(user.role, "MANAGER")}
+          />
         </div>
       </div>
 

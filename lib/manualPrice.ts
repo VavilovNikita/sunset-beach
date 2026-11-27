@@ -1,4 +1,5 @@
 import { normalizeMoneyInput } from "@/lib/moneyInput";
+import { formatBaht } from "@/lib/money";
 // The new-booking form's "Set price manually" (BookingCreateFromGridModal -> POST /bookings/staff,
 // StaffBookingCreateInput.agreedTotal). MANAGER+ only; the server enforces that, the form only hides
 // the button. The server spreads the total over the nights and freezes it - nothing here sums or
@@ -47,6 +48,18 @@ export function validateManualPrice(amount: string): string | null {
   if (text === "") return "Enter the price for the whole stay.";
   if (!AMOUNT_RE.test(text)) return "Enter an amount of 0 or more with at most 2 decimals, for example 3700 or 3700.50.";
   return null;
+}
+
+// The big figure at the top of the price box, and the caption beside it. With a typed price that figure is the
+// typed one (what the booking will cost) and the server's calculated price moves into the caption; while the box
+// holds nothing that could be sent, a dash. Both are shown as they are - a number a person typed and a number the
+// server quoted - nothing is worked out here.
+export function priceHeadline(state: ManualPriceState, calculated: string | null): { headline: string; ratePlan: string | null } {
+  if (!state.manual) return { headline: calculated === null ? "…" : formatBaht(calculated), ratePlan: null };
+  return {
+    headline: validateManualPrice(state.amount) === null ? formatBaht(state.amount.trim()) : "—",
+    ratePlan: calculated === null ? "Rate plan …" : `Rate plan ${formatBaht(calculated)}`,
+  };
 }
 
 // What goes into the request: the typed amount while the field is on, undefined (the key is left out of

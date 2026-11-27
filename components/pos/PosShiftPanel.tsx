@@ -3,6 +3,7 @@
 import { normalizeMoneyInput } from "@/lib/moneyInput";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePolling } from "@/lib/usePolling";
 import { posRequest } from "@/lib/pos/posFetch";
@@ -83,6 +84,9 @@ function DiscrepancyBlock({ expectedCash, counted, discrepancy }: { expectedCash
 // same pattern as order payment, so the identity it'll be recorded under is shown right before
 // it's committed - see PosAttributedConfirm's comment for why that matters on a shared device.
 export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: string; actorRole: Role }) {
+  // The notice above this panel (LongOpenShiftNotice) is drawn by the server from who has a shift open, so the
+  // page is read again after opening or closing one.
+  const router = useRouter();
   const [shift, setShift] = useState<ShiftSummary | null>(null);
   const [checked, setChecked] = useState(false);
   const [openingFloat, setOpeningFloat] = useState("");
@@ -146,6 +150,7 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
     }
     const full = await fetchShift(result.data.id);
     setShift(full.ok ? full.data : null);
+    router.refresh();
   }
 
   function handleReviewClose(e: React.FormEvent) {
@@ -181,6 +186,7 @@ export default function PosShiftPanel({ actorEmail, actorRole }: { actorEmail: s
     setReviewingClose(false);
     const full = await fetchShift(result.data.id);
     setShift(full.ok ? full.data : null);
+    router.refresh();
   }
 
   if (!checked) {

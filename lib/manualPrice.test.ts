@@ -5,10 +5,30 @@ import {
   agreedTotalServerError,
   editManualPrice,
   followCalculatedPrice,
+  priceHeadline,
   startManualPrice,
   useCalculatedPrice,
   validateManualPrice,
 } from "@/lib/manualPrice";
+
+describe("priceHeadline", () => {
+  it("is the server's calculated price while nothing is typed by hand", () => {
+    expect(priceHeadline(NO_MANUAL_PRICE, "10000.00")).toEqual({ headline: "\u0e3f10,000", ratePlan: null });
+    expect(priceHeadline(NO_MANUAL_PRICE, null).headline).toBe("\u2026");
+  });
+
+  it("is the typed price, with the calculated one as a caption", () => {
+    expect(priceHeadline(editManualPrice(startManualPrice("10000.00"), "7777,50"), "10000.00")).toEqual({
+      headline: "\u0e3f7,777.50",
+      ratePlan: "Rate plan \u0e3f10,000",
+    });
+  });
+
+  it("shows a dash while the typed amount could not be sent", () => {
+    expect(priceHeadline(editManualPrice(startManualPrice("10000.00"), ""), "10000.00").headline).toBe("\u2014");
+    expect(priceHeadline(editManualPrice(startManualPrice("10000.00"), "abc"), null)).toEqual({ headline: "\u2014", ratePlan: "Rate plan \u2026" });
+  });
+});
 
 describe("what is sent", () => {
   it("leaves agreedTotal out entirely while the field is off", () => {

@@ -22,7 +22,7 @@ import { usePolling } from "@/lib/usePolling";
 // treated as zero — collapsing the two would read as "no failures" during
 // exactly the kind of outage (print backend down/restarting) most likely to
 // also mean prints are actually failing.
-export default function FailedPrintJobsBadge({ initialSummary }: { initialSummary: NotPrintedSummary | null }) {
+export default function FailedPrintJobsBadge({ initialSummary, limited }: { initialSummary: NotPrintedSummary | null; limited: boolean }) {
   const [summary, setSummary] = useState<NotPrintedSummary | null>(initialSummary);
 
   async function refetch() {
@@ -55,7 +55,7 @@ export default function FailedPrintJobsBadge({ initialSummary }: { initialSummar
       className="flex items-center gap-2 rounded-full bg-coral/15 text-coral px-4 py-2 text-sm font-medium hover:bg-coral/25 transition-colors"
     >
       <span className="w-2 h-2 rounded-full bg-coral" />
-      {notPrintedBannerText(summary)}
+      {notPrintedBannerText(summary, limited)}
     </Link>
   );
 }

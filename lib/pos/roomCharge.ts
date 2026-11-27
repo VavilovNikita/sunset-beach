@@ -18,23 +18,19 @@ export function isChargeableToRoom(booking: Pick<Booking, "status" | "occupancyS
 }
 
 // Which booking the "Charge to room" list has selected after it (re)loads. Whoever is picked here
-// is the guest the order gets charged to, so the default matters:
+// is the guest the order gets charged to, and one Confirm charges them, so nobody is picked for the
+// cashier:
 //  - a pick the cashier already made stays, as long as it is still in the list;
 //  - an order that already belongs to a guest (a spa ticket opened from the guest's appointment
-//    names that booking) opens on that guest, not on whoever happens to be first in the list;
-//  - if that guest is not in the list (not checked in) and nothing was typed, nothing is selected -
-//    quietly falling back to the first row would charge a stranger;
-//  - otherwise the first row, as a search-as-you-type list always did.
+//    names that booking) opens on that guest;
+//  - otherwise nothing is selected until a row is tapped - not the first row, and not the only match
+//    of a half-typed name either, which may well be a stranger.
 export function pickRoomChargeSelection(
   bookings: ReadonlyArray<{ id: string }>,
   previousId: string | null,
-  preferredId: string | null | undefined,
-  queryTyped: boolean
+  preferredId: string | null | undefined
 ): string | null {
   if (previousId && bookings.some((b) => b.id === previousId)) return previousId;
-  if (preferredId) {
-    if (bookings.some((b) => b.id === preferredId)) return preferredId;
-    if (!queryTyped) return null;
-  }
-  return bookings[0]?.id ?? null;
+  if (preferredId && bookings.some((b) => b.id === preferredId)) return preferredId;
+  return null;
 }

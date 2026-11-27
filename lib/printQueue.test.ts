@@ -73,11 +73,17 @@ describe("mergePrintJobLists", () => {
 
 describe("text", () => {
   it("says how many are still retrying", () => {
-    expect(notPrintedBannerText({ total: 3, retrying: 2 })).toBe(
+    expect(notPrintedBannerText({ total: 3, retrying: 2 }, false)).toBe(
       "3 print jobs not printed (2 still retrying) — a ticket may not have reached the kitchen/bar"
     );
-    expect(notPrintedBannerText({ total: 1, retrying: 0 })).toBe(
+    expect(notPrintedBannerText({ total: 1, retrying: 0 }, false)).toBe(
       "1 print job not printed — a ticket may not have reached the kitchen/bar"
+    );
+  });
+
+  it("tells a role below manager which jobs its number counts", () => {
+    expect(notPrintedBannerText({ total: 25, retrying: 0 }, true)).toBe(
+      "25 kitchen, bar and pre-bill jobs not printed — a ticket may not have reached the kitchen/bar"
     );
   });
 

@@ -26,6 +26,21 @@ export function staffLanding(role: string | null | undefined, functions: readonl
   return FUNCTION_LANDING.find((l) => held.includes(l.fn))?.href ?? roleLanding;
 }
 
+// What a "go home" button is called, by where it leads (not-found and access-denied pages).
+const LANDING_LABELS: Record<string, string> = {
+  "/admin": "Go to Dashboard",
+  "/admin/today": "Go to Today",
+  "/pos": "Go to POS",
+  "/admin/maintenance": "Go to Maintenance",
+  "/admin/spa": "Go to Spa",
+  "/admin/shift-requests": "Go to Shift requests",
+};
+
+export function staffHomeLink(role: string | null | undefined, functions: readonly string[] | null | undefined): { href: string; label: string } {
+  const href = staffLanding(role, functions);
+  return { href, label: LANDING_LABELS[href] ?? "Go to the start page" };
+}
+
 // The `callbackUrl` the login page may follow: a path on this site only. Anything else
 // (`https://evil.example/admin`, `//evil.example`, `/\evil.example`, `javascript:`) is ignored, so a
 // crafted login link can't send a freshly signed-in member of staff to a look-alike page that asks

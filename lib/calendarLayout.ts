@@ -33,6 +33,18 @@ export const DRAG_THRESHOLD_PX = 44;
 // the very same density.
 export const LABEL_MIN_WIDTH_PX = 36;
 
+/**
+ * A day column's width on screen: the chosen density, stretched when the period is too short to
+ * fill the grid's box - so the chosen width is the minimum, never the maximum. `containerWidth`
+ * is the visible width of the grid (0 before it has been measured: the chosen width as it is).
+ * Rounded down to a hundredth of a pixel so the columns never overflow the box they fill.
+ */
+export function fitDayWidth(containerWidth: number, labelWidth: number, dayCount: number, chosen: number): number {
+  if (containerWidth <= 0 || dayCount <= 0) return chosen;
+  const fill = Math.floor(((containerWidth - labelWidth) / dayCount) * 100) / 100;
+  return Math.max(chosen, fill);
+}
+
 function daysBetween(from: Date, to: Date) {
   return Math.round((to.getTime() - from.getTime()) / 86_400_000);
 }
@@ -123,6 +135,10 @@ export type BookingLane = { booking: CalendarBooking; lane: number };
  * by this one's check-in, opening a new lane otherwise. Non-overlapping bookings on a real unit
  * always land in lane 0 - `laneCount > 1` is the signal a unit has a genuine double-booking that
  * needs staff attention, not a rendering choice.
+ *
+ * A guest still checked in past checkOut holds the room until `overstayUntil` (the backend's
+ * OverstayRule), and the grid draws those nights as a tail after their bar - so they count here
+ * too. Leaving them out put an arrival into the same room in the same lane, hidden under the tail.
  */
 export function assignLanes(bookings: CalendarBooking[]): { lanes: BookingLane[]; laneCount: number } {
   const sorted = [...bookings].sort((a, b) => dateOnlyUTC(a.checkIn).getTime() - dateOnlyUTC(b.checkIn).getTime());
@@ -130,7 +146,8 @@ export function assignLanes(bookings: CalendarBooking[]): { lanes: BookingLane[]
   const lanes: BookingLane[] = [];
   for (const booking of sorted) {
     const start = dateOnlyUTC(booking.checkIn).getTime();
-    const end = dateOnlyUTC(booking.checkOut).getTime(); // half-open - checkout day is free
+    // half-open - the departure day is free; an overstay runs on to its own exclusive end
+    const end = Math.max(dateOnlyUTC(booking.checkOut).getTime(), booking.overstayUntil ? dateOnlyUTC(booking.overstayUntil).getTime() : 0);
     let lane = laneEnds.findIndex((laneEnd) => laneEnd <= start);
     if (lane === -1) {
       lane = laneEnds.length;
@@ -141,6 +158,22 @@ export function assignLanes(bookings: CalendarBooking[]): { lanes: BookingLane[]
     lanes.push({ booking, lane });
   }
   return { lanes, laneCount: laneEnds.length };
+}
+
+/**
+ * One row's bars while a drag may be going on. Lanes - and so the row's height - come from `atRest`,
+ * the row's own bookings as they are saved; `shown` is what is drawn in it right now (a dragged bar
+ * leaves its row and visits another, a resized one has other dates). A visiting bar is drawn over
+ * lane 0 and takes no lane of its own.
+ *
+ * Rows must not change height during a drag: a bar passing over an occupied room used to give that
+ * row a second lane, every row below moved down under the pointer, and a release aimed at the free
+ * room beneath landed on the occupied one - which then offered to swap with it.
+ */
+export function layoutRow(atRest: CalendarBooking[], shown: CalendarBooking[]): { lanes: BookingLane[]; laneCount: number } {
+  const { lanes, laneCount } = assignLanes(atRest);
+  const laneOf = new Map(lanes.map((l) => [l.booking.segmentId, l.lane]));
+  return { lanes: shown.map((booking) => ({ booking, lane: laneOf.get(booking.segmentId) ?? 0 })), laneCount };
 }
 
 export type EdgeDragTarget = {

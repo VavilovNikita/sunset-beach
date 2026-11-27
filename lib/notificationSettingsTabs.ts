@@ -5,6 +5,7 @@ import {
   type SettingsForm,
 } from "@/lib/notifications";
 import { decidersSummary } from "@/lib/shiftRequests";
+import { formatDate } from "@/lib/formatDate";
 import {
   BOT_GROUPS,
   dirtyBotSettingsFields,
@@ -228,6 +229,8 @@ export function telegramRouteFact(status: NotificationStatus | null): OverviewFa
 }
 
 // The facts above the table, only from what the five endpoints already answer.
+const leaveDate = (date: string | null | undefined) => (date ? formatDate(date) : "…");
+
 export function overviewFacts(
   settings: NotificationSettings,
   staff: readonly NotificationStaffMember[],
@@ -245,7 +248,7 @@ export function overviewFacts(
   else telegram = { label: "Telegram", text: `Connected as @${status.botUsername}.`, warn: false };
 
   const everyoneLinked = active.length > 0 && linked === active.length;
-  const hrLeave = deciders.vacationFrom || deciders.vacationTo ? ` Leave: ${deciders.vacationFrom ?? "…"} to ${deciders.vacationTo ?? "…"}.` : "";
+  const hrLeave = deciders.vacationFrom || deciders.vacationTo ? ` Leave: ${leaveDate(deciders.vacationFrom)} to ${leaveDate(deciders.vacationTo)}.` : "";
 
   const route = telegramRouteFact(status);
 

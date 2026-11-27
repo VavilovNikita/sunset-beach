@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { safeCallbackUrl, staffLanding } from "./staffLanding";
+import { safeCallbackUrl, staffHomeLink, staffLanding } from "./staffLanding";
+
+describe("staffHomeLink", () => {
+  it("names the button by the page the role starts on", () => {
+    expect(staffHomeLink("WAITER", [])).toEqual({ href: "/pos", label: "Go to POS" });
+    expect(staffHomeLink("CASHIER", [])).toEqual({ href: "/admin/today", label: "Go to Today" });
+    expect(staffHomeLink("MANAGER", [])).toEqual({ href: "/admin", label: "Go to Dashboard" });
+    expect(staffHomeLink("WAITER", ["ENGINEER"])).toEqual({ href: "/admin/maintenance", label: "Go to Maintenance" });
+  });
+
+  it("has a label for every landing page", () => {
+    for (const role of ["WAITER", "CASHIER", "MANAGER", "ADMIN"]) {
+      for (const functions of [[], ["ENGINEER"], ["THERAPIST"], ["HR"], ["HOUSEKEEPER"]]) {
+        expect(staffHomeLink(role, functions).label).not.toBe("Go to the start page");
+      }
+    }
+  });
+});
 
 describe("staffLanding", () => {
   it("lets a job function win over the role for a waiter or a cashier", () => {

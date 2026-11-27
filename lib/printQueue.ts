@@ -56,9 +56,12 @@ export function summarizeNotPrinted(jobs: PrintJob[]): NotPrintedSummary {
   return { total: open.length, retrying: open.filter((j) => j.status === "PENDING").length };
 }
 
-export function notPrintedBannerText({ total, retrying }: NotPrintedSummary): string {
+// `limited`: the reader is below MANAGER, so the server lists only kitchen tickets, bar tickets and pre-bills (not
+// receipts, Z-reports or test pages) - the same banner under two roles then shows two numbers, and says why.
+export function notPrintedBannerText({ total, retrying }: NotPrintedSummary, limited: boolean): string {
   const still = retrying > 0 ? ` (${retrying} still retrying)` : "";
-  return `${total} print ${total === 1 ? "job" : "jobs"} not printed${still} — a ticket may not have reached the kitchen/bar`;
+  const kind = limited ? "kitchen, bar and pre-bill" : "print";
+  return `${total} ${kind} ${total === 1 ? "job" : "jobs"} not printed${still} — a ticket may not have reached the kitchen/bar`;
 }
 
 export function emptyPrintQueueText(filter: PrintQueueFilter): string {

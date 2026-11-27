@@ -1,22 +1,15 @@
 import Link from "next/link";
 import { requireSessionUser } from "@/lib/rbac";
-import type { Role } from "@/lib/session";
+import { staffHomeLink } from "@/lib/staffLanding";
 
 // Where requireRoleAtLeast/requireAdminUser send a signed-in user who hit a gate above their
 // role, instead of the old default (a bare redirect to /admin) - for a WAITER that landed on
 // AdminDashboardPage's own "forbidden" gap (every figure there needs CASHIER+), which reads
 // exactly like a broken page to someone who doesn't already know why. This explains what
 // happened and points at a page that actually has something on it for their role.
-const ROLE_HOME: Record<Role, { href: string; label: string }> = {
-  WAITER: { href: "/admin/pos", label: "Go to POS" },
-  CASHIER: { href: "/admin", label: "Go to Dashboard" },
-  MANAGER: { href: "/admin", label: "Go to Dashboard" },
-  ADMIN: { href: "/admin", label: "Go to Dashboard" },
-};
-
 export default async function AccessDeniedPage() {
   const user = await requireSessionUser();
-  const home = ROLE_HOME[user.role];
+  const home = staffHomeLink(user.role, user.functions);
 
   return (
     <div className="max-w-md">

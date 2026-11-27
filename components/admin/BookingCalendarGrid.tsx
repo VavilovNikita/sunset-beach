@@ -12,8 +12,9 @@ import {
   columnSpan,
   groupBookingsByUnit,
   mergeBlocksByUnit,
-  assignLanes,
+  layoutRow,
   resolveEdgeDragTarget,
+  fitDayWidth,
   DRAG_THRESHOLD_PX,
   LABEL_MIN_WIDTH_PX,
 } from "@/lib/calendarLayout";
@@ -36,6 +37,8 @@ import { formatBaht } from "@/lib/money";
 
 const ROW_HEIGHT = 40;
 const LABEL_WIDTH = 208;
+// A bar starts this far inside its first day column (and ends as far inside its last).
+const BAR_INSET_PX = 2;
 
 // CONFIRMED is deliberately not coral: it's the routine, expected state that fills most of this
 // screen, and coral now means "needs intervention" (overbooked cell, overlapping-bookings
@@ -76,15 +79,29 @@ export default function BookingCalendarGrid({
   // client state - hydrated from localStorage once on mount (SSR has no localStorage, so the
   // first paint always uses the default; see the effect below) rather than round-tripping through
   // a server render for something with zero effect on what data is needed.
-  const [dayWidth, setDayWidth] = useState(DEFAULT_DAY_WIDTH_PX);
+  const [chosenDayWidth, setChosenDayWidth] = useState(DEFAULT_DAY_WIDTH_PX);
   useEffect(() => {
     const stored = loadStoredDensity();
-    if (stored !== null) setDayWidth(stored);
+    if (stored !== null) setChosenDayWidth(stored);
   }, []);
   function changeDayWidth(next: number) {
-    setDayWidth(next);
+    setChosenDayWidth(next);
     saveStoredDensity(next);
   }
+  // The grid's own visible width, followed as the window (or the sidebar beside it) changes size.
+  const [gridWidth, setGridWidth] = useState(0);
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const measure = () => setGridWidth(el.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  // What a column really measures: the chosen density, or wider when the period doesn't fill the grid. Everything
+  // below - layout, hit offsets and the drag rule - works on this figure, never on the slider's own.
+  const dayWidth = fitDayWidth(gridWidth, LABEL_WIDTH, buildDayColumns(data.from, data.to).length, chosenDayWidth);
   // One rule, not two: whether the mouse can be trusted to land on an intended day at all -
   // dragging an existing booking's edge/whole bar, dragging a free-cell range to create one, and
   // (below) whether a single click on a free cell should open the create form immediately instead
@@ -403,7 +420,7 @@ export default function BookingCalendarGrid({
     setTouchActionNone(true);
     const rect = e.currentTarget.getBoundingClientRect();
     // From the stay's real first night, not the visible left edge: a bar that began before the grid is clipped.
-    const grabDayOffset = grabOffsetDays(e.clientX, rect.left, dayWidth, booking.checkIn, toDateKey(gridFrom));
+    const grabDayOffset = grabOffsetDays(e.clientX, rect.left - BAR_INSET_PX, dayWidth, booking.checkIn, toDateKey(gridFrom));
     const checkIn = dateOnlyUTC(booking.checkIn);
     const checkOut = dateOnlyUTC(booking.checkOut);
     setDragState({
@@ -879,12 +896,11 @@ export default function BookingCalendarGrid({
     bookings: CalendarBooking[]
   ) {
     const withEffective = bookings.map((b) => ({ booking: b, ...effectiveBooking(b) }));
-    // Only lay out bookings actually in this row right now (a booking mid-move shows in its
+    // Drawn here: the bookings actually in this row right now (a booking mid-move shows in its
     // drag-target row, not its original one) — see the caller, which already filters by
-    // effective roomUnitId before calling renderRow.
-    const { lanes, laneCount } = assignLanes(
-      withEffective.map(({ booking, checkIn, checkOut }) => ({ ...booking, checkIn, checkOut }))
-    );
+    // effective roomUnitId before calling renderRow. Lanes and height: the row's own bookings as
+    // saved, so no row moves while something is being dragged (layoutRow).
+    const { lanes, laneCount } = layoutRow(bookingsAtRest(roomId, roomUnitId), bookings);
     const rowHeight = ROW_HEIGHT * Math.max(laneCount, 1);
     const segments = blocksByUnit.get(roomUnitId) ?? [];
 
@@ -985,6 +1001,7 @@ export default function BookingCalendarGrid({
               const { startCol, colSpan } = columnSpan(dateOnlyUTC(b.checkOut), dateOnlyUTC(b.overstayUntil!), gridFrom, dayCount);
               if (colSpan <= 0) return null;
               const tapHandlers = bindTapOrDoubleClick(() => setSelectedBookingId(b.bookingId));
+              const lane = lanes.find((l) => l.booking.segmentId === b.segmentId)?.lane ?? 0;
               return (
                 <div
                   key={`overstay-${b.segmentId}`}
@@ -996,7 +1013,7 @@ export default function BookingCalendarGrid({
                   style={{
                     left: startCol * dayWidth + 2,
                     width: colSpan * dayWidth - 4,
-                    top: 3,
+                    top: lane * ROW_HEIGHT + 3,
                     height: ROW_HEIGHT - 6,
                     backgroundImage:
                       "repeating-linear-gradient(-45deg, rgba(226,97,47,0.55), rgba(226,97,47,0.55) 6px, rgba(226,97,47,0.2) 6px, rgba(226,97,47,0.2) 12px)",
@@ -1049,6 +1066,8 @@ export default function BookingCalendarGrid({
                     width: colSpan * dayWidth - 4,
                     top: lane * ROW_HEIGHT + 3,
                     height: ROW_HEIGHT - 6,
+                    // Above whatever it is passing over, which it no longer pushes into another lane.
+                    zIndex: dragging ? 5 : undefined,
                     pointerEvents: dragging ? "none" : "auto",
                   }}
                 >
@@ -1116,6 +1135,11 @@ export default function BookingCalendarGrid({
     return Math.round((date.getTime() - gridFrom.getTime()) / 86_400_000);
   }
 
+  // A row's own bookings as saved - what its lanes and height come from, drag or no drag.
+  function bookingsAtRest(roomId: string, roomUnitId: string) {
+    return (bookingsByRoomId.get(roomId) ?? []).filter((b) => (b.roomUnitId ?? "") === roomUnitId);
+  }
+
   // Bookings currently being moved render only in their drag-target row, not their original one.
   function bookingsForRow(roomId: string, roomUnitId: string) {
     return (bookingsByRoomId.get(roomId) ?? []).filter((b) => {
@@ -1147,20 +1171,22 @@ export default function BookingCalendarGrid({
           min={MIN_DAY_WIDTH_PX}
           max={MAX_DAY_WIDTH_PX}
           step={1}
-          value={dayWidth}
+          value={chosenDayWidth}
           onChange={(e) => changeDayWidth(Number(e.target.value))}
           className="w-40 accent-coral"
           aria-label="Calendar column density"
         />
         <span className="text-[10px] text-cream/30">Spacious</span>
-        <span className="text-xs text-cream/50 w-16 text-right">{dayWidth}px/day</span>
+        <span className="text-xs text-cream/50 w-16 text-right" title={dayWidth > chosenDayWidth ? "Widened to fill the screen" : undefined}>
+          {Math.floor(dayWidth)}px/day
+        </span>
       </div>
       {!allowDrag && (
         // Visible on purpose: the column width is remembered in the browser, so a desk that once
         // squeezed the grid finds dragging "broken" days later. Says why and fixes it in one click.
         <div className="flex items-center justify-between gap-3 flex-wrap bg-sand/10 border border-sand/40 rounded-lg px-3 py-2 mb-2">
           <p className="text-sm text-cream/80">
-            Dragging is off: the columns are too narrow ({dayWidth}px a day, {DRAG_THRESHOLD_PX}px needed) to drop a booking on the right day. Click a bar to change
+            Dragging is off: the columns are too narrow ({Math.floor(dayWidth)}px a day, {DRAG_THRESHOLD_PX}px needed) to drop a booking on the right day. Click a bar to change
             its dates or room from the booking panel, or click an empty cell to open the new-booking form.
           </p>
           <button
@@ -1201,7 +1227,8 @@ export default function BookingCalendarGrid({
               {rt.roomUnits.map((unit: RoomUnit) =>
                 renderRow(rt.roomId, unit.id, unit.label, unit.isActive, unit.housekeepingStatus, bookingsForRow(rt.roomId, unit.id))
               )}
-              {bookingsForRow(rt.roomId, "").length > 0 &&
+              {/* Shown for the saved bookings, so the row doesn't vanish from under a drag that takes its last one away. */}
+              {bookingsAtRest(rt.roomId, "").length > 0 &&
                 renderRow(rt.roomId, "", "Unassigned", true, undefined, bookingsForRow(rt.roomId, ""))}
             </div>
           ))}

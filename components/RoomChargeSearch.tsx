@@ -28,8 +28,8 @@ export default function RoomChargeSearch({
   onSettled,
 }: {
   orderId: string;
-  // The guest the order already belongs to (a spa ticket opened from that guest's appointment) -
-  // the list opens on them instead of on whoever is first. See pickRoomChargeSelection.
+  // The guest the order already belongs to (a spa ticket opened from that guest's appointment) - the
+  // list opens with them selected. Without one nobody is selected. See pickRoomChargeSelection.
   preferredBookingId?: string | null;
   // Whoever is currently logged in - shown once a booking is picked, right where Confirm is
   // tapped, so a swapped identity is caught before the charge is recorded, not after. null on the
@@ -59,7 +59,7 @@ export default function RoomChargeSearch({
         return;
       }
       setBookings(result.data);
-      setSelectedId((prev) => pickRoomChargeSelection(result.data, prev, preferredBookingId, query.trim() !== ""));
+      setSelectedId((prev) => pickRoomChargeSelection(result.data, prev, preferredBookingId));
     }, DEBOUNCE_MS);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -127,13 +127,15 @@ export default function RoomChargeSearch({
         </div>
       )}
 
+      {!searching && bookings.length > 0 && !selectedId && <p className="text-sm text-cream/50">Tap a guest to charge their room.</p>}
       {submitError && <p className="text-sm text-coral">{submitError}</p>}
 
       <div className="flex gap-3">
         <button
           type="button"
           onClick={handleConfirm}
-          disabled={!selectedId || submitting}
+          // Not while the list is being re-read either: the pick must be one that is on screen.
+          disabled={!selectedId || searching || submitting}
           className="flex-1 rounded-xl bg-coral hover:bg-coraldeep active:bg-coraldeep transition-colors py-3 text-sm font-medium disabled:opacity-60"
         >
           {submitting ? "Charging…" : "Confirm"}

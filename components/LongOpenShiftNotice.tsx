@@ -60,12 +60,16 @@ export default function LongOpenShiftNotice({
           </Link>
         )}
         {others.length > 0 && viewerHasOwnShift === false && (
+          // The flex box only gives the line its 44px; the sentence is one inner span, because a flex container
+          // drops the spaces between its text and its link ("open yoursto").
           <span className="inline-flex items-center min-h-11 text-cream/80">
-            You have no open shift of your own&nbsp;&mdash;&nbsp;
-            <Link href={ownShiftHref} className="text-sea hover:text-coral transition-colors underline underline-offset-4">
-              open yours
-            </Link>{" "}
-            to take payments.
+            <span>
+              You have no open shift of your own&nbsp;&mdash;{" "}
+              <Link href={ownShiftHref} className="text-sea hover:text-coral transition-colors underline underline-offset-4">
+                open yours
+              </Link>{" "}
+              to take payments.
+            </span>
           </span>
         )}
       </div>

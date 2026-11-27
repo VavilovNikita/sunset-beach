@@ -15,6 +15,7 @@ import {
   agreedTotalServerError,
   editManualPrice,
   followCalculatedPrice,
+  priceHeadline,
   startManualPrice,
   useCalculatedPrice,
   validateManualPrice,
@@ -134,6 +135,7 @@ export default function BookingCreateFromGridModal({
 
   const datesValid = staffBookingDatesValid(checkIn, checkOut);
   const nights = datesValid ? getNights(checkIn, checkOut).length : 0;
+  const headline = priceHeadline(price, quote?.totalPrice ?? null);
 
   // Re-price whenever the dates change. Only the latest answer is shown - a slow response for
   // dates the user has already changed must not overwrite the current one.
@@ -301,7 +303,10 @@ export default function BookingCreateFromGridModal({
                     <span className="text-cream/60">
                       {quote.nights} night{quote.nights === 1 ? "" : "s"}
                     </span>
-                    <span className="font-display italic text-2xl text-coral">{formatBaht(quote.totalPrice)}</span>
+                    <span className="flex items-baseline gap-3">
+                      {headline.ratePlan && <span className="text-xs text-cream/50">{headline.ratePlan}</span>}
+                      <span className="font-display italic text-2xl text-coral">{headline.headline}</span>
+                    </span>
                   </div>
                   {!quote.available && <p className="text-xs text-coral mt-1">{quote.reason ?? "This room isn't free for these dates."}</p>}
                 </div>
@@ -311,8 +316,7 @@ export default function BookingCreateFromGridModal({
                 <div className="mt-2 pt-2 border-t border-cream/10">
                   {price.manual ? (
                     <div className="space-y-2">
-                      <div className="flex items-baseline justify-between gap-3 text-xs text-cream/50">
-                        <span>{quote ? `Calculated: ${formatBaht(quote.totalPrice)}` : "Calculated: …"}</span>
+                      <div className="flex justify-end text-xs">
                         <button
                           type="button"
                           onClick={() => {

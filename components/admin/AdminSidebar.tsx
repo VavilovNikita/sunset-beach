@@ -78,6 +78,8 @@ function NavSections({
   );
 }
 
+const ROLE_LABELS: Record<Role, string> = { WAITER: "Waiter", CASHIER: "Cashier", MANAGER: "Manager", ADMIN: "Admin" };
+
 export default function AdminSidebar({ email, role, functions }: { email: string; role: Role; functions: JobFunction[] }) {
   // A spa ticket lives under /admin/pos/orders but belongs to Spa - see lib/adminNav.ts#navPathname.
   const pathname = navPathname(usePathname(), useSearchParams().get("section"));
@@ -240,7 +242,7 @@ export default function AdminSidebar({ email, role, functions }: { email: string
         <div className="flex items-center justify-between gap-3 md:block md:mb-8">
           <Link href={homeHref} className="font-display italic text-lg text-cream block">
             The Sunset Beach
-            <span className="hidden md:block eyebrow text-sea font-sans not-italic mt-0.5">Admin</span>
+            <span className="hidden md:block eyebrow text-sea font-sans not-italic mt-0.5">{ROLE_LABELS[role]}</span>
           </Link>
           <button
             type="button"

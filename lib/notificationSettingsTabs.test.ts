@@ -361,7 +361,7 @@ describe("the Overview", () => {
         deciders({ onVacationToday: true, vacationFrom: "2026-10-18", vacationTo: "2026-10-25", effectiveDeciders: ["Admin"] }),
         ready
       );
-      expect(text("HR director", away).text).toBe("Malee is on leave today - the administrators decide (Admin). Leave: 2026-10-18 to 2026-10-25.");
+      expect(text("HR director", away).text).toBe("Malee is on leave today - the administrators decide (Admin). Leave: 18 Oct 2026 to 25 Oct 2026.");
       const waiting = overviewFacts(alerts, staff, deciders({ hrName: undefined, hrUserId: undefined, effectiveDeciders: [] }), ready);
       expect(text("HR director", waiting).warn).toBe(true);
     });

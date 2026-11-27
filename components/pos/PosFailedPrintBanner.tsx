@@ -13,7 +13,7 @@ import { notPrintedBannerText, summarizeNotPrinted, type NotPrintedSummary } fro
 // `summary === null` means "couldn't check", kept as its own state rather than folded into zero:
 // a print backend that's down or restarting is exactly the situation where prints might also be
 // silently failing, so "nothing waiting" and "couldn't tell" must never look the same.
-export default function PosFailedPrintBanner({ initialSummary }: { initialSummary: NotPrintedSummary | null }) {
+export default function PosFailedPrintBanner({ initialSummary, limited }: { initialSummary: NotPrintedSummary | null; limited: boolean }) {
   const [summary, setSummary] = useState<NotPrintedSummary | null>(initialSummary);
 
   async function refetch() {
@@ -45,7 +45,7 @@ export default function PosFailedPrintBanner({ initialSummary }: { initialSummar
       className="flex items-center justify-center gap-2 bg-coral text-ink px-4 py-3 text-sm font-semibold active:bg-coraldeep transition-colors"
     >
       <span className="w-2 h-2 rounded-full bg-ink shrink-0" />
-      {notPrintedBannerText(summary)}
+      {notPrintedBannerText(summary, limited)}
     </Link>
   );
 }

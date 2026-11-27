@@ -11,6 +11,9 @@ import { checkInBooking, markBookingNoShow } from "@/lib/bookingOccupancyClient"
 import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
 import { overstayText } from "@/lib/bookingStatusLabel";
 import { overdueLabel } from "@/lib/overstay";
+import { roomOccupantWarning } from "@/lib/roomOccupant";
+import { currentRoomUnitLabel } from "@/lib/bookingRooms";
+import { hotelDateKey } from "@/lib/hotelDate";
 import { applyCheckedIn, applyCheckedOut, applyNoShow } from "@/lib/todayBoard";
 import type { CheckInResult, CheckOutResult, TodayBoard, TodayBoardEntry } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
@@ -149,10 +152,14 @@ function TodayRow({
   const roomDirty = booking.roomUnit?.housekeepingStatus === "DIRTY";
   const owed = Number(outstandingBalance) > 0;
   const overdue = overdueLabel(entry.overdueDays);
+  const occupant = action === "checkin" ? (entry.roomOccupant ?? null) : null;
+  // The room the guest walks into today (after a planned move that is not booking.roomUnit).
+  const arrivalRoomLabel = currentRoomUnitLabel(booking, hotelDateKey(new Date())) ?? booking.roomUnit?.label ?? null;
 
-  // A clean room is checked in straight away; a dirty one asks first (CheckInDialog).
+  // A clean, free room is checked in straight away; a dirty or occupied one asks first (CheckInDialog).
   async function handleCheckIn() {
-    if (roomDirty) {
+    setError(null);
+    if (roomDirty || occupant) {
       setCheckingIn(true);
       return;
     }
@@ -162,6 +169,8 @@ function TodayRow({
     setBusy(false);
     if (!result.ok) {
       setError(result.error);
+      // A refusal means the board is behind (somebody checked into the room since): read it again.
+      onChanged();
       return;
     }
     onCheckedIn(entry, result.result, false);
@@ -195,6 +204,14 @@ function TodayRow({
           {roomDirty && <span className="text-sand">Room not clean</span>}
           {owed && <span className="text-coral">{formatBaht(outstandingBalance)} owed</span>}
         </div>
+        {occupant && (
+          <p className={`mt-1 text-xs ${occupant.overdueDays > 0 ? "text-coral" : "text-amber-400"}`}>
+            {roomOccupantWarning(occupant, arrivalRoomLabel)}{" "}
+            <Link href={`/admin/bookings/${occupant.bookingId}`} className="underline underline-offset-2">
+              Open their booking
+            </Link>
+          </p>
+        )}
         {/* Optional, not a check-in blocker - check-in is the moment reception is already looking
             at this row, so it's the natural place to offer linking a guest, but the backend
             doesn't require one to check in. */}
@@ -242,8 +259,14 @@ function TodayRow({
         <CheckInDialog
           bookingId={booking.id}
           guestName={booking.guestName}
-          roomLabel={booking.roomUnit?.label ?? null}
-          onBack={() => setCheckingIn(false)}
+          roomLabel={arrivalRoomLabel}
+          roomDirty={roomDirty}
+          occupant={occupant}
+          onBack={() => {
+            setCheckingIn(false);
+            // The board may be behind what the server just said in the dialog.
+            if (occupant) onChanged();
+          }}
           onDone={(result) => {
             setCheckingIn(false);
             onCheckedIn(entry, result, true);

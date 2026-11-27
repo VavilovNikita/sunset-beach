@@ -1,5 +1,5 @@
 import { backendJson } from "@/lib/backendServer";
-import { getSessionUser } from "@/lib/rbac";
+import { getSessionUser, hasRoleAtLeast } from "@/lib/rbac";
 import { loadStaleShifts } from "@/lib/staleShiftsServer";
 import LongOpenShiftNotice from "@/components/LongOpenShiftNotice";
 import { loadNotPrintedJobs } from "@/lib/printQueueServer";
@@ -38,7 +38,10 @@ export default async function PosHomePage() {
           />
         )}
       </div>
-      <PosFailedPrintBanner initialSummary={notPrintedJobs ? summarizeNotPrinted(notPrintedJobs) : null} />
+      <PosFailedPrintBanner
+        initialSummary={notPrintedJobs ? summarizeNotPrinted(notPrintedJobs) : null}
+        limited={!user || !hasRoleAtLeast(user.role, "MANAGER")}
+      />
       <PosTableBoard initialTables={tables} initialOrders={[...openOrders, ...sentOrders]} />
     </div>
   );

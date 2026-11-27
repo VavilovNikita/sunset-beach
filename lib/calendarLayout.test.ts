@@ -6,6 +6,8 @@ import {
   columnSpan,
   mergeBlocksByUnit,
   assignLanes,
+  fitDayWidth,
+  layoutRow,
   groupBookingsByUnit,
   resolveEdgeDragTarget,
 } from "./calendarLayout";
@@ -161,7 +163,76 @@ describe("mergeBlocksByUnit", () => {
   });
 });
 
+describe("fitDayWidth", () => {
+  it("stretches a short period to the grid's width", () => {
+    expect(fitDayWidth(1208, 208, 16, 44)).toBe(62.5);
+  });
+
+  it("never goes below the chosen density", () => {
+    expect(fitDayWidth(1208, 208, 30, 88)).toBe(88);
+  });
+
+  it("never overflows the box it fills", () => {
+    const width = fitDayWidth(1151, 208, 16, 44);
+    expect(208 + 16 * width).toBeLessThanOrEqual(1151);
+    expect(208 + 16 * width).toBeGreaterThan(1150);
+  });
+
+  it("is the chosen density before the grid has been measured", () => {
+    expect(fitDayWidth(0, 208, 16, 88)).toBe(88);
+  });
+});
+
+describe("layoutRow", () => {
+  const own = booking({ bookingId: "own", checkIn: "2026-06-01", checkOut: "2026-06-05" });
+  const visitor = booking({ bookingId: "dragged", checkIn: "2026-06-02", checkOut: "2026-06-04" });
+
+  it("keeps an occupied row one lane high while a dragged bar passes over it", () => {
+    const { lanes, laneCount } = layoutRow([own], [own, visitor]);
+    expect(laneCount).toBe(1);
+    expect(lanes.map((l) => [l.booking.bookingId, l.lane])).toEqual([
+      ["own", 0],
+      ["dragged", 0],
+    ]);
+  });
+
+  it("keeps the height of the row the dragged bar left, and everyone's lane in it", () => {
+    const second = booking({ bookingId: "second", checkIn: "2026-06-03", checkOut: "2026-06-08" });
+    const { lanes, laneCount } = layoutRow([own, second], [second]);
+    expect(laneCount).toBe(2);
+    expect(lanes).toEqual([{ booking: second, lane: 1 }]);
+  });
+
+  it("keeps a bar in its own lane while it is moved or resized inside its row", () => {
+    const longer = { ...own, checkOut: "2026-06-09" };
+    const next = booking({ bookingId: "next", checkIn: "2026-06-05", checkOut: "2026-06-08" });
+    const { lanes, laneCount } = layoutRow([own, next], [longer, next]);
+    expect(laneCount).toBe(1);
+    expect(lanes.map((l) => l.lane)).toEqual([0, 0]);
+  });
+});
+
 describe("assignLanes", () => {
+  it("puts an arrival into a room an overstaying guest still holds in its own lane, so both bars show", () => {
+    const { lanes, laneCount } = assignLanes([
+      booking({ bookingId: "arrival", checkIn: "2026-06-12", checkOut: "2026-06-14" }),
+      booking({ bookingId: "overstay", checkIn: "2026-06-05", checkOut: "2026-06-09", overstayUntil: "2026-06-13" }),
+    ]);
+    expect(laneCount).toBe(2);
+    expect(lanes.map((l) => [l.booking.bookingId, l.lane])).toEqual([
+      ["overstay", 0],
+      ["arrival", 1],
+    ]);
+  });
+
+  it("frees the lane on the overstay's own exclusive end", () => {
+    const { laneCount } = assignLanes([
+      booking({ bookingId: "overstay", checkIn: "2026-06-05", checkOut: "2026-06-09", overstayUntil: "2026-06-13" }),
+      booking({ bookingId: "later", checkIn: "2026-06-13", checkOut: "2026-06-15" }),
+    ]);
+    expect(laneCount).toBe(1);
+  });
+
   it("puts non-overlapping bookings on the same room all in lane 0", () => {
     const { lanes, laneCount } = assignLanes([
       booking({ bookingId: "b1", checkIn: "2026-06-01", checkOut: "2026-06-05" }),

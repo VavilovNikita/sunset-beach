@@ -913,7 +913,13 @@ export type TodayBoardEntry = {
   // The nights charged to the booking as overstay - the one number to show; tonight is among them when the flag is set.
   overstayNights?: number;
   overstayIncludesTonight?: boolean;
+  // Arrivals only: another guest is still checked into this arrival's room, so check-in answers 409 until they are
+  // checked out or the arrival is moved (the backend's TodayBoardRoomOccupant). Absent or null otherwise.
+  roomOccupant?: RoomOccupant | null;
 };
+
+// overdueDays 0: not checked out yet (due out today); more: days past their check-out.
+export type RoomOccupant = { bookingId: string; guestName: string; overdueDays: number };
 
 // Response of GET /bookings/today — the front desk's daily working set. A booking appears in
 // exactly one list: arrivingToday (checkIn = today, occupancyStatus = EXPECTED), departingToday

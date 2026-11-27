@@ -3,6 +3,7 @@
 import { normalizeMoneyInput } from "@/lib/moneyInput";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ADMIN_API_URL } from "@/lib/backend";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
@@ -66,6 +67,9 @@ function DiscrepancyBlock({ expectedCash, counted, discrepancy }: { expectedCash
 }
 
 export default function ShiftPanel({ canExport }: { canExport: boolean }) {
+  // The notice above this panel (LongOpenShiftNotice) is drawn by the server from who has a shift open, so the
+  // page is read again after opening or closing one.
+  const router = useRouter();
   const [shift, setShift] = useState<ShiftSummary | null>(null);
   const [checked, setChecked] = useState(false);
   const [openingFloat, setOpeningFloat] = useState("");
@@ -138,6 +142,7 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
     }
     const full = await adminRequest<ShiftSummary>(`/shifts/${result.data.id}`, undefined, "");
     setShift(full.ok ? full.data : result.data);
+    router.refresh();
   }
 
   // Deliberately no "will be recorded as" confirm step before this money-affecting submit -
@@ -180,6 +185,7 @@ export default function ShiftPanel({ canExport }: { canExport: boolean }) {
     // rendering it.
     const full = await adminRequest<ShiftSummary>(`/shifts/${result.data.id}`, undefined, "");
     setShift(full.ok ? full.data : result.data);
+    router.refresh();
   }
 
   if (!checked) {

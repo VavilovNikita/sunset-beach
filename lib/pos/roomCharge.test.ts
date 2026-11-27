@@ -34,23 +34,27 @@ describe("pickRoomChargeSelection", () => {
   const list = [{ id: "first" }, { id: "appointment-guest" }, { id: "third" }];
 
   it("opens on the guest the order belongs to, not the first row", () => {
-    expect(pickRoomChargeSelection(list, null, "appointment-guest", false)).toBe("appointment-guest");
+    expect(pickRoomChargeSelection(list, null, "appointment-guest")).toBe("appointment-guest");
   });
 
   it("keeps a pick the cashier already made", () => {
-    expect(pickRoomChargeSelection(list, "third", "appointment-guest", false)).toBe("third");
+    expect(pickRoomChargeSelection(list, "third", "appointment-guest")).toBe("third");
   });
 
-  it("does not fall back to a stranger when the order's guest is not in the list and nothing was typed", () => {
-    expect(pickRoomChargeSelection([{ id: "first" }], null, "appointment-guest", false)).toBeNull();
+  it("selects nobody for an order that belongs to nobody until a row is tapped", () => {
+    expect(pickRoomChargeSelection(list, null, null)).toBeNull();
+    expect(pickRoomChargeSelection([], null, null)).toBeNull();
   });
 
-  it("takes the first match once the cashier searches for someone else", () => {
-    expect(pickRoomChargeSelection([{ id: "first" }], null, "appointment-guest", true)).toBe("first");
+  it("selects nobody when a search leaves one match", () => {
+    expect(pickRoomChargeSelection([{ id: "first" }], null, null)).toBeNull();
   });
 
-  it("is the first row for an order that belongs to nobody, as before", () => {
-    expect(pickRoomChargeSelection(list, null, null, false)).toBe("first");
-    expect(pickRoomChargeSelection([], null, null, false)).toBeNull();
+  it("does not fall back to a stranger when the order's guest is not in the list", () => {
+    expect(pickRoomChargeSelection([{ id: "first" }], null, "appointment-guest")).toBeNull();
+  });
+
+  it("drops a pick that is no longer in the list instead of moving it to another guest", () => {
+    expect(pickRoomChargeSelection([{ id: "first" }], "third", null)).toBeNull();
   });
 });
