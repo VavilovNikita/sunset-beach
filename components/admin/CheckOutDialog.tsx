@@ -6,6 +6,7 @@ import { checkOutBooking, previewCheckOut } from "@/lib/bookingOccupancyClient";
 import { formatDate } from "@/lib/formatDate";
 import type { CheckOutInput, CheckOutPreview, CheckOutResult } from "@/lib/types";
 import { formatBaht } from "@/lib/money";
+import { checkOutAmounts } from "@/lib/checkOutAmounts";
 
 const baht = (value: string | number) => `${formatBaht(value)}`;
 
@@ -57,6 +58,8 @@ export default function CheckOutDialog({
   // "full stay" (or not shortening, or not choosing yet) is today's balance. Both from the server.
   const balanceDue = preview && shortening && charge === "stayed" ? preview.shortenedOutstandingBalance : preview?.outstandingBalance;
   const owes = Number(balanceDue) > 0;
+  // An overstaying guest: what is owed now (the Today board's figure) and what will be after leaving, both said.
+  const amounts = preview ? checkOutAmounts(preview) : null;
 
   async function handleConfirm() {
     if (!preview) return;
@@ -89,18 +92,26 @@ export default function CheckOutDialog({
     >
       {preview && (
         <div className="space-y-3 text-sm text-cream/80">
+          {amounts && (
+            <div className="rounded-lg border border-cream/15 p-3 space-y-1">
+              <p>{amounts.owedNow}</p>
+              <p className={owes ? "text-coral font-medium" : ""}>{amounts.afterCheckOut}</p>
+            </div>
+          )}
           {owes ? (
             <div className="rounded-lg border border-coral/40 bg-coral/10 p-3 space-y-1">
-              <p>
-                Balance due now: <span className="text-coral font-medium">{baht(balanceDue!)}</span>
-              </p>
+              {!amounts && (
+                <p>
+                  Balance due now: <span className="text-coral font-medium">{baht(balanceDue!)}</span>
+                </p>
+              )}
               <p className="text-cream/70">
                 Checking out doesn&rsquo;t collect it. The amount stays on the booking as a debt (the night audit lists it) - record the
                 payment in the folio first, or check out anyway.
               </p>
             </div>
           ) : (
-            <p className="text-cream/60">Nothing is owed right now.</p>
+            !amounts && <p className="text-cream/60">Nothing is owed right now.</p>
           )}
 
           {preview.early && !preview.shortenable && (

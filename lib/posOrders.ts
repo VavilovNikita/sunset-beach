@@ -134,8 +134,17 @@ export const VOID_REASON_MAX = 500;
 // Voiding a sent line needs a reason (the server refuses a blank one too). An English message, or
 // null when it's fine.
 export function validateVoidReason(reason: string): string | null {
+  return reasonError(reason, "Say why this item is being voided.");
+}
+
+// Cancelling a whole sent order voids all its lines, but the cashier is asked about the order.
+export function validateCancelReason(reason: string): string | null {
+  return reasonError(reason, "Say why this order is being cancelled.");
+}
+
+function reasonError(reason: string, missing: string): string | null {
   const trimmed = reason.trim();
-  if (trimmed.length < 3) return "Say why this item is being voided.";
+  if (trimmed.length < 3) return missing;
   if (trimmed.length > VOID_REASON_MAX) return `Keep the reason under ${VOID_REASON_MAX} characters.`;
   return null;
 }

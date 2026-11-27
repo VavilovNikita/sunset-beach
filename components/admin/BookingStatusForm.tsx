@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { adminRequest, adminJsonInit } from "@/lib/adminFetch";
 import { BOOKING_CHANNELS, BOOKING_CHANNEL_LABELS } from "@/lib/bookingChannel";
 import { parsePartySize } from "@/lib/bookingPurpose";
+import { bookingFormError, type BookingFormError, type BookingFormField } from "@/lib/bookingFormError";
 import { breakfastFormFrom, parseBreakfast } from "@/lib/bookingBreakfast";
 import { statusOptionsNote, needsCancellationConfirm, needsPaymentDialog, selectableStatuses } from "@/lib/bookingStatusChange";
 import { useSavedNotice } from "@/lib/useSavedNotice";
@@ -64,23 +65,37 @@ export default function BookingStatusForm({
   const [breakfastGuests, setBreakfastGuests] = useState(initialBreakfast.guests);
   const [breakfastRate, setBreakfastRate] = useState(initialBreakfast.rate);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<BookingFormError | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [confirmingPaid, setConfirmingPaid] = useState(false);
   const [notice, showNotice, clearNotice] = useSavedNotice();
   // What a change into PAID has to be paid with (the server's figure; see Folio.amountToMarkPaid).
   const amountToMarkPaid = folio?.amountToMarkPaid ?? balanceDue;
 
+  // A check made here, before anything is sent.
+  function ownError(message: string): BookingFormError {
+    return { field: null, message, summary: message };
+  }
+
+  function edit<T>(field: BookingFormField, set: (value: T) => void, value: T) {
+    set(value);
+    setError((current) => (current?.field === field ? null : current));
+  }
+
+  function fieldError(...fields: BookingFormField[]) {
+    return error?.field && fields.includes(error.field) ? <p className="text-xs text-coral mt-1">{error.message}</p> : null;
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const party = parsePartySize(adults, children);
     if ("error" in party) {
-      setError(party.error);
+      setError(ownError(party.error));
       return;
     }
     const breakfast = parseBreakfast({ guests: breakfastGuests, rate: breakfastRate }, party.adults + party.children);
     if (!breakfast.ok) {
-      setError(breakfast.error);
+      setError(ownError(breakfast.error));
       return;
     }
     setError(null);
@@ -126,21 +141,9 @@ export default function BookingStatusForm({
     setSaving(false);
 
     if (!result.ok) {
-      setError(result.error);
-      // A failed cancel or payment keeps its dialog open, with the error, so what was typed isn't lost.
-      if (cancellationReason || payment) return;
-      // A dropped connection (or a rejected write) must not leave the form looking like it
-      // saved - the select already jumped to the chosen value on change, so on failure it has
-      // to jump back to what's actually persisted, or the empty state (no error banner visible
-      // at a glance, dropdown showing the new value) reads as a silent success.
-      setStatus(currentStatus);
-      setPaymentNote(currentPaymentNote ?? "");
-      setChannel(currentChannel);
-      setPurpose(currentPurpose);
-      setAdults(String(currentAdults));
-      setChildren(String(currentChildren));
-      setBreakfastGuests(initialBreakfast.guests);
-      setBreakfastRate(initialBreakfast.rate);
+      // Everything typed stays as it is, the refusal beside the field the server named. A refused cancel or payment
+      // keeps its dialog open with the sentence in it.
+      setError(bookingFormError(result.error, result.body));
       return;
     }
     setConfirmingCancel(false);
@@ -155,7 +158,7 @@ export default function BookingStatusForm({
         <label className="eyebrow text-cream/60 block mb-1">Status</label>
         <select
           value={status}
-          onChange={(e) => setStatus(e.target.value as BookingStatus)}
+          onChange={(e) => edit("status", setStatus, e.target.value as BookingStatus)}
           className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
         >
           {selectableStatuses(currentStatus, occupancyStatus).map((s) => (
@@ -167,6 +170,7 @@ export default function BookingStatusForm({
         {statusOptionsNote(currentStatus, occupancyStatus) && (
           <p className="text-xs text-cream/50 mt-1">{statusOptionsNote(currentStatus, occupancyStatus)}</p>
         )}
+        {fieldError("status")}
       </div>
 
       {/* PAID needs a payment behind it: Save opens a dialog that collects it (amount pre-filled
@@ -184,7 +188,7 @@ export default function BookingStatusForm({
         <label className="eyebrow text-cream/60 block mb-1">Channel</label>
         <select
           value={channel}
-          onChange={(e) => setChannel(e.target.value as BookingChannel)}
+          onChange={(e) => edit("channel", setChannel, e.target.value as BookingChannel)}
           className="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
         >
           {BOOKING_CHANNELS.map((c) => (
@@ -193,38 +197,42 @@ export default function BookingStatusForm({
             </option>
           ))}
         </select>
+        {fieldError("channel")}
       </div>
 
       <BookingPurposePartyFields
         purpose={purpose}
-        onPurposeChange={setPurpose}
+        onPurposeChange={(v) => edit("purpose", setPurpose, v)}
         adults={adults}
-        onAdultsChange={setAdults}
+        onAdultsChange={(v) => edit("adults", setAdults, v)}
         childCount={children}
-        onChildCountChange={setChildren}
+        onChildCountChange={(v) => edit("children", setChildren, v)}
         inputClassName="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
       />
+      {fieldError("purpose", "adults", "children")}
 
       <BookingBreakfastFields
         guests={breakfastGuests}
-        onGuestsChange={setBreakfastGuests}
+        onGuestsChange={(v) => edit("breakfastGuests", setBreakfastGuests, v)}
         rate={breakfastRate}
-        onRateChange={setBreakfastRate}
+        onRateChange={(v) => edit("breakfastRate", setBreakfastRate, v)}
         inputClassName="w-full bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm"
       />
+      {fieldError("breakfastGuests", "breakfastRate")}
 
       <div>
         <label className="eyebrow text-cream/60 block mb-1">Payment note</label>
         <textarea
           rows={3}
           value={paymentNote}
-          onChange={(e) => setPaymentNote(e.target.value)}
+          onChange={(e) => edit("paymentNote", setPaymentNote, e.target.value)}
           placeholder="e.g. terminal receipt #4471 — never enter the guest's card number"
           className="w-full bg-transparent border-b border-cream/25 py-2 text-cream text-sm placeholder:text-cream/30 focus:outline-none focus:border-coral resize-none"
         />
+        {fieldError("paymentNote")}
       </div>
 
-      {error && !confirmingCancel && !confirmingPaid && <p className="text-sm text-coral">{error}</p>}
+      {error && !confirmingCancel && !confirmingPaid && <p className="text-sm text-coral">{error.summary}</p>}
 
       <div className="flex items-center gap-4">
         <button
@@ -246,7 +254,7 @@ export default function BookingStatusForm({
           guestName={guestName}
           amountDue={amountToMarkPaid}
           saving={saving}
-          error={error}
+          error={error?.message ?? null}
           onConfirm={(payment) => save(null, payment)}
           onBack={() => {
             setConfirmingPaid(false);
@@ -260,7 +268,7 @@ export default function BookingStatusForm({
           guestName={guestName}
           wasPaid={currentStatus === "PAID"}
           saving={saving}
-          error={error}
+          error={error?.message ?? null}
           onConfirm={(reason) => save(reason)}
           onBack={() => {
             setConfirmingCancel(false);

@@ -17,6 +17,20 @@ export function isChargeableToRoom(booking: Pick<Booking, "status" | "occupancyS
   return booking.status !== "CANCELLED" && booking.occupancyStatus === "CHECKED_IN";
 }
 
+// The list as it is shown: the guest the order already belongs to goes first, so the row that is selected is on
+// screen - the list is a short scrolling box ordered by arrival, and a guest who arrived today sat below its edge,
+// looking unselected. `orderGuest` is that booking when the search did not return it (loaded on its own, and only if
+// chargeable); it is added to the unfiltered list only, never to the results of a typed name it may not match.
+export function roomChargeList<T extends { id: string }>(
+  found: ReadonlyArray<T>,
+  preferredId: string | null | undefined,
+  orderGuest: T | null,
+  query: string
+): T[] {
+  const own = found.find((b) => b.id === preferredId) ?? (query.trim() === "" && orderGuest?.id === preferredId ? orderGuest : null);
+  return own ? [own, ...found.filter((b) => b.id !== own.id)] : [...found];
+}
+
 // Which booking the "Charge to room" list has selected after it (re)loads. Whoever is picked here
 // is the guest the order gets charged to, and one Confirm charges them, so nobody is picked for the
 // cashier:

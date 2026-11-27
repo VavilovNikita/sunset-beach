@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCheckedIn, applyCheckedOut, applyNoShow } from "./todayBoard";
+import { applyCheckedIn, applyCheckedOut, applyNoShow, todayMoney } from "./todayBoard";
 import type { Booking, TodayBoard, TodayBoardEntry } from "./types";
 
 function entry(id: string, outstandingBalance = "0.00", overdueDays?: number): TodayBoardEntry {
@@ -54,3 +54,17 @@ describe("applyNoShow", () => {
     expect(next.departingToday).toBe(board.departingToday);
   });
 });
+
+describe("todayMoney", () => {
+  it("says owed only for a debt that has fallen due", () => {
+    expect(todayMoney(true, "45000.00")).toEqual({ text: "฿45,000 owed", owed: true });
+    expect(todayMoney(false, "7000.00")).toEqual({ text: "To pay at check-in ฿7,000", owed: false });
+    expect(todayMoney(undefined, "7000.00")?.owed).toBe(false);
+  });
+
+  it("says nothing with nothing to pay", () => {
+    expect(todayMoney(true, "0.00")).toBeNull();
+    expect(todayMoney(false, "-10.00")).toBeNull();
+  });
+});
+

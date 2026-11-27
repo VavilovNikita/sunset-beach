@@ -16,3 +16,10 @@ export function splitUnsettledOrders(
   }
   return { blocking, others };
 }
+
+// How the orders that block a close are introduced: the reader's own on their own shift, the cashier's by name when
+// somebody else's shift is being closed.
+export function blockingOrdersLead(count: number, ownerName?: string): string {
+  const orders = `open order${count === 1 ? "" : "s"}`;
+  return ownerName ? `${count} ${orders} opened by ${ownerName}` : `${count} of your ${orders}`;
+}

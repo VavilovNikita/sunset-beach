@@ -10,7 +10,8 @@ import { overdueLabel } from "@/lib/overstay";
 import { updateRoomUnitHousekeeping } from "@/lib/roomUnitHousekeepingClient";
 import type { PropertyMapUnit } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
-import { formatBaht } from "@/lib/money";
+import { roomOccupantWarning } from "@/lib/roomOccupant";
+import { todayMoney } from "@/lib/todayBoard";
 
 // Side panel for a single room clicked on the property map - same shell as BookingCardPanel.tsx
 // (no dimming backdrop, so the plan stays visible while working this room; click-outside closes).
@@ -36,7 +37,7 @@ export default function PropertyMapUnitPanel({
   const booking = unit.currentBooking;
   const isCheckedIn = booking?.occupancyStatus === "CHECKED_IN";
   const isExpectedToday = booking?.occupancyStatus === "EXPECTED";
-  const owed = booking ? Number(booking.outstandingBalance) : 0;
+  const money = booking ? todayMoney(booking.owes, booking.outstandingBalance) : null;
 
   // A room that isn't clean is asked about first (CheckInDialog); a clean one is checked in at once.
   async function handleCheckIn() {
@@ -143,9 +144,10 @@ export default function PropertyMapUnitPanel({
                   booking.
                 </p>
               )}
-              {owed > 0 && (
-                <p className="text-coral">
-                  {formatBaht(owed)} owed{isCheckedIn ? " — collect before checkout" : ""}
+              {money && (
+                <p className={money.owed ? "text-coral" : "text-cream/70"}>
+                  {money.text}
+                  {money.owed && isCheckedIn ? " — collect before checkout" : ""}
                 </p>
               )}
               <Link
@@ -163,6 +165,16 @@ export default function PropertyMapUnitPanel({
             <p className="eyebrow text-cream/50 mb-1">Housekeeping</p>
             <p className="text-sm text-cream/70">{unit.housekeepingStatus === "DIRTY" ? "Not clean" : "Clean"}</p>
           </div>
+
+          {unit.waitingArrival && booking && isCheckedIn && (
+            <p className={`text-sm ${(booking.overdueDays ?? 0) > 0 ? "text-coral" : "text-amber-400"}`}>
+              {unit.waitingArrival.guestName} arrives today.{" "}
+              {roomOccupantWarning({ guestName: booking.guestName, overdueDays: booking.overdueDays ?? 0 }, unit.unitLabel)}{" "}
+              <Link href={`/admin/bookings/${unit.waitingArrival.bookingId}`} className="underline underline-offset-2">
+                Open the arrival
+              </Link>
+            </p>
+          )}
 
           {warning && <p className="text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2">{warning}</p>}
           {error && <p className="text-sm text-coral">{error}</p>}

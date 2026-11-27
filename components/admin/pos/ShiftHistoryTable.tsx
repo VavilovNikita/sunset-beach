@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import CloseShiftDialog from "@/components/admin/pos/CloseShiftDialog";
 import type { ShiftListItem } from "@/lib/posTypes";
 import { formatTimestamp } from "@/lib/formatDate";
 import { longOpenLabel } from "@/lib/posOrders";
@@ -15,7 +17,11 @@ import { formatBaht } from "@/lib/money";
 // pairs) rather than GET /users, which is ADMIN-only - a MANAGER running this page couldn't
 // fetch that list anyway.
 export default function ShiftHistoryTable({ shifts }: { shifts: ShiftListItem[] }) {
+  const router = useRouter();
   const [staffFilter, setStaffFilter] = useState("");
+  const [closing, setClosing] = useState<ShiftListItem | null>(null);
+  // What the close just said: other staff's open orders that were left open.
+  const [closeNotice, setCloseNotice] = useState<string | null>(null);
   const now = new Date();
 
   const staffOptions = useMemo(() => {
@@ -32,6 +38,11 @@ export default function ShiftHistoryTable({ shifts }: { shifts: ShiftListItem[] 
 
   return (
     <div>
+      {closeNotice && (
+        <p role="status" className="mb-4 text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-lg px-3 py-2">
+          {closeNotice}
+        </p>
+      )}
       <div className="mb-5">
         <label className="eyebrow text-cream/60 block mb-1">Staff</label>
         <select
@@ -85,6 +96,20 @@ export default function ShiftHistoryTable({ shifts }: { shifts: ShiftListItem[] 
                     <td className="py-3 pr-4 text-cream/70 whitespace-nowrap">
                       {s.status === "OPEN" ? "Open" : "Closed"}
                       {isLongOpenShift(s, now) && <span className="text-amber-400"> · {longOpenLabel(s.openedAt, now)}</span>}
+                      {/* This page is MANAGER+, and a manager may close anybody's shift. */}
+                      {s.status === "OPEN" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCloseNotice(null);
+                            setClosing(s);
+                          }}
+                          aria-label={`Close the shift of ${s.openedByName || s.openedByEmail} opened ${formatTimestamp(s.openedAt)}`}
+                          className="ml-3 rounded-full border border-cream/25 hover:border-coral transition-colors px-3 py-1 min-h-[32px] text-xs text-cream"
+                        >
+                          Close
+                        </button>
+                      )}
                     </td>
                     <td className="py-3 pr-4 text-right text-cream/70">{formatBaht(s.totals.cash)}</td>
                     <td className="py-3 pr-4 text-right text-cream/70">{formatBaht(s.totals.card)}</td>
@@ -108,6 +133,18 @@ export default function ShiftHistoryTable({ shifts }: { shifts: ShiftListItem[] 
             </tbody>
           </table>
         </div>
+      )}
+      {closing && (
+        <CloseShiftDialog
+          shiftId={closing.id}
+          openedByName={closing.openedByName || closing.openedByEmail}
+          onBack={() => setClosing(null)}
+          onClosed={(warning) => {
+            setClosing(null);
+            setCloseNotice(warning);
+            router.refresh();
+          }}
+        />
       )}
     </div>
   );

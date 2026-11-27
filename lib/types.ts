@@ -262,6 +262,7 @@ export type PropertyMapCurrentBooking = {
   checkOut: string; // YYYY-MM-DD
   occupancyStatus: OccupancyStatus;
   outstandingBalance: string; // decimal(10,2) as a string — same PAID-aware figure the checkout warning uses
+  owes: boolean; // as Booking.owes: the balance has fallen due (false for an arrival who is merely unpaid)
   // Days past checkOut for a guest still CHECKED_IN (0 otherwise) - server-computed by the
   // backend's OverstayRule, the same figure the night audit's missed departures show.
   overdueDays?: number;
@@ -301,6 +302,8 @@ export type PropertyMapUnit = {
   currentBooking: PropertyMapCurrentBooking | null;
   activeBlock: PropertyMapActiveBlock | null;
   openMaintenanceTask: PropertyMapMaintenanceTask | null;
+  // Arriving into this room today, and check-in would be refused: currentBooking is still checked into it.
+  waitingArrival?: { bookingId: string; guestName: string } | null;
 };
 
 // GET /property-map (CASHIER+) — every physical room (placed on the map or not) plus the current
@@ -789,6 +792,11 @@ export type Booking = {
   // (BookingFolio.balanceDue), sent on every booking whatever its status or occupancy. The "Owes"
   // badge reads this and `owes` and nothing else; never work a balance out from totalPrice and payments here.
   balanceDue: string;
+  // The segment the stay is in today (the server's OverstayRule). For a guest in the house its room is where they are;
+  // roomUnit is the LAST segment's, which a move planned for a later night has not reached.
+  currentSegmentId?: string;
+  // Only on GET /bookings/{id}: another guest still checked into the room this one would be checked into today.
+  roomOccupant?: RoomOccupant | null;
   // True when balanceDue is a debt that has already fallen due (guest in the house or gone,
   // cancelled with charges, stay over) - false for a future unpaid booking. The "Owes" badge shows
   // only when this is true. Optional only for older payloads.
@@ -897,6 +905,10 @@ export type CheckOutPreview = {
   currentRoomTotal: string;
   shortenedRoomTotal: string;
   outstandingBalance: string;
+  // Booking.balanceDue now. Differs from outstandingBalance (what is owed after checking out) when
+  // tonightNotCharged: tonight's overstay night has been charged and a check-out today releases it.
+  balanceDueNow: string;
+  tonightNotCharged: boolean;
   // Balance due if the stay is shortened without charging the released nights; charging them
   // keeps the room total, so that choice's balance is outstandingBalance.
   shortenedOutstandingBalance: string;
@@ -1773,6 +1785,8 @@ export type AttendancePunch = {
   voidedAt?: string;
   voidedByEmail?: string;
   voidReason?: string;
+  // The correction that voided it - the correctionId of the punches that correction recorded.
+  voidedByCorrectionId?: string;
 };
 
 // Body of PUT /attendance/day: the complete list of that hotel-local day's punches as HH:mm hotel
@@ -2181,6 +2195,8 @@ export type NotificationStatus = {
   telegramProxyConfigured: boolean; // the address itself is never returned
   manualFeedConfigured: boolean; // whether the server is told where the manual's "What's new" list is
   manualFeedReadAt?: string | null; // when it last read it; absent while it never did since start
+  manualFeedFailingSince?: string | null; // start of the current series of failed reads
+  manualFeedUnreadable?: boolean; // configured, but the last read failed or none has succeeded for two sweeps
 };
 
 // GET/PUT /settings/notifications (ADMIN). Times are hotel (Asia/Bangkok) "HH:mm".

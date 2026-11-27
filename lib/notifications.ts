@@ -140,6 +140,14 @@ export function isHourMinute(value: string): boolean {
   return HHMM.test(value);
 }
 
+export function lateGraceRange(minGrace: number): string {
+  return `From ${minGrace} to 240 minutes - the attendance terminal is read every ${minGrace} minutes.`;
+}
+
+function lateGraceError(minGrace: number): string {
+  return `A whole number of minutes from ${minGrace} to 240 - the attendance terminal is read every ${minGrace} minutes.`;
+}
+
 export type SettingsValidation = { ok: true; input: NotificationSettingsUpdateInput } | { ok: false; errors: SettingsFieldErrors };
 
 // Every rule the server enforces on PUT /settings/notifications, each message under its own control.
@@ -147,9 +155,10 @@ export type SettingsValidation = { ok: true; input: NotificationSettingsUpdateIn
 export function validateSettingsForm(form: SettingsForm, minGrace: number): SettingsValidation {
   const errors: SettingsFieldErrors = {};
 
-  const grace = parseWholeNumberInRange(form.lateGraceMinutes, 1, 240);
-  if (grace === null) errors.lateGraceMinutes = "A whole number of minutes from 1 to 240.";
-  else if (grace < minGrace) errors.lateGraceMinutes = `At least ${minGrace} minutes - the attendance terminal is read every ${minGrace} minutes.`;
+  // One range, the hint's and the server's: from the terminal's poll interval to 240.
+  const parsed = parseWholeNumberInRange(form.lateGraceMinutes, 1, 240);
+  const grace = parsed !== null && parsed >= minGrace ? parsed : null;
+  if (grace === null) errors.lateGraceMinutes = lateGraceError(minGrace);
 
   const absence = parseWholeNumberInRange(form.absenceMinutes, 1, 1440);
   if (absence === null) errors.absenceMinutes = "A whole number of minutes from 1 to 1440.";
@@ -245,8 +254,9 @@ export function settingsServerError(status: number, error: string, body: unknown
 
 // Said beside the "Staff manual updates" switch while the server has no manual list to read: the switch can be on
 // and nothing will ever be sent. Only on a definite "not configured" - an unreadable status says nothing.
-export function manualFeedNotice(status: Pick<NotificationStatus, "manualFeedConfigured"> | null): string | null {
-  return status?.manualFeedConfigured === false ? "The server does not read the manual's update list yet" : null;
+export function manualFeedNotice(status: Pick<NotificationStatus, "manualFeedConfigured" | "manualFeedUnreadable"> | null): string | null {
+  if (status?.manualFeedConfigured === false) return "The server does not read the manual's update list yet";
+  return status?.manualFeedUnreadable === true ? "The server is set up to read the manual's update list but cannot read it" : null;
 }
 
 export function toggleId(ids: string[], id: string): string[] {

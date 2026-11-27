@@ -46,7 +46,7 @@ export function grabDayOffset(pointerX: number, barLeft: number, dayWidth: numbe
   return visible + clipped;
 }
 
-export type DropOutcome = "gone" | "swap-other-type" | "missed";
+export type DropOutcome = "gone" | "swap-other-type" | "outside" | "outside-resize" | "outside-select" | "interrupted";
 
 /**
  * The sentence shown next to the grid when a drop ends without a dialog. A drop always ends in one of
@@ -59,8 +59,14 @@ export function dropOutcomeMessage(kind: DropOutcome, guestName: string, otherGu
       return "That booking is no longer on the calendar - reload the page and try again.";
     case "swap-other-type":
       return `${guestName} and ${otherGuestName ?? "that guest"} are in different room types, so they can't swap rooms. Drop on a free night of a room to move ${guestName} there.`;
-    case "missed":
-      return `Nothing was changed: ${guestName} was dropped between rooms. Drop on another booking to swap rooms, or on a free night of a room to move there.`;
+    case "outside":
+      return `Nothing was changed: ${guestName} was dropped outside the rooms' nights. Drop on a free night of a room to move there, or on another booking to swap rooms.`;
+    case "outside-resize":
+      return `Nothing was changed: ${guestName}'s edge was released outside the rooms' nights, so the dates stay as they were.`;
+    case "outside-select":
+      return "No booking was started: the selection was released outside the rooms' nights.";
+    case "interrupted":
+      return `Nothing was changed: ${guestName}'s drag was interrupted.`;
   }
 }
 

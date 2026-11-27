@@ -48,6 +48,8 @@ const BADGE_DOT_CLASS: Record<UnitBadge, string> = {
   // the same dot on one tile.
   "maintenance-alert": "bg-coral",
   overdue: "bg-coral",
+  // Attention, not yet a failure: past check-out the overdue dot ranks above it.
+  "arrival-waiting": "bg-amber-400",
   debt: "bg-amber-400",
   dirty: "bg-sand",
   "departing-today": "bg-cream",
@@ -58,6 +60,7 @@ const BADGE_DOT_CLASS: Record<UnitBadge, string> = {
 const BADGE_LABEL: Record<UnitBadge, string> = {
   "maintenance-alert": "Room is back on sale but still broken - block expired, task still open",
   overdue: "Past check-out date and still checked in",
+  "arrival-waiting": "A guest arriving today is waiting for this room",
   debt: "Owes money",
   dirty: "Not cleaned",
   "departing-today": "Leaving today",
@@ -76,7 +79,7 @@ const FILL_LEGEND: { fill: UnitFill; label: string }[] = [
 // BADGE_DOT_CLASS), and the panel opened by clicking a room names the exact reason.
 const DOT_LEGEND: { badge: UnitBadge; label: string }[] = [
   { badge: "overdue", label: "Needs attention: overdue guest, broken room back on sale, or blocked while occupied" },
-  { badge: "debt", label: "Owes money" },
+  { badge: "debt", label: "Owes money, or an arrival is waiting for the room" },
   { badge: "dirty", label: "Not cleaned" },
   { badge: "arriving-today", label: "Arriving or leaving today" },
 ];

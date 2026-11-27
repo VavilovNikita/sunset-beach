@@ -57,14 +57,20 @@ describe("dropOutcomeMessage", () => {
     expect(dropOutcomeMessage("swap-other-type", "Anna", "Boris")).toContain("Anna and Boris are in different room types");
   });
 
-  it("says nothing was changed for a drop between rooms, and tells what to do instead", () => {
-    const text = dropOutcomeMessage("missed", "Anna");
+  it("says nothing was changed for a drop off the nights, and tells what to do instead", () => {
+    const text = dropOutcomeMessage("outside", "Anna");
     expect(text).toContain("Nothing was changed");
     expect(text).toContain("swap");
   });
 
+  it("says what stayed as it was for a resize and a selection, with nothing about swapping", () => {
+    expect(dropOutcomeMessage("outside-resize", "Anna")).toContain("dates stay as they were");
+    expect(dropOutcomeMessage("outside-select", "")).toContain("No booking was started");
+    expect(dropOutcomeMessage("outside-resize", "Anna") + dropOutcomeMessage("outside-select", "")).not.toContain("swap");
+  });
+
   it("has a sentence for every outcome - a drop never ends in nothing", () => {
-    for (const kind of ["gone", "swap-other-type", "missed"] as const) {
+    for (const kind of ["gone", "swap-other-type", "outside", "outside-resize", "outside-select", "interrupted"] as const) {
       expect(dropOutcomeMessage(kind, "Anna", "Boris").length).toBeGreaterThan(20);
     }
   });

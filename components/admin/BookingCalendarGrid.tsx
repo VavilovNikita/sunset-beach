@@ -22,6 +22,8 @@ import { quoteBookingSchedule, applyBookingSchedule } from "@/lib/bookingSchedul
 import { assignBookingSegmentRoomUnit, swapBookingSegmentRoomUnit } from "@/lib/bookingSegmentClient";
 import PaidPriceNotice from "@/components/admin/PaidPriceNotice";
 import { barAgreesWithCell, dropOutcomeMessage, findClash, findOccupant, grabDayOffset as grabOffsetDays, isSwapPartner } from "@/lib/calendarDrop";
+import { useDragListeners } from "@/lib/useDragListeners";
+import type { DragPoint, DragPress } from "@/lib/dragPress";
 import { roomDropIntent } from "@/lib/bookingRelocation";
 import { adminRequest } from "@/lib/adminFetch";
 import { useBookingSiblingsCache } from "@/lib/useBookingSiblingsCache";
@@ -280,6 +282,8 @@ export default function BookingCalendarGrid({
     error?: string;
   } | null>(null);
   const [segmentMoveError, setSegmentMoveError] = useState<string | null>(null);
+  // Where the drag under way was pressed - its pointer, and the point a release is measured from.
+  const pressRef = useRef<DragPress | null>(null);
   // The room-move dialog opened by a drop on another room type (or on a guest in the house).
   const [relocation, setRelocation] = useState<{ booking: Booking; preset: RelocationPreset } | null>(null);
 
@@ -302,7 +306,7 @@ export default function BookingCalendarGrid({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [dragState]);
 
-  function cellUnderPointer(e: React.PointerEvent): { roomUnitId: string; roomId: string; date: Date } | null {
+  function cellUnderPointer(e: DragPoint): { roomUnitId: string; roomId: string; date: Date } | null {
     // The whole stack under the pointer, not only the topmost element: another booking's bar sits
     // over the cells of its nights, and a drop on a bar in the same room has to resolve to the
     // date underneath it (a date shift) instead of to nothing.
@@ -320,7 +324,7 @@ export default function BookingCalendarGrid({
   // own comment on why: it survives any future layout change, unlike coordinate math). Excludes
   // the bar currently being dragged and any bar with no room unit assigned yet - swapping with
   // nothing isn't a swap (see swapSegmentRoomUnits's own backend rule).
-  function barUnderPointer(e: React.PointerEvent, excludeSegmentId: string) {
+  function barUnderPointer(e: DragPoint, excludeSegmentId: string) {
     const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-bar-segment-id]");
     const cellHere = cellUnderPointer(e);
     // A bar counts as the drop target only when it sits in the row of the cell under the pointer. A bar that merely
@@ -362,8 +366,7 @@ export default function BookingCalendarGrid({
   function onCellPointerDown(e: React.PointerEvent<HTMLDivElement>, roomId: string, roomUnitId: string, date: Date) {
     if (!allowDrag) return; // too compressed for mouse-precise editing - onCellClick handles this case instead, see below
     if (roomUnitId === "" || !isFree(roomUnitId, date)) return; // no range-select on the unassigned row or an occupied night
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setTouchActionNone(true);
+    startPress(e);
     setDragState({ kind: "select", roomId, roomUnitId, startDate: date, currentDate: date });
   }
 
@@ -416,8 +419,7 @@ export default function BookingCalendarGrid({
   function onBarPointerDown(e: React.PointerEvent<HTMLDivElement>, booking: CalendarBooking) {
     notePointerType(e);
     if (!canMoveWholeBar(booking)) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setTouchActionNone(true);
+    startPress(e);
     const rect = e.currentTarget.getBoundingClientRect();
     // From the stay's real first night, not the visible left edge: a bar that began before the grid is clipped.
     const grabDayOffset = grabOffsetDays(e.clientX, rect.left - BAR_INSET_PX, dayWidth, booking.checkIn, toDateKey(gridFrom));
@@ -448,8 +450,7 @@ export default function BookingCalendarGrid({
     const target = edgeDragTargetFor(booking);
     if (edge === "start" ? !target.canDragStart : !target.canDragEnd) return;
     e.stopPropagation();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setTouchActionNone(true);
+    startPress(e);
     const checkIn = dateOnlyUTC(booking.checkIn);
     const checkOut = dateOnlyUTC(booking.checkOut);
     setDragState({
@@ -466,7 +467,21 @@ export default function BookingCalendarGrid({
     });
   }
 
-  function onDragPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+  // The capture keeps the click and double-click of a press that turns out not to be a drag on the bar itself.
+  function startPress(e: React.PointerEvent<HTMLDivElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setTouchActionNone(true);
+    pressRef.current = { pointerId: e.pointerId, clientX: e.clientX, clientY: e.clientY };
+    setSegmentMoveError(null);
+  }
+
+  // The guest a move or a resize is about, for the sentence next to the grid.
+  function draggedGuest(drag: DragState): string {
+    if (drag.kind === "select") return "the selection";
+    return data.bookings.find((b) => b.bookingId === drag.bookingId)?.guestName ?? "the booking";
+  }
+
+  function onDragPointerMove(e: DragPoint) {
     if (!dragState) return;
 
     if (dragState.kind === "move") {
@@ -555,11 +570,19 @@ export default function BookingCalendarGrid({
     });
   }
 
-  function onDragPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+  function onDragPointerUp(e: DragPoint, moved: boolean) {
     if (!dragState) return;
     setTouchActionNone(false);
     let finished = dragState;
     setDragState(null);
+
+    // Released on no night of any room (off the grid, off the browser window, on a header): nothing is changed, and
+    // said so. A release that never moved is a click, answered by the click handlers.
+    if (!cellUnderPointer(e) && !(finished.kind === "move" && barUnderPointer(e, finished.segmentId))) {
+      const outside = finished.kind === "resize" ? "outside-resize" : finished.kind === "select" ? "outside-select" : "outside";
+      if (moved) setSegmentMoveError(dropOutcomeMessage(outside, draggedGuest(finished)));
+      return;
+    }
 
     if (finished.kind === "select") {
       const startDate = finished.startDate.getTime() <= finished.currentDate.getTime() ? finished.startDate : finished.currentDate;
@@ -604,13 +627,9 @@ export default function BookingCalendarGrid({
           openSwapConfirm(booking, swapTarget);
           return;
         }
-        // Released off the bar it aimed at. On a free night of a room, that is a plain move there;
-        // anywhere else (a row gap, a header, a block) nothing is changed and the desk is told so.
+        // Released off the bar it aimed at, on a free night of a room: a plain move there.
         const releasedOn = cellUnderPointer(e);
-        if (!releasedOn) {
-          setSegmentMoveError(dropOutcomeMessage("missed", booking.guestName));
-          return;
-        }
+        if (!releasedOn) return;
         if (finished.segmentCount > 1) {
           finished = { ...finished, roomUnitId: releasedOn.roomUnitId, targetRoomId: releasedOn.roomId };
         } else {
@@ -678,10 +697,14 @@ export default function BookingCalendarGrid({
     });
   }
 
-  function onDragPointerCancel() {
+  function onDragAbort(moved: boolean) {
+    if (!dragState) return;
     setTouchActionNone(false);
     setDragState(null);
+    if (moved) setSegmentMoveError(dropOutcomeMessage("interrupted", draggedGuest(dragState)));
   }
+
+  useDragListeners(dragState !== null, pressRef, { onMove: onDragPointerMove, onUp: onDragPointerUp, onAbort: onDragAbort });
 
   // A bar dropped on another room's row without changing its dates. The calendar bar does not know
   // whether the guest is in the house, so the booking is read first (one GET), and lib/
@@ -941,9 +964,6 @@ export default function BookingCalendarGrid({
                 data-date={key}
                 title={title}
                 onPointerDown={(e) => onCellPointerDown(e, roomId, roomUnitId, d)}
-                onPointerMove={onDragPointerMove}
-                onPointerUp={onDragPointerUp}
-                onPointerCancel={onDragPointerCancel}
                 onClick={() => onCellClick(roomId, roomUnitId, d)}
                 className={`absolute top-0 bottom-0 border-r border-cream/5 ${free ? "cursor-cell" : ""} ${
                   key === todayKey ? "bg-cream/5" : ""
@@ -1086,9 +1106,6 @@ export default function BookingCalendarGrid({
                     }`}
                     style={{ cursor: dragging ? "grabbing" : canMoveWholeBar(booking) ? "grab" : "pointer" }}
                     onPointerDown={(e) => onBarPointerDown(e, booking)}
-                    onPointerMove={onDragPointerMove}
-                    onPointerUp={onDragPointerUp}
-                    onPointerCancel={onDragPointerCancel}
                     onClick={tapHandlers.onClick}
                     onDoubleClick={tapHandlers.onDoubleClick}
                     title={`${booking.guestName} · ${bookingStatusLabel(booking.status)}${booking.segmentCount > 1 ? " · relocated" : ""}`}
@@ -1105,18 +1122,12 @@ export default function BookingCalendarGrid({
                     <div
                       className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize touch-none"
                       onPointerDown={(e) => onResizeHandlePointerDown(e, booking, "start")}
-                      onPointerMove={onDragPointerMove}
-                      onPointerUp={onDragPointerUp}
-                      onPointerCancel={onDragPointerCancel}
                     />
                   )}
                   {edgeTarget?.canDragEnd && (
                     <div
                       className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize touch-none"
                       onPointerDown={(e) => onResizeHandlePointerDown(e, booking, "end")}
-                      onPointerMove={onDragPointerMove}
-                      onPointerUp={onDragPointerUp}
-                      onPointerCancel={onDragPointerCancel}
                     />
                   )}
                 </div>

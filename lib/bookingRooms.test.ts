@@ -69,17 +69,25 @@ describe("roomUnitSummary", () => {
 });
 
 describe("currentRoomUnitLabel", () => {
-  it("is the room of the segment covering that night", () => {
-    expect(currentRoomUnitLabel(test1, "2026-08-03")).toBe("201");
-    expect(currentRoomUnitLabel(test1, "2026-08-06")).toBe("202");
-    expect(currentRoomUnitLabel(test1, "2026-08-07")).toBe("102");
+  const inSegment = (n: number) => ({ ...test1, currentSegmentId: test1.segments[n].id });
+
+  it("is the room of the segment the server says the stay is in", () => {
+    expect(currentRoomUnitLabel(inSegment(0))).toBe("201");
+    expect(currentRoomUnitLabel(inSegment(1))).toBe("202");
+    expect(currentRoomUnitLabel(inSegment(2))).toBe("102");
   });
 
-  it("stays the last room for a guest past checkOut", () => {
-    expect(currentRoomUnitLabel(test1, "2026-08-10")).toBe("102");
+  it("is not the booking's last room while a later move has not happened", () => {
+    expect(test1.roomUnit.label).toBe("102");
+    expect(currentRoomUnitLabel(inSegment(0))).toBe("201");
   });
 
   it("is null when that segment has no room assigned", () => {
-    expect(currentRoomUnitLabel({ roomUnit: null, segments: [segment(deluxe, null, "2026-08-02", "2026-08-06")] }, "2026-08-03")).toBeNull();
+    const unassigned = segment(deluxe, null, "2026-08-02", "2026-08-06");
+    expect(currentRoomUnitLabel({ roomUnit: test1.roomUnit, segments: [unassigned], currentSegmentId: unassigned.id })).toBeNull();
+  });
+
+  it("falls back to the booking's room without a current segment", () => {
+    expect(currentRoomUnitLabel(test1)).toBe("102");
   });
 });

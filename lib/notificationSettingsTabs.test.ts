@@ -231,7 +231,7 @@ describe("what one Save sends", () => {
       bot
     );
     expect(result).toMatchObject({ ok: false, tab: "attendance" });
-    if (!result.ok) expect(result.alertErrors.lateGraceMinutes).toContain("At least 5 minutes");
+    if (!result.ok) expect(result.alertErrors.lateGraceMinutes).toContain("from 5 to 240");
   });
 
   it("does not check a form that was not touched", () => {

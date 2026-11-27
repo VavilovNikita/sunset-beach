@@ -42,13 +42,19 @@ export function roomUnitSummary(booking: Pick<Booking, "segments" | "roomUnit">)
   return labels.filter((l, i) => i === 0 || l !== labels[i - 1]).join(" → ");
 }
 
-// The physical room the guest is in on `today` (YYYY-MM-DD, hotel date) - the segment covering
-// that night, or the last one when no segment does (a guest past checkOut is still in their last
-// room - the backend's OverstayRule). null when that segment has no room assigned. What tells two
-// guests in the same room type apart, e.g. in the POS "Charge to room" picker.
-export function currentRoomUnitLabel(booking: Pick<Booking, "segments" | "roomUnit">, today: string): string | null {
-  if (booking.segments.length === 0) return booking.roomUnit?.label ?? null;
-  const covering = booking.segments.find((s) => s.checkIn <= today && today < s.checkOut);
-  const segment = covering ?? booking.segments[booking.segments.length - 1];
-  return segment.roomUnit?.label ?? null;
+// The segment the stay is in today - the server's answer (Booking.currentSegmentId), never worked out from dates here.
+// Undefined only for a payload without it; callers then fall back to the booking's own (last) room.
+export function currentSegment(booking: Pick<Booking, "segments" | "currentSegmentId">): BookingSegment | undefined {
+  return booking.segments.find((s) => s.id === booking.currentSegmentId);
+}
+
+// The physical room the guest is in today, null when that segment has none assigned. What tells two guests in the same
+// room type apart, e.g. in the POS "Charge to room" picker. Booking.roomUnit is the LAST segment's room.
+export function currentRoomUnit(booking: Pick<Booking, "segments" | "roomUnit" | "currentSegmentId">) {
+  const segment = currentSegment(booking);
+  return segment ? segment.roomUnit : booking.roomUnit;
+}
+
+export function currentRoomUnitLabel(booking: Pick<Booking, "segments" | "roomUnit" | "currentSegmentId">): string | null {
+  return currentRoomUnit(booking)?.label ?? null;
 }

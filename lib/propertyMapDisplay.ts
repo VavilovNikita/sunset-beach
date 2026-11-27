@@ -16,8 +16,8 @@
 //                    "sea = available" convention from the booking calendar).
 //
 // 2. Badges (stack on top of the fill, independent facts). Priority when only one fits on a
-//    small tile: maintenance-alert > overdue > debt > dirty > today's arrival/departure timing > "also
-//    blocked" flag on an occupied room. maintenance-alert ranks first, above even money: it means
+//    small tile: maintenance-alert > overdue > an arrival waiting for the room > debt > dirty > today's
+//    arrival/departure timing > "also blocked" flag on an occupied room. maintenance-alert ranks first, above even money: it means
 //    a task is still open AND its linked block has already lapsed, so this room is silently back
 //    on sale while genuinely broken - a guest-facing failure in progress, not a billing nuance.
 //    overdue (a guest still checked in after their checkOut date - the backend's OverstayRule)
@@ -29,7 +29,15 @@ import type { PropertyMapUnit } from "@/lib/types";
 
 export type UnitFill = "inactive" | "occupied" | "blocked" | "vacant";
 
-export type UnitBadge = "maintenance-alert" | "overdue" | "debt" | "dirty" | "departing-today" | "arriving-today" | "blocked-while-occupied";
+export type UnitBadge =
+  | "maintenance-alert"
+  | "overdue"
+  | "arrival-waiting"
+  | "debt"
+  | "dirty"
+  | "departing-today"
+  | "arriving-today"
+  | "blocked-while-occupied";
 
 export type UnitDisplay = {
   fill: UnitFill;
@@ -57,6 +65,10 @@ export function resolveUnitDisplay(unit: PropertyMapUnit, today: string): UnitDi
   }
   if (isOccupied && unit.currentBooking !== null && (unit.currentBooking.overdueDays ?? 0) > 0) {
     badges.push("overdue");
+  }
+  // A guest arriving today into a room somebody is still checked into: check-in will be refused.
+  if (isOccupied && unit.waitingArrival) {
+    badges.push("arrival-waiting");
   }
   if (isOccupied && unit.currentBooking !== null && Number(unit.currentBooking.outstandingBalance) > 0) {
     badges.push("debt");

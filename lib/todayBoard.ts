@@ -4,6 +4,7 @@
 // guest leaves "arriving" and joins the house, a checked-out or no-show guest leaves the board.
 // TodayBoardView calls router.refresh() right after, and the server's own board replaces this one,
 // so anything this gets wrong (an amount that changed meanwhile) is corrected within a request.
+import { formatBaht } from "@/lib/money";
 import type { Booking, TodayBoard, TodayBoardEntry } from "@/lib/types";
 
 /** `booking` is the one returned by the check-in call, so the card shows the room and status as saved. */
@@ -29,4 +30,13 @@ export function applyCheckedOut(board: TodayBoard, bookingId: string): TodayBoar
 /** A no-show is on none of the three lists either. */
 export function applyNoShow(board: TodayBoard, bookingId: string): TodayBoard {
   return { ...board, arrivingToday: board.arrivingToday.filter((e) => e.booking.id !== bookingId) };
+}
+
+// The money line of a Today card. "owed" in red only for a debt that has fallen due (the server's `owes`, the Owes
+// badge's rule); an arrival who has simply not paid yet is told neutrally, in the booking page's words.
+export function todayMoney(owes: boolean | undefined, balance: string): { text: string; owed: boolean } | null {
+  if (!(Number(balance) > 0)) return null;
+  return owes === true
+    ? { text: `${formatBaht(balance)} owed`, owed: true }
+    : { text: `To pay at check-in ${formatBaht(balance)}`, owed: false };
 }

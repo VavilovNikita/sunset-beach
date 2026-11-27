@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePolling } from "@/lib/usePolling";
 import { orderNumberLabel } from "@/lib/posOrders";
-import { splitUnsettledOrders } from "@/lib/shiftOrders";
+import { blockingOrdersLead, splitUnsettledOrders } from "@/lib/shiftOrders";
 import type { Order } from "@/lib/posTypes";
 
 type Requester = <T>(path: string, init: RequestInit | undefined, fallbackError: string) => Promise<{ ok: true; data: T } | { ok: false }>;
@@ -37,11 +37,15 @@ export default function UnsettledOrdersNotice({
   orders,
   shiftOpenerId,
   orderHref,
+  ownerName,
 }: {
   orders: Order[];
   // The shift's cashier: their open orders block the close, everyone else's only warn.
   shiftOpenerId: string | undefined;
   orderHref: (id: string) => string;
+  // Set when the shift is closed from Shift history, where its cashier need not be the person reading: the blocking
+  // orders are named as theirs instead of "your".
+  ownerName?: string;
 }) {
   const { blocking, others } = splitUnsettledOrders(orders, shiftOpenerId);
   if (blocking.length === 0 && others.length === 0) return null;
@@ -50,8 +54,8 @@ export default function UnsettledOrdersNotice({
       {blocking.length > 0 && (
         <div className="text-sm text-coral bg-coral/10 border border-coral/30 rounded-lg px-3 py-2 space-y-1">
           <p>
-            {blocking.length} of your open order{blocking.length === 1 ? "" : "s"} — close or cancel {blocking.length === 1 ? "it" : "them"} before
-            closing the shift:
+            {blockingOrdersLead(blocking.length, ownerName)} — close or cancel {blocking.length === 1 ? "it" : "them"} before closing the
+            shift:
           </p>
           <OrderLinks orders={blocking} orderHref={orderHref} tone="text-coral/70" />
         </div>

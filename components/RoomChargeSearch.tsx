@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { searchActiveBookings } from "@/lib/pos/bookingSearchClient";
+import { chargeableBooking, searchActiveBookings } from "@/lib/pos/bookingSearchClient";
 import { closeOrder } from "@/lib/pos/ordersClient";
-import { pickRoomChargeSelection } from "@/lib/pos/roomCharge";
+import { pickRoomChargeSelection, roomChargeList } from "@/lib/pos/roomCharge";
 import { currentRoomUnitLabel } from "@/lib/bookingRooms";
-import { hotelDateKey } from "@/lib/hotelDate";
 import type { Order } from "@/lib/posTypes";
 import type { Booking } from "@/lib/types";
 
@@ -16,7 +15,7 @@ const DEBOUNCE_MS = 300;
 // booking - a phone can't reasonably scroll that list, and a till gains nothing from it either.
 // Debounced so a fast typist doesn't fire a request per keystroke.
 function roomLabel(booking: Booking): string {
-  const unit = currentRoomUnitLabel(booking, hotelDateKey(new Date()));
+  const unit = currentRoomUnitLabel(booking);
   return unit ? `Room ${unit}` : "No room assigned";
 }
 
@@ -53,13 +52,17 @@ export default function RoomChargeSearch({
       setSearching(true);
       setSearchError(null);
       const result = await searchActiveBookings(query);
-      setSearching(false);
       if (!result.ok) {
+        setSearching(false);
         setSearchError(result.error);
         return;
       }
-      setBookings(result.data);
-      setSelectedId((prev) => pickRoomChargeSelection(result.data, prev, preferredBookingId));
+      const missing = preferredBookingId && query.trim() === "" && !result.data.some((b) => b.id === preferredBookingId);
+      const orderGuest = missing ? await chargeableBooking(preferredBookingId) : null;
+      const shown = roomChargeList(result.data, preferredBookingId, orderGuest, query);
+      setSearching(false);
+      setBookings(shown);
+      setSelectedId((prev) => pickRoomChargeSelection(shown, prev, preferredBookingId));
     }, DEBOUNCE_MS);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);

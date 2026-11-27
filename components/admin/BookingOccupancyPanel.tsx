@@ -10,6 +10,9 @@ import ExtendStayButton from "@/components/admin/ExtendStayButton";
 import { overstayText, roomPaidButOwesLine } from "@/lib/bookingStatusLabel";
 import { hotelDateKey } from "@/lib/hotelDate";
 import { overdueDaysFor, overdueLabel } from "@/lib/overstay";
+import { currentRoomUnit } from "@/lib/bookingRooms";
+import { roomOccupantWarning } from "@/lib/roomOccupant";
+import Link from "next/link";
 import type { Booking } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
 import { formatBaht } from "@/lib/money";
@@ -74,9 +77,9 @@ export default function BookingOccupancyPanel({
     router.refresh();
   }
 
-  // A room that isn't clean is asked about first (CheckInDialog); a clean one is checked in at once.
+  // A room that isn't clean, or that another guest is still in, is asked about first (CheckInDialog).
   function handleCheckIn() {
-    if (roomDirty) {
+    if (roomDirty || occupant) {
       setCheckingIn(true);
       return;
     }
@@ -90,7 +93,10 @@ export default function BookingOccupancyPanel({
   const canMarkNoShow = !cancelled && arrivalDue && occupancy === "EXPECTED";
   const canCheckOut = occupancy === "CHECKED_IN";
   const needsRoom = booking.roomUnitId === null;
-  const roomDirty = booking.roomUnit?.housekeepingStatus === "DIRTY";
+  const roomUnit = currentRoomUnit(booking);
+  const roomDirty = roomUnit?.housekeepingStatus === "DIRTY";
+  // The server's: check-in would answer 409 until this guest is checked out or the arrival is moved.
+  const occupant = canCheckIn ? (booking.roomOccupant ?? null) : null;
   const owed = balanceDue !== null && Number(balanceDue) > 0;
   const roomPaidLine = roomPaidButOwesLine(booking.status, booking.settlement, balanceDue);
 
@@ -133,6 +139,15 @@ export default function BookingOccupancyPanel({
       )}
       {occupancy === "EXPECTED" && arrivalDue && !cancelled && booking.checkIn < today && (
         <p className="text-sm text-amber-400">Was due to arrive on {formatDate(booking.checkIn)}. Check them in, or mark a no-show.</p>
+      )}
+
+      {occupant && (
+        <p className={`text-sm ${occupant.overdueDays > 0 ? "text-coral" : "text-amber-400"}`}>
+          {roomOccupantWarning(occupant, roomUnit?.label ?? null)}{" "}
+          <Link href={`/admin/bookings/${occupant.bookingId}`} className="underline underline-offset-2">
+            Open their booking
+          </Link>
+        </p>
       )}
 
       {(canCheckIn || canMarkNoShow || canCheckOut) && (
@@ -178,8 +193,14 @@ export default function BookingOccupancyPanel({
         <CheckInDialog
           bookingId={booking.id}
           guestName={booking.guestName}
-          roomLabel={booking.roomUnit?.label ?? null}
-          onBack={() => setCheckingIn(false)}
+          roomLabel={roomUnit?.label ?? null}
+          roomDirty={roomDirty}
+          occupant={occupant}
+          onBack={() => {
+            setCheckingIn(false);
+            // The page may be behind what the server just said in the dialog.
+            if (occupant) router.refresh();
+          }}
           onDone={() => {
             setCheckingIn(false);
             router.refresh();

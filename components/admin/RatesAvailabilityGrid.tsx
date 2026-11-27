@@ -419,7 +419,7 @@ function RateCellView({
             if (e.key === "Enter") onEditSave();
             if (e.key === "Escape") onEditCancel();
           }}
-          aria-label={`Price for ${cell.date}`}
+          aria-label={`Price for ${formatDate(cell.date)}`}
           className={`w-full bg-ink border rounded px-1 py-1.5 text-center text-xs text-cream focus:outline-none ${
             editing.error ? "border-coral" : "border-sea"
           }`}

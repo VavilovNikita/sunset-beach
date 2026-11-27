@@ -5,6 +5,7 @@ import { getAttendanceSummary } from "@/lib/rosterClient";
 import type { AttendanceDaySummary, RosterEmployee } from "@/lib/types";
 import { attendanceCell, totalWorkedMinutes, type AttendanceCellTone } from "@/lib/attendanceMatrix";
 import { hotelDateKey, hotelYearMonth } from "@/lib/hotelDate";
+import { formatDate, formatMonth } from "@/lib/formatDate";
 import AttendanceDayEditor from "@/components/admin/AttendanceDayEditor";
 
 function minutesToHours(minutes: number) {
@@ -80,9 +81,7 @@ export default function AttendancePanel({ employees, readOnly = false }: { emplo
         >
           ← Prev
         </button>
-        <p className="text-sm text-cream/70 tabular-nums">
-          {year}-{String(month).padStart(2, "0")}
-        </p>
+        <p className="text-sm text-cream/70 tabular-nums">{formatMonth(`${year}-${String(month).padStart(2, "0")}`)}</p>
         <button
           type="button"
           onClick={() => {
@@ -152,7 +151,7 @@ export default function AttendancePanel({ employees, readOnly = false }: { emplo
                                 type="button"
                                 onClick={() => setEditing({ employeeUserId: emp.id, employeeName: emp.name, date: key })}
                                 className="block w-full min-w-[3.25rem] px-1.5 py-1.5 hover:bg-cream/10 min-h-[2rem]"
-                                title={`Correct ${emp.name}, ${key}`}
+                                title={`Correct ${emp.name}, ${formatDate(key)}`}
                               >
                                 {cell.lines.map((line, n) => (
                                   <div key={n}>{line}</div>

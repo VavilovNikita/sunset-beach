@@ -12,12 +12,10 @@ import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
 import { overstayText } from "@/lib/bookingStatusLabel";
 import { overdueLabel } from "@/lib/overstay";
 import { roomOccupantWarning } from "@/lib/roomOccupant";
-import { currentRoomUnitLabel } from "@/lib/bookingRooms";
-import { hotelDateKey } from "@/lib/hotelDate";
-import { applyCheckedIn, applyCheckedOut, applyNoShow } from "@/lib/todayBoard";
+import { currentRoomUnit, currentSegment } from "@/lib/bookingRooms";
+import { applyCheckedIn, applyCheckedOut, applyNoShow, todayMoney } from "@/lib/todayBoard";
 import type { CheckInResult, CheckOutResult, TodayBoard, TodayBoardEntry } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
-import { formatBaht } from "@/lib/money";
 
 // The front desk's daily working set - see openapi.yaml's TodayBoard description for exactly
 // which booking lands in which of the three lists. Data comes down as server-rendered props
@@ -149,12 +147,14 @@ function TodayRow({
   const [error, setError] = useState<string | null>(null);
 
   const needsRoom = booking.roomUnitId === null;
-  const roomDirty = booking.roomUnit?.housekeepingStatus === "DIRTY";
-  const owed = Number(outstandingBalance) > 0;
+  // The room the stay is in today: after a planned move that is not booking.roomUnit (the last segment's).
+  const roomUnit = currentRoomUnit(booking);
+  const roomTypeName = currentSegment(booking)?.room.name ?? booking.room.name;
+  const roomDirty = roomUnit?.housekeepingStatus === "DIRTY";
+  const money = todayMoney(booking.owes, outstandingBalance);
   const overdue = overdueLabel(entry.overdueDays);
   const occupant = action === "checkin" ? (entry.roomOccupant ?? null) : null;
-  // The room the guest walks into today (after a planned move that is not booking.roomUnit).
-  const arrivalRoomLabel = currentRoomUnitLabel(booking, hotelDateKey(new Date())) ?? booking.roomUnit?.label ?? null;
+  const arrivalRoomLabel = roomUnit?.label ?? null;
 
   // A clean, free room is checked in straight away; a dirty or occupied one asks first (CheckInDialog).
   async function handleCheckIn() {
@@ -185,8 +185,8 @@ function TodayRow({
           </Link>
           <NotesBadge notes={booking.notes} />
           <span className="text-xs text-cream/50 truncate">
-            {booking.room.name}
-            {booking.roomUnit ? ` — ${booking.roomUnit.label}` : ""}
+            {roomTypeName}
+            {roomUnit ? ` — ${roomUnit.label}` : ""}
           </span>
         </div>
         <div className="flex items-center gap-3 flex-wrap mt-1 text-xs">
@@ -202,7 +202,7 @@ function TodayRow({
           )}
           {needsRoom && <span className="text-amber-400">No room assigned</span>}
           {roomDirty && <span className="text-sand">Room not clean</span>}
-          {owed && <span className="text-coral">{formatBaht(outstandingBalance)} owed</span>}
+          {money && <span className={money.owed ? "text-coral" : "text-cream/70"}>{money.text}</span>}
         </div>
         {occupant && (
           <p className={`mt-1 text-xs ${occupant.overdueDays > 0 ? "text-coral" : "text-amber-400"}`}>

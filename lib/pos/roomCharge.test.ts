@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isChargeableToRoom, pickRoomChargeSelection } from "./roomCharge";
+import { isChargeableToRoom, pickRoomChargeSelection, roomChargeList } from "./roomCharge";
 
 // The bugs this guards: a walk-in (created NEW, checked in) didn't appear in POS's "charge to
 // room" list until someone changed its status to CONFIRMED; before that, a prepaid (PAID) stay
@@ -58,3 +58,26 @@ describe("pickRoomChargeSelection", () => {
     expect(pickRoomChargeSelection([{ id: "first" }], "third", null)).toBeNull();
   });
 });
+
+describe("roomChargeList", () => {
+  const rows = [{ id: "early" }, { id: "own" }, { id: "late" }];
+
+  it("lists the order's own guest first, so the selected row is on screen", () => {
+    expect(roomChargeList(rows, "own", null, "").map((b) => b.id)).toEqual(["own", "early", "late"]);
+    expect(roomChargeList(rows, "own", null, "ow").map((b) => b.id)).toEqual(["own", "early", "late"]);
+  });
+
+  it("adds the order's guest when the listing lacks them", () => {
+    expect(roomChargeList([{ id: "early" }], "own", { id: "own" }, "").map((b) => b.id)).toEqual(["own", "early"]);
+  });
+
+  it("does not push them into the results of a name that did not match them", () => {
+    expect(roomChargeList([{ id: "early" }], "own", { id: "own" }, "zed").map((b) => b.id)).toEqual(["early"]);
+  });
+
+  it("is the search's own list for an order without a guest, or a guest who cannot be charged", () => {
+    expect(roomChargeList(rows, null, null, "")).toEqual(rows);
+    expect(roomChargeList(rows, "gone", null, "")).toEqual(rows);
+  });
+});
+

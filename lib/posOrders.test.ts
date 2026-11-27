@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isLongOpen, isSpaOrder, longOpenLabel, orderNumberLabel, orderRefLabel, tableBillLabel, ticketHeading, ticketTitle, validateVoidReason } from "./posOrders";
+import { isLongOpen, isSpaOrder, longOpenLabel, orderNumberLabel, orderRefLabel, tableBillLabel, ticketHeading, ticketTitle, validateCancelReason, validateVoidReason } from "./posOrders";
 
 const NOW = new Date("2026-10-03T12:00:00Z");
 
@@ -42,6 +42,14 @@ describe("isSpaOrder", () => {
     expect(isSpaOrder({ spaAppointmentId: null }, "SPA")).toBe(true);
     expect(isSpaOrder({ spaAppointmentId: null }, "RESTAURANT")).toBe(false);
     expect(isSpaOrder({ spaAppointmentId: null }, undefined)).toBe(false);
+  });
+});
+
+describe("validateCancelReason", () => {
+  it("asks about the order, not an item, with the same length rule", () => {
+    expect(validateCancelReason(" ")).toBe("Say why this order is being cancelled.");
+    expect(validateCancelReason("Guests left")).toBeNull();
+    expect(validateCancelReason("x".repeat(501))).toContain("under");
   });
 });
 

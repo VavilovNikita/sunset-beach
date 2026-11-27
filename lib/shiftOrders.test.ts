@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitUnsettledOrders } from "@/lib/shiftOrders";
+import { blockingOrdersLead, splitUnsettledOrders } from "@/lib/shiftOrders";
 import type { Order } from "@/lib/posTypes";
 
 function order(id: string, openedByUserId: string): Order {
@@ -23,5 +23,14 @@ describe("splitUnsettledOrders", () => {
 
   it("treats every order as someone else's until the shift is known", () => {
     expect(splitUnsettledOrders([order("a", "cashier-1")], undefined).blocking).toEqual([]);
+  });
+});
+
+describe("blockingOrdersLead", () => {
+  it("says 'your' on one's own shift and the cashier's name on somebody else's", () => {
+    expect(blockingOrdersLead(3)).toBe("3 of your open orders");
+    expect(blockingOrdersLead(1)).toBe("1 of your open order");
+    expect(blockingOrdersLead(1, "Anna")).toBe("1 open order opened by Anna");
+    expect(blockingOrdersLead(2, "Anna")).toBe("2 open orders opened by Anna");
   });
 });

@@ -17,6 +17,7 @@ import {
   isTerminalStatus,
   orderNumberLabel,
   orderRefLabel,
+  validateCancelReason,
   validateVoidReason,
 } from "@/lib/posOrders";
 import {
@@ -259,7 +260,7 @@ function LiveOrderTicket({
   async function handleCancel() {
     const wasSent = order.status === "SENT";
     if (wasSent) {
-      const reasonError = validateVoidReason(cancelReason);
+      const reasonError = validateCancelReason(cancelReason);
       if (reasonError) {
         setCancelReasonError(reasonError);
         return;

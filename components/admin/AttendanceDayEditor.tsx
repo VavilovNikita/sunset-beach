@@ -182,11 +182,11 @@ export default function AttendanceDayEditor({
             ) : (
               <ul className="space-y-3">
                 {[...versions].reverse().map((v) => (
-                  <li key={v.voidedAt} className="rounded-lg border border-cream/10 p-3 text-sm">
+                  <li key={v.id} className="rounded-lg border border-cream/10 p-3 text-sm">
                     <p className="tabular-nums text-cream/70 line-through decoration-cream/30">{v.times.length ? v.times.join("  ·  ") : "no punches"}</p>
                     <p className="text-xs text-cream/50 mt-1">
-                      Replaced {formatTimestamp(v.voidedAt)}
-                      {v.voidedByEmail ? ` by ${v.voidedByEmail}` : ""} — “{v.reason}”
+                      Replaced {formatTimestamp(v.correctedAt)}
+                      {v.correctedByEmail ? ` by ${v.correctedByEmail}` : ""} — “{v.reason}”
                     </p>
                     <button type="button" onClick={() => setTimes(v.times)} className="mt-1 text-xs text-sea hover:text-coral">
                       Restore these times

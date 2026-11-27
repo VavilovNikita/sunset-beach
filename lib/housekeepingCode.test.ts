@@ -22,7 +22,7 @@ function unit(overrides: Partial<PropertyMapUnit> = {}): PropertyMapUnit {
 }
 
 function booking(occupancyStatus: "EXPECTED" | "CHECKED_IN", checkOut = "2033-05-12") {
-  return { bookingId: "b1", guestName: "Guest", checkOut, occupancyStatus, outstandingBalance: "0.00" };
+  return { bookingId: "b1", guestName: "Guest", checkOut, occupancyStatus, owes: false, outstandingBalance: "0.00" };
 }
 
 describe("resolveHousekeepingStatus", () => {

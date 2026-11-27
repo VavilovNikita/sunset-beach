@@ -26,25 +26,32 @@ export function sameTimes(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((t, i) => t === b[i]);
 }
 
-// The punches a correction replaced, one entry per correction - what "history" and "restore" show.
-// Every punch voided by one correction carries the same voidedAt, so that's the grouping key.
-// Oldest replacement first.
-export type ReplacedVersion = { voidedAt: string; voidedByEmail: string | null; reason: string; times: string[] };
+// The day as it was before each correction, one entry per correction - what "history" and "restore" show. Oldest first.
+// A correction is known by what it voided (voidedByCorrectionId) and by what it recorded (correctionId): a correction
+// of an empty day voids nothing, and grouping voided punches alone called such a day "never corrected". Its entry has
+// no times - the day was empty.
+export type ReplacedVersion = { id: string; correctedAt: string; correctedByEmail: string | null; reason: string; times: string[] };
 
 export function replacedVersions(history: AttendancePunch[]): ReplacedVersion[] {
-  const groups = new Map<string, AttendancePunch[]>();
+  const corrections = new Map<string, { voided: AttendancePunch[]; recorded: AttendancePunch[] }>();
+  const of = (id: string) => {
+    const found = corrections.get(id) ?? { voided: [], recorded: [] };
+    corrections.set(id, found);
+    return found;
+  };
   for (const p of history) {
-    if (!p.voidedAt) continue;
-    groups.set(p.voidedAt, [...(groups.get(p.voidedAt) ?? []), p]);
+    if (p.voidedAt) of(p.voidedByCorrectionId ?? p.voidedAt).voided.push(p);
+    if (p.correctionId) of(p.correctionId).recorded.push(p);
   }
-  return [...groups.entries()]
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    .map(([voidedAt, punches]) => ({
-      voidedAt,
-      voidedByEmail: punches[0].voidedByEmail ?? null,
-      reason: punches[0].voidReason ?? "",
-      times: punchTimes([...punches].sort((x, y) => (x.punchAt < y.punchAt ? -1 : 1))),
-    }));
+  return [...corrections.entries()]
+    .map(([id, { voided, recorded }]) => ({
+      id,
+      correctedAt: voided[0]?.voidedAt ?? recorded[0].createdAt,
+      correctedByEmail: voided[0]?.voidedByEmail ?? recorded[0]?.recordedByEmail ?? null,
+      reason: voided[0]?.voidReason ?? recorded[0]?.note ?? "",
+      times: punchTimes([...voided].sort((x, y) => (x.punchAt < y.punchAt ? -1 : 1))),
+    }))
+    .sort((a, b) => (a.correctedAt < b.correctedAt ? -1 : a.correctedAt > b.correctedAt ? 1 : 0));
 }
 
 export function livePunches(history: AttendancePunch[]): AttendancePunch[] {

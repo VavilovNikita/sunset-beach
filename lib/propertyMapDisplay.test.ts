@@ -28,7 +28,7 @@ describe("resolveUnitDisplay — base fill", () => {
 
   it("a checked-in guest reads as occupied", () => {
     const u = unit({
-      currentBooking: { bookingId: "b1", guestName: "Somchai", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", outstandingBalance: "0.00" },
+      currentBooking: { bookingId: "b1", guestName: "Somchai", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", owes: true, outstandingBalance: "0.00" },
     });
     expect(resolveUnitDisplay(u, TODAY).fill).toBe("occupied");
   });
@@ -54,7 +54,7 @@ describe("resolveUnitDisplay — base fill", () => {
 
   it("checked-in AND blocked at once (rare overlap): the real guest wins the fill, but a badge still flags the block", () => {
     const u = unit({
-      currentBooking: { bookingId: "b1", guestName: "Somchai", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", outstandingBalance: "0.00" },
+      currentBooking: { bookingId: "b1", guestName: "Somchai", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", owes: true, outstandingBalance: "0.00" },
       activeBlock: { reason: "Scheduled repaint", fromDate: "2026-09-02", toDate: "2026-09-03" },
     });
     const result = resolveUnitDisplay(u, TODAY);
@@ -66,7 +66,7 @@ describe("resolveUnitDisplay — base fill", () => {
     const u = unit({
       isActive: false,
       housekeepingStatus: "DIRTY",
-      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: TODAY, occupancyStatus: "CHECKED_IN", outstandingBalance: "500.00" },
+      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: TODAY, occupancyStatus: "CHECKED_IN", owes: true, outstandingBalance: "500.00" },
     });
     const result = resolveUnitDisplay(u, TODAY);
     expect(result.fill).toBe("inactive");
@@ -77,14 +77,14 @@ describe("resolveUnitDisplay — base fill", () => {
 describe("resolveUnitDisplay — badges and their priority", () => {
   it("a clean, settled, checked-in guest gets no badges at all", () => {
     const u = unit({
-      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", outstandingBalance: "0.00" },
+      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", owes: true, outstandingBalance: "0.00" },
     });
     expect(resolveUnitDisplay(u, TODAY).badges).toEqual([]);
   });
 
   it("an outstanding balance on an occupied room shows a debt badge", () => {
     const u = unit({
-      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", outstandingBalance: "350.00" },
+      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", owes: true, outstandingBalance: "350.00" },
     });
     expect(resolveUnitDisplay(u, TODAY).badges).toEqual(["debt"]);
   });
@@ -98,7 +98,7 @@ describe("resolveUnitDisplay — badges and their priority", () => {
   it("occupied, dirty, departing today: dirty outranks the timing badge (no debt here)", () => {
     const u = unit({
       housekeepingStatus: "DIRTY",
-      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: TODAY, occupancyStatus: "CHECKED_IN", outstandingBalance: "0.00" },
+      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: TODAY, occupancyStatus: "CHECKED_IN", owes: true, outstandingBalance: "0.00" },
     });
     expect(resolveUnitDisplay(u, TODAY).badges).toEqual(["dirty", "departing-today"]);
   });
@@ -106,14 +106,14 @@ describe("resolveUnitDisplay — badges and their priority", () => {
   it("debt outranks dirty when both are true", () => {
     const u = unit({
       housekeepingStatus: "DIRTY",
-      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", outstandingBalance: "200.00" },
+      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", owes: true, outstandingBalance: "200.00" },
     });
     expect(resolveUnitDisplay(u, TODAY).badges).toEqual(["debt", "dirty"]);
   });
 
   it("a guest expected to check in today (not yet checked in) shows an arriving badge, fill stays vacant", () => {
     const u = unit({
-      currentBooking: { bookingId: "b2", guestName: "Guest", checkOut: "2026-09-06", occupancyStatus: "EXPECTED", outstandingBalance: "0.00" },
+      currentBooking: { bookingId: "b2", guestName: "Guest", checkOut: "2026-09-06", occupancyStatus: "EXPECTED", owes: false, outstandingBalance: "0.00" },
     });
     const result = resolveUnitDisplay(u, TODAY);
     expect(result.fill).toBe("vacant");
@@ -122,7 +122,7 @@ describe("resolveUnitDisplay — badges and their priority", () => {
 
   it("checkOut not today does not trigger the departing badge", () => {
     const u = unit({
-      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: "2026-09-08", occupancyStatus: "CHECKED_IN", outstandingBalance: "0.00" },
+      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: "2026-09-08", occupancyStatus: "CHECKED_IN", owes: true, outstandingBalance: "0.00" },
     });
     expect(resolveUnitDisplay(u, TODAY).badges).toEqual([]);
   });
@@ -132,7 +132,7 @@ describe("resolveUnitDisplay — maintenance-alert: room silently back on sale w
   it("an open task with an already-expired block ranks the alert above even debt", () => {
     const u = unit({
       openMaintenanceTask: { taskId: "t1", description: "AC is leaking", status: "OPEN", blockExpired: true },
-      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", outstandingBalance: "350.00" },
+      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", owes: true, outstandingBalance: "350.00" },
     });
     expect(resolveUnitDisplay(u, TODAY).badges[0]).toBe("maintenance-alert");
     expect(resolveUnitDisplay(u, TODAY).badges).toEqual(["maintenance-alert", "debt"]);
@@ -166,7 +166,7 @@ describe("resolveUnitDisplay — overdue guest", () => {
         bookingId: "b1",
         guestName: "Petrov",
         checkOut: "2026-08-07",
-        occupancyStatus: "CHECKED_IN",
+        occupancyStatus: "CHECKED_IN", owes: true,
         outstandingBalance: "900.00",
         overdueDays: 26,
       },
@@ -178,8 +178,25 @@ describe("resolveUnitDisplay — overdue guest", () => {
 
   it("no overdue badge when the server says 0 days", () => {
     const u = unit({
-      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", outstandingBalance: "0.00", overdueDays: 0 },
+      currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", owes: true, outstandingBalance: "0.00", overdueDays: 0 },
     });
     expect(resolveUnitDisplay(u, TODAY).badges).toEqual([]);
   });
 });
+
+describe("an arrival waiting for an occupied room", () => {
+  const occupied = unit({
+    currentBooking: { bookingId: "b1", guestName: "Anna", checkOut: TODAY, occupancyStatus: "CHECKED_IN", owes: true, outstandingBalance: "500.00" },
+    waitingArrival: { bookingId: "b2", guestName: "Boris" },
+  });
+
+  it("is badged above the debt", () => {
+    expect(resolveUnitDisplay(occupied, TODAY).badges.slice(0, 2)).toEqual(["arrival-waiting", "debt"]);
+  });
+
+  it("ranks below an overdue guest", () => {
+    const late = unit({ ...occupied, currentBooking: { ...occupied.currentBooking!, overdueDays: 2 } });
+    expect(resolveUnitDisplay(late, TODAY).badges.slice(0, 2)).toEqual(["overdue", "arrival-waiting"]);
+  });
+});
+

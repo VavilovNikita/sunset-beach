@@ -42,9 +42,36 @@ describe("replacedVersions", () => {
       punch("2026-10-05T09:00:00+07:00"),
     ];
     expect(replacedVersions(history)).toEqual([
-      { voidedAt: "2026-10-06T01:00:00Z", voidedByEmail: "a@x", reason: "first fix", times: ["09:00", "17:00"] },
-      { voidedAt: "2026-10-06T02:00:00Z", voidedByEmail: "b@x", reason: "second fix", times: ["10:00"] },
+      { id: "2026-10-06T01:00:00Z", correctedAt: "2026-10-06T01:00:00Z", correctedByEmail: "a@x", reason: "first fix", times: ["09:00", "17:00"] },
+      { id: "2026-10-06T02:00:00Z", correctedAt: "2026-10-06T02:00:00Z", correctedByEmail: "b@x", reason: "second fix", times: ["10:00"] },
     ]);
     expect(livePunches(history)).toHaveLength(1);
+  });
+
+  it("keeps a correction of an empty day, which voided nothing", () => {
+    const added = { correctionId: "c1", createdAt: "2026-11-27T11:11:36Z", recordedByEmail: "m@x", note: "forgot the card" };
+    const history = [punch("2026-11-05T09:00:00+07:00", added), punch("2026-11-05T18:00:00+07:00", added)];
+    expect(replacedVersions(history)).toEqual([
+      { id: "c1", correctedAt: "2026-11-27T11:11:36Z", correctedByEmail: "m@x", reason: "forgot the card", times: [] },
+    ]);
+  });
+
+  it("ties what a later correction voided to it, not to the one that recorded those punches", () => {
+    const history = [
+      punch("2026-11-05T09:00:00+07:00", {
+        correctionId: "c1",
+        createdAt: "2026-11-27T11:00:00Z",
+        note: "added",
+        voidedAt: "2026-11-27T12:00:00Z",
+        voidedByCorrectionId: "c2",
+        voidReason: "was ten",
+        voidedByEmail: "b@x",
+      }),
+      punch("2026-11-05T10:00:00+07:00", { correctionId: "c2", createdAt: "2026-11-27T12:00:00Z", note: "was ten" }),
+    ];
+    expect(replacedVersions(history).map((v) => [v.id, v.reason, v.times])).toEqual([
+      ["c1", "added", []],
+      ["c2", "was ten", ["09:00"]],
+    ]);
   });
 });

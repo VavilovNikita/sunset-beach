@@ -68,7 +68,14 @@ describe("validateSettingsForm", () => {
     const form = { ...toSettingsForm(settings()), lateGraceMinutes: "4" };
     const result = validateSettingsForm(form, 5);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.errors.lateGraceMinutes).toMatch(/at least 5 minutes/i);
+    if (!result.ok) expect(result.errors.lateGraceMinutes).toContain("from 5 to 240");
+  });
+
+  it("names one range for a blank, a word, too small and too big - the hint's own", () => {
+    for (const bad of ["", "ten", "1", "241"]) {
+      const result = validateSettingsForm({ ...toSettingsForm(settings()), lateGraceMinutes: bad }, 5);
+      expect(!result.ok && result.errors.lateGraceMinutes, bad).toContain("from 5 to 240");
+    }
   });
 
   it("accepts exactly the floor", () => {
@@ -169,6 +176,14 @@ describe("the staff manual updates switch", () => {
     expect(manualFeedNotice({ manualFeedConfigured: false })).toBe("The server does not read the manual's update list yet");
     expect(manualFeedNotice({ manualFeedConfigured: true })).toBeNull();
     expect(manualFeedNotice(null)).toBeNull(); // an unreadable status is never "not configured"
+  });
+
+  it("says apart that a configured list cannot be read", () => {
+    expect(manualFeedNotice({ manualFeedConfigured: true, manualFeedUnreadable: true })).toBe(
+      "The server is set up to read the manual's update list but cannot read it"
+    );
+    expect(manualFeedNotice({ manualFeedConfigured: true, manualFeedUnreadable: false })).toBeNull();
+    expect(manualFeedNotice({ manualFeedConfigured: false, manualFeedUnreadable: false })).toContain("does not read");
   });
 
   it("has its kind in the log", () => {

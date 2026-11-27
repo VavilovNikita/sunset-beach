@@ -4,7 +4,7 @@ import RecipientPicker from "@/components/admin/notificationSettings/RecipientPi
 import SettingsCard, { FieldError, INPUT } from "@/components/admin/notificationSettings/SettingsCard";
 import { CheckField, NumberField, TimeField } from "@/components/admin/notificationSettings/fields";
 import SettingsTabLink from "@/components/admin/notificationSettings/SettingsTabLink";
-import { NOTIFICATION_LANGUAGES, toggleId, type SettingsFieldErrors, type SettingsForm } from "@/lib/notifications";
+import { NOTIFICATION_LANGUAGES, lateGraceRange, toggleId, type SettingsFieldErrors, type SettingsForm } from "@/lib/notifications";
 import type { NotificationLanguage, NotificationStaffMember } from "@/lib/types";
 
 export type AlertPanelProps = {
@@ -44,7 +44,7 @@ export function AttendanceAlertsPanel({ form, set, errors, minLateGraceMinutes }
           value={form.lateGraceMinutes}
           onChange={(v) => set("lateGraceMinutes", v)}
           error={errors.lateGraceMinutes}
-          hint={`At least ${minLateGraceMinutes} minutes - the attendance terminal is read every ${minLateGraceMinutes} minutes.`}
+          hint={lateGraceRange(minLateGraceMinutes)}
         />
       </SettingsCard>
 

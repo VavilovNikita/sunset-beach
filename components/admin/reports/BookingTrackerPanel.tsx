@@ -644,7 +644,7 @@ function SnapshotRow({ snapshot, onSaved }: { snapshot: BookingTrackerSnapshot; 
 
   const text = (name: keyof NotesForm, label: string, width: string, max?: number) => (
     <input
-      aria-label={`${label}, ${snapshot.stayMonth} snapshot of ${snapshot.snapshotDate}`}
+      aria-label={`${label}, ${monthLabel(snapshot.stayMonth)} snapshot of ${formatDate(snapshot.snapshotDate)}`}
       value={form[name]}
       maxLength={max ? max + 50 : undefined}
       onChange={(e) => setForm({ ...form, [name]: e.target.value })}
@@ -674,7 +674,7 @@ function SnapshotRow({ snapshot, onSaved }: { snapshot: BookingTrackerSnapshot; 
       <td className={td}>
         <input
           type="date"
-          aria-label={`Due date, ${snapshot.stayMonth} snapshot of ${snapshot.snapshotDate}`}
+          aria-label={`Due date, ${monthLabel(snapshot.stayMonth)} snapshot of ${formatDate(snapshot.snapshotDate)}`}
           value={form.dueDate}
           onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
           className={fieldClass}

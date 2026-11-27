@@ -8,7 +8,7 @@ import StatCard from "@/components/admin/StatCard";
 import OwesBadge from "@/components/admin/OwesBadge";
 import NightAuditCloseForm from "@/components/admin/NightAuditCloseForm";
 import type { NightAudit, NightAuditBooking } from "@/lib/types";
-import { formatDateRange } from "@/lib/formatDate";
+import { formatDateRange, formatDate } from "@/lib/formatDate";
 import { formatBaht } from "@/lib/money";
 
 // The front desk's once-a-day review: who should have arrived or left and didn't, the day's room
@@ -184,7 +184,7 @@ function BookingList({
                 {describeUnpaidNights(b.unpaidOverstayNights, b.overstayIncludesTonight) && (
                   <span
                     className="rounded-full px-2.5 py-1 text-xs bg-amber-400/15 text-amber-400 whitespace-nowrap"
-                    title={`Nights from check-out through ${reviewedDate} charged to the booking at the room price`}
+                    title={`Nights from check-out through ${formatDate(reviewedDate)} charged to the booking at the room price`}
                   >
                     {describeUnpaidNights(b.unpaidOverstayNights, b.overstayIncludesTonight)}
                     {b.unpaidOverstayValue && ` · ${formatBaht(b.unpaidOverstayValue)}`}
