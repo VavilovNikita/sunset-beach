@@ -13,6 +13,7 @@ export type AlertPanelProps = {
   errors: SettingsFieldErrors;
   staff: NotificationStaffMember[]; // active only
   minLateGraceMinutes: number;
+  manualFeedNotice: string | null; // why the manual's updates cannot be sent at all, or null
 };
 
 const has = (errors: SettingsFieldErrors, ...keys: (keyof SettingsForm)[]) => keys.some((k) => Boolean(errors[k]));
@@ -103,7 +104,7 @@ export function RoomBlocksPanel({ form, set, errors }: AlertPanelProps) {
   );
 }
 
-export function RecipientsPanel({ form, set, errors, staff }: AlertPanelProps) {
+export function RecipientsPanel({ form, set, errors, staff, manualFeedNotice }: AlertPanelProps) {
   return (
     <div className="grid gap-4 lg:grid-cols-2 items-start">
       <SettingsCard title="Directors" short="Told about absences, a silent terminal and blocks nobody on shift can take.">
@@ -114,6 +115,25 @@ export function RecipientsPanel({ form, set, errors, staff }: AlertPanelProps) {
           onToggle={(id) => set("directorUserIds", toggleId(form.directorUserIds, id))}
           error={errors.directorUserIds}
         />
+        <div className="border-t border-cream/10 pt-2">
+          <CheckField
+            label="Staff manual updates"
+            hint="When a new What's new note is published, the directors get one message a day at most."
+            checked={form.manualUpdatesEnabled}
+            onChange={(v) => set("manualUpdatesEnabled", v)}
+            below={
+              <div className="ml-6">
+                {manualFeedNotice && (
+                  <p className="text-xs text-amber-400 mt-1">
+                    <span aria-hidden="true">▲ </span>
+                    {manualFeedNotice}
+                  </p>
+                )}
+                <FieldError message={errors.manualUpdatesEnabled} />
+              </div>
+            }
+          />
+        </div>
       </SettingsCard>
 
       <SettingsCard title="Late: also tell" short="People told about a late employee besides the employee themselves.">

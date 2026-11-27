@@ -78,6 +78,7 @@ const ALERT_FIELD_TAB: Record<keyof SettingsForm, SettingsTabId> = {
   morningTime: "blocks",
   lateRecipientUserIds: "recipients",
   directorUserIds: "recipients",
+  manualUpdatesEnabled: "recipients",
   quietHoursEnabled: "recipients",
   quietStart: "recipients",
   quietEnd: "recipients",
@@ -174,6 +175,7 @@ export type OverviewSection = { title: string; rows: OverviewRow[] };
 export function overviewSections(settings: NotificationSettings, bot: StaffBotSettings, directors: DirectorsTelegram): OverviewSection[] {
   const requests = bot.requestsEnabled;
   const summaryDetail = bot.morningSummaryEnabled && directors.linked === 0 ? `at ${bot.morningSummaryTime} - nobody with Telegram will receive it` : `at ${bot.morningSummaryTime}`;
+  const manualDetail = settings.manualUpdatesEnabled && directors.linked === 0 ? "nobody with Telegram will receive it" : "to the directors, one a day at most";
   return [
     {
       title: "Messages",
@@ -189,6 +191,7 @@ export function overviewSections(settings: NotificationSettings, bot: StaffBotSe
         { label: "Reminder of a waiting shift request", botKey: "pendingReminderEnabled", on: requests && bot.pendingReminderEnabled, detail: requests ? `after ${bot.pendingReminderHours} h` : "requests are off", tab: "requests" },
         { label: "Therapist morning message", botKey: "therapistMorningEnabled", on: bot.therapistMorningEnabled, detail: `from ${bot.therapistMorningTime}`, tab: "roles" },
         { label: "Morning summary", botKey: "morningSummaryEnabled", on: bot.morningSummaryEnabled, detail: summaryDetail, tab: "summary" },
+        { label: "Staff manual updated", on: settings.manualUpdatesEnabled, detail: manualDetail, tab: "recipients" },
       ],
     },
     {

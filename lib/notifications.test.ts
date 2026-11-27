@@ -8,11 +8,14 @@ import {
   linkAvailability,
   logFiltersError,
   logQueryString,
+  manualFeedNotice,
+  NOTIFICATION_TYPE_LABELS,
   secondsLeft,
   settingsFormDirty,
   settingsServerError,
   toSettingsForm,
   toggleId,
+  dirtySettingsFields,
   validateSettingsForm,
 } from "./notifications";
 import type { NotificationSettings, NotificationStaffMember, NotificationStatus } from "./types";
@@ -35,6 +38,7 @@ const settings = (patch: Partial<NotificationSettings> = {}): NotificationSettin
   defaultLanguage: "EN",
   lateRecipientUserIds: ["u1"],
   directorUserIds: ["u2", "u3"],
+  manualUpdatesEnabled: true,
   updatedAt: "2026-10-17T03:00:00Z",
   ...patch,
 });
@@ -147,6 +151,31 @@ describe("settingsServerError", () => {
   });
 });
 
+describe("the staff manual updates switch", () => {
+  it("is a change of its own, and is saved as it is set", () => {
+    const saved = settings();
+    const off = { ...toSettingsForm(saved), manualUpdatesEnabled: false };
+    expect(dirtySettingsFields(off, saved)).toEqual(["manualUpdatesEnabled"]);
+    const result = validateSettingsForm(off, 5);
+    expect(result.ok && result.input.manualUpdatesEnabled).toBe(false);
+  });
+
+  it("takes a 400 on its own field", () => {
+    const body = { error: { fieldErrors: { manualUpdatesEnabled: ["Not now"] } } };
+    expect(settingsServerError(400, "x", body)).toEqual({ field: "manualUpdatesEnabled", message: "Not now" });
+  });
+
+  it("warns only when the server says it reads no manual list", () => {
+    expect(manualFeedNotice({ manualFeedConfigured: false })).toBe("The server does not read the manual's update list yet");
+    expect(manualFeedNotice({ manualFeedConfigured: true })).toBeNull();
+    expect(manualFeedNotice(null)).toBeNull(); // an unreadable status is never "not configured"
+  });
+
+  it("has its kind in the log", () => {
+    expect(NOTIFICATION_TYPE_LABELS.MANUAL_UPDATED).toBe("Staff manual updated");
+  });
+});
+
 describe("toggleId", () => {
   it("adds and removes without mutating", () => {
     const ids = ["a"];
@@ -157,15 +186,15 @@ describe("toggleId", () => {
 });
 
 describe("linkAvailability", () => {
-  const ready: NotificationStatus = { telegramConfigured: true, botUsername: "sunset_bot", telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0 };
+  const ready: NotificationStatus = { telegramConfigured: true, botUsername: "sunset_bot", telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0, manualFeedConfigured: true };
 
   it("allows an active employee when the bot is known", () => {
     expect(linkAvailability(member(), ready).allowed).toBe(true);
   });
 
   it("says why not", () => {
-    expect(linkAvailability(member(), { telegramConfigured: false, telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0 })).toMatchObject({ allowed: false, reason: expect.stringMatching(/not configured/i) });
-    expect(linkAvailability(member(), { telegramConfigured: true, botUsername: null, telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0 })).toMatchObject({ allowed: false, reason: expect.stringMatching(/name is not known/i) });
+    expect(linkAvailability(member(), { telegramConfigured: false, telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0, manualFeedConfigured: true })).toMatchObject({ allowed: false, reason: expect.stringMatching(/not configured/i) });
+    expect(linkAvailability(member(), { telegramConfigured: true, botUsername: null, telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0, manualFeedConfigured: true })).toMatchObject({ allowed: false, reason: expect.stringMatching(/name is not known/i) });
     expect(linkAvailability(member({ isActive: false }), ready)).toMatchObject({ allowed: false, reason: expect.stringMatching(/deactivated/i) });
   });
 });

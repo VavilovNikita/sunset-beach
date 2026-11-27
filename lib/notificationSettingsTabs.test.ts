@@ -35,6 +35,7 @@ const alerts: NotificationSettings = {
   defaultLanguage: "EN",
   lateRecipientUserIds: ["u1"],
   directorUserIds: ["u2", "u3"],
+  manualUpdatesEnabled: true,
   updatedAt: "2026-10-17T03:00:00Z",
 };
 
@@ -288,6 +289,7 @@ describe("the Overview", () => {
       "Room block created",
       "Room block: last day",
       "Room block ended, task still open",
+      "Staff manual updated",
     ]);
   });
 
@@ -311,9 +313,17 @@ describe("the Overview", () => {
     expect(overviewSections(alerts, bot, directors).flatMap((s) => s.rows).find((r) => r.label === "Morning summary")?.detail).toBe("at 08:00");
   });
 
+  it("shows the staff manual updates as saved, and warns when nobody with Telegram will receive them", () => {
+    const row = (settings: NotificationSettings, who = directors) =>
+      overviewSections(settings, bot, who).flatMap((s) => s.rows).find((r) => r.label === "Staff manual updated");
+    expect(row(alerts)).toMatchObject({ on: true, tab: "recipients", detail: "to the directors, one a day at most" });
+    expect(row({ ...alerts, manualUpdatesEnabled: false })).toMatchObject({ on: false });
+    expect(row(alerts, directorsTelegramSummary(["u2"], [member("u2")]))?.detail).toContain("nobody with Telegram");
+  });
+
   describe("facts", () => {
     const staff = [member("u1", { telegramLinked: true }), member("u2", { telegramLinked: true }), member("u3"), member("gone", { isActive: false, telegramLinked: true })];
-    const ready: NotificationStatus = { telegramConfigured: true, botUsername: "sunset_bot", telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0 };
+    const ready: NotificationStatus = { telegramConfigured: true, botUsername: "sunset_bot", telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0, manualFeedConfigured: true };
     const text = (label: string, facts = overviewFacts(alerts, staff, deciders(), ready)) => facts.find((f) => f.label === label)!;
 
     it("counts linked employees among the active ones only", () => {
@@ -323,10 +333,10 @@ describe("the Overview", () => {
     it("tells the three states of Telegram apart", () => {
       expect(text("Telegram").text).toBe("Connected as @sunset_bot.");
       expect(text("Telegram").warn).toBe(false);
-      const off = overviewFacts(alerts, staff, deciders(), { telegramConfigured: false, telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0 });
+      const off = overviewFacts(alerts, staff, deciders(), { telegramConfigured: false, telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0, manualFeedConfigured: true });
       expect(text("Telegram", off)).toMatchObject({ warn: true });
       expect(text("Telegram", off).text).toContain("Not configured");
-      const noName = overviewFacts(alerts, staff, deciders(), { telegramConfigured: true, botUsername: null, telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0 });
+      const noName = overviewFacts(alerts, staff, deciders(), { telegramConfigured: true, botUsername: null, telegramRoute: "DIRECT", telegramProxyConfigured: false, consecutiveFailures: 0, manualFeedConfigured: true });
       expect(text("Telegram", noName).text).toContain("name is not known");
       const unread = overviewFacts(alerts, staff, deciders(), null);
       expect(text("Telegram", unread).text).toContain("could not be read");

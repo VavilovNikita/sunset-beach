@@ -2162,7 +2162,8 @@ export type NotificationType =
   | "SHIFT_EVE_REMINDER"
   | "ROSTER_CHANGED"
   | "MORNING_SUMMARY"
-  | "THERAPIST_MORNING";
+  | "THERAPIST_MORNING"
+  | "MANUAL_UPDATED";
 
 // NO_CHANNEL: the recipient had no linked chat when the message was raised.
 export type NotificationDeliveryStatus = "PENDING" | "SENT" | "FAILED" | "NO_CHANNEL";
@@ -2178,6 +2179,8 @@ export type NotificationStatus = {
   // How requests go out right now. With a proxy configured DIRECT means the server fell back and is probing again.
   telegramRoute: "DIRECT" | "PROXY";
   telegramProxyConfigured: boolean; // the address itself is never returned
+  manualFeedConfigured: boolean; // whether the server is told where the manual's "What's new" list is
+  manualFeedReadAt?: string | null; // when it last read it; absent while it never did since start
 };
 
 // GET/PUT /settings/notifications (ADMIN). Times are hotel (Asia/Bangkok) "HH:mm".
@@ -2199,6 +2202,7 @@ export type NotificationSettings = {
   defaultLanguage: NotificationLanguage;
   lateRecipientUserIds: string[];
   directorUserIds: string[];
+  manualUpdatesEnabled: boolean; // tell the directors about a new "What's new" note, one message a day at most
   updatedAt: string;
 };
 

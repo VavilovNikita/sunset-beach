@@ -45,6 +45,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   ROSTER_CHANGED: "Schedule changed",
   MORNING_SUMMARY: "Morning summary",
   THERAPIST_MORNING: "Therapist morning message",
+  MANUAL_UPDATED: "Staff manual updated",
 };
 
 export const NOTIFICATION_TYPES = Object.keys(NOTIFICATION_TYPE_LABELS) as NotificationType[];
@@ -105,6 +106,7 @@ export type SettingsForm = {
   defaultLanguage: NotificationLanguage;
   lateRecipientUserIds: string[];
   directorUserIds: string[];
+  manualUpdatesEnabled: boolean;
 };
 
 export type SettingsField = keyof SettingsForm | "form";
@@ -128,6 +130,7 @@ export function toSettingsForm(s: NotificationSettings): SettingsForm {
     defaultLanguage: s.defaultLanguage,
     lateRecipientUserIds: [...s.lateRecipientUserIds],
     directorUserIds: [...s.directorUserIds],
+    manualUpdatesEnabled: s.manualUpdatesEnabled,
   };
 }
 
@@ -183,6 +186,7 @@ export function validateSettingsForm(form: SettingsForm, minGrace: number): Sett
       defaultLanguage: form.defaultLanguage,
       lateRecipientUserIds: form.lateRecipientUserIds,
       directorUserIds: form.directorUserIds,
+      manualUpdatesEnabled: form.manualUpdatesEnabled,
     },
   };
 }
@@ -220,6 +224,7 @@ const SETTINGS_FIELDS: SettingsField[] = [
   "morningTime",
   "lateRecipientUserIds",
   "directorUserIds",
+  "manualUpdatesEnabled",
 ];
 
 // A rejected save, attributed: a 400 carries { error: { fieldErrors: { lateGraceMinutes: [...] } } }
@@ -236,6 +241,12 @@ export function settingsServerError(status: number, error: string, body: unknown
     }
   }
   return { field: "form", message: error };
+}
+
+// Said beside the "Staff manual updates" switch while the server has no manual list to read: the switch can be on
+// and nothing will ever be sent. Only on a definite "not configured" - an unreadable status says nothing.
+export function manualFeedNotice(status: Pick<NotificationStatus, "manualFeedConfigured"> | null): string | null {
+  return status?.manualFeedConfigured === false ? "The server does not read the manual's update list yet" : null;
 }
 
 export function toggleId(ids: string[], id: string): string[] {

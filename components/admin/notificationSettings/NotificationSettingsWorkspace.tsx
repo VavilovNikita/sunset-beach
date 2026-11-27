@@ -18,7 +18,7 @@ import {
   unsavedSummary,
   type SettingsTabId,
 } from "@/lib/notificationSettingsTabs";
-import { dirtySettingsFields, settingsServerError, toSettingsForm, type SettingsFieldErrors, type SettingsForm } from "@/lib/notifications";
+import { dirtySettingsFields, manualFeedNotice, settingsServerError, toSettingsForm, type SettingsFieldErrors, type SettingsForm } from "@/lib/notifications";
 import { saveStaffBotSettings } from "@/lib/shiftRequestClient";
 import {
   botSettingsServerError,
@@ -176,7 +176,14 @@ export default function NotificationSettingsWorkspace({
     setNote(null);
   }
 
-  const alertProps = { form: alertForm, set: setAlert, errors: alertErrors, staff: activeStaff, minLateGraceMinutes: alertsSaved.minLateGraceMinutes };
+  const alertProps = {
+    form: alertForm,
+    set: setAlert,
+    errors: alertErrors,
+    staff: activeStaff,
+    minLateGraceMinutes: alertsSaved.minLateGraceMinutes,
+    manualFeedNotice: manualFeedNotice(status),
+  };
   const botProps = { tab, form: botForm, set: setBot, errors: botErrors, deciders, onDecidersSaved: setDeciders, directors };
   const showBar = dirty || note !== null || formMessages.length > 0;
 

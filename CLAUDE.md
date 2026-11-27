@@ -220,6 +220,8 @@ Spa tables are ordinary POS `Table` rows (`zone: "SPA"`), and a spa appointment 
 
 **The settings form validates what the server validates, beside the control** (`validateSettingsForm`: grace not below the terminal poll interval the server reports as `minLateGraceMinutes`, absence not shorter than the grace, quiet hours not starting and ending together while on, `HH:mm` times) and puts a 400 on the field the server names (`settingsServerError`, reading `{ error: { fieldErrors } }`). Save is enabled only for a real change (`settingsFormDirty`, numbers compared as numbers, recipient order ignored). The page shows what the server answered after a save. Times are hotel times; the browser's `<input type="time">` gives `HH:mm` and is sent as is.
 
+**The directors are told about a new "What's new" note by the backend** (it reads the manual's published list; nothing here calls it). The switch is "Staff manual updates" in the Directors card on Recipients & delivery (`manualUpdatesEnabled`, tab `recipients`), and `manualFeedNotice` puts "The server does not read the manual's update list yet" beside it only when the status says `manualFeedConfigured: false` - an unreadable status says nothing.
+
 **A room block names who closes it** (`BlockFunctionSelect`, ENGINEER by default, in both places a block is made: the room's Blocks panel and a maintenance task's Block room form). A block from before the field existed shows "Not set (directors are told)".
 
 **The log's dates are hotel days** (sent as `from`/`to`; the server converts to UTC) and timestamps go through `lib/formatDate.ts`. A failed reload keeps the previous rows on screen but says they are not the ones asked for.
@@ -250,4 +252,4 @@ When a decision is a judgment call — a data model, a permission boundary, anyt
 
 The staff manual quotes UI labels verbatim. Renaming a visible label breaks it; propose rather than rename.
 
-A change staff will see is not done until sunset-manual's What's new entry for the current week (hotel week, Monday-Sunday) has it under its area as New or Fixed, and the manual section it changes is updated.
+A change staff will see is not done until sunset-manual's What's new entry for today (hotel day) has it under its area as New or Fixed, and the manual section it changes is updated. One entry per day at most; the directors are told about it by the backend.
