@@ -112,6 +112,14 @@ describe("roomOn", () => {
     expect(roomOn({ ...stay, segments: [first, stay.segments[1]] }, "2033-05-02")).toEqual({ typeName: "Deluxe", unitLabel: null });
   });
 
+  it("keeps a guest whose new room isn't picked in the room they are still in", () => {
+    const old = { ...stay.segments[0], id: "old" };
+    const next = { ...stay.segments[1], id: "next", roomUnit: null };
+    const moving = { ...stay, segments: [old, next], currentSegmentId: "next", roomSegmentId: "old" };
+    expect(roomOn(moving, "2033-05-05")).toEqual({ typeName: "Deluxe", unitLabel: "201" });
+    expect(currentRoomUnitLabel(moving)).toBe("201");
+  });
+
   it("takes the nearest night outside the stay", () => {
     expect(roomOn(stay, "2033-04-30").unitLabel).toBe("201");
     expect(roomOn(stay, "2033-05-08").unitLabel).toBe("102");

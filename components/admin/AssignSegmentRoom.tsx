@@ -7,19 +7,20 @@ import { assignBookingSegmentRoomUnit } from "@/lib/bookingSegmentClient";
 import { busyUnits, monthsOfRange } from "@/lib/relocationUnits";
 import { sortUnitsByLabel } from "@/lib/sortRooms";
 import { formatDateRange } from "@/lib/formatDate";
-import type { CheckInRoomNeeded, RoomUnit } from "@/lib/types";
+import type { RoomUnit, SegmentNeedingRoom } from "@/lib/types";
 
-// Tonight has no room, so check-in is refused: the server's sentence and the picker for exactly the part of the stay
-// it names (Booking.checkInRoomNeeded) - not the booking as a whole, whose "room" is the last part's. Used by the Today
-// board, the booking page and the property map. Taken rooms are marked from the server's availability, as a hint only:
+// A part of a stay needs a room: the server's sentence and the picker for exactly the part it names - not the booking
+// as a whole, whose "room" is the last part's. Two cases: check-in is refused because tonight has none
+// (Booking.checkInRoomNeeded: Today, booking page, property map), and a guest in the house whose move took effect with
+// none picked (Booking.pendingRoomMove: booking page). Taken rooms are marked from the server's availability, as a hint only:
 // the server decides on save.
-export default function AssignRoomForCheckIn({
+export default function AssignSegmentRoom({
   bookingId,
   needed,
   onAssigned,
 }: {
   bookingId: string;
-  needed: CheckInRoomNeeded;
+  needed: SegmentNeedingRoom;
   onAssigned: () => void;
 }) {
   const selectId = useId();

@@ -60,19 +60,29 @@ export function segmentOn(booking: Pick<Booking, "segments">, date: string): Boo
 
 // "Deluxe Suite" and its room for the night of `date`, null when that night has none - as on the server, the booking's own
 // (last) room never stands in for it; it answers only for a payload without segments.
-export function roomOn(booking: Pick<Booking, "segments" | "room" | "roomUnit">, date: string) {
-  const segment = segmentOn(booking, date);
+export function roomOn(booking: Pick<Booking, "segments" | "room" | "roomUnit" | "currentSegmentId" | "roomSegmentId">, date: string) {
+  const holding = segmentOn(booking, date);
+  // A date in today's part of the stay is where the guest is today, as the server answers it.
+  const isToday = Boolean(booking.currentSegmentId) && holding?.id === booking.currentSegmentId;
+  const segment = holding && isToday ? (roomSegment(booking) ?? holding) : holding;
   const unit = segment ? segment.roomUnit : booking.roomUnit;
   return { typeName: segment?.room.name ?? booking.room.name, unitLabel: unit?.label ?? null };
 }
 
+// The segment whose room the stay is in today (Booking.roomSegmentId): today's own, except while a guest's new room is
+// not picked - then the one they are still in.
+export function roomSegment(booking: Pick<Booking, "segments" | "currentSegmentId" | "roomSegmentId">): BookingSegment | undefined {
+  const inRoom = booking.roomSegmentId ? booking.segments.find((s) => s.id === booking.roomSegmentId) : undefined;
+  return inRoom ?? currentSegment(booking);
+}
+
 // The physical room the guest is in today, null when that segment has none assigned. What tells two guests in the same
 // room type apart, e.g. in the POS "Charge to room" picker. Booking.roomUnit is the LAST segment's room.
-export function currentRoomUnit(booking: Pick<Booking, "segments" | "roomUnit" | "currentSegmentId">) {
-  const segment = currentSegment(booking);
+export function currentRoomUnit(booking: Pick<Booking, "segments" | "roomUnit" | "currentSegmentId" | "roomSegmentId">) {
+  const segment = roomSegment(booking);
   return segment ? segment.roomUnit : booking.roomUnit;
 }
 
-export function currentRoomUnitLabel(booking: Pick<Booking, "segments" | "roomUnit" | "currentSegmentId">): string | null {
+export function currentRoomUnitLabel(booking: Pick<Booking, "segments" | "roomUnit" | "currentSegmentId" | "roomSegmentId">): string | null {
   return currentRoomUnit(booking)?.label ?? null;
 }

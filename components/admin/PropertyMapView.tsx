@@ -12,7 +12,7 @@ import MapImage from "@/components/admin/MapImage";
 import MapImageNotice from "@/components/admin/MapImageNotice";
 import type { PropertyMap, PropertyMapUnit, RoomUnitPositionInput, PropertyMapArrivalWithoutRoom } from "@/lib/types";
 import PropertyMapUnitPanel from "./PropertyMapUnitPanel";
-import AssignRoomForCheckIn from "@/components/admin/AssignRoomForCheckIn";
+import AssignSegmentRoom from "@/components/admin/AssignSegmentRoom";
 import Link from "next/link";
 
 // Pointer-drag mechanics mirror BookingCalendarGrid.tsx's own approach (native Pointer Events,
@@ -118,7 +118,7 @@ function ArrivalsWithoutRoom({ arrivals, onAssigned }: { arrivals: PropertyMapAr
             <Link href={`/admin/bookings/${a.bookingId}`} className="text-sm text-cream hover:text-coral transition-colors font-medium">
               {a.guestName}
             </Link>
-            <AssignRoomForCheckIn bookingId={a.bookingId} needed={a.roomNeeded} onAssigned={onAssigned} />
+            <AssignSegmentRoom bookingId={a.bookingId} needed={a.roomNeeded} onAssigned={onAssigned} />
           </li>
         ))}
       </ul>

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { chargeableBooking, searchActiveBookings } from "@/lib/pos/bookingSearchClient";
 import { closeOrder } from "@/lib/pos/ordersClient";
 import { pickRoomChargeSelection, roomChargeList } from "@/lib/pos/roomCharge";
-import { currentRoomUnitLabel, currentSegment } from "@/lib/bookingRooms";
+import { currentRoomUnitLabel, roomSegment } from "@/lib/bookingRooms";
 import type { Order } from "@/lib/posTypes";
 import type { Booking } from "@/lib/types";
 
@@ -116,7 +116,7 @@ export default function RoomChargeSearch({
               <p className="text-cream text-sm">
                 <span className="font-medium">{roomLabel(b)}</span> · {b.guestName}
               </p>
-              <p className="text-cream/50 text-xs">{currentSegment(b)?.room.name ?? b.room.name}</p>
+              <p className="text-cream/50 text-xs">{roomSegment(b)?.room.name ?? b.room.name}</p>
             </button>
           ))}
         </div>

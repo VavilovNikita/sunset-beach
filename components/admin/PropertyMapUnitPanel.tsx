@@ -166,10 +166,22 @@ export default function PropertyMapUnitPanel({
             <p className="text-sm text-cream/70">{unit.housekeepingStatus === "DIRTY" ? "Not clean" : "Clean"}</p>
           </div>
 
+          {booking?.pendingRoomMove && (
+            <p className="text-sm text-amber-400">
+              {booking.pendingRoomMove.reason} ·{" "}
+              <Link href={`/admin/bookings/${booking.bookingId}#choose-room`} className="underline underline-offset-2">
+                Choose the room
+              </Link>
+            </p>
+          )}
+
           {unit.waitingArrival && booking && isCheckedIn && (
             <p className={`text-sm ${(booking.overdueDays ?? 0) > 0 ? "text-coral" : "text-amber-400"}`}>
               {unit.waitingArrival.guestName} arrives today.{" "}
-              {roomOccupantWarning({ guestName: booking.guestName, overdueDays: booking.overdueDays ?? 0 }, unit.unitLabel)}{" "}
+              {roomOccupantWarning(
+                { guestName: booking.guestName, overdueDays: booking.overdueDays ?? 0, awaitingRoom: Boolean(booking.pendingRoomMove) },
+                unit.unitLabel
+              )}{" "}
               <Link href={`/admin/bookings/${unit.waitingArrival.bookingId}`} className="underline underline-offset-2">
                 Open the arrival
               </Link>

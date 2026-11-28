@@ -266,6 +266,8 @@ export type PropertyMapCurrentBooking = {
   // Days past checkOut for a guest still CHECKED_IN (0 otherwise) - server-computed by the
   // backend's OverstayRule, the same figure the night audit's missed departures show.
   overdueDays?: number;
+  // The guest is in this room only until their new one is picked.
+  pendingRoomMove?: PendingRoomMove | null;
 };
 
 // A RoomUnitBlock covering today - independent of PropertyMapUnit.isActive. isActive=false means
@@ -800,6 +802,11 @@ export type Booking = {
   // The segment the stay is in today (the server's OverstayRule). For a guest in the house its room is where they are;
   // roomUnit is the LAST segment's, which a move planned for a later night has not reached.
   currentSegmentId?: string;
+  // The segment whose room the stay is in today: currentSegmentId, except for a guest in the house whose new room isn't
+  // picked yet - then the earlier segment whose room they are still in.
+  roomSegmentId?: string;
+  // The server's: this guest in the house has no room picked for today's part of the stay.
+  pendingRoomMove?: PendingRoomMove | null;
   // The server's: this booking can no longer be checked in (its stay is over) - the sentence to show instead of the button.
   checkInClosedReason?: string | null;
   // The server's: tonight's part of the stay has no room, so check-in is refused until it gets one.
@@ -937,10 +944,13 @@ export type TodayBoardEntry = {
   // Arrivals only: another guest is still checked into this arrival's room, so check-in answers 409 until they are
   // checked out or the arrival is moved (the backend's TodayBoardRoomOccupant). Absent or null otherwise.
   roomOccupant?: RoomOccupant | null;
+  // As Booking.pendingRoomMove: this guest's new room still has to be picked.
+  pendingRoomMove?: PendingRoomMove | null;
 };
 
-// overdueDays 0: not checked out yet (due out today); more: days past their check-out.
-export type RoomOccupant = { bookingId: string; guestName: string; overdueDays: number };
+// overdueDays 0: not checked out yet (due out today); more: days past their check-out. awaitingRoom: they are there
+// only because their new room isn't picked - the way out is to pick it, not to check them out.
+export type RoomOccupant = { bookingId: string; guestName: string; overdueDays: number; awaitingRoom?: boolean };
 
 // Response of GET /bookings/today — the front desk's daily working set. A booking appears in
 // exactly one list: arrivingToday (checkIn = today, occupancyStatus = EXPECTED), departingToday
@@ -2544,14 +2554,19 @@ export type HousekeepingRoom = {
 
 // Booking.checkInRoomNeeded: the part of the stay that must get a room before check-in today, and the server's sentence
 // (its 400). `checkIn`/`checkOut` are that part's own dates.
-export type CheckInRoomNeeded = {
+export type SegmentNeedingRoom = {
   segmentId: string;
   roomId: string;
   roomName: string;
-  night: string;
   checkIn: string;
   checkOut: string;
   reason: string;
 };
+
+export type CheckInRoomNeeded = SegmentNeedingRoom & { night: string };
+
+// Booking.pendingRoomMove: a guest in the house whose move took effect with no room picked. `reason` is the line to
+// show; `stayingInRoom` the room they are still in.
+export type PendingRoomMove = SegmentNeedingRoom & { stayingInRoom?: string | null };
 
 export type PropertyMapArrivalWithoutRoom = { bookingId: string; guestName: string; roomNeeded: CheckInRoomNeeded };

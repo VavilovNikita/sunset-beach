@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CheckInDialog from "@/components/admin/CheckInDialog";
-import AssignRoomForCheckIn from "@/components/admin/AssignRoomForCheckIn";
+import AssignSegmentRoom from "@/components/admin/AssignSegmentRoom";
 import CheckOutDialog from "@/components/admin/CheckOutDialog";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 import { checkInBooking, markBookingNoShow } from "@/lib/bookingOccupancyClient";
@@ -98,6 +98,7 @@ export default function BookingOccupancyPanel({
   // The server's: tonight's part of the stay has no room (not the booking's `roomUnit`, which is the last part's).
   const roomNeeded = booking.checkInRoomNeeded ?? null;
   const needsRoom = roomNeeded !== null;
+  const pending = booking.pendingRoomMove ?? null;
   const roomUnit = currentRoomUnit(booking);
   const roomDirty = roomUnit?.housekeepingStatus === "DIRTY";
   // The server's: check-in would answer 409 until this guest is checked out or the arrival is moved.
@@ -154,6 +155,14 @@ export default function BookingOccupancyPanel({
         </p>
       )}
 
+      {pending && (
+        // The target of "Choose the room" on Today and the property map.
+        <div id="choose-room" className="scroll-mt-6 space-y-1.5">
+          <AssignSegmentRoom bookingId={booking.id} needed={pending} onAssigned={() => router.refresh()} />
+          {pending.stayingInRoom && <p className="text-xs text-cream/60">Until then the guest is still in room {pending.stayingInRoom}.</p>}
+        </div>
+      )}
+
       {occupant && (
         <p className={`text-sm ${occupant.overdueDays > 0 ? "text-coral" : "text-amber-400"}`}>
           {roomOccupantWarning(occupant, roomUnit?.label ?? null)}{" "}
@@ -198,7 +207,7 @@ export default function BookingOccupancyPanel({
           )}
         </div>
       )}
-      {canCheckIn && roomNeeded && <AssignRoomForCheckIn bookingId={booking.id} needed={roomNeeded} onAssigned={() => router.refresh()} />}
+      {canCheckIn && roomNeeded && <AssignSegmentRoom bookingId={booking.id} needed={roomNeeded} onAssigned={() => router.refresh()} />}
 
       {message && <p className={`text-xs ${message.tone === "error" ? "text-coral" : "text-amber-400"}`}>{message.text}</p>}
 
