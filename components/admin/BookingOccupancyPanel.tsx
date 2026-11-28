@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CheckInDialog from "@/components/admin/CheckInDialog";
+import AssignRoomForCheckIn from "@/components/admin/AssignRoomForCheckIn";
 import CheckOutDialog from "@/components/admin/CheckOutDialog";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 import { checkInBooking, markBookingNoShow } from "@/lib/bookingOccupancyClient";
@@ -94,7 +95,9 @@ export default function BookingOccupancyPanel({
   const canCheckIn = !cancelled && arrivalDue && !checkInClosed && (occupancy === "EXPECTED" || occupancy === "NO_SHOW");
   const canMarkNoShow = !cancelled && arrivalDue && occupancy === "EXPECTED";
   const canCheckOut = occupancy === "CHECKED_IN";
-  const needsRoom = booking.roomUnitId === null;
+  // The server's: tonight's part of the stay has no room (not the booking's `roomUnit`, which is the last part's).
+  const roomNeeded = booking.checkInRoomNeeded ?? null;
+  const needsRoom = roomNeeded !== null;
   const roomUnit = currentRoomUnit(booking);
   const roomDirty = roomUnit?.housekeepingStatus === "DIRTY";
   // The server's: check-in would answer 409 until this guest is checked out or the arrival is moved.
@@ -167,7 +170,7 @@ export default function BookingOccupancyPanel({
               type="button"
               onClick={handleCheckIn}
               disabled={busy || needsRoom}
-              title={needsRoom ? "Assign a room before checking in" : undefined}
+              title={roomNeeded?.reason}
               className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-4 py-2 text-sm font-medium disabled:opacity-50"
             >
               Check in
@@ -195,7 +198,7 @@ export default function BookingOccupancyPanel({
           )}
         </div>
       )}
-      {canCheckIn && needsRoom && <p className="text-xs text-amber-400">Assign a room below before checking in.</p>}
+      {canCheckIn && roomNeeded && <AssignRoomForCheckIn bookingId={booking.id} needed={roomNeeded} onAssigned={() => router.refresh()} />}
 
       {message && <p className={`text-xs ${message.tone === "error" ? "text-coral" : "text-amber-400"}`}>{message.text}</p>}
 

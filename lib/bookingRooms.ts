@@ -58,10 +58,12 @@ export function segmentOn(booking: Pick<Booking, "segments">, date: string): Boo
   return segments.length > 0 && date < segments[0].checkIn ? segments[0] : segments[segments.length - 1];
 }
 
-// "Deluxe Suite" and its room for the night of `date`: the unit falls back to the booking's own, as the server's does.
+// "Deluxe Suite" and its room for the night of `date`, null when that night has none - as on the server, the booking's own
+// (last) room never stands in for it; it answers only for a payload without segments.
 export function roomOn(booking: Pick<Booking, "segments" | "room" | "roomUnit">, date: string) {
   const segment = segmentOn(booking, date);
-  return { typeName: segment?.room.name ?? booking.room.name, unitLabel: (segment?.roomUnit ?? booking.roomUnit)?.label ?? null };
+  const unit = segment ? segment.roomUnit : booking.roomUnit;
+  return { typeName: segment?.room.name ?? booking.room.name, unitLabel: unit?.label ?? null };
 }
 
 // The physical room the guest is in today, null when that segment has none assigned. What tells two guests in the same

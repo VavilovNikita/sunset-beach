@@ -69,7 +69,7 @@ export default function BookingsTable({
             {COLUMNS.map((col) => (
               <th
                 key={col.label}
-                className="py-2 pr-4"
+                className="py-2 pr-4 whitespace-nowrap"
                 title={col.hint}
                 aria-sort={col.sort && col.sort === sort ? (dir === "ASC" ? "ascending" : "descending") : undefined}
               >

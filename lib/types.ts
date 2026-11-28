@@ -312,6 +312,8 @@ export type PropertyMap = {
   imagePath: string | null; // null until a manager uploads one via POST /property-map/image
   imageUpdatedAt: string | null;
   units: PropertyMapUnit[];
+  // Today's arrivals with no room for tonight: no tile can show them.
+  arrivalsWithoutRoom?: PropertyMapArrivalWithoutRoom[];
 };
 
 // One "room X from date A to date B" leg of a booking's stay — see
@@ -619,6 +621,8 @@ export type NightAuditBooking = {
   // Set on every unpaidBalances row: BookingFolio.balanceDue.
   balanceDue?: string;
   checkInClosedReason?: string | null;
+  // The server's: tonight's part of the stay has no room, so check-in is refused until it gets one.
+  checkInRoomNeeded?: CheckInRoomNeeded | null;
 };
 
 // A receipt that someone reviewed a date - it locks and blocks nothing. closedByName is the
@@ -798,6 +802,8 @@ export type Booking = {
   currentSegmentId?: string;
   // The server's: this booking can no longer be checked in (its stay is over) - the sentence to show instead of the button.
   checkInClosedReason?: string | null;
+  // The server's: tonight's part of the stay has no room, so check-in is refused until it gets one.
+  checkInRoomNeeded?: CheckInRoomNeeded | null;
   // Only on GET /bookings/{id}: another guest still checked into the room this one would be checked into today.
   roomOccupant?: RoomOccupant | null;
   // True when balanceDue is a debt that has already fallen due (guest in the house or gone,
@@ -2535,3 +2541,17 @@ export type HousekeepingRoom = {
   overdueDays: number;
   outOfOrder: boolean;
 };
+
+// Booking.checkInRoomNeeded: the part of the stay that must get a room before check-in today, and the server's sentence
+// (its 400). `checkIn`/`checkOut` are that part's own dates.
+export type CheckInRoomNeeded = {
+  segmentId: string;
+  roomId: string;
+  roomName: string;
+  night: string;
+  checkIn: string;
+  checkOut: string;
+  reason: string;
+};
+
+export type PropertyMapArrivalWithoutRoom = { bookingId: string; guestName: string; roomNeeded: CheckInRoomNeeded };

@@ -12,14 +12,14 @@ import { checkInBooking, markBookingNoShow } from "@/lib/bookingOccupancyClient"
 export default function NightAuditRowActions({
   bookingId,
   guestName,
-  hasRoom,
+  roomNeededReason,
   canCheckIn,
   canMarkNoShow,
 }: {
   bookingId: string;
   guestName: string;
-  // A guest can only be checked in once a room is assigned.
-  hasRoom: boolean;
+  // The server's sentence when today's part of the stay has no room yet (check-in would be refused), else null.
+  roomNeededReason: string | null;
   canCheckIn: boolean;
   canMarkNoShow: boolean;
 }) {
@@ -35,8 +35,8 @@ export default function NightAuditRowActions({
         <button
           type="button"
           onClick={() => setDialog("checkin")}
-          disabled={!hasRoom}
-          title={hasRoom ? undefined : "Assign a room on the booking first"}
+          disabled={roomNeededReason !== null}
+          title={roomNeededReason ?? undefined}
           className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-3 py-1.5 text-xs font-medium disabled:opacity-50"
         >
           Check in

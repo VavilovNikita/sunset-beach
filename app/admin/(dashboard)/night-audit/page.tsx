@@ -180,6 +180,14 @@ function BookingList({
                   {b.roomUnitLabel ? ` · ${b.roomUnitLabel}` : " · no room assigned"} · {formatDateRange(b.checkIn, b.checkOut)}
                 </p>
                 {/* Where a check-in would be offered but the server would refuse it: its reason, and the way out. */}
+                {actions?.checkIn && b.checkInRoomNeeded && (
+                  <p className="text-xs text-amber-400 mt-1">
+                    {b.checkInRoomNeeded.reason}{" "}
+                    <Link href={`/admin/bookings/${b.id}`} className="underline underline-offset-2">
+                      Assign the room
+                    </Link>
+                  </p>
+                )}
                 {actions?.checkIn && b.checkInClosedReason && (
                   <p className="text-xs text-amber-400 mt-1">
                     {b.checkInClosedReason}{" "}
@@ -207,7 +215,8 @@ function BookingList({
                   <NightAuditRowActions
                     bookingId={b.id}
                     guestName={b.guestName}
-                    hasRoom={b.roomUnitLabel !== null}
+                    // Today's room, as check-in needs it - the label above is the reviewed night's.
+                    roomNeededReason={b.checkInRoomNeeded?.reason ?? null}
                     canCheckIn={actions.checkIn && b.occupancyStatus === "EXPECTED" && !b.checkInClosedReason}
                     canMarkNoShow={actions.noShow && b.occupancyStatus === "EXPECTED"}
                   />

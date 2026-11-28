@@ -10,8 +10,10 @@ import { resolveUnitDisplay, type UnitBadge, type UnitFill } from "@/lib/propert
 import { mapImageState, showsTileGrid } from "@/lib/mapImageFallback";
 import MapImage from "@/components/admin/MapImage";
 import MapImageNotice from "@/components/admin/MapImageNotice";
-import type { PropertyMap, PropertyMapUnit, RoomUnitPositionInput } from "@/lib/types";
+import type { PropertyMap, PropertyMapUnit, RoomUnitPositionInput, PropertyMapArrivalWithoutRoom } from "@/lib/types";
 import PropertyMapUnitPanel from "./PropertyMapUnitPanel";
+import AssignRoomForCheckIn from "@/components/admin/AssignRoomForCheckIn";
+import Link from "next/link";
 
 // Pointer-drag mechanics mirror BookingCalendarGrid.tsx's own approach (native Pointer Events,
 // no library, pointer capture on the element the drag started from, touchAction disabled on the
@@ -100,6 +102,27 @@ function PropertyMapLegend() {
         </span>
       ))}
     </div>
+  );
+}
+
+// Today's arrivals whose tonight has no room are under no tile: listed here, each with the picker for that part of the
+// stay. Once a room is picked they appear on it.
+function ArrivalsWithoutRoom({ arrivals, onAssigned }: { arrivals: PropertyMapArrivalWithoutRoom[]; onAssigned: () => void }) {
+  if (arrivals.length === 0) return null;
+  return (
+    <section className="mt-4 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4">
+      <p className="eyebrow text-amber-400 mb-2">Arriving today without a room · {arrivals.length}</p>
+      <ul className="space-y-3">
+        {arrivals.map((a) => (
+          <li key={a.bookingId}>
+            <Link href={`/admin/bookings/${a.bookingId}`} className="text-sm text-cream hover:text-coral transition-colors font-medium">
+              {a.guestName}
+            </Link>
+            <AssignRoomForCheckIn bookingId={a.bookingId} needed={a.roomNeeded} onAssigned={onAssigned} />
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -226,6 +249,8 @@ export default function PropertyMapView({ initialMap, canManage }: { initialMap:
       )}
 
       <PropertyMapLegend />
+
+      <ArrivalsWithoutRoom arrivals={initialMap.arrivalsWithoutRoom ?? []} onAssigned={() => router.refresh()} />
 
       {showsTileGrid(imageState) ? (
         // No plan to place rooms on (never uploaded, or its file is gone): every room is still a

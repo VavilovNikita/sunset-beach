@@ -107,6 +107,11 @@ describe("roomOn", () => {
     expect(roomOn(stay, "2033-05-04")).toEqual({ typeName: "Standard", unitLabel: "102" });
   });
 
+  it("shows no room for a night without one, whatever the last night has", () => {
+    const first = { ...stay.segments[0], roomUnit: null };
+    expect(roomOn({ ...stay, segments: [first, stay.segments[1]] }, "2033-05-02")).toEqual({ typeName: "Deluxe", unitLabel: null });
+  });
+
   it("takes the nearest night outside the stay", () => {
     expect(roomOn(stay, "2033-04-30").unitLabel).toBe("201");
     expect(roomOn(stay, "2033-05-08").unitLabel).toBe("102");

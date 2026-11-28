@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CheckInDialog from "@/components/admin/CheckInDialog";
+import AssignRoomForCheckIn from "@/components/admin/AssignRoomForCheckIn";
 import CheckOutDialog from "@/components/admin/CheckOutDialog";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
 import { checkInBooking, markBookingNoShow } from "@/lib/bookingOccupancyClient";
@@ -146,11 +147,13 @@ function TodayRow({
   const [markingNoShow, setMarkingNoShow] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const needsRoom = booking.roomUnitId === null;
   // The room the stay is in today: after a planned move that is not booking.roomUnit (the last segment's).
   const roomUnit = currentRoomUnit(booking);
   const roomTypeName = currentSegment(booking)?.room.name ?? booking.room.name;
   const roomDirty = roomUnit?.housekeepingStatus === "DIRTY";
+  // The server's: tonight has no room, so this arrival gets the picker for that part of the stay.
+  const roomNeeded = action === "checkin" ? (booking.checkInRoomNeeded ?? null) : null;
+  const needsRoom = roomNeeded !== null;
   const money = todayMoney(booking.owes, outstandingBalance);
   const overdue = overdueLabel(entry.overdueDays);
   const occupant = action === "checkin" ? (entry.roomOccupant ?? null) : null;
@@ -202,7 +205,7 @@ function TodayRow({
               or check out.
             </span>
           )}
-          {needsRoom && <span className="text-amber-400">No room assigned</span>}
+          {!roomUnit && !roomNeeded && <span className="text-amber-400">No room assigned</span>}
           {roomDirty && <span className="text-sand">Room not clean</span>}
           {money && <span className={money.owed ? "text-coral" : "text-cream/70"}>{money.text}</span>}
         </div>
@@ -213,6 +216,11 @@ function TodayRow({
               Open their booking
             </Link>
           </p>
+        )}
+        {roomNeeded && (
+          <div className="mt-2">
+            <AssignRoomForCheckIn bookingId={booking.id} needed={roomNeeded} onAssigned={onChanged} />
+          </div>
         )}
         {checkInClosed && (
           <p className="mt-1 text-xs text-amber-400">
@@ -240,7 +248,7 @@ function TodayRow({
                 type="button"
                 onClick={handleCheckIn}
                 disabled={busy || needsRoom}
-                title={needsRoom ? "Assign a room before checking in" : undefined}
+                title={roomNeeded?.reason}
                 className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-4 py-2 text-sm font-medium disabled:opacity-50"
               >
                 {busy ? "…" : "Check in"}
