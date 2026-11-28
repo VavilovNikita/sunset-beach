@@ -13,6 +13,7 @@ import GuestLinkEditor from "@/components/admin/GuestLinkEditor";
 import { overstayText } from "@/lib/bookingStatusLabel";
 import { overdueLabel } from "@/lib/overstay";
 import { roomOccupantWarning } from "@/lib/roomOccupant";
+import RoomStillHeldLine from "@/components/admin/RoomStillHeldLine";
 import { currentRoomUnit, roomSegment } from "@/lib/bookingRooms";
 import { applyCheckedIn, applyCheckedOut, applyNoShow, todayMoney } from "@/lib/todayBoard";
 import type { CheckInResult, CheckOutResult, TodayBoard, TodayBoardEntry } from "@/lib/types";
@@ -152,7 +153,7 @@ function TodayRow({
   const roomTypeName = roomSegment(booking)?.room.name ?? booking.room.name;
   // The server's: a guest in the house whose new room isn't picked. They are shown in the room they are still in.
   const pending = entry.pendingRoomMove ?? null;
-  // The server's: this guest was moved into a room somebody waiting for a new one is still in.
+  // The server's: this guest was moved into a room an earlier guest has not left.
   const stillHeld = entry.roomStillHeld ?? null;
   const roomDirty = roomUnit?.housekeepingStatus === "DIRTY";
   // The server's: tonight has no room, so this arrival gets the picker for that part of the stay.
@@ -217,14 +218,7 @@ function TodayRow({
               </Link>
             </span>
           )}
-          {stillHeld && (
-            <span className="text-amber-400">
-              {stillHeld.reason} ·{" "}
-              <Link href={`/admin/bookings/${stillHeld.bookingId}#choose-room`} className="underline underline-offset-2">
-                Choose their room
-              </Link>
-            </span>
-          )}
+          {stillHeld && <RoomStillHeldLine held={stillHeld} as="span" size="" />}
           {!roomUnit && !roomNeeded && !pending && <span className="text-amber-400">No room assigned</span>}
           {roomDirty && <span className="text-sand">Room not clean</span>}
           {money && <span className={money.owed ? "text-coral" : "text-cream/70"}>{money.text}</span>}

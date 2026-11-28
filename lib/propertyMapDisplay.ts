@@ -63,7 +63,12 @@ export function resolveUnitDisplay(unit: PropertyMapUnit, today: string): UnitDi
   if (unit.openMaintenanceTask !== null && unit.openMaintenanceTask.blockExpired) {
     badges.push("maintenance-alert");
   }
-  if (isOccupied && unit.currentBooking !== null && (unit.currentBooking.overdueDays ?? 0) > 0) {
+  // Of two guests in one room the tile stands for the one moved in; the overstay may be the other's (roomStillHeld).
+  if (
+    isOccupied &&
+    unit.currentBooking !== null &&
+    ((unit.currentBooking.overdueDays ?? 0) > 0 || unit.currentBooking.roomStillHeld?.state === "PAST_CHECK_OUT")
+  ) {
     badges.push("overdue");
   }
   // A guest arriving today into a room somebody is still checked into: check-in will be refused.

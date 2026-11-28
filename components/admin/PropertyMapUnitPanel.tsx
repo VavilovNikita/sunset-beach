@@ -11,6 +11,7 @@ import { updateRoomUnitHousekeeping } from "@/lib/roomUnitHousekeepingClient";
 import type { PropertyMapUnit } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
 import { roomOccupantWarning } from "@/lib/roomOccupant";
+import RoomStillHeldLine from "@/components/admin/RoomStillHeldLine";
 import { todayMoney } from "@/lib/todayBoard";
 
 // Side panel for a single room clicked on the property map - same shell as BookingCardPanel.tsx
@@ -175,14 +176,7 @@ export default function PropertyMapUnitPanel({
             </p>
           )}
 
-          {booking?.roomStillHeld && (
-            <p className="text-sm text-amber-400">
-              {booking.roomStillHeld.reason} ·{" "}
-              <Link href={`/admin/bookings/${booking.roomStillHeld.bookingId}#choose-room`} className="underline underline-offset-2">
-                Choose their room
-              </Link>
-            </p>
-          )}
+          {booking?.roomStillHeld && <RoomStillHeldLine held={booking.roomStillHeld} size="text-sm" />}
 
           {unit.waitingArrival && booking && isCheckedIn && (
             <p className={`text-sm ${(booking.overdueDays ?? 0) > 0 ? "text-coral" : "text-amber-400"}`}>

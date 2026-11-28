@@ -13,6 +13,7 @@ import { hotelDateKey } from "@/lib/hotelDate";
 import { overdueDaysFor, overdueLabel } from "@/lib/overstay";
 import { currentRoomUnit } from "@/lib/bookingRooms";
 import { roomOccupantWarning } from "@/lib/roomOccupant";
+import RoomStillHeldLine from "@/components/admin/RoomStillHeldLine";
 import Link from "next/link";
 import type { Booking } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
@@ -163,14 +164,7 @@ export default function BookingOccupancyPanel({
         </div>
       )}
 
-      {booking.roomStillHeld && (
-        <p className="text-xs text-amber-400">
-          {booking.roomStillHeld.reason} ·{" "}
-          <Link href={`/admin/bookings/${booking.roomStillHeld.bookingId}#choose-room`} className="underline underline-offset-2">
-            Choose their room
-          </Link>
-        </p>
-      )}
+      {booking.roomStillHeld && <RoomStillHeldLine held={booking.roomStillHeld} size="text-sm" />}
 
       {occupant && (
         <p className={`text-sm ${occupant.overdueDays > 0 ? "text-coral" : "text-amber-400"}`}>

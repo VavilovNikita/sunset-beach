@@ -2580,8 +2580,9 @@ export type CheckInRoomNeeded = SegmentNeedingRoom & { night: string };
 // show; `stayingInRoom` the room they are still in.
 export type PendingRoomMove = SegmentNeedingRoom & { stayingInRoom?: string | null };
 
-// The warning on a guest a planned move put into a room somebody waiting for a new one is still in: `reason` is the
-// line to show, `bookingId` that other guest's - whose room has to be picked.
-export type RoomStillHeld = { bookingId: string; guestName: string; reason: string };
+// The warning on a guest a planned move put into a room an earlier guest has not left: `reason` is the line to show,
+// `bookingId` that earlier guest's, `state` why they are still there.
+export type RoomStillHeldState = "PAST_CHECK_OUT" | "AWAITING_ROOM" | "DUE_OUT_TODAY";
+export type RoomStillHeld = { bookingId: string; guestName: string; state: RoomStillHeldState; reason: string };
 
 export type PropertyMapArrivalWithoutRoom = { bookingId: string; guestName: string; roomNeeded: CheckInRoomNeeded };

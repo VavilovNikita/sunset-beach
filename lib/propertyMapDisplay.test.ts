@@ -176,6 +176,18 @@ describe("resolveUnitDisplay — overdue guest", () => {
     expect(result.badges).toEqual(["overdue", "debt"]);
   });
 
+  it("flags the room overdue when the earlier guest still in it is past check-out", () => {
+    const held = (state: "PAST_CHECK_OUT" | "DUE_OUT_TODAY") =>
+      unit({
+        currentBooking: {
+          bookingId: "b2", guestName: "Moved In", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", owes: false, outstandingBalance: "0.00", overdueDays: 0,
+          roomStillHeld: { bookingId: "b1", guestName: "Stays On", state, reason: "Room 1 is still held by Stays On" },
+        },
+      });
+    expect(resolveUnitDisplay(held("PAST_CHECK_OUT"), TODAY).badges).toEqual(["overdue"]);
+    expect(resolveUnitDisplay(held("DUE_OUT_TODAY"), TODAY).badges).toEqual([]);
+  });
+
   it("no overdue badge when the server says 0 days", () => {
     const u = unit({
       currentBooking: { bookingId: "b1", guestName: "Guest", checkOut: "2026-09-05", occupancyStatus: "CHECKED_IN", owes: true, outstandingBalance: "0.00", overdueDays: 0 },
