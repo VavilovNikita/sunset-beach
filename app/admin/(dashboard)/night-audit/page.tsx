@@ -82,7 +82,7 @@ export default async function NightAuditPage({ searchParams }: { searchParams: {
       <BookingList
         title="Not arrived — mark no-show or cancel"
         empty="No past booking is waiting to be settled."
-        hint="The dates have passed and the guest never checked in. The room is not counted as owed. Mark each one no-show here, or open the booking to cancel it. Any other charges on it are still listed under Unpaid balances."
+        hint="The dates have passed and the guest never checked in, and can't be checked in as the booking stands. The room is not counted as owed. Mark each one no-show here, or open the booking to cancel it (if the guest is still coming, change its dates first, then check in). Any other charges on it are still listed under Unpaid balances."
         bookings={audit.notArrived}
         dueDate={(b) => b.checkOut}
         reviewedDate={audit.date}
@@ -179,6 +179,15 @@ function BookingList({
                   {b.roomName}
                   {b.roomUnitLabel ? ` · ${b.roomUnitLabel}` : " · no room assigned"} · {formatDateRange(b.checkIn, b.checkOut)}
                 </p>
+                {/* Where a check-in would be offered but the server would refuse it: its reason, and the way out. */}
+                {actions?.checkIn && b.checkInClosedReason && (
+                  <p className="text-xs text-amber-400 mt-1">
+                    {b.checkInClosedReason}{" "}
+                    <Link href={`/admin/bookings/${b.id}#stay-dates`} className="underline underline-offset-2">
+                      Change the dates
+                    </Link>
+                  </p>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {describeUnpaidNights(b.unpaidOverstayNights, b.overstayIncludesTonight) && (
@@ -199,7 +208,7 @@ function BookingList({
                     bookingId={b.id}
                     guestName={b.guestName}
                     hasRoom={b.roomUnitLabel !== null}
-                    canCheckIn={actions.checkIn && b.occupancyStatus === "EXPECTED"}
+                    canCheckIn={actions.checkIn && b.occupancyStatus === "EXPECTED" && !b.checkInClosedReason}
                     canMarkNoShow={actions.noShow && b.occupancyStatus === "EXPECTED"}
                   />
                 )}

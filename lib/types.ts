@@ -618,6 +618,7 @@ export type NightAuditBooking = {
   overstayIncludesTonight?: boolean;
   // Set on every unpaidBalances row: BookingFolio.balanceDue.
   balanceDue?: string;
+  checkInClosedReason?: string | null;
 };
 
 // A receipt that someone reviewed a date - it locks and blocks nothing. closedByName is the
@@ -795,6 +796,8 @@ export type Booking = {
   // The segment the stay is in today (the server's OverstayRule). For a guest in the house its room is where they are;
   // roomUnit is the LAST segment's, which a move planned for a later night has not reached.
   currentSegmentId?: string;
+  // The server's: this booking can no longer be checked in (its stay is over) - the sentence to show instead of the button.
+  checkInClosedReason?: string | null;
   // Only on GET /bookings/{id}: another guest still checked into the room this one would be checked into today.
   roomOccupant?: RoomOccupant | null;
   // True when balanceDue is a debt that has already fallen due (guest in the house or gone,
@@ -2514,4 +2517,21 @@ export type FutureBookingsReport = {
   statuses: BookingStatus[];
   rows: FutureBookingRow[];
   summary: FutureBookingsStatusSummary[];
+};
+
+// One row of GET /housekeeping/rooms (CASHIER+ or the HOUSEKEEPER function): a room's cleaning state and whether
+// someone is in it. Deliberately nothing about who, or about money.
+export type HousekeepingRoom = {
+  roomUnitId: string;
+  roomId: string;
+  roomName: string;
+  unitLabel: string;
+  isActive: boolean;
+  housekeepingStatus: HousekeepingStatus;
+  occupied: boolean;
+  // A guest expected today who has not checked in - also while someone is still in the room.
+  arrivingToday: boolean;
+  departingToday: boolean;
+  overdueDays: number;
+  outOfOrder: boolean;
 };

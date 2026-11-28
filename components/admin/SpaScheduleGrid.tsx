@@ -15,19 +15,12 @@ import type { Booking } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
 import { hotelDateKey } from "@/lib/hotelDate";
 import { isSpaOverdue, isSpaStartInPast, spaBlockMark, spaBlockTitle } from "@/lib/spaAppointmentDisplay";
-import { spaDragBlock, spaDropMessage } from "@/lib/spaDrag";
+import { resolveSpaDrop, spaDragBlock, spaDropMessage, SPA_OCCUPYING_STATUSES, type SpaCell } from "@/lib/spaDrag";
 import { useDragListeners } from "@/lib/useDragListeners";
 import { pressMoved, type DragPoint, type DragPress } from "@/lib/dragPress";
 
 const ROW_HEIGHT = 44;
 const LABEL_WIDTH = 160;
-
-// BOOKED/COMPLETED are the two "something is actually happening here" states and block the
-// slot's click target below; CANCELLED/NO_SHOW still render (a receptionist working the grid
-// needs to see a cancellation happened, not have it vanish) but never occupy a cell - see
-// SpaSchedule's own backend description ("a cancelled/no-show slot still needs to render, just
-// not as occupied").
-const OCCUPYING_STATUSES = new Set<SpaAppointment["status"]>(["BOOKED", "COMPLETED"]);
 
 const STATUS_STYLES: Record<SpaAppointment["status"], string> = {
   BOOKED: "bg-sea text-ink",
@@ -109,9 +102,9 @@ export default function SpaScheduleGrid({
 
   // Drag-to-reschedule state - pointer capture is set on the appointment button itself at
   // pointerdown, so subsequent move/up events for this pointerId are routed there regardless of
-  // what's visually underneath; document.elementFromPoint (in onDragPointerMove) is what actually
-  // finds the hovered slot, the same DOM-attribute hit-testing convention BookingCalendarGrid uses
-  // for its own drags. Only a BOOKED appointment can be picked up - matches the backend's own
+  // what's visually underneath; cellUnderPointer finds the hovered slot, the same DOM-attribute
+  // hit-testing convention BookingCalendarGrid uses for its own drags, and lib/spaDrag.ts says what
+  // that slot means. Only a BOOKED appointment can be picked up - matches the backend's own
   // lifecycle rule (SpaAppointmentService#updateSchedule).
   const [dragState, setDragState] = useState<{
     appointmentId: string;
@@ -120,22 +113,9 @@ export default function SpaScheduleGrid({
     originalStartTime: string;
     tableId: string;
     startTime: string;
-    // Set while hovering directly over a different, swap-eligible (BOOKED) appointment's own
-    // bar - the drag-onto-another-appointment gesture, same shape as BookingCalendarGrid's own
-    // swapTarget. Table only: startTime is deliberately never copied from the target here (see
-    // onDragPointerMove's own comment) - the dragged appointment keeps its own time throughout,
-    // only tableId previews the target's row.
-    swapTarget: { appointmentId: string; tableId: string; guestName: string } | null;
-    // Sticky for the life of this drag - same rule BookingCalendarGrid settled on for exactly
-    // this ambiguity: once a drag has hovered a valid swap target, it has committed to being a
-    // swap attempt, and a miss on release cancels the whole gesture rather than silently
-    // downgrading to an ordinary reschedule of the dragged appointment alone. A drag that never
-    // touched another appointment was never a swap attempt, so it keeps the existing move
-    // behaviour (falls back to its last validly-hovered cell, or cancels if it never had one) -
-    // see onDragPointerUp's own comment.
-    hasHoveredSwapTarget: boolean;
-    // Whose appointment that was, for the sentence when the release misses it.
-    swapGuestName?: string;
+    // The booked appointment under the pointer that a release now would swap tables with - highlighted. The preview
+    // keeps the dragged appointment's own time and shows it on that table: a swap exchanges tables only.
+    swapTargetId: string | null;
   } | null>(null);
   // Nothing moves on drop - same rule BookingCalendarGrid's own scheduleConfirm follows. The bar
   // snaps back to wherever it actually is the instant the pointer is released (dragState is
@@ -190,29 +170,28 @@ export default function SpaScheduleGrid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dragState]);
 
-  function cellUnderPointer(e: DragPoint): { tableId: string; startTime: string } | null {
-    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-spa-cell]");
+  // The slot under the pointer. A bar lies over the cells it occupies, so over a bar the cell is looked for beneath
+  // it; anything else on top (the sticky table column or time header) is not a slot, whatever lies under it.
+  function cellUnderPointer(e: DragPoint): SpaCell | null {
+    const top = document.elementFromPoint(e.clientX, e.clientY);
+    let el = top?.closest<HTMLElement>("[data-spa-cell]") ?? null;
+    if (!el && top?.closest("[data-appt-id]")) {
+      el = document.elementsFromPoint(e.clientX, e.clientY).find((n): n is HTMLElement => n instanceof HTMLElement && n.hasAttribute("data-spa-cell")) ?? null;
+    }
     if (!el || el.dataset.tableId === undefined || el.dataset.startTime === undefined) return null;
     return { tableId: el.dataset.tableId, startTime: el.dataset.startTime };
   }
 
-  // Hit-tests for another appointment's own bar under the pointer - the swap gesture's own drop
-  // target, same DOM-attribute convention cellUnderPointer uses (survives layout changes, unlike
-  // coordinate math). Excludes the appointment being dragged and anything not BOOKED - swapping
-  // with a cancelled/completed/no-show slot isn't a swap, matching the backend's own rule.
-  function appointmentUnderPointer(e: DragPoint, excludeAppointmentId: string): { appointmentId: string; tableId: string; guestName: string } | null {
-    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-appt-id]");
-    if (!el) return null;
-    const { apptId, apptTableId, apptGuestName, apptStatus } = el.dataset;
-    if (!apptId || !apptTableId || !apptGuestName || apptStatus !== "BOOKED") return null;
-    if (apptId === excludeAppointmentId) return null;
-    return { appointmentId: apptId, tableId: apptTableId, guestName: apptGuestName };
+  // What a release here would do, judged against the schedule as it was loaded (never the dragged preview).
+  function dropAt(e: DragPoint, appointment: SpaAppointment) {
+    return resolveSpaDrop(cellUnderPointer(e), appointment, schedule.appointments, schedule, startsInPast);
   }
 
   function onAppointmentPointerDown(e: React.PointerEvent<HTMLButtonElement>, a: SpaAppointment) {
     notePointerType(e);
     if (readOnly) return;
-    setGridMessage(null);
+    // The sentence from the last drop stays while this press lasts: taking it away now moved the whole grid up under
+    // the pointer, and a release aimed at one table landed on the table below.
     pressRef.current = { pointerId: e.pointerId, clientX: e.clientX, clientY: e.clientY };
     const blocked = spaDragBlock(a, noSlotLeft());
     if (blocked) {
@@ -229,31 +208,26 @@ export default function SpaScheduleGrid({
       originalStartTime: a.startTime,
       tableId: a.tableId,
       startTime: a.startTime,
-      swapTarget: null,
-      hasHoveredSwapTarget: false,
+      swapTargetId: null,
     });
   }
 
   function onDragPointerMove(e: DragPoint) {
     if (!dragState) return;
-
-    // Appointment-hover (a swap candidate) takes priority over whatever cell happens to sit
-    // underneath the hovered bar - same priority BookingCalendarGrid gives its own bar-hover.
-    const hoveredAppointment = appointmentUnderPointer(e, dragState.appointmentId);
-    if (hoveredAppointment) {
-      setDragState({
-        ...dragState,
-        swapTarget: hoveredAppointment,
-        hasHoveredSwapTarget: true,
-        swapGuestName: hoveredAppointment.guestName,
-        tableId: hoveredAppointment.tableId,
-      });
-      return;
+    const appointment = schedule.appointments.find((a) => a.id === dragState.appointmentId);
+    if (!appointment) return;
+    const drop = dropAt(e, appointment);
+    const original = { tableId: dragState.originalTableId, startTime: dragState.originalStartTime };
+    if (drop.kind === "swap") {
+      setDragState({ ...dragState, swapTargetId: drop.other.id, tableId: drop.other.tableId, startTime: original.startTime });
+    } else if (drop.kind === "move") {
+      setDragState({ ...dragState, swapTargetId: null, ...drop.cell });
+    } else if (drop.kind === "stay") {
+      setDragState({ ...dragState, swapTargetId: null, ...original });
+    } else {
+      // Over nothing it could go to: the bar stays where it was last drawn.
+      setDragState({ ...dragState, swapTargetId: null });
     }
-
-    const target = cellUnderPointer(e);
-    if (!target) return;
-    setDragState({ ...dragState, swapTarget: null, tableId: target.tableId, startTime: target.startTime });
   }
 
   function onDragPointerUp(e: DragPoint, moved: boolean) {
@@ -265,59 +239,28 @@ export default function SpaScheduleGrid({
     const appointment = schedule.appointments.find((a) => a.id === finished.appointmentId);
     // A press that never moved is a click on the appointment, answered by its own handlers.
     if (!appointment || !moved) return;
-    const miss = (m: Parameters<typeof spaDropMessage>[0]) => setGridMessage(spaDropMessage(m, appointment.guestName));
+    setGridMessage(null);
 
-    // Recomputed fresh from the release point, not from finished.swapTarget - same "don't trust
-    // the last thing pointermove happened to see" principle as the plain-move recompute below.
-    // The rule this drag was classified by is hasHoveredSwapTarget, not whatever's directly
-    // under the pointer right now: once a drag has hovered a valid swap target at any point, it
-    // has committed to being a swap attempt for the rest of the gesture, and releasing anywhere
-    // that isn't a valid appointment - a table row gap, an occupied cell, empty space off the
-    // grid - cancels the whole gesture rather than silently downgrading to an ordinary
-    // reschedule of the dragged appointment alone. A drag that never touched another appointment
-    // was never a swap attempt, so it falls through to the ordinary move logic below on a miss,
-    // exactly as before.
-    if (finished.hasHoveredSwapTarget) {
-      const swapTarget = appointmentUnderPointer(e, finished.appointmentId);
-      if (!swapTarget) {
-        // Aimed at another appointment, missed on release: cancel, don't fall back to a move. Released off the
-        // schedule altogether, that is what is said.
-        const offGrid = !cellUnderPointer(e) && !appointmentElementUnder(e);
-        miss(offGrid ? { kind: "outside" } : { kind: "swap-missed", otherGuestName: finished.swapGuestName ?? "the other guest" });
-        return;
-      }
-      const otherAppointment = schedule.appointments.find((a) => a.id === swapTarget.appointmentId);
-      if (!otherAppointment) return;
+    // Judged from the release point alone, not from the preview: dragState keeps the last place the bar could go, and
+    // committing that on a drop over nothing would move the appointment without anyone having aimed there.
+    const drop = dropAt(e, appointment);
+    if (drop.kind === "stay") return;
+    if (drop.kind === "miss") {
+      setGridMessage(spaDropMessage(drop.miss, appointment.guestName));
+      return;
+    }
+    if (drop.kind === "swap") {
       setSwapConfirm({
         appointmentId: appointment.id,
         guestName: appointment.guestName,
         tableLabel: appointment.tableLabel,
-        otherAppointmentId: otherAppointment.id,
-        otherGuestName: otherAppointment.guestName,
-        otherTableLabel: otherAppointment.tableLabel,
+        otherAppointmentId: drop.other.id,
+        otherGuestName: drop.other.guestName,
+        otherTableLabel: drop.other.tableLabel,
         status: "confirm",
       });
       return;
     }
-
-    // Recomputed fresh from the release point, not read off dragState - dragState only updates
-    // while the pointer sits over a valid cell (see onDragPointerMove's own early return), so once
-    // the pointer leaves the grid it keeps whatever the last valid cell was. Committing that stale
-    // value here would move the appointment on a drop over nothing, which isn't intent - Escape
-    // already exists for "changed my mind mid-drag", a drop outside the grid is the pointer
-    // equivalent and cancels the same way, unconditionally, even back onto the original cell.
-    const target = cellUnderPointer(e);
-    if (!target) {
-      const on = appointmentElementUnder(e);
-      miss(on ? { kind: "occupied", otherGuestName: on } : { kind: "outside" });
-      return;
-    }
-    if (target.tableId === finished.originalTableId && target.startTime === finished.originalStartTime) return;
-    if (startsInPast(target.startTime)) {
-      miss({ kind: "past", startTime: target.startTime });
-      return;
-    }
-
     setMoveConfirm({
       appointmentId: finished.appointmentId,
       guestName: appointment.guestName,
@@ -325,16 +268,11 @@ export default function SpaScheduleGrid({
       therapistUserId: appointment.therapistUserId,
       fromTableLabel: tableLabelById.get(finished.originalTableId) ?? finished.originalTableId,
       fromStartTime: finished.originalStartTime,
-      toTableId: target.tableId,
-      toTableLabel: tableLabelById.get(target.tableId) ?? target.tableId,
-      toStartTime: target.startTime,
+      toTableId: drop.cell.tableId,
+      toTableLabel: tableLabelById.get(drop.cell.tableId) ?? drop.cell.tableId,
+      toStartTime: drop.cell.startTime,
       status: "confirm",
     });
-  }
-
-  // The guest of whatever appointment (booked or not) is under the point - for "that slot is taken".
-  function appointmentElementUnder(e: DragPoint): string | null {
-    return document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-appt-id]")?.dataset.apptGuestName ?? null;
   }
 
   function onDragAbort(moved: boolean) {
@@ -504,7 +442,9 @@ export default function SpaScheduleGrid({
               const appts = appointmentsByTable.get(table.id) ?? [];
               const occupiedCols = new Set<number>();
               for (const a of appts) {
-                if (!OCCUPYING_STATUSES.has(a.status)) continue;
+                // A cancelled or no-show appointment still renders (see SpaSchedule's own backend description)
+                // but never occupies a cell.
+                if (!SPA_OCCUPYING_STATUSES.has(a.status)) continue;
                 const start = slotIndexOf(a.startTime, schedule.openingTime, schedule.slotMinutes);
                 const span = slotSpanOf(a.durationMinutes, schedule.slotMinutes);
                 for (let i = start; i < start + span; i++) occupiedCols.add(i);
@@ -542,7 +482,7 @@ export default function SpaScheduleGrid({
                       const start = slotIndexOf(a.startTime, schedule.openingTime, schedule.slotMinutes);
                       const span = slotSpanOf(a.durationMinutes, schedule.slotMinutes);
                       const dragging = dragState?.appointmentId === a.id;
-                      const isSwapTarget = dragState?.swapTarget?.appointmentId === a.id;
+                      const isSwapTarget = dragState?.swapTargetId === a.id;
                       const tapHandlers = bindTapOrDoubleClick(() => setSelectedAppointmentId(a.id));
                       const mark = spaBlockMark(a.status);
                       const overdue = isSpaOverdue(a, new Date());
@@ -551,9 +491,6 @@ export default function SpaScheduleGrid({
                           key={a.id}
                           type="button"
                           data-appt-id={a.id}
-                          data-appt-table-id={a.tableId}
-                          data-appt-guest-name={a.guestName}
-                          data-appt-status={a.status}
                           onPointerDown={(e) => onAppointmentPointerDown(e, a)}
                           onClick={tapHandlers.onClick}
                           onDoubleClick={tapHandlers.onDoubleClick}

@@ -37,10 +37,18 @@ describe("staffLanding", () => {
     expect(staffLanding("CASHIER", ["THERAPIST", "ENGINEER"])).toBe("/admin/maintenance");
   });
 
-  it("keeps the role's own page without a function, or with one that has no page of its own", () => {
+  it("opens room status for a housekeeper, after ENGINEER and THERAPIST and before HR", () => {
+    expect(staffLanding("WAITER", ["HOUSEKEEPER"])).toBe("/admin/housekeeping");
+    expect(staffLanding("CASHIER", ["HOUSEKEEPER"])).toBe("/admin/housekeeping");
+    expect(staffLanding("WAITER", ["HOUSEKEEPER", "THERAPIST"])).toBe("/admin/spa");
+    expect(staffLanding("WAITER", ["HOUSEKEEPER", "ENGINEER"])).toBe("/admin/maintenance");
+    expect(staffLanding("WAITER", ["HR", "HOUSEKEEPER"])).toBe("/admin/housekeeping");
+    expect(staffLanding("MANAGER", ["HOUSEKEEPER"])).toBe("/admin");
+  });
+
+  it("keeps the role's own page without a function", () => {
     expect(staffLanding("WAITER", [])).toBe("/pos");
     expect(staffLanding("CASHIER", undefined)).toBe("/admin/today");
-    expect(staffLanding("WAITER", ["HOUSEKEEPER"])).toBe("/pos");
   });
 
   it("sends a manager or an admin to the dashboard whatever functions they hold", () => {

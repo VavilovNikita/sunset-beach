@@ -9,6 +9,7 @@ import type { Booking } from "@/lib/types";
 import { formatDate, formatDateRange } from "@/lib/formatDate";
 import { isSpaStartInPast, type SpaSlotGrid } from "@/lib/spaAppointmentDisplay";
 import { formatBaht } from "@/lib/money";
+import { roomOn } from "@/lib/bookingRooms";
 
 // Opened from a click on a free grid cell (components/admin/SpaScheduleGrid.tsx) - date/tableId/
 // startTime arrive pre-filled and fixed; only the booking/therapist/treatment are picked here.
@@ -123,7 +124,7 @@ export default function SpaAppointmentCreateModal({
                 >
                   {bookings.map((b) => (
                     <option key={b.id} value={b.id}>
-                      {b.guestName} — {b.room.name} ({formatDateRange(b.checkIn, b.checkOut)})
+                      {b.guestName} — {roomOn(b, date).typeName} ({formatDateRange(b.checkIn, b.checkOut)})
                     </option>
                   ))}
                 </select>

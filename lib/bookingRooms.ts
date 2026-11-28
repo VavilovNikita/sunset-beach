@@ -48,6 +48,22 @@ export function currentSegment(booking: Pick<Booking, "segments" | "currentSegme
   return booking.segments.find((s) => s.id === booking.currentSegmentId);
 }
 
+// The segment holding the night of `date` (YYYY-MM-DD), for a picker that books something on another day; outside the
+// stay the nearest one - the last from the departure day on. The server's rule (OverstayRule#currentSegment), which it
+// sends only for today (currentSegmentId). Segments arrive ordered by check-in.
+export function segmentOn(booking: Pick<Booking, "segments">, date: string): BookingSegment | undefined {
+  const { segments } = booking;
+  const holding = segments.find((s) => s.checkIn <= date && date < s.checkOut);
+  if (holding) return holding;
+  return segments.length > 0 && date < segments[0].checkIn ? segments[0] : segments[segments.length - 1];
+}
+
+// "Deluxe Suite" and its room for the night of `date`: the unit falls back to the booking's own, as the server's does.
+export function roomOn(booking: Pick<Booking, "segments" | "room" | "roomUnit">, date: string) {
+  const segment = segmentOn(booking, date);
+  return { typeName: segment?.room.name ?? booking.room.name, unitLabel: (segment?.roomUnit ?? booking.roomUnit)?.label ?? null };
+}
+
 // The physical room the guest is in today, null when that segment has none assigned. What tells two guests in the same
 // room type apart, e.g. in the POS "Charge to room" picker. Booking.roomUnit is the LAST segment's room.
 export function currentRoomUnit(booking: Pick<Booking, "segments" | "roomUnit" | "currentSegmentId">) {

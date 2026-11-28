@@ -79,6 +79,14 @@ describe("visibleNavGroups with a job function", () => {
     expect(byTitle("WAITER", ["HR"])["Staff"]).not.toContain("Notifications");
   });
 
+  it("adds Housekeeping to a WAITER who is a HOUSEKEEPER, and nothing else", () => {
+    const groups = visibleNavGroups("WAITER", ["HOUSEKEEPER"]);
+    assertNothingEmpty(groups);
+    expect(groups.map((g) => g.title)).toEqual(["Rooms", "Restaurant", "Staff"]);
+    expect(labels(groups[0])).toEqual(["Housekeeping", "Maintenance"]);
+    expect(allLabels("WAITER")).not.toContain("Housekeeping");
+  });
+
   it("does not show Spa to a WAITER with another function, or none", () => {
     expect(visibleNavGroups("WAITER", ["ENGINEER", "HOUSEKEEPER"]).map((g) => g.title)).not.toContain("Spa");
     expect(visibleNavGroups("WAITER").map((g) => g.title)).not.toContain("Spa");

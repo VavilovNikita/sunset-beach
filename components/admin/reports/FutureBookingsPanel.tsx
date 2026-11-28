@@ -7,6 +7,7 @@ import { formatBaht } from "@/lib/reports";
 import { reportsHiddenFields, type ReportsState } from "@/lib/reportsTabs";
 import type { BookingStatus, FutureBookingsReport } from "@/lib/types";
 import FutureBookingsExportButton from "@/components/admin/reports/FutureBookingsExportButton";
+import { STAY_TOTAL_HINT, STAY_TOTAL_LABEL } from "@/lib/bookingList";
 
 // The Future bookings tab: arrivals in a date range by status (Tentative / Confirmed / Room paid). The server sends
 // every row and every total; this only lays them out. The status switches are a plain GET form - with none ticked the
@@ -100,7 +101,9 @@ export default function FutureBookingsPanel({
                     <th className={th}>Guests</th>
                     <th className={th}>Channel</th>
                     <th className={th}>Status</th>
-                    <th className={`${th} text-right`}>Total</th>
+                    <th className={`${th} text-right`} title={STAY_TOTAL_HINT}>
+                      {STAY_TOTAL_LABEL}
+                    </th>
                     <th className={`${th} text-right`}>Balance due</th>
                     <th className={th}>Notes</th>
                   </tr>

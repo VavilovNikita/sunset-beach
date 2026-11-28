@@ -1,54 +1,59 @@
 import { describe, expect, it } from "vitest";
-import { bulkTargets, canChangeStatus, filterBoardUnits, splitArrivals, type BoardUnit } from "@/lib/housekeepingFilter";
-import type { HousekeepingRoomStatus } from "@/lib/housekeepingCode";
-import type { RoomUnit } from "@/lib/types";
+import { bulkTargets, canChangeStatus, filterBoardRooms, roomTypesOf, splitArrivals } from "@/lib/housekeepingFilter";
+import type { HousekeepingRoom } from "@/lib/types";
 
-function unit(id: string, over: Partial<RoomUnit> = {}): RoomUnit {
-  return { id, roomId: "r1", label: id, isActive: true, housekeepingStatus: "CLEAN", positionX: null, positionY: null, createdAt: "", ...over };
+function room(id: string, over: Partial<HousekeepingRoom> = {}): HousekeepingRoom {
+  return {
+    roomUnitId: id,
+    roomId: "r1",
+    roomName: "Deluxe",
+    unitLabel: id,
+    isActive: true,
+    housekeepingStatus: "CLEAN",
+    occupied: false,
+    arrivingToday: false,
+    departingToday: false,
+    overdueDays: 0,
+    outOfOrder: false,
+    ...over,
+  };
 }
-const status = (over: Partial<HousekeepingRoomStatus> = {}): HousekeepingRoomStatus => ({
-  code: "VC",
-  occupied: false,
-  arrivingToday: false,
-  departingToday: false,
-  overdueDays: 0,
-  outOfOrder: false,
-  ...over,
-});
-const item = (u: RoomUnit, s: HousekeepingRoomStatus | null = null): BoardUnit => ({ unit: u, status: s });
+const ids = (rooms: HousekeepingRoom[]) => rooms.map((r) => r.roomUnitId);
 
 describe("housekeeping board", () => {
   it("a deactivated room takes no action", () => {
-    expect(canChangeStatus(unit("a", { isActive: false }))).toBe(false);
-    expect(bulkTargets([item(unit("a", { isActive: false }))], new Set(["a"]), "DIRTY")).toEqual([]);
+    expect(canChangeStatus(room("a", { isActive: false }))).toBe(false);
+    expect(bulkTargets([room("a", { isActive: false })], new Set(["a"]), "DIRTY")).toEqual([]);
   });
 
   it("filters by status code and room type", () => {
-    const items = [item(unit("a", { housekeepingStatus: "DIRTY" }), status({ code: "VD" })), item(unit("b", { roomId: "r2" }), status())];
-    expect(filterBoardUnits(items, "VD", "ALL").map((i) => i.unit.id)).toEqual(["a"]);
-    expect(filterBoardUnits(items, "ALL", "r2").map((i) => i.unit.id)).toEqual(["b"]);
-    expect(filterBoardUnits(items, "NEEDS_CLEANING", "ALL").map((i) => i.unit.id)).toEqual(["a"]);
+    const rooms = [room("a", { housekeepingStatus: "DIRTY" }), room("b", { roomId: "r2" }), room("c", { occupied: true, housekeepingStatus: "DIRTY" })];
+    expect(ids(filterBoardRooms(rooms, "VD", "ALL"))).toEqual(["a"]);
+    expect(ids(filterBoardRooms(rooms, "ALL", "r2"))).toEqual(["b"]);
+    expect(ids(filterBoardRooms(rooms, "NEEDS_CLEANING", "ALL"))).toEqual(["a", "c"]);
   });
 
-  it("falls back to clean/dirty when occupancy is unknown", () => {
-    const items = [item(unit("a", { housekeepingStatus: "DIRTY" })), item(unit("b"))];
-    expect(filterBoardUnits(items, "VD", "ALL").map((i) => i.unit.id)).toEqual(["a"]);
-    expect(filterBoardUnits(items, "VC", "ALL").map((i) => i.unit.id)).toEqual(["b"]);
-  });
-
-  it("puts arrivals today first, dirty ones before clean ones", () => {
-    const items = [
-      item(unit("c"), status({ arrivingToday: true })),
-      item(unit("d", { housekeepingStatus: "DIRTY" }), status({ arrivingToday: true, code: "VD" })),
-      item(unit("e")),
+  it("puts arrivals today first, dirty ones before clean ones - an occupied turnover room among them", () => {
+    const rooms = [
+      room("c", { arrivingToday: true }),
+      room("d", { arrivingToday: true, occupied: true, departingToday: true, housekeepingStatus: "DIRTY" }),
+      room("e"),
     ];
-    const { arriving, rest } = splitArrivals(items);
-    expect(arriving.map((i) => i.unit.id)).toEqual(["d", "c"]);
-    expect(rest.map((i) => i.unit.id)).toEqual(["e"]);
+    const { arriving, rest } = splitArrivals(rooms);
+    expect(ids(arriving)).toEqual(["d", "c"]);
+    expect(ids(rest)).toEqual(["e"]);
+  });
+
+  it("lists each room type once, by name", () => {
+    const rooms = [room("a", { roomId: "r2", roomName: "Standard" }), room("b"), room("c")];
+    expect(roomTypesOf(rooms)).toEqual([
+      { id: "r1", name: "Deluxe" },
+      { id: "r2", name: "Standard" },
+    ]);
   });
 
   it("bulk skips rooms already in the wanted state", () => {
-    const items = [item(unit("a", { housekeepingStatus: "DIRTY" })), item(unit("b"))];
-    expect(bulkTargets(items, new Set(["a", "b"]), "CLEAN").map((u) => u.id)).toEqual(["a"]);
+    const rooms = [room("a", { housekeepingStatus: "DIRTY" }), room("b")];
+    expect(ids(bulkTargets(rooms, new Set(["a", "b"]), "CLEAN"))).toEqual(["a"]);
   });
 });

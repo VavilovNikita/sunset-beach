@@ -62,8 +62,8 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     title: "Rooms",
     links: [
-      // GET /room-units (housekeeping) is CASHIER+ with no lower-privilege read.
-      { href: "/admin/housekeeping", label: "Housekeeping", minRole: "CASHIER" },
+      // GET /housekeeping/rooms and the clean/dirty PATCH: CASHIER+ or the HOUSEKEEPER function, whatever the role.
+      { href: "/admin/housekeeping", label: "Housekeeping", minRole: "CASHIER", orFunction: "HOUSEKEEPER" },
       // Room tasks (a broken air conditioner, a leak) - about the rooms, so it sits beside
       // Housekeeping rather than under Staff. Any authenticated staff role, including WAITER:
       // GET/POST /maintenance-tasks have no role floor on the backend, and the whole point is

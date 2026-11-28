@@ -1,10 +1,8 @@
-import type { PropertyMapUnit } from "@/lib/types";
+import type { HousekeepingRoom } from "@/lib/types";
 
-// The front-office room status codes housekeeping works from: occupancy (Vacant / Occupied)
-// crossed with cleaning state (Clean / Dirty). Occupancy is the backend's call - a guest is in the
-// room when the property map says CHECKED_IN (OverstayRule included); nothing here re-derives it
-// from dates. "Arriving today" / "due out today" are hints on top, not separate codes: a VC room
-// with an arrival is the one to check first.
+// The front-office room status codes housekeeping works from: occupancy (Vacant / Occupied) crossed with cleaning
+// state (Clean / Dirty). Both halves are the server's (GET /housekeeping/rooms, OverstayRule included); nothing here
+// re-derives who is in a room from dates. "Arriving today" / "due out today" are hints on top, not separate codes.
 
 export type HousekeepingCode = "VC" | "VD" | "OC" | "OD";
 
@@ -15,35 +13,7 @@ export const HOUSEKEEPING_CODE_LABELS: Record<HousekeepingCode, string> = {
   OD: "Occupied dirty",
 };
 
-export type HousekeepingRoomStatus = {
-  code: HousekeepingCode;
-  occupied: boolean;
-  arrivingToday: boolean;
-  // Due out today exactly, never once the date has passed - that's overdueDays instead.
-  departingToday: boolean;
-  // Server-computed (OverstayRule); 0 unless still checked in after checkOut.
-  overdueDays: number;
-  outOfOrder: boolean;
-};
-
-// `occupancy` is the room's property-map row; undefined when that read failed or the room is
-// missing from it - then the occupancy half is unknown and only clean/dirty is shown.
-export function resolveHousekeepingStatus(
-  housekeepingStatus: "CLEAN" | "DIRTY",
-  occupancy: PropertyMapUnit | undefined,
-  today: string,
-): HousekeepingRoomStatus | null {
-  if (occupancy === undefined) return null;
-  const booking = occupancy.currentBooking;
-  const occupied = booking !== null && booking.occupancyStatus === "CHECKED_IN";
-  const dirty = housekeepingStatus === "DIRTY";
-  const code: HousekeepingCode = occupied ? (dirty ? "OD" : "OC") : dirty ? "VD" : "VC";
-  return {
-    code,
-    occupied,
-    arrivingToday: booking !== null && booking.occupancyStatus === "EXPECTED",
-    departingToday: occupied && booking !== null && booking.checkOut === today,
-    overdueDays: occupied && booking !== null ? booking.overdueDays ?? 0 : 0,
-    outOfOrder: occupancy.activeBlock !== null,
-  };
+export function housekeepingCode(room: Pick<HousekeepingRoom, "occupied" | "housekeepingStatus">): HousekeepingCode {
+  const dirty = room.housekeepingStatus === "DIRTY";
+  return room.occupied ? (dirty ? "OD" : "OC") : dirty ? "VD" : "VC";
 }

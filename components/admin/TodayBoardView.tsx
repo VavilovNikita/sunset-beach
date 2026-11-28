@@ -155,6 +155,8 @@ function TodayRow({
   const overdue = overdueLabel(entry.overdueDays);
   const occupant = action === "checkin" ? (entry.roomOccupant ?? null) : null;
   const arrivalRoomLabel = roomUnit?.label ?? null;
+  // The server's. Today's arrivals can't have ended; a board left open past that day can hold one.
+  const checkInClosed = action === "checkin" ? (booking.checkInClosedReason ?? null) : null;
 
   // A clean, free room is checked in straight away; a dirty or occupied one asks first (CheckInDialog).
   async function handleCheckIn() {
@@ -212,6 +214,14 @@ function TodayRow({
             </Link>
           </p>
         )}
+        {checkInClosed && (
+          <p className="mt-1 text-xs text-amber-400">
+            {checkInClosed}{" "}
+            <Link href={`/admin/bookings/${booking.id}#stay-dates`} className="underline underline-offset-2">
+              Change the dates
+            </Link>
+          </p>
+        )}
         {/* Optional, not a check-in blocker - check-in is the moment reception is already looking
             at this row, so it's the natural place to offer linking a guest, but the backend
             doesn't require one to check in. */}
@@ -225,15 +235,17 @@ function TodayRow({
       <div className="flex gap-2 shrink-0">
         {action === "checkin" && (
           <>
-            <button
-              type="button"
-              onClick={handleCheckIn}
-              disabled={busy || needsRoom}
-              title={needsRoom ? "Assign a room before checking in" : undefined}
-              className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-4 py-2 text-sm font-medium disabled:opacity-50"
-            >
-              {busy ? "…" : "Check in"}
-            </button>
+            {!checkInClosed && (
+              <button
+                type="button"
+                onClick={handleCheckIn}
+                disabled={busy || needsRoom}
+                title={needsRoom ? "Assign a room before checking in" : undefined}
+                className="rounded-full bg-coral hover:bg-coraldeep transition-colors px-4 py-2 text-sm font-medium disabled:opacity-50"
+              >
+                {busy ? "…" : "Check in"}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setMarkingNoShow(true)}

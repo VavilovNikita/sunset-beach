@@ -119,3 +119,8 @@ export function pageSpan(page: number, pageSize: number, totalCount: number): { 
 export function isArrivalPassed(booking: Pick<Booking, "status" | "occupancyStatus" | "checkIn">, todayKey: string): boolean {
   return booking.status !== "CANCELLED" && booking.occupancyStatus === "EXPECTED" && booking.checkIn < todayKey;
 }
+
+// The agreed price of a stay, wherever it stands beside what is owed: "Total" there read as everything the guest is
+// charged, and an overstaying guest's Owes was twice it.
+export const STAY_TOTAL_LABEL = "Stay total";
+export const STAY_TOTAL_HINT = "Agreed price of the stay. Overstay nights and POS charges are in the folio.";

@@ -1,44 +1,44 @@
-import type { HousekeepingCode, HousekeepingRoomStatus } from "@/lib/housekeepingCode";
-import type { RoomUnit } from "@/lib/types";
+import { housekeepingCode, type HousekeepingCode } from "@/lib/housekeepingCode";
+import type { HousekeepingRoom } from "@/lib/types";
 
 // What the Room status board shows for the chosen filters, and in which order. Pure, so the order
 // ("arriving today first") and the rule for a room that is out of service are tested rather than eyeballed.
 
 export type StatusFilter = "ALL" | HousekeepingCode | "NEEDS_CLEANING";
 
-export type BoardUnit = { unit: RoomUnit; status: HousekeepingRoomStatus | null };
-
 // A room switched off (isActive = false) takes no housekeeping action: nothing is cleaned or dirtied in a room
 // that is out of service, and bulk changes must never reach it.
-export function canChangeStatus(unit: Pick<RoomUnit, "isActive">): boolean {
-  return unit.isActive;
+export function canChangeStatus(room: Pick<HousekeepingRoom, "isActive">): boolean {
+  return room.isActive;
 }
 
-function matchesStatus(item: BoardUnit, filter: StatusFilter): boolean {
+function matchesStatus(room: HousekeepingRoom, filter: StatusFilter): boolean {
   if (filter === "ALL") return true;
-  const dirty = item.unit.housekeepingStatus === "DIRTY";
-  if (filter === "NEEDS_CLEANING") return dirty;
-  // The occupancy half is unknown when the property map failed: only clean/dirty can be matched then.
-  if (item.status === null) return (filter === "VD" || filter === "OD") === dirty;
-  return item.status.code === filter;
+  if (filter === "NEEDS_CLEANING") return room.housekeepingStatus === "DIRTY";
+  return housekeepingCode(room) === filter;
 }
 
-export function filterBoardUnits(items: BoardUnit[], status: StatusFilter, roomId: string | "ALL"): BoardUnit[] {
-  return items.filter((i) => (roomId === "ALL" || i.unit.roomId === roomId) && matchesStatus(i, status));
+export function filterBoardRooms(rooms: HousekeepingRoom[], status: StatusFilter, roomId: string | "ALL"): HousekeepingRoom[] {
+  return rooms.filter((r) => (roomId === "ALL" || r.roomId === roomId) && matchesStatus(r, status));
 }
 
 // An arrival today is the room to have ready first; among those, the dirty ones first.
-export function splitArrivals(items: BoardUnit[]): { arriving: BoardUnit[]; rest: BoardUnit[] } {
-  const arriving = items.filter((i) => i.unit.isActive && i.status?.arrivingToday === true);
-  const rest = items.filter((i) => !arriving.includes(i));
+export function splitArrivals(rooms: HousekeepingRoom[]): { arriving: HousekeepingRoom[]; rest: HousekeepingRoom[] } {
+  const arriving = rooms.filter((r) => r.isActive && r.arrivingToday);
+  const rest = rooms.filter((r) => !arriving.includes(r));
   arriving.sort(
-    (a, b) =>
-      Number(b.unit.housekeepingStatus === "DIRTY") - Number(a.unit.housekeepingStatus === "DIRTY") || a.unit.label.localeCompare(b.unit.label),
+    (a, b) => Number(b.housekeepingStatus === "DIRTY") - Number(a.housekeepingStatus === "DIRTY") || a.unitLabel.localeCompare(b.unitLabel)
   );
   return { arriving, rest };
 }
 
+// The room types present, for the filter, by name.
+export function roomTypesOf(rooms: HousekeepingRoom[]): { id: string; name: string }[] {
+  const names = new Map(rooms.map((r) => [r.roomId, r.roomName]));
+  return Array.from(names, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 // Bulk changes touch only active rooms that are not already in the wanted state.
-export function bulkTargets(items: BoardUnit[], selected: ReadonlySet<string>, to: "CLEAN" | "DIRTY"): RoomUnit[] {
-  return items.filter((i) => selected.has(i.unit.id) && canChangeStatus(i.unit) && i.unit.housekeepingStatus !== to).map((i) => i.unit);
+export function bulkTargets(rooms: HousekeepingRoom[], selected: ReadonlySet<string>, to: "CLEAN" | "DIRTY"): HousekeepingRoom[] {
+  return rooms.filter((r) => selected.has(r.roomUnitId) && canChangeStatus(r) && r.housekeepingStatus !== to);
 }

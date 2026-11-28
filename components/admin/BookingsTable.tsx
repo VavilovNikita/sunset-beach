@@ -6,7 +6,7 @@ import { bookingStatusLabel } from "@/lib/bookingStatusLabel";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import OwesBadge from "@/components/admin/OwesBadge";
-import { isArrivalPassed } from "@/lib/bookingList";
+import { isArrivalPassed, STAY_TOTAL_HINT, STAY_TOTAL_LABEL } from "@/lib/bookingList";
 import { roomTypeSummary, roomUnitSummary } from "@/lib/bookingRooms";
 import { formatDate, formatTimestampDate } from "@/lib/formatDate";
 import type { Booking, BookingSortField, SortDirection } from "@/lib/types";
@@ -19,13 +19,13 @@ const STATUS_STYLES: Record<string, string> = {
   CANCELLED: "bg-cream/10 text-cream/40",
 };
 
-const COLUMNS: { label: string; sort: BookingSortField | null }[] = [
+const COLUMNS: { label: string; sort: BookingSortField | null; hint?: string }[] = [
   { label: "Guest", sort: "GUEST_NAME" },
   { label: "Room", sort: "ROOM" },
   { label: "Assigned", sort: null },
   { label: "Check-in", sort: "CHECK_IN" },
   { label: "Check-out", sort: "CHECK_OUT" },
-  { label: "Total", sort: "TOTAL_PRICE" },
+  { label: STAY_TOTAL_LABEL, sort: "TOTAL_PRICE", hint: STAY_TOTAL_HINT },
   { label: "Status", sort: "STATUS" },
   { label: "Booked", sort: "CREATED_AT" },
 ];
@@ -70,13 +70,14 @@ export default function BookingsTable({
               <th
                 key={col.label}
                 className="py-2 pr-4"
+                title={col.hint}
                 aria-sort={col.sort && col.sort === sort ? (dir === "ASC" ? "ascending" : "descending") : undefined}
               >
                 {col.sort ? (
                   <Link
                     href={sortHrefs[col.sort]}
                     className={`hover:text-cream transition-colors ${col.sort === sort ? "text-cream" : ""}`}
-                    title={`Sort by ${col.label.toLowerCase()}`}
+                    title={col.hint ?? `Sort by ${col.label.toLowerCase()}`}
                   >
                     {col.label}
                     <span className="ml-1">{col.sort === sort ? (dir === "ASC" ? "▲" : "▼") : ""}</span>

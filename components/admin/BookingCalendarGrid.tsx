@@ -472,7 +472,8 @@ export default function BookingCalendarGrid({
     e.currentTarget.setPointerCapture(e.pointerId);
     setTouchActionNone(true);
     pressRef.current = { pointerId: e.pointerId, clientX: e.clientX, clientY: e.clientY };
-    setSegmentMoveError(null);
+    // The sentence from the last drop stays until this one ends: taking it away now moved the whole grid up under
+    // the pointer, and a release aimed at one room landed on the room below.
   }
 
   // The guest a move or a resize is about, for the sentence next to the grid.
@@ -575,6 +576,9 @@ export default function BookingCalendarGrid({
     setTouchActionNone(false);
     let finished = dragState;
     setDragState(null);
+    // The last drop's sentence goes once this press has ended as something new (a click on a bar leaves it, so the
+    // second click of a double-click finds the bar where the first did).
+    if (moved || finished.kind === "select") setSegmentMoveError(null);
 
     // Released on no night of any room (off the grid, off the browser window, on a header): nothing is changed, and
     // said so. A release that never moved is a click, answered by the click handlers.
@@ -592,7 +596,6 @@ export default function BookingCalendarGrid({
     }
 
     if (finished.kind === "move") {
-      setSegmentMoveError(null);
       const draggedSegmentId = finished.segmentId;
       const booking = data.bookings.find((b) => b.segmentId === draggedSegmentId);
       if (!booking) {

@@ -89,7 +89,9 @@ export default function BookingOccupancyPanel({
     });
   }
 
-  const canCheckIn = !cancelled && arrivalDue && (occupancy === "EXPECTED" || occupancy === "NO_SHOW");
+  // The server's: a stay that is over is not checked into until its dates are changed.
+  const checkInClosed = booking.checkInClosedReason ?? null;
+  const canCheckIn = !cancelled && arrivalDue && !checkInClosed && (occupancy === "EXPECTED" || occupancy === "NO_SHOW");
   const canMarkNoShow = !cancelled && arrivalDue && occupancy === "EXPECTED";
   const canCheckOut = occupancy === "CHECKED_IN";
   const needsRoom = booking.roomUnitId === null;
@@ -137,8 +139,16 @@ export default function BookingOccupancyPanel({
           <ExtendStayButton />
         </div>
       )}
-      {occupancy === "EXPECTED" && arrivalDue && !cancelled && booking.checkIn < today && (
+      {occupancy === "EXPECTED" && arrivalDue && !cancelled && !checkInClosed && booking.checkIn < today && (
         <p className="text-sm text-amber-400">Was due to arrive on {formatDate(booking.checkIn)}. Check them in, or mark a no-show.</p>
+      )}
+      {checkInClosed && (
+        <p className="text-sm text-amber-400">
+          {checkInClosed}{" "}
+          <a href="#stay-dates" className="underline underline-offset-2">
+            Change the dates
+          </a>
+        </p>
       )}
 
       {occupant && (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { currentRoomUnitLabel, roomStops, roomTypeSummary, roomUnitSummary } from "@/lib/bookingRooms";
+import { currentRoomUnitLabel, roomStops, roomTypeSummary, roomUnitSummary, roomOn } from "@/lib/bookingRooms";
 import type { BookingSegment, Room, RoomUnit } from "@/lib/types";
 
 const deluxe = { id: "r-deluxe", name: "Deluxe Suite" } as Room;
@@ -89,5 +89,27 @@ describe("currentRoomUnitLabel", () => {
 
   it("falls back to the booking's room without a current segment", () => {
     expect(currentRoomUnitLabel(test1)).toBe("102");
+  });
+});
+
+describe("roomOn", () => {
+  const stay = {
+    room: { name: "Standard" },
+    roomUnit: { label: "102" },
+    segments: [
+      { checkIn: "2033-05-01", checkOut: "2033-05-04", room: { name: "Deluxe" }, roomUnit: { label: "201" } },
+      { checkIn: "2033-05-04", checkOut: "2033-05-08", room: { name: "Standard" }, roomUnit: { label: "102" } },
+    ],
+  } as unknown as Parameters<typeof roomOn>[0];
+
+  it("names the room of that night, the move's own date in the new room", () => {
+    expect(roomOn(stay, "2033-05-03")).toEqual({ typeName: "Deluxe", unitLabel: "201" });
+    expect(roomOn(stay, "2033-05-04")).toEqual({ typeName: "Standard", unitLabel: "102" });
+  });
+
+  it("takes the nearest night outside the stay", () => {
+    expect(roomOn(stay, "2033-04-30").unitLabel).toBe("201");
+    expect(roomOn(stay, "2033-05-08").unitLabel).toBe("102");
+    expect(roomOn(stay, "2033-05-20").unitLabel).toBe("102");
   });
 });

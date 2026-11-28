@@ -5,6 +5,7 @@ import { useCloseOnBrowserBack } from "@/lib/useCloseOnBrowserBack";
 import { createGymReservation, loadBookingsForDate } from "@/lib/gymScheduleClient";
 import { durationLabel, durationOptions, maxDurationAt } from "@/lib/gymSchedule";
 import { formatDate, formatDateRange } from "@/lib/formatDate";
+import { roomOn } from "@/lib/bookingRooms";
 import type { Booking, GymSchedule } from "@/lib/types";
 
 // Opened from a click on a free slot (components/admin/GymScheduleGrid.tsx): the date and start
@@ -105,12 +106,16 @@ export default function GymReservationCreateModal({
                 onChange={(e) => setBookingId(e.target.value)}
                 className="w-full bg-ink border border-cream/20 rounded-lg px-3 min-h-[44px] text-sm"
               >
-                {bookings.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.guestName} — {b.roomUnit ? `room ${b.roomUnit.label}` : b.room.name} ({formatDateRange(b.checkIn, b.checkOut)})
-                    {b.occupancyStatus === "EXPECTED" ? " · not arrived" : ""}
-                  </option>
-                ))}
+                {bookings.map((b) => {
+                  // The room of the session's date, not the booking's last one: a moved guest is told apart by it.
+                  const room = roomOn(b, date);
+                  return (
+                    <option key={b.id} value={b.id}>
+                      {b.guestName} — {room.unitLabel ? `room ${room.unitLabel}` : room.typeName} ({formatDateRange(b.checkIn, b.checkOut)})
+                      {b.occupancyStatus === "EXPECTED" ? " · not arrived" : ""}
+                    </option>
+                  );
+                })}
               </select>
             )}
             {notArrived && <p className="text-xs text-amber-400 mt-1">This guest has not checked in yet. The reservation is still made.</p>}

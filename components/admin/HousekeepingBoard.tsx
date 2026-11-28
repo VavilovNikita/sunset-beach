@@ -3,37 +3,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateRoomUnitHousekeeping } from "@/lib/roomUnitHousekeepingClient";
-import {
-  HOUSEKEEPING_CODE_LABELS,
-  resolveHousekeepingStatus,
-  type HousekeepingCode,
-  type HousekeepingRoomStatus,
-} from "@/lib/housekeepingCode";
-import { bulkTargets, canChangeStatus, filterBoardUnits, splitArrivals, type BoardUnit, type StatusFilter } from "@/lib/housekeepingFilter";
+import { HOUSEKEEPING_CODE_LABELS, housekeepingCode, type HousekeepingCode } from "@/lib/housekeepingCode";
+import { bulkTargets, canChangeStatus, filterBoardRooms, roomTypesOf, splitArrivals, type StatusFilter } from "@/lib/housekeepingFilter";
 import { overdueLabel } from "@/lib/overstay";
-import type { PropertyMapUnit, Room, RoomUnit } from "@/lib/types";
+import type { HousekeepingRoom } from "@/lib/types";
 
 // Every physical room's cleaning state, grouped by room type - independent of RoomUnitManager
 // (label/isActive, MANAGER+) and of RoomUnitBlocksPanel's RoomUnitBlock editor (a unit pulled
 // off sale for a written reason, not a cleaning state) - see HousekeepingStatus's own
 // description for why these stay three separate concerns rather than one combined "room admin"
-// screen. CASHIER+ can change status here. A deactivated room is listed (its final clean may
-// still be wanted in the records) but offers no action: nothing is cleaned in a room that is out
+// screen. CASHIER+ and the HOUSEKEEPER function can change status here. A deactivated room is listed (its final
+// clean may still be wanted in the records) but offers no action: nothing is cleaned in a room that is out
 // of service. Rooms arriving today are lifted into their own block on top; the list can be
 // narrowed by status and room type, and several rooms changed at once (one request per room
 // through the ordinary endpoint).
-export default function HousekeepingBoard({
-  rooms,
-  units,
-  occupancy,
-  today,
-}: {
-  rooms: Room[];
-  units: RoomUnit[];
-  // null when GET /property-map failed - occupancy unknown, clean/dirty still editable.
-  occupancy: PropertyMapUnit[] | null;
-  today: string;
-}) {
+export default function HousekeepingBoard({ rooms }: { rooms: HousekeepingRoom[] }) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [roomFilter, setRoomFilter] = useState<string>("ALL");
@@ -41,35 +25,24 @@ export default function HousekeepingBoard({
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
 
-  const roomsById = new Map(rooms.map((r) => [r.id, r]));
-  const occupancyByUnit = new Map((occupancy ?? []).map((u) => [u.roomUnitId, u]));
-  const statusOf = (unit: RoomUnit) =>
-    occupancy === null ? null : resolveHousekeepingStatus(unit.housekeepingStatus, occupancyByUnit.get(unit.id), today);
   const counts = new Map<HousekeepingCode, number>();
-  for (const unit of units) {
-    const code = unit.isActive ? statusOf(unit)?.code : undefined;
-    if (code) counts.set(code, (counts.get(code) ?? 0) + 1);
+  for (const room of rooms) {
+    if (!room.isActive) continue;
+    const code = housekeepingCode(room);
+    counts.set(code, (counts.get(code) ?? 0) + 1);
   }
 
-  const allItems: BoardUnit[] = units.map((unit) => ({ unit, status: statusOf(unit) }));
-  const visible = filterBoardUnits(allItems, statusFilter, roomFilter);
+  const visible = filterBoardRooms(rooms, statusFilter, roomFilter);
   const { arriving, rest } = splitArrivals(visible);
-
-  const unitsByRoom = new Map<string, BoardUnit[]>();
-  for (const item of rest) {
-    const list = unitsByRoom.get(item.unit.roomId) ?? [];
-    list.push(item);
-    unitsByRoom.set(item.unit.roomId, list);
-  }
-  const groups = Array.from(unitsByRoom.entries())
-    .map(([roomId, roomUnits]) => ({
-      room: roomsById.get(roomId),
-      units: roomUnits.sort((a, b) => a.unit.label.localeCompare(b.unit.label)),
+  const roomTypes = roomTypesOf(rooms);
+  const groups = roomTypes
+    .map((type) => ({
+      type,
+      rooms: rest.filter((r) => r.roomId === type.id).sort((a, b) => a.unitLabel.localeCompare(b.unitLabel)),
     }))
-    .filter((g): g is { room: Room; units: BoardUnit[] } => g.room !== undefined)
-    .sort((a, b) => a.room.name.localeCompare(b.room.name));
+    .filter((g) => g.rooms.length > 0);
 
-  if (units.length === 0) {
+  if (rooms.length === 0) {
     return <p className="text-sm text-cream/50">No physical rooms yet.</p>;
   }
 
@@ -84,14 +57,14 @@ export default function HousekeepingBoard({
 
   // A failure names the room and the others still go through; the failed ones stay selected for another try.
   async function applyBulk(to: "CLEAN" | "DIRTY") {
-    const targets = bulkTargets(allItems, selected, to);
+    const targets = bulkTargets(rooms, selected, to);
     if (targets.length === 0) return;
     setBulkBusy(true);
     setBulkError(null);
     const failed: { id: string; text: string }[] = [];
-    for (const unit of targets) {
-      const result = await updateRoomUnitHousekeeping(unit.id, to);
-      if (!result.ok) failed.push({ id: unit.id, text: `${unit.label}: ${result.error}` });
+    for (const room of targets) {
+      const result = await updateRoomUnitHousekeeping(room.roomUnitId, to);
+      if (!result.ok) failed.push({ id: room.roomUnitId, text: `${room.unitLabel}: ${result.error}` });
     }
     setBulkBusy(false);
     setSelected(new Set(failed.map((f) => f.id)));
@@ -99,25 +72,19 @@ export default function HousekeepingBoard({
     router.refresh();
   }
 
-  const row = (item: BoardUnit) => (
-    <UnitRow key={item.unit.id} unit={item.unit} status={item.status} selected={selected.has(item.unit.id)} onToggle={() => toggle(item.unit.id)} />
+  const row = (room: HousekeepingRoom) => (
+    <UnitRow key={room.roomUnitId} room={room} selected={selected.has(room.roomUnitId)} onToggle={() => toggle(room.roomUnitId)} />
   );
 
   return (
     <div className="space-y-8">
-      {occupancy === null ? (
-        <p className="text-sm text-amber-400">
-          Couldn&apos;t load which rooms are occupied - showing clean/dirty only. Reload to try again.
-        </p>
-      ) : (
-        <div className="flex flex-wrap gap-2" aria-label="Status codes">
-          {(Object.keys(HOUSEKEEPING_CODE_LABELS) as HousekeepingCode[]).map((code) => (
-            <span key={code} className={`text-xs rounded-full px-3 py-1 ${codeChipClass(code)}`}>
-              <span className="font-semibold">{code}</span> {HOUSEKEEPING_CODE_LABELS[code]} · {counts.get(code) ?? 0}
-            </span>
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap gap-2" aria-label="Status codes">
+        {(Object.keys(HOUSEKEEPING_CODE_LABELS) as HousekeepingCode[]).map((code) => (
+          <span key={code} className={`text-xs rounded-full px-3 py-1 ${codeChipClass(code)}`}>
+            <span className="font-semibold">{code}</span> {HOUSEKEEPING_CODE_LABELS[code]} · {counts.get(code) ?? 0}
+          </span>
+        ))}
+      </div>
 
       <div className="flex flex-wrap items-end gap-4">
         <label className="text-xs text-cream/60">
@@ -144,7 +111,7 @@ export default function HousekeepingBoard({
             className="block mt-1 bg-ink2 border border-cream/20 rounded-lg px-3 py-2 text-sm text-cream"
           >
             <option value="ALL">All room types</option>
-            {rooms.map((r) => (
+            {roomTypes.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
               </option>
@@ -176,10 +143,10 @@ export default function HousekeepingBoard({
           <div className="space-y-2">{arriving.map(row)}</div>
         </div>
       )}
-      {groups.map(({ room, units: roomUnits }) => (
-        <div key={room.id}>
-          <p className="eyebrow text-cream/50 mb-2">{room.name}</p>
-          <div className="space-y-2">{roomUnits.map(row)}</div>
+      {groups.map(({ type, rooms: ofType }) => (
+        <div key={type.id}>
+          <p className="eyebrow text-cream/50 mb-2">{type.name}</p>
+          <div className="space-y-2">{ofType.map(row)}</div>
         </div>
       ))}
     </div>
@@ -196,27 +163,18 @@ function codeChipClass(code: HousekeepingCode): string {
   return "bg-cream/10 text-cream";
 }
 
-function UnitRow({
-  unit,
-  status,
-  selected,
-  onToggle,
-}: {
-  unit: RoomUnit;
-  status: HousekeepingRoomStatus | null;
-  selected: boolean;
-  onToggle: () => void;
-}) {
+function UnitRow({ room, selected, onToggle }: { room: HousekeepingRoom; selected: boolean; onToggle: () => void }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const dirty = unit.housekeepingStatus === "DIRTY";
-  const actionable = canChangeStatus(unit);
+  const dirty = room.housekeepingStatus === "DIRTY";
+  const actionable = canChangeStatus(room);
+  const code = housekeepingCode(room);
 
   async function setStatus(next: "DIRTY" | "CLEAN") {
     setBusy(true);
     setError(null);
-    const result = await updateRoomUnitHousekeeping(unit.id, next);
+    const result = await updateRoomUnitHousekeeping(room.roomUnitId, next);
     setBusy(false);
     if (!result.ok) {
       setError(result.error);
@@ -232,24 +190,16 @@ function UnitRow({
       }`}
     >
       <div className="flex items-center gap-3 min-w-0">
-        {actionable && <input type="checkbox" checked={selected} onChange={onToggle} aria-label={`Select ${unit.label}`} className="h-4 w-4" />}
-        <span className={`text-cream ${unit.isActive ? "" : "text-cream/40"}`}>{unit.label}</span>
-        {!unit.isActive && <span className="text-xs text-cream/40">Out of service</span>}
-        {status ? (
-          <span className={`text-xs rounded-full px-3 py-1 ${codeChipClass(status.code)}`}>
-            <span className="font-semibold">{status.code}</span> {HOUSEKEEPING_CODE_LABELS[status.code]}
-          </span>
-        ) : (
-          <span className={`text-xs rounded-full px-3 py-1 ${dirty ? "bg-sand/15 text-sand" : "bg-sea/15 text-sea"}`}>
-            {dirty ? "Dirty" : "Clean"}
-          </span>
-        )}
-        {status?.departingToday && <span className="text-xs text-amber-400">Due out today</span>}
-        {status && overdueLabel(status.overdueDays) && (
-          <span className="text-xs text-coral">Overdue · {overdueLabel(status.overdueDays)}</span>
-        )}
-        {status?.arrivingToday && <span className="text-xs text-amber-400">Arriving today</span>}
-        {status?.outOfOrder && <span className="text-xs text-coral">Out of order</span>}
+        {actionable && <input type="checkbox" checked={selected} onChange={onToggle} aria-label={`Select ${room.unitLabel}`} className="h-4 w-4" />}
+        <span className={`text-cream ${room.isActive ? "" : "text-cream/40"}`}>{room.unitLabel}</span>
+        {!room.isActive && <span className="text-xs text-cream/40">Out of service</span>}
+        <span className={`text-xs rounded-full px-3 py-1 ${codeChipClass(code)}`}>
+          <span className="font-semibold">{code}</span> {HOUSEKEEPING_CODE_LABELS[code]}
+        </span>
+        {room.departingToday && <span className="text-xs text-amber-400">Due out today</span>}
+        {overdueLabel(room.overdueDays) && <span className="text-xs text-coral">Overdue · {overdueLabel(room.overdueDays)}</span>}
+        {room.arrivingToday && <span className="text-xs text-amber-400">Arriving today</span>}
+        {room.outOfOrder && <span className="text-xs text-coral">Out of order</span>}
       </div>
       <div className="flex items-center gap-3 shrink-0">
         {error && <p className="text-xs text-coral">{error}</p>}

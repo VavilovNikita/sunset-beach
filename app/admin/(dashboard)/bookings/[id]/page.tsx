@@ -18,6 +18,7 @@ import { BOOKING_PURPOSE_LABELS, formatPartySize } from "@/lib/bookingPurpose";
 import { formatBreakfast } from "@/lib/bookingBreakfast";
 import { BOOKING_CHANNEL_LABELS, bookingOriginNote } from "@/lib/bookingChannel";
 import { roomStops } from "@/lib/bookingRooms";
+import { STAY_TOTAL_HINT, STAY_TOTAL_LABEL } from "@/lib/bookingList";
 import { formatDateRange, formatTimestamp, formatTimestampDate } from "@/lib/formatDate";
 import type { AuditLogPage, Booking, RoomUnit } from "@/lib/types";
 import type { BookingPosOrder, Folio, FolioPayment } from "@/lib/posTypes";
@@ -162,8 +163,8 @@ export default async function AdminBookingDetailPage({ params }: { params: { id:
           <p>
             <span className="text-cream/40">Purpose:</span> {BOOKING_PURPOSE_LABELS[booking.purpose]}
           </p>
-          <p>
-            <span className="text-cream/40">Total:</span> {formatBaht(booking.totalPrice)}
+          <p title={STAY_TOTAL_HINT}>
+            <span className="text-cream/40">{STAY_TOTAL_LABEL}:</span> {formatBaht(booking.totalPrice)}
             {Number(booking.earlyDepartureFee ?? 0) > 0 && (
               <span className="text-cream/40">
                 {" "}
