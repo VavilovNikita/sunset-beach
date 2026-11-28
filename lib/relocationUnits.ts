@@ -35,7 +35,8 @@ export function busyUnits(days: AvailabilityDay[], from: string, toExclusive: st
     for (const unit of day.units) {
       if (busy.has(unit.roomUnitId)) continue;
       if (unit.isBooked && unit.bookingId !== ownBookingId) {
-        busy.set(unit.roomUnitId, `booked ${formatDate(day.date)}${unit.guestName ? ` (${unit.guestName})` : ""}`);
+        const who = [unit.guestName, unit.waitingForRoom ? "waiting for a new room" : null].filter(Boolean).join(", ");
+        busy.set(unit.roomUnitId, `booked ${formatDate(day.date)}${who ? ` (${who})` : ""}`);
       } else if (unit.isBlocked && !unit.isBooked) {
         busy.set(unit.roomUnitId, `out of service ${formatDate(day.date)}${unit.blockReason ? ` (${unit.blockReason})` : ""}`);
       }

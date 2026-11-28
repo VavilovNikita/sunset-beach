@@ -139,25 +139,35 @@ export type BookingLane = { booking: CalendarBooking; lane: number };
  * A guest still checked in past checkOut holds the room until `overstayUntil` (the backend's
  * OverstayRule), and the grid draws those nights as a tail after their bar - so they count here
  * too. Leaving them out put an arrival into the same room in the same lane, hidden under the tail.
+ * The same goes for the night of a guest waiting for a new room (`waitingForRoomNight`) - which may
+ * come days after their bar ends, so a lane holds ranges, not just a last departure.
  */
 export function assignLanes(bookings: CalendarBooking[]): { lanes: BookingLane[]; laneCount: number } {
   const sorted = [...bookings].sort((a, b) => dateOnlyUTC(a.checkIn).getTime() - dateOnlyUTC(b.checkIn).getTime());
-  const laneEnds: number[] = [];
+  const taken: Range[][] = [];
   const lanes: BookingLane[] = [];
   for (const booking of sorted) {
-    const start = dateOnlyUTC(booking.checkIn).getTime();
-    // half-open - the departure day is free; an overstay runs on to its own exclusive end
-    const end = Math.max(dateOnlyUTC(booking.checkOut).getTime(), booking.overstayUntil ? dateOnlyUTC(booking.overstayUntil).getTime() : 0);
-    let lane = laneEnds.findIndex((laneEnd) => laneEnd <= start);
-    if (lane === -1) {
-      lane = laneEnds.length;
-      laneEnds.push(end);
-    } else {
-      laneEnds[lane] = end;
-    }
+    const ranges = heldRanges(booking);
+    let lane = taken.findIndex((held) => ranges.every(([from, to]) => held.every(([a, b]) => to <= a || b <= from)));
+    if (lane === -1) lane = taken.push([]) - 1;
+    taken[lane].push(...ranges);
     lanes.push({ booking, lane });
   }
-  return { lanes, laneCount: laneEnds.length };
+  return { lanes, laneCount: taken.length };
+}
+
+type Range = [number, number];
+
+// The nights a bar holds in its row, half-open (the departure day is free): the stay, run on through an overstay, and
+// apart from it the night of a guest still there while their new room isn't picked.
+function heldRanges(booking: CalendarBooking): Range[] {
+  const end = Math.max(dateOnlyUTC(booking.checkOut).getTime(), booking.overstayUntil ? dateOnlyUTC(booking.overstayUntil).getTime() : 0);
+  const ranges: Range[] = [[dateOnlyUTC(booking.checkIn).getTime(), end]];
+  if (booking.waitingForRoomNight) {
+    const night = dateOnlyUTC(booking.waitingForRoomNight);
+    ranges.push([night.getTime(), addDaysUTC(night, 1).getTime()]);
+  }
+  return ranges;
 }
 
 /**

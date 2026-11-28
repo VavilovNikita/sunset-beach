@@ -12,6 +12,7 @@ import {
   columnSpan,
   groupBookingsByUnit,
   mergeBlocksByUnit,
+  assignLanes,
   layoutRow,
   resolveEdgeDragTarget,
   fitDayWidth,
@@ -165,6 +166,10 @@ export default function BookingCalendarGrid({
       // A guest still checked in past checkOut holds the room through tonight (the backend's
       // OverstayRule) - those nights aren't free to drag a new stay across either.
       if (b.roomUnitId && b.overstayUntil) mark(b.roomUnitId, dateOnlyUTC(b.checkOut), dateOnlyUTC(b.overstayUntil));
+      // Nor is tonight in a room whose guest is waiting for a new one.
+      if (b.roomUnitId && b.waitingForRoomNight) {
+        mark(b.roomUnitId, dateOnlyUTC(b.waitingForRoomNight), addDaysUTC(dateOnlyUTC(b.waitingForRoomNight), 1));
+      }
     }
     for (const segments of blocksByUnit.values()) {
       for (const seg of segments) mark(seg.roomUnitId, seg.fromDate, addDaysUTC(seg.toDate, 1));
@@ -1046,6 +1051,46 @@ export default function BookingCalendarGrid({
                 >
                   {colSpan * dayWidth - 4 >= LABEL_MIN_WIDTH_PX && (
                     <span className="truncate px-2 text-xs pointer-events-none">{b.guestName} · overdue</span>
+                  )}
+                </div>
+              );
+            })}
+
+          {/* Waiting for a room: the guest's move has taken effect with no new room picked, so tonight they are still
+              in this one - an amber hatched tail on that night (the part without a room keeps its bar in Unassigned).
+              From the saved bookings: it stays here whatever is being dragged. Transparent to drags, as above. */}
+          {assignLanes(bookingsAtRest(roomId, roomUnitId))
+            .lanes.filter(({ booking }) => booking.waitingForRoomNight)
+            .map(({ booking: b, lane }) => {
+              const night = dateOnlyUTC(b.waitingForRoomNight!);
+              const { startCol, colSpan } = columnSpan(night, addDaysUTC(night, 1), gridFrom, dayCount);
+              if (colSpan <= 0) return null;
+              const tapHandlers = bindTapOrDoubleClick(() => setSelectedBookingId(b.bookingId));
+              return (
+                <div
+                  key={`waiting-${b.segmentId}`}
+                  className="absolute rounded-md flex items-center overflow-hidden cursor-pointer text-cream"
+                  onPointerDown={notePointerType}
+                  onClick={tapHandlers.onClick}
+                  onDoubleClick={tapHandlers.onDoubleClick}
+                  title={`${b.guestName} · still in this room, waiting for a room`}
+                  style={{
+                    left: startCol * dayWidth + 2,
+                    width: colSpan * dayWidth - 4,
+                    top: lane * ROW_HEIGHT + 3,
+                    height: ROW_HEIGHT - 6,
+                    backgroundImage:
+                      "repeating-linear-gradient(-45deg, rgba(251,191,36,0.55), rgba(251,191,36,0.55) 6px, rgba(251,191,36,0.2) 6px, rgba(251,191,36,0.2) 12px)",
+                    border: "1px solid rgba(251,191,36,0.9)",
+                    pointerEvents: dragState ? "none" : "auto",
+                  }}
+                >
+                  {colSpan * dayWidth - 4 >= LABEL_MIN_WIDTH_PX && (
+                    // Two lines: a single night is narrow, and what it says must not be cut off behind the name.
+                    <span className="flex min-w-0 flex-col px-1.5 text-[10px] leading-3 pointer-events-none">
+                      <span className="truncate">{b.guestName}</span>
+                      <span className="truncate">waiting for a room</span>
+                    </span>
                   )}
                 </div>
               );

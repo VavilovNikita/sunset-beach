@@ -213,6 +213,24 @@ describe("layoutRow", () => {
 });
 
 describe("assignLanes", () => {
+  it("holds a waiting guest's night in their old room, after their bar has ended", () => {
+    const { lanes, laneCount } = assignLanes([
+      booking({ bookingId: "waiting", checkIn: "2026-06-05", checkOut: "2026-06-08", waitingForRoomNight: "2026-06-10" }),
+      booking({ bookingId: "tonight", checkIn: "2026-06-10", checkOut: "2026-06-12" }),
+    ]);
+    expect(laneCount).toBe(2);
+    expect(new Set(lanes.map((l) => l.lane)).size).toBe(2);
+  });
+
+  it("keeps the lane for whoever fits between the bar and that night, and after it", () => {
+    const { laneCount } = assignLanes([
+      booking({ bookingId: "waiting", checkIn: "2026-06-05", checkOut: "2026-06-08", waitingForRoomNight: "2026-06-10" }),
+      booking({ bookingId: "between", checkIn: "2026-06-08", checkOut: "2026-06-10" }),
+      booking({ bookingId: "after", checkIn: "2026-06-11", checkOut: "2026-06-12" }),
+    ]);
+    expect(laneCount).toBe(1);
+  });
+
   it("puts an arrival into a room an overstaying guest still holds in its own lane, so both bars show", () => {
     const { lanes, laneCount } = assignLanes([
       booking({ bookingId: "arrival", checkIn: "2026-06-12", checkOut: "2026-06-14" }),

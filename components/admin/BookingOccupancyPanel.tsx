@@ -163,6 +163,15 @@ export default function BookingOccupancyPanel({
         </div>
       )}
 
+      {booking.roomStillHeld && (
+        <p className="text-xs text-amber-400">
+          {booking.roomStillHeld.reason} ·{" "}
+          <Link href={`/admin/bookings/${booking.roomStillHeld.bookingId}#choose-room`} className="underline underline-offset-2">
+            Choose their room
+          </Link>
+        </p>
+      )}
+
       {occupant && (
         <p className={`text-sm ${occupant.overdueDays > 0 ? "text-coral" : "text-amber-400"}`}>
           {roomOccupantWarning(occupant, roomUnit?.label ?? null)}{" "}

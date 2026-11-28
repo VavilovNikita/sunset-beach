@@ -268,6 +268,8 @@ export type PropertyMapCurrentBooking = {
   overdueDays?: number;
   // The guest is in this room only until their new one is picked.
   pendingRoomMove?: PendingRoomMove | null;
+  // This guest was moved in while somebody waiting for a new room is still in it.
+  roomStillHeld?: RoomStillHeld | null;
 };
 
 // A RoomUnitBlock covering today - independent of PropertyMapUnit.isActive. isActive=false means
@@ -807,6 +809,8 @@ export type Booking = {
   roomSegmentId?: string;
   // The server's: this guest in the house has no room picked for today's part of the stay.
   pendingRoomMove?: PendingRoomMove | null;
+  // Only on GET /bookings/{id}: this guest was moved into a room its waiting guest has not left.
+  roomStillHeld?: RoomStillHeld | null;
   // The server's: this booking can no longer be checked in (its stay is over) - the sentence to show instead of the button.
   checkInClosedReason?: string | null;
   // The server's: tonight's part of the stay has no room, so check-in is refused until it gets one.
@@ -946,6 +950,8 @@ export type TodayBoardEntry = {
   roomOccupant?: RoomOccupant | null;
   // As Booking.pendingRoomMove: this guest's new room still has to be picked.
   pendingRoomMove?: PendingRoomMove | null;
+  // As Booking.roomStillHeld.
+  roomStillHeld?: RoomStillHeld | null;
 };
 
 // overdueDays 0: not checked out yet (due out today); more: days past their check-out. awaitingRoom: they are there
@@ -982,6 +988,8 @@ export type AvailabilityUnitDay = {
   // The name on the booking that holds the room that day (set when isBooked). A day with a booking
   // shows this, never the reason of a block laid over it.
   guestName?: string | null;
+  // Tonight only: that guest is still in the room because their new one isn't picked. Not in the day's booked count.
+  waitingForRoom?: boolean;
 };
 // availableCount is the server's remainder (unitCount - blockedCount - bookedCount), the same
 // InventoryMath figure GET /bookings/calendar's dailyAvailable carries - never re-derive it from
@@ -1061,6 +1069,9 @@ export type CalendarBooking = {
   // Never an agreed or priced date - checkOut above stays what was agreed. See the backend's
   // OverstayRule.
   overstayUntil?: string | null;
+  // Tonight, on the segment whose room the guest is still in because their new one isn't picked: drawn as a tail in
+  // this row, while the part without a room stays in Unassigned. Not a booked night.
+  waitingForRoomNight?: string | null;
 };
 
 export type BookingCalendarResponse = {
@@ -2568,5 +2579,9 @@ export type CheckInRoomNeeded = SegmentNeedingRoom & { night: string };
 // Booking.pendingRoomMove: a guest in the house whose move took effect with no room picked. `reason` is the line to
 // show; `stayingInRoom` the room they are still in.
 export type PendingRoomMove = SegmentNeedingRoom & { stayingInRoom?: string | null };
+
+// The warning on a guest a planned move put into a room somebody waiting for a new one is still in: `reason` is the
+// line to show, `bookingId` that other guest's - whose room has to be picked.
+export type RoomStillHeld = { bookingId: string; guestName: string; reason: string };
 
 export type PropertyMapArrivalWithoutRoom = { bookingId: string; guestName: string; roomNeeded: CheckInRoomNeeded };

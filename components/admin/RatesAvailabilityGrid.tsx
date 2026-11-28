@@ -494,7 +494,8 @@ function DayBreakdown({
       {day && (
         <p className="text-xs text-cream/50 mb-4">
           {day.availableCount} of {day.unitCount} free · {day.bookedCount} booked · {day.blockedCount} blocked
-          {day.bookedCount > day.units.filter((u) => u.isBooked).length && " (includes bookings with no room assigned yet)"}
+          {/* A room held by a waiting guest is marked taken but their night is counted under the room they are moving to. */}
+          {day.bookedCount > day.units.filter((u) => u.isBooked && !u.waitingForRoom).length && " (includes bookings with no room assigned yet)"}
         </p>
       )}
       {!day ? (
@@ -525,6 +526,7 @@ function DayBreakdown({
                   {u.isBooked ? "Booked" : u.isBlocked ? "Blocked" : "Free"}
                   {/* A day with a booking names the guest; the block's reason shows only on a day nobody is in. */}
                   {u.isBooked && u.guestName && ` — ${u.guestName}`}
+                  {u.waitingForRoom && " (waiting for a new room)"}
                   {!u.isBooked && u.isBlocked && u.blockReason && ` — ${u.blockReason}`}
                   {u.isBooked && u.bookingId && (
                     <>

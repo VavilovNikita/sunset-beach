@@ -175,6 +175,15 @@ export default function PropertyMapUnitPanel({
             </p>
           )}
 
+          {booking?.roomStillHeld && (
+            <p className="text-sm text-amber-400">
+              {booking.roomStillHeld.reason} ·{" "}
+              <Link href={`/admin/bookings/${booking.roomStillHeld.bookingId}#choose-room`} className="underline underline-offset-2">
+                Choose their room
+              </Link>
+            </p>
+          )}
+
           {unit.waitingArrival && booking && isCheckedIn && (
             <p className={`text-sm ${(booking.overdueDays ?? 0) > 0 ? "text-coral" : "text-amber-400"}`}>
               {unit.waitingArrival.guestName} arrives today.{" "}
